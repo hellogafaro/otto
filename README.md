@@ -21,9 +21,8 @@
 
 ## Download
 
-Get the Mac app from [GitHub Releases](https://github.com/hellogafaro/otto/releases). Signed
-releases are coming once our Apple Developer ID is in place; until then, use Otto in the browser or
-build the app yourself.
+Get the signed Mac app from [GitHub Releases](https://github.com/hellogafaro/otto/releases). It
+updates itself, and Settings > General > Updates switches between the Stable and Beta channels.
 
 ## Host it yourself
 
