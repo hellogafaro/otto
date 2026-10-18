@@ -53,9 +53,22 @@ Use **Inspect** to pick an element in the app and reveal its color token. Inspec
 successful pick; its hover glow and badge preview the element and color family that click will select.
 **Cancel** or `Escape` exits Inspect and clears its selection and spotlight.
 
-`thread.jump.1` through `thread.jump.9` switch to the matching bot and default to `mod+1` through
-`mod+9`. Pinned bots come first. Other bots follow their section and roster order. Groups do not
-take a shortcut number.
+`thread.jump.1` through `thread.jump.9` switch to the matching bot and default to `alt+1` through
+`alt+9` (Option on macOS), even while you type in the composer. Pinned bots come first. Other bots
+follow their section and roster order. Groups do not take a shortcut number. Hold Option on its own
+to see each row's number in the sidebar.
+
+In the desktop app, `Cmd+1` through `Cmd+8` (`Ctrl` on Windows and Linux) switch to that tab and
+`Cmd+9` to the last one. Hold Command on its own to see each tab's number. In a browser, those keys
+stay with the browser.
+
+Single-letter keys only run when no text field, menu or dialog has focus, and only for commands
+that move you or open a menu: `J` and `K` (next and previous), `C` (new), `?` (this list) and the
+property pickers, such as `S` for status. Commands that change an item, such as rename, pin, mark
+unread, snooze, archive and assign to me, have no single-letter default. Run them from the item's
+More actions menu or the command palette, or bind a key from **Settings > Keyboard**.
+
+The rail's places (`navigation.home`, `navigation.chats` and the rest) have no default shortcut.
 
 These chat commands have no default shortcut. Add one from **Settings > Keyboard** to use them:
 

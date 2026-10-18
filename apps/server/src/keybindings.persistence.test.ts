@@ -102,6 +102,40 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     }).pipe(Effect.provide(makeKeybindingsLayer())),
   );
 
+  it.effect("moves an install on the old defaults to the new number and letter keys", () =>
+    Effect.gen(function* () {
+      const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [
+        { key: "e", command: "item.archive", when: "!inputFocus" },
+        { key: "p", command: "item.pin", when: "!inputFocus" },
+        { key: "alt+1", command: "navigation.home" },
+        { key: "alt+3", command: "navigation.chats" },
+        { key: "mod+1", command: "thread.jump.1", when: "!desktop" },
+        { key: "mod+2", command: "thread.jump.2", when: "!desktop" },
+        // A person's own key stays.
+        { key: "shift+e", command: "item.archive", when: "!inputFocus" },
+      ]);
+
+      yield* Effect.gen(function* () {
+        const keybindings = yield* Keybindings.Keybindings;
+        yield* keybindings.syncDefaultKeybindingsOnStartup;
+      });
+
+      const persisted = yield* readKeybindingsConfig(keybindingsConfigPath);
+
+      const keysFor = (command: string) =>
+        persisted.filter((binding) => binding.command === command).map((binding) => binding.key);
+
+      assert.deepEqual(keysFor("item.archive"), ["shift+e"]);
+      assert.deepEqual(keysFor("item.pin"), []);
+      assert.deepEqual(keysFor("navigation.home"), []);
+      assert.deepEqual(keysFor("navigation.chats"), []);
+      assert.deepEqual(keysFor("thread.jump.1"), ["alt+1"]);
+      assert.deepEqual(keysFor("thread.jump.2"), ["alt+2"]);
+      assert.deepEqual(keysFor("thread.jump.9"), ["alt+9"]);
+    }).pipe(Effect.provide(makeKeybindingsLayer())),
+  );
+
   it.effect("uses defaults in runtime when config is malformed without overriding file", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -131,8 +131,8 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
         Keybindings.DEFAULT_KEYBINDINGS.map((binding) => [binding.command, binding.key] as const),
       );
 
-      assert.equal(defaultsByCommand.get("thread.jump.1"), "mod+1");
-      assert.equal(defaultsByCommand.get("thread.jump.9"), "mod+9");
+      assert.equal(defaultsByCommand.get("thread.jump.1"), "alt+1");
+      assert.equal(defaultsByCommand.get("thread.jump.9"), "alt+9");
       assert.equal(defaultsByCommand.get("commandPalette.toggle"), "mod+k");
       assert.equal(defaultsByCommand.get("composer.stash"), "mod+s");
       assert.equal(defaultsByCommand.get("sidebar.toggle"), "mod+b");
@@ -142,8 +142,8 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       assert.equal(defaultsByCommand.get("modelPicker.jump.9"), "mod+9");
       assert.equal(defaultsByCommand.get("thread.next"), "j");
       assert.equal(defaultsByCommand.get("thread.previous"), "k");
-      assert.equal(defaultsByCommand.get("navigation.home"), "alt+1");
-      assert.equal(defaultsByCommand.get("navigation.library"), "alt+7");
+      assert.isFalse(defaultsByCommand.has("navigation.home"));
+      assert.isFalse(defaultsByCommand.has("navigation.library"));
       assert.equal(defaultsByCommand.get("shortcuts.show"), "?");
       assert.isTrue(defaultsByCommand.has("settings.open"));
 
@@ -168,6 +168,12 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
         "preview.zoomIn",
         "preview.zoomOut",
         "preview.resetZoom",
+        "item.rename",
+        "item.pin",
+        "item.markUnread",
+        "item.snooze",
+        "item.archive",
+        "property.assignToMe",
       ] as const) {
         assert.isFalse(defaultsByCommand.has(retiredCommand), `unexpected ${retiredCommand}`);
       }

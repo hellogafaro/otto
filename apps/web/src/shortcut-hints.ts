@@ -2,46 +2,68 @@ import { useSyncExternalStore } from "react";
 
 import { isMacPlatform } from "./lib/utils";
 
+/** The command modifier (⌘, or Ctrl off macOS) shows the desktop tabs; Option or Alt the sidebar. */
+export type ShortcutHintModifier = "command" | "option";
+
 const MODIFIER_KEYS = new Set(["Alt", "Control", "Meta", "Shift"]);
 
 const listeners = new Set<() => void>();
 
-let visible = false;
+let held: ShortcutHintModifier | null = null;
 
-// A chord pressed while the modifier is down keeps the hints away until it is released.
-let chorded = false;
+// A chord pressed while a modifier is down keeps the hints away until that modifier is released.
+let chorded: ShortcutHintModifier | null = null;
 
-function setVisible(next: boolean) {
-  if (visible === next) return;
-  visible = next;
+function setHeld(next: ShortcutHintModifier | null) {
+  if (held === next) return;
+  held = next;
 
   for (const listener of listeners) listener();
 }
 
 function release() {
-  chorded = false;
-  setVisible(false);
+  chorded = null;
+  setHeld(null);
 }
 
-function hintModifier(): "Meta" | "Control" {
+function commandKey(): "Meta" | "Control" {
   return isMacPlatform(navigator.platform) ? "Meta" : "Control";
 }
 
+function modifierForKey(key: string): ShortcutHintModifier | null {
+  if (key === commandKey()) return "command";
+
+  if (key === "Alt") return "option";
+
+  return null;
+}
+
+function isHeld(event: KeyboardEvent, modifier: ShortcutHintModifier): boolean {
+  if (modifier === "option") return event.altKey;
+
+  return commandKey() === "Meta" ? event.metaKey : event.ctrlKey;
+}
+
 function onKeyDown(event: KeyboardEvent) {
-  if (event.key === hintModifier()) {
-    if (!chorded) setVisible(true);
+  const modifier = modifierForKey(event.key);
+
+  if (modifier) {
+    // The first modifier held keeps its hints while another joins it.
+    if (chorded === null && held === null) setHeld(modifier);
 
     return;
   }
 
   if (MODIFIER_KEYS.has(event.key)) return;
 
-  if (hintModifier() === "Meta" ? event.metaKey : event.ctrlKey) chorded = true;
-  setVisible(false);
+  if (held && isHeld(event, held)) chorded = held;
+  setHeld(null);
 }
 
 function onKeyUp(event: KeyboardEvent) {
-  if (event.key === hintModifier()) release();
+  const modifier = modifierForKey(event.key);
+
+  if (modifier && (modifier === held || modifier === chorded)) release();
 }
 
 function onVisibilityChange() {
@@ -70,15 +92,19 @@ export function subscribeShortcutHints(listener: () => void) {
   };
 }
 
-export function readShortcutHintsVisible() {
-  return visible;
+/** The modifier held on its own right now, if any. */
+export function readShortcutHintModifier(): ShortcutHintModifier | null {
+  return held;
 }
 
 function getServerSnapshot() {
-  return false;
+  return null;
 }
 
-/** True while the platform's command modifier (⌘, or Ctrl off macOS) is held on its own. */
-export function useShortcutHintsVisible(): boolean {
-  return useSyncExternalStore(subscribeShortcutHints, readShortcutHintsVisible, getServerSnapshot);
+/** True while this modifier is held on its own: ⌘ (Ctrl off macOS) or Option (Alt). */
+export function useShortcutHintsVisible(modifier: ShortcutHintModifier): boolean {
+  return (
+    useSyncExternalStore(subscribeShortcutHints, readShortcutHintModifier, getServerSnapshot) ===
+    modifier
+  );
 }

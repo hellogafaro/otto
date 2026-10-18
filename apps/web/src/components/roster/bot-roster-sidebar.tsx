@@ -224,7 +224,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
 
   const rosterItems = useMemo(() => rosterEntries.map((entry) => entry.item), [rosterEntries]);
 
-  const shortcutHintsVisible = useShortcutHintsVisible();
+  const shortcutHintsVisible = useShortcutHintsVisible("option");
 
   const shortcutLabelByBotId = useMemo(() => {
     if (!shortcutHintsVisible) return new Map<string, string>();

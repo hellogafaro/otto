@@ -123,7 +123,6 @@ describe("KeybindingsSettings.logic", () => {
 
     expect(groups.map((group) => group.id)).toEqual([
       "general",
-      "navigation",
       "items",
       "chats",
       "composer",
@@ -137,8 +136,8 @@ describe("KeybindingsSettings.logic", () => {
         series: expect.objectContaining({
           id: "thread.jump",
           title: "Jump to chat 1–9",
-          rangeKey: "mod+1–9",
-          when: "!desktop",
+          rangeKey: "alt+1–9",
+          when: "",
         }),
       }),
     );
@@ -170,20 +169,8 @@ describe("KeybindingsSettings.logic", () => {
       "Open settings",
       "Show keyboard shortcuts",
     ]);
-    const navigation = groups.find((group) => group.id === "navigation");
-    expect(
-      navigation?.items.map((item) =>
-        item.type === "row" ? [commandLabel(item.row.command), item.row.key] : null,
-      ),
-    ).toEqual([
-      ["Home", "alt+1"],
-      ["Notifications", "alt+2"],
-      ["Chats", "alt+3"],
-      ["Routines", "alt+4"],
-      ["Tasks", "alt+5"],
-      ["Projects", "alt+6"],
-      ["Library", "alt+7"],
-    ]);
+    // The rail's places have no default key; Option 1–9 belongs to the sidebar's rows.
+    expect(groups.some((group) => group.id === "navigation")).toBe(false);
     // No default depends on the removed terminal or browser preview.
     expect(
       groups.flatMap((group) =>
@@ -194,10 +181,9 @@ describe("KeybindingsSettings.logic", () => {
       "!desktop",
       "desktop",
       "!inputFocus",
-      ...Array.from({ length: 7 }, () => ""),
       "!inputFocus",
       "desktop",
-      ...Array.from({ length: 19 }, () => "!inputFocus"),
+      ...Array.from({ length: 13 }, () => "!inputFocus"),
       "!inputFocus",
       "!inputFocus",
       "approvalPending",
