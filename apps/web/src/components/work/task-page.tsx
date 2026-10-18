@@ -20,7 +20,6 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { useLibraryData } from "../library/use-library";
 import { ActivitySection } from "./activity-section";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
 import { TaskDueDate } from "./task-due-date";
@@ -42,7 +41,6 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
   const navigate = useNavigate();
   const updateTask = useAtomCommand(taskEnvironment.update);
   const { environmentId, loaded, projects, tasks, participants, currentPersonId } = useWorkData();
-  const { files } = useLibraryData();
   const task = tasks.find((candidate) => candidate.id === taskId);
   const back = { label: t("Tasks"), onBack: () => void navigate({ to: "/tasks" }) };
 
@@ -101,7 +99,6 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
               refreshKey={`${task.updatedAt}:${task.timeEntries.length}`}
               participants={participants}
               projects={projects}
-              files={files}
               currentPersonId={currentPersonId}
             />
           ),

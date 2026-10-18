@@ -46,7 +46,6 @@ import {
 } from "../auth/http.ts";
 import { OrchestrationEngineService } from "./services/orchestration-engine.ts";
 import { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
-import { ProjectionLibraryRepository } from "../persistence/services/projection-library.ts";
 import { canSeeThreadById, visibleShellSnapshot } from "./group-visibility.ts";
 import { ProjectionSnapshotQuery } from "./services/projection-snapshot-query.ts";
 
@@ -58,7 +57,6 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
     const orchestrationEngine = yield* OrchestrationEngineService;
     const accounts = yield* OrganizationAccounts;
     const projectionGroups = yield* ProjectionGroupRepository;
-    const projectionLibrary = yield* ProjectionLibraryRepository;
 
     const canReadThread = (threadId: ThreadId, personId: AuthSessionId) =>
       canSeeThreadById({ projectionSnapshotQuery, projectionGroups }, threadId, personId);
@@ -102,12 +100,8 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
           const people = yield* accounts.listPeople().pipe(Effect.orElseSucceed(() => []));
           const currentPerson = people.find((person) => person.userId === personId);
 
-          const chatThreads = yield* projectionLibrary
-            .listChatThreads()
-            .pipe(Effect.orElseSucceed(() => []));
-
           return yield* projectionSnapshotQuery.getShellSnapshot().pipe(
-            Effect.map((snapshot) => visibleShellSnapshot(snapshot, personId, chatThreads)),
+            Effect.map((snapshot) => visibleShellSnapshot(snapshot, personId)),
             Effect.map((snapshot) => ({
               ...snapshot,
               currentPersonId: personId,

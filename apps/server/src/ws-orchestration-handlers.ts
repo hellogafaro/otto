@@ -486,7 +486,7 @@ export const createWsOrchestrationHandlers = ({
       observeRpcEffect(
         ORCHESTRATION_WS_METHODS.getArchivedShellSnapshot,
         projectionSnapshotQuery.getArchivedShellSnapshot().pipe(
-          Effect.map((snapshot) => visibleShellSnapshot(snapshot, currentPersonId, [])),
+          Effect.map((snapshot) => visibleShellSnapshot(snapshot, currentPersonId)),
           Effect.map((snapshot) => ({
             ...snapshot,
             bots: snapshot.bots.map((bot) => ({

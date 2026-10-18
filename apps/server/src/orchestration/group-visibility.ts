@@ -4,6 +4,7 @@ import {
   type DirectChatAccess,
   canUseMcpServer,
   isGroupPersonMember,
+  type LibraryFile,
   type LibraryFolder,
   type LibraryVisibilityContext,
   type AuthSessionId,
@@ -172,27 +173,6 @@ export const canReadAttachment = (
     return false;
   });
 
-/** Library items a person may see; a chat's folder follows that chat's people. */
-function visibleLibrary(
-  snapshot: OrchestrationShellSnapshot,
-  personId: AuthSessionId,
-  chatThreads: ReadonlyArray<LibraryChatThread>,
-): Pick<OrchestrationShellSnapshot, "libraryFolders" | "libraryFiles"> {
-  if (snapshot.libraryFolders === undefined && snapshot.libraryFiles === undefined) return {};
-
-  const context = libraryContext(snapshot.libraryFolders ?? [], snapshot.groups, chatThreads);
-  const viewer = { kind: "person" as const, personId };
-
-  return {
-    libraryFolders: (snapshot.libraryFolders ?? []).filter((folder) =>
-      canSeeLibraryItem(folder, context, viewer),
-    ),
-    libraryFiles: (snapshot.libraryFiles ?? []).filter((file) =>
-      canSeeLibraryItem(file, context, viewer),
-    ),
-  };
-}
-
 const libraryContext = (
   folders: ReadonlyArray<LibraryFolder>,
   groups: ReadonlyArray<GroupMembers>,
@@ -202,25 +182,19 @@ const libraryContext = (
 export function visibleShellSnapshot(
   snapshot: OrchestrationShellSnapshot,
   personId: AuthSessionId,
-  chatThreads: ReadonlyArray<LibraryChatThread>,
 ): OrchestrationShellSnapshot {
   const groups = snapshot.groups.filter((group) => canSeeGroup(group, personId));
 
   // Someone else's personal MCP server stays out of sight; their bots still use it.
-  const library = {
-    ...visibleLibrary(snapshot, personId, chatThreads),
-    ...(snapshot.mcpServers
-      ? {
-          mcpServers: snapshot.mcpServers.filter((server) => canUseMcpServer(server, personId)),
-        }
-      : {}),
-  };
+  const mcp = snapshot.mcpServers
+    ? { mcpServers: snapshot.mcpServers.filter((server) => canUseMcpServer(server, personId)) }
+    : {};
 
   const routines = snapshot.routines?.filter((routine) => canSeeRoutine(routine, personId));
 
   return {
     ...snapshot,
-    ...library,
+    ...mcp,
     ...(routines !== undefined ? { routines } : {}),
     ...(snapshot.routineRuns !== undefined && routines !== undefined
       ? {
@@ -237,13 +211,14 @@ export function visibleShellSnapshot(
 /**
  * Filters one person's shell stream. When a membership change shows or hides a group for
  * them, the stream sends a fresh filtered snapshot so its threads appear or disappear too.
- * Library folder changes can show or hide everything under them, so they send one as well.
+ * A Library folder they stop seeing arrives as its removal, which drops what is under it.
  */
 export function withGroupVisibility<E, R>(input: {
   readonly stream: Stream.Stream<OrchestrationShellStreamItem, E, R>;
   readonly personId: AuthSessionId;
   readonly loadSnapshot: Effect.Effect<OrchestrationShellSnapshot, E, R>;
   readonly loadChatThreads: Effect.Effect<ReadonlyArray<LibraryChatThread>, E, R>;
+  readonly loadLibraryFolders: Effect.Effect<ReadonlyArray<LibraryFolder>, E, R>;
   /**
    * Resuming clients may hold groups cached before they were hidden. Otto: Set only when the
    * stream replays events instead of opening with a snapshot, which seeds the filter itself.
@@ -266,18 +241,30 @@ export function withGroupVisibility<E, R>(input: {
       groups.clear();
 
       for (const group of snapshot.groups) groups.set(group.id, group);
-      folders = snapshot.libraryFolders ?? [];
 
-      return visibleShellSnapshot(snapshot, personId, chatThreads);
+      return visibleShellSnapshot(snapshot, personId);
     };
 
-    const fresh = Effect.all([input.loadSnapshot, input.loadChatThreads]).pipe(
-      Effect.map(([snapshot, threads]): ReadonlyArray<OrchestrationShellStreamItem> => {
+    const loadLibrary = Effect.all([input.loadChatThreads, input.loadLibraryFolders]).pipe(
+      Effect.map(([threads, libraryFolders]) => {
         chatThreads = threads;
-
-        return [{ kind: "snapshot", snapshot: remember(snapshot) }];
+        folders = libraryFolders;
       }),
     );
+
+    const fresh = Effect.all([input.loadSnapshot, loadLibrary]).pipe(
+      Effect.map(
+        ([snapshot]): ReadonlyArray<OrchestrationShellStreamItem> => [
+          { kind: "snapshot", snapshot: remember(snapshot) },
+        ],
+      ),
+    );
+
+    const canSeeLibrary = (item: LibraryFolder | LibraryFile) =>
+      canSeeLibraryItem(item, libraryContext(folders, [...groups.values()], chatThreads), {
+        kind: "person",
+        personId,
+      });
 
     const isChatThread = (threadId: string) => chatThreads.some((thread) => thread.id === threadId);
 
@@ -286,12 +273,8 @@ export function withGroupVisibility<E, R>(input: {
     ): Effect.Effect<ReadonlyArray<OrchestrationShellStreamItem>, E, R> => {
       switch (item.kind) {
         case "snapshot":
-          return input.loadChatThreads.pipe(
-            Effect.map((threads) => {
-              chatThreads = threads;
-
-              return [{ kind: "snapshot", snapshot: remember(item.snapshot) }];
-            }),
+          return loadLibrary.pipe(
+            Effect.map(() => [{ kind: "snapshot", snapshot: remember(item.snapshot) }]),
           );
         case "group-upserted": {
           const before = visible(item.group.id);
@@ -323,9 +306,32 @@ export function withGroupVisibility<E, R>(input: {
           );
         case "thread-removed":
           return isChatThread(item.threadId) ? fresh : Effect.succeed([item]);
-        case "library-folder-upserted":
+        // Otto: A folder that leaves someone's sight is sent to them as removed; one they never
+        // saw stays unsent.
+        case "library-folder-upserted": {
+          const previous = folders.find((folder) => folder.id === item.folder.id);
+          const before = previous !== undefined && canSeeLibrary(previous);
+          folders = [...folders.filter((folder) => folder.id !== item.folder.id), item.folder];
+
+          if (canSeeLibrary(item.folder)) return Effect.succeed([item]);
+
+          return Effect.succeed(
+            before
+              ? [
+                  {
+                    kind: "library-folder-removed",
+                    sequence: item.sequence,
+                    folderId: item.folder.id,
+                  },
+                ]
+              : [],
+          );
+        }
+
         case "library-folder-removed":
-          return fresh;
+          folders = folders.filter((folder) => folder.id !== item.folderId);
+
+          return Effect.succeed([item]);
         // Otto: A routine made private leaves everyone else's routines.
         case "routine-upserted":
           return Effect.succeed(
@@ -345,15 +351,12 @@ export function withGroupVisibility<E, R>(input: {
                   },
                 ],
           );
-        case "library-file-upserted": {
-          const context = libraryContext(folders, [...groups.values()], chatThreads);
-
+        case "library-file-upserted":
           return Effect.succeed(
-            canSeeLibraryItem(item.file, context, { kind: "person", personId })
+            canSeeLibrary(item.file)
               ? [item]
               : [{ kind: "library-file-removed", sequence: item.sequence, fileId: item.file.id }],
           );
-        }
 
         default:
           return Effect.succeed([item]);
@@ -368,14 +371,12 @@ export function withGroupVisibility<E, R>(input: {
     if (!input.resuming) return filtered;
 
     const initial = yield* input.loadSnapshot;
-    chatThreads = yield* input.loadChatThreads;
+    yield* loadLibrary;
     const reset = remember(initial);
 
     const hidesAny =
       initial.groups.some((group) => !canSeeGroup(group, personId)) ||
       reset.threads.length !== initial.threads.length ||
-      (reset.libraryFolders?.length ?? 0) !== (initial.libraryFolders?.length ?? 0) ||
-      (reset.libraryFiles?.length ?? 0) !== (initial.libraryFiles?.length ?? 0) ||
       (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0) ||
       (reset.routines?.length ?? 0) !== (initial.routines?.length ?? 0);
 

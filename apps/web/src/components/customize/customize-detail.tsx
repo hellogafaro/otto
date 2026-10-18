@@ -4,7 +4,6 @@ import {
   type EnvironmentId,
   isSkillFile,
   type LibraryFile,
-  type LibraryFolder,
   type LibraryVisibility,
   type McpServer,
   parseSkillFrontMatter,
@@ -36,7 +35,7 @@ import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { LibraryVisibilitySelect } from "../library/library-actions";
 import { formatLibrarySize } from "../library/library.logic";
-import { useLibraryData } from "../library/use-library";
+import { useLibraryData, useLibraryFolder, useLibraryPages } from "../library/use-library";
 import { SettingsCard, SettingsRow } from "../settings/settings-layout";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
@@ -412,8 +411,16 @@ function SkillDetail({
   const updateFolder = useAtomCommand(libraryEnvironment.updateFolder, { reportFailure: false });
   const deleteFolder = useAtomCommand(libraryEnvironment.deleteFolder, { reportFailure: false });
   const deleteFile = useAtomCommand(libraryEnvironment.deleteFile, { reportFailure: false });
-  const skill: LibraryFolder | undefined = data.folders.find((folder) => folder.id === id);
-  const main = data.files.find((file) => file.folderId === id && isSkillFile(file));
+  const opened = useLibraryFolder(environmentId, id);
+  const skill = opened.folder;
+
+  const inside = useLibraryPages(
+    opened.id === null ? null : environmentId,
+    opened.id === null ? {} : { folder: opened.id, everywhere: true },
+    { all: true },
+  );
+
+  const main = inside.files.find((file) => file.folderId === id && isSkillFile(file));
 
   const document = useEnvironmentQuery(
     main ? libraryEnvironment.document({ environmentId, input: { fileId: main.id } }) : null,
@@ -426,11 +433,13 @@ function SkillDetail({
     if (savedAt) refreshDocument();
   }, [savedAt, refreshDocument]);
 
-  if (!data.loaded) return <DetailLayout>{null}</DetailLayout>;
+  if (!data.loaded || opened.loading || (skill !== null && inside.loading)) {
+    return <DetailLayout>{null}</DetailLayout>;
+  }
 
   if (!skill) return <NotFound />;
   const editable = data.canEdit(skill);
-  const contents = skillContents(skill, data.folders, data.files);
+  const contents = skillContents(skill, inside.folders, inside.files);
   const frontMatter = document.data ? parseSkillFrontMatter(document.data.content) : {};
   const paths = new Map<string, string>([[skill.id, ""]]);
 

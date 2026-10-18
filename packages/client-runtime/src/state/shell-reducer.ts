@@ -65,40 +65,6 @@ export function applyShellStreamEvent(
         groups: Arr.filter(snapshot.groups, (group) => group.id !== event.groupId),
         snapshotSequence: event.sequence,
       };
-    case "library-folder-upserted": {
-      const folders = snapshot.libraryFolders ?? [];
-
-      const nextFolders = folders.some((folder) => folder.id === event.folder.id)
-        ? Arr.map(folders, (folder) => (folder.id === event.folder.id ? event.folder : folder))
-        : Arr.append(folders, event.folder);
-
-      return { ...snapshot, libraryFolders: nextFolders, snapshotSequence: event.sequence };
-    }
-
-    case "library-folder-removed":
-      return {
-        ...snapshot,
-        libraryFolders: (snapshot.libraryFolders ?? []).filter(
-          (folder) => folder.id !== event.folderId,
-        ),
-        snapshotSequence: event.sequence,
-      };
-    case "library-file-upserted": {
-      const files = snapshot.libraryFiles ?? [];
-
-      const nextFiles = files.some((file) => file.id === event.file.id)
-        ? Arr.map(files, (file) => (file.id === event.file.id ? event.file : file))
-        : Arr.append(files, event.file);
-
-      return { ...snapshot, libraryFiles: nextFiles, snapshotSequence: event.sequence };
-    }
-
-    case "library-file-removed":
-      return {
-        ...snapshot,
-        libraryFiles: (snapshot.libraryFiles ?? []).filter((file) => file.id !== event.fileId),
-        snapshotSequence: event.sequence,
-      };
     case "task-upserted": {
       const tasks = snapshot.tasks ?? [];
 

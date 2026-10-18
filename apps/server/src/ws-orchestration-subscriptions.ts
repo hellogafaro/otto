@@ -264,6 +264,9 @@ export const createWsOrchestrationSubscriptions = ({
               loadChatThreads: projectionLibrary
                 .listChatThreads()
                 .pipe(Effect.orElseSucceed(() => [])),
+              loadLibraryFolders: projectionLibrary
+                .listFolders()
+                .pipe(Effect.orElseSucceed(() => [])),
               resuming: replaying,
             }),
           ),

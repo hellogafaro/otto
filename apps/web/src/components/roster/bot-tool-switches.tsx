@@ -1,7 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
   BotId,
-  isSkillFile,
   type EnvironmentId,
   type LibraryFolderId,
   type McpServer,
@@ -17,7 +16,7 @@ import { botEnvironment, environmentPeopleAtom } from "../../state/bots";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { useLibraryData } from "../library/use-library";
+import { useLibrarySkills } from "../library/use-library";
 import { toast } from "sonner";
 import { BotSkillsSection, BotToolsSection } from "./bot-tools-section";
 import { botMcpServers, botSkillFolders, buildBotAccountItems } from "./bot-tools.logic";
@@ -55,7 +54,7 @@ export function BotToolSwitches({
   });
 
   const people = useAtomValue(environmentPeopleAtom(environmentId ?? NO_ENVIRONMENT));
-  const library = useLibraryData();
+  const library = useLibrarySkills(environmentId);
   const ownerPersonId = bot.owner?.kind === "person" ? bot.owner.personId : null;
 
   const composioStatus = useEnvironmentQuery(
@@ -176,9 +175,9 @@ export function BotToolSwitches({
       {environmentId ? (
         <BotSkillsSection
           environmentId={environmentId}
-          skills={botSkillFolders(library.folders, ownerPersonId).map((folder) => ({
+          skills={botSkillFolders(library.skills, ownerPersonId).map((folder) => ({
             folder,
-            main: library.files.find((file) => file.folderId === folder.id && isSkillFile(file)),
+            main: library.main(folder.id),
           }))}
           disabledIds={disabledSkills}
           onDisabledIdsChange={(ids) => {

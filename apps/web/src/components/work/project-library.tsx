@@ -7,10 +7,11 @@ import { useI18n } from "../../i18n";
 import { LibraryLightbox } from "../library/library-lightbox";
 import { LibraryCard, type LibraryCardItem } from "../library/library-page";
 import { sortLibraryItems } from "../library/library.logic";
-import { useLibraryData, useLibraryUpload } from "../library/use-library";
+import { useLibraryData, useLibraryPages, useLibraryUpload } from "../library/use-library";
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
+import { SkeletonCards } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 /** Uploads files into the project's Library folder, made on first use: a quiet 28px top-bar icon. */
@@ -69,14 +70,8 @@ export function ProjectLibrary({ projectId }: { readonly projectId: ProjectId })
   const { t } = useI18n();
   const navigate = useNavigate();
   const data = useLibraryData();
-  const folder = data.folders.find((candidate) => candidate.projectId === projectId);
-
-  const shown = folder
-    ? sortLibraryItems(
-        data.folders.filter((candidate) => candidate.parentId === folder.id),
-        data.files.filter((file) => file.folderId === folder.id),
-      )
-    : { folders: [], files: [] };
+  const list = useLibraryPages(data.environmentId, { project: projectId });
+  const shown = sortLibraryItems(list.folders, list.files);
 
   const items: LibraryCardItem[] = [
     ...shown.folders.map((item) => ({ kind: "folder" as const, folder: item })),
@@ -85,6 +80,8 @@ export function ProjectLibrary({ projectId }: { readonly projectId: ProjectId })
 
   const [preview, setPreview] = useState<LibraryFile | null>(null);
   const environmentId = data.environmentId;
+
+  if (list.loading) return <SkeletonCards label={t("Loading files…")} />;
 
   if (items.length === 0 || !environmentId) {
     return (
@@ -115,6 +112,11 @@ export function ProjectLibrary({ projectId }: { readonly projectId: ProjectId })
     <>
       <DataGrid
         items={items}
+        paging={{
+          hasMore: list.hasMore,
+          loading: list.status !== "ready",
+          onLoadMore: list.loadMore,
+        }}
         getItemKey={(item) =>
           item.kind === "folder" ? `folder:${item.folder.id}` : `file:${item.file.id}`
         }
@@ -130,7 +132,7 @@ export function ProjectLibrary({ projectId }: { readonly projectId: ProjectId })
       <LibraryLightbox
         environmentId={environmentId}
         data={data}
-        file={preview ? (data.files.find((file) => file.id === preview.id) ?? null) : null}
+        file={preview ? (list.files.find((file) => file.id === preview.id) ?? null) : null}
         siblings={shown.files.filter((file) => file.type !== "document")}
         onSelect={setPreview}
         onClose={() => setPreview(null)}

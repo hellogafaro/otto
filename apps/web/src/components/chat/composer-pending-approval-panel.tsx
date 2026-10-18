@@ -7,7 +7,8 @@ import { hourlyScheduleText } from "@otto/client-runtime/routines";
 import { OTTO_CREATE_ROUTINE_TOOL_NAME } from "@otto/contracts";
 import { type PendingApproval } from "../../session-logic";
 import { describeCommandApproval } from "~/lib/command-approval-details";
-import { useLibraryData } from "../library/use-library";
+import { usePrimaryEnvironmentId } from "../../state/environments";
+import { useLibraryFolder } from "../library/use-library";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 
@@ -319,7 +320,6 @@ function SkillProposal({
   pendingCount: number;
 }) {
   const { t } = useI18n();
-  const library = useLibraryData();
   const details = skillProposalDetails(args);
 
   const skillId =
@@ -327,7 +327,8 @@ function SkillProposal({
       ? args.skillId
       : null;
 
-  const name = details.name || library.folders.find((folder) => folder.id === skillId)?.title || "";
+  const skill = useLibraryFolder(usePrimaryEnvironmentId(), details.name ? null : skillId).folder;
+  const name = details.name || skill?.title || "";
 
   return (
     <div

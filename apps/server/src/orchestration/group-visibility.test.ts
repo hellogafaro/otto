@@ -43,11 +43,11 @@ it("shows a group only to its people, and a group with no people to everyone", (
 });
 
 it("drops a hidden group's chats from the shell", () => {
-  expect(visibleShellSnapshot(snapshotWith(anaGroup), BEN, [])).toMatchObject({
+  expect(visibleShellSnapshot(snapshotWith(anaGroup), BEN)).toMatchObject({
     groups: [],
     threads: [],
   });
-  expect(visibleShellSnapshot(snapshotWith(anaGroup), ANA, []).threads).toHaveLength(1);
+  expect(visibleShellSnapshot(snapshotWith(anaGroup), ANA).threads).toHaveLength(1);
 });
 
 it.effect("sends a fresh shell when a person is added to a group", () =>
@@ -75,6 +75,7 @@ it.effect("sends a fresh shell when a person is added to a group", () =>
       personId: BEN,
       loadSnapshot: Effect.sync(() => current),
       loadChatThreads: Effect.succeed([]),
+      loadLibraryFolders: Effect.succeed([]),
       resuming: false,
     });
 
@@ -117,48 +118,109 @@ const libraryFile = (overrides: Partial<LibraryFile>): LibraryFile => ({
 
 const chatThreads = [{ id: makeGroupThread().id, groupId: anaGroup.id, deletedAt: null }];
 
-it("shows Library items only to the people who may see them", () => {
-  const snapshot: OrchestrationShellSnapshot = {
-    ...snapshotWith(anaGroup),
-    libraryFolders: [chatFolder],
-    libraryFiles: [
-      libraryFile({ id: LibraryFileId.make("open") }),
-      libraryFile({ id: LibraryFileId.make("private"), visibility: "user" }),
-      libraryFile({ id: LibraryFileId.make("in-chat"), folderId: chatFolder.id }),
-    ],
-  };
+const openFolder: LibraryFolder = {
+  id: LibraryFolderId.make("open-folder"),
+  parentId: null,
+  title: "Open",
+  visibility: "organization",
+  createdBy: ana,
+  createdAt: "2026-10-13T00:00:00.000Z",
+  updatedBy: ana,
+  updatedAt: "2026-10-13T00:00:00.000Z",
+};
 
-  expect(
-    visibleShellSnapshot(snapshot, BEN, chatThreads).libraryFiles?.map((file) => file.id),
-  ).toEqual(["open"]);
-  expect(visibleShellSnapshot(snapshot, BEN, chatThreads).libraryFolders).toEqual([]);
-  expect(visibleShellSnapshot(snapshot, ANA, chatThreads).libraryFiles).toHaveLength(3);
-});
+const deliveredTo = (
+  personId: AuthSessionId,
+  items: ReadonlyArray<OrchestrationShellStreamItem>,
+  folders: ReadonlyArray<LibraryFolder> = [chatFolder],
+) =>
+  withGroupVisibility({
+    stream: Stream.fromIterable<OrchestrationShellStreamItem>([
+      { kind: "snapshot", snapshot: snapshotWith(anaGroup) },
+      ...items,
+    ]),
+    personId,
+    loadSnapshot: Effect.succeed(snapshotWith(anaGroup)),
+    loadChatThreads: Effect.succeed(chatThreads),
+    loadLibraryFolders: Effect.succeed(folders),
+    resuming: false,
+  }).pipe(Effect.flatMap(Stream.runCollect));
 
 it.effect("turns a Library file someone can't see into a removal", () =>
   Effect.gen(function* () {
-    const snapshot = { ...snapshotWith(anaGroup), libraryFolders: [chatFolder], libraryFiles: [] };
-
     const hidden = libraryFile({ id: LibraryFileId.make("in-chat"), folderId: chatFolder.id });
 
-    const stream = yield* withGroupVisibility({
-      stream: Stream.fromIterable<OrchestrationShellStreamItem>([
-        { kind: "snapshot", snapshot },
-        { kind: "library-file-upserted", sequence: 2, file: hidden },
-        { kind: "library-file-upserted", sequence: 3, file: libraryFile({}) },
-      ]),
-      personId: BEN,
-      loadSnapshot: Effect.succeed(snapshot),
-      loadChatThreads: Effect.succeed(chatThreads),
-      resuming: false,
-    });
-
-    const delivered = yield* Stream.runCollect(stream);
+    const delivered = yield* deliveredTo(BEN, [
+      { kind: "library-file-upserted", sequence: 2, file: hidden },
+      { kind: "library-file-upserted", sequence: 3, file: libraryFile({}) },
+    ]);
 
     expect(delivered.map((item) => item.kind)).toEqual([
       "snapshot",
       "library-file-removed",
       "library-file-upserted",
+    ]);
+    expect(delivered[0]?.kind === "snapshot" && "libraryFiles" in delivered[0].snapshot).toBe(
+      false,
+    );
+  }),
+);
+
+it.effect("sends a Library folder only to people who see it, and its removal once they stop", () =>
+  Effect.gen(function* () {
+    const items: ReadonlyArray<OrchestrationShellStreamItem> = [
+      { kind: "library-folder-upserted", sequence: 2, folder: chatFolder },
+      { kind: "library-folder-upserted", sequence: 3, folder: openFolder },
+      {
+        kind: "library-folder-upserted",
+        sequence: 4,
+        folder: { ...openFolder, visibility: "user" },
+      },
+      { kind: "library-folder-removed", sequence: 5, folderId: openFolder.id },
+    ];
+
+    const kinds = (delivered: ReadonlyArray<OrchestrationShellStreamItem>) =>
+      delivered.map((item) => item.kind);
+
+    expect(kinds(yield* deliveredTo(BEN, items))).toEqual([
+      "snapshot",
+      "library-folder-upserted",
+      "library-folder-removed",
+      "library-folder-removed",
+    ]);
+    expect(kinds(yield* deliveredTo(ANA, items))).toEqual([
+      "snapshot",
+      "library-folder-upserted",
+      "library-folder-upserted",
+      "library-folder-upserted",
+      "library-folder-removed",
+    ]);
+  }),
+);
+
+it.effect("hides a Library file under a folder that just turned private", () =>
+  Effect.gen(function* () {
+    const delivered = yield* deliveredTo(
+      BEN,
+      [
+        {
+          kind: "library-folder-upserted",
+          sequence: 2,
+          folder: { ...openFolder, visibility: "user" },
+        },
+        {
+          kind: "library-file-upserted",
+          sequence: 3,
+          file: libraryFile({ folderId: openFolder.id }),
+        },
+      ],
+      [chatFolder, openFolder],
+    );
+
+    expect(delivered.map((item) => item.kind)).toEqual([
+      "snapshot",
+      "library-folder-removed",
+      "library-file-removed",
     ]);
   }),
 );

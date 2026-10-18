@@ -12,7 +12,7 @@ import {
   RiSparkling2Line,
 } from "@remixicon/react";
 import { Match } from "effect";
-import { type EnvironmentId, GENERAL_PROJECT_ID, LIBRARY_SKILLS_FOLDER_ID } from "@otto/contracts";
+import { type EnvironmentId, GENERAL_PROJECT_ID } from "@otto/contracts";
 import type { ComposerResourceMentionKind } from "@otto/shared/composerInlineTokens";
 import { rankComposerThreadMentions } from "@otto/shared/composerThreadMentions";
 
@@ -37,6 +37,7 @@ import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { environmentTasksAtom } from "../../state/tasks";
 import { AppLogo } from "../customize/customize-integrations";
+import { useLibrarySkills } from "../library/use-library";
 import { INLINE_TAG_CLASS_NAME } from "../composer-inline-chip";
 import {
   type BotPromptMentionBot,
@@ -104,14 +105,15 @@ export function useBotPromptMentionResources(
 ): ReadonlyArray<BotPromptMentionResource> {
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
   const tasks = useAtomValue(environmentTasksAtom(environmentId ?? NO_ENVIRONMENT));
+  const librarySkills = useLibrarySkills(environmentId).skills;
 
   const composio = useEnvironmentQuery(
     environmentId ? serverEnvironment.composioStatus({ environmentId, input: {} }) : null,
   );
 
   return useMemo(() => {
-    const skills = (snapshot?.libraryFolders ?? [])
-      .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID)
+    const skills = librarySkills
+      .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt))
       .map(
         (folder): BotPromptMentionResource => ({
           kind: "skill",
@@ -161,7 +163,7 @@ export function useBotPromptMentionResources(
     );
 
     return [...skills, ...apps, ...mcps, ...projects, ...work];
-  }, [composio.data, snapshot, tasks]);
+  }, [composio.data, librarySkills, snapshot, tasks]);
 }
 
 const NO_SHELLS: ReturnType<typeof useThreadShells> = [];

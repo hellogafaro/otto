@@ -10,7 +10,7 @@ import { LibraryItemMenu } from "./library-actions";
 import { LibraryLightbox } from "./library-lightbox";
 import { LibraryFileThumb } from "./library-visuals";
 import { sortLibraryItems } from "./library.logic";
-import { useLibraryData } from "./use-library";
+import { useLibraryData, useLibraryPages } from "./use-library";
 
 const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -30,16 +30,15 @@ export function ChatLibrarySection({
   const { t } = useI18n();
   const navigate = useNavigate();
   const data = useLibraryData();
-  const { environmentId, folders, files } = data;
+  const { environmentId } = data;
   const [preview, setPreview] = useState<LibraryFile | null>(null);
-  const folder = folders.find((candidate) => candidate.threadId === threadId);
 
-  const shown = folder
-    ? sortLibraryItems(
-        [],
-        files.filter((file) => file.folderId === folder.id),
-      ).files
-    : [];
+  const { files } = useLibraryPages(environmentId, {
+    thread: threadId,
+    type: ["document", "image", "file"],
+  });
+
+  const shown = sortLibraryItems([], files).files;
 
   const changedBy = (file: LibraryFile) =>
     participantName(file.updatedBy, data.participants.allBots);
