@@ -111,6 +111,7 @@ export function BotPromptCommandMenu({
         command: "invite",
         description: t("Add people or bots to this chat"),
         icon: RiUserAddLine,
+        shortcutCommand: "property.members",
       });
     }
 
