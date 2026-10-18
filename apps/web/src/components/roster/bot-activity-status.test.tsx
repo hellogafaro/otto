@@ -1,13 +1,39 @@
+import type { MessageKey } from "@otto/client-runtime/i18n";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { BotActivityStatus, THINKING_VERBS } from "./bot-activity-status";
+import type { BotTraceStep } from "./bot-turn-trace.logic";
 
 const NOW = new Date("2026-09-15T18:00:00.000Z");
 
 const bot = { name: "Otto", avatar: { kind: "blob", shape: "circle", color: "#5B7FD4" } } as const;
 
 const secondsAgo = (seconds: number) => new Date(NOW.getTime() - seconds * 1000).toISOString();
+
+const step = (id: string, label: MessageKey, running: boolean): BotTraceStep => ({
+  kind: "tool",
+  id,
+  label,
+  subject: null,
+  detail: null,
+  durationMs: running ? null : 400,
+  failed: false,
+  terminal: null,
+  running,
+});
+
+const render = (props: Partial<Parameters<typeof BotActivityStatus>[0]> = {}) =>
+  renderToStaticMarkup(
+    <BotActivityStatus
+      bot={bot}
+      activity={{ label: "Working", thinking: true }}
+      steps={[]}
+      startedAt={secondsAgo(4)}
+      environmentId={null}
+      {...props}
+    />,
+  );
 
 describe("bot activity status", () => {
   beforeEach(() => {
@@ -19,88 +45,48 @@ describe("bot activity status", () => {
     vi.useRealTimers();
   });
 
-  it("shows the bot's awake avatar and what the run is doing", () => {
-    const markup = renderToStaticMarkup(
-      <BotActivityStatus
-        bot={bot}
-        activity={{ label: "Reading a skill" }}
-        startedAt={secondsAgo(2)}
-      />,
-    );
+  it("opens with the bot's working avatar and how long it has worked", () => {
+    const early = render();
+    const later = render({ startedAt: secondsAgo(75) });
 
-    expect(markup).toContain('data-bot-state="working"');
-    expect(markup).toContain("Reading a skill");
-    expect(markup).not.toContain("...");
-    expect(markup).toContain("shimmer");
-    expect(markup).not.toContain("animate-spin");
-    expect(markup).not.toContain("<button");
+    expect(early).toContain('data-bot-state="working"');
+    expect(early).toContain("Working for 4s");
+    expect(later).toContain("Working for 1m 15s");
+    expect(early).not.toContain("...");
   });
 
-  it("names the app or MCP server a tool works on once its name is known", () => {
-    const app = {
-      label: "Using an app",
-      subject: { kind: "app", slug: "googlecalendar" },
-    } as const;
+  it("rotates playful verbs only before the first step", () => {
+    const before = render();
+    const between = render({ steps: [step("read", "Read files", false)] });
 
+    expect(THINKING_VERBS.some((verb) => before.includes(`>${verb}<`))).toBe(true);
+    expect(between).toContain(">Read files<");
+    expect(between).toContain(">Thinking<");
     expect(
-      renderToStaticMarkup(
-        <BotActivityStatus
-          bot={bot}
-          activity={app}
-          startedAt={null}
-          subjectName="Google Calendar"
-        />,
+      THINKING_VERBS.filter((verb) => verb !== "Thinking").some((verb) =>
+        between.includes(`>${verb}<`),
       ),
-    ).toContain(">Using Google Calendar<");
-    expect(
-      renderToStaticMarkup(<BotActivityStatus bot={bot} activity={app} startedAt={null} />),
-    ).toContain(">Using an app<");
+    ).toBe(false);
   });
 
-  it("rotates playful verbs while the bot only thinks", () => {
-    const markup = renderToStaticMarkup(
-      <BotActivityStatus
-        bot={bot}
-        activity={{ label: "Working", thinking: true }}
-        startedAt={null}
-      />,
-    );
+  it("lists finished steps in the past tense and shimmers the running one last", () => {
+    const markup = render({
+      activity: { label: "Searching the web" },
+      steps: [step("read", "Read files", false), step("search", "Searching the web", true)],
+    });
 
-    expect(THINKING_VERBS.some((verb) => markup.includes(`>${verb}<`))).toBe(true);
-    expect(markup).not.toContain("...");
+    expect(markup.indexOf("Read files")).toBeLessThan(markup.indexOf("Searching the web"));
+    expect(markup).toContain('data-status="running"');
+    expect(markup.match(/Searching the web/g)).toHaveLength(1);
+    expect(markup).not.toContain(">Thinking<");
   });
 
-  it("shows its own elapsed time from the start", () => {
-    const early = renderToStaticMarkup(
-      <BotActivityStatus
-        bot={bot}
-        activity={{ label: "Reading files" }}
-        startedAt={secondsAgo(4)}
-      />,
-    );
-
-    const later = renderToStaticMarkup(
-      <BotActivityStatus
-        bot={bot}
-        activity={{ label: "Reading files" }}
-        startedAt={secondsAgo(75)}
-      />,
-    );
-
-    expect(early).toContain('data-testid="bot-activity-time">4s');
-    expect(early).not.toContain('hidden=""');
-    expect(later).toContain('data-testid="bot-activity-time">1m 15s');
-    expect(later).not.toMatch(/hidden=""[^>]*data-testid="bot-activity-time"/);
+  it("caps the open list and scrolls inside it", () => {
+    expect(render()).toContain("max-h-44 overflow-y-auto");
   });
 
   it("keeps the working line while the provider is quiet, never a no-response notice", () => {
-    const markup = renderToStaticMarkup(
-      <BotActivityStatus
-        bot={bot}
-        activity={{ label: "Running a command" }}
-        startedAt={secondsAgo(300)}
-      />,
-    );
+    const markup = render({ activity: { label: "Running a command" }, startedAt: secondsAgo(300) });
 
     expect(markup).toContain("Running a command");
     expect(markup).not.toContain("No response from");
