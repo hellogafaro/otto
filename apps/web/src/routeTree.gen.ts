@@ -13,6 +13,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PluginsRouteImport } from './routes/plugins'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CustomizeRouteImport } from './routes/customize'
 import { Route as ChatRouteImport } from './routes/_chat'
@@ -64,6 +65,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PluginsRoute = PluginsRouteImport.update({
   id: '/plugins',
   path: '/plugins',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/plugins': typeof PluginsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/plugins': typeof PluginsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -311,6 +319,7 @@ export interface FileRoutesById {
   '/_chat': typeof ChatRouteWithChildren
   '/customize': typeof CustomizeRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/plugins': typeof PluginsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/'
     | '/customize'
     | '/login'
+    | '/notifications'
     | '/plugins'
     | '/reset-password'
     | '/settings'
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/'
     | '/customize'
     | '/login'
+    | '/notifications'
     | '/plugins'
     | '/reset-password'
     | '/settings'
@@ -425,6 +436,7 @@ export interface FileRouteTypes {
     | '/_chat'
     | '/customize'
     | '/login'
+    | '/notifications'
     | '/plugins'
     | '/reset-password'
     | '/settings'
@@ -464,6 +476,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
   CustomizeRoute: typeof CustomizeRoute
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   PluginsRoute: typeof PluginsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -511,6 +524,13 @@ declare module '@tanstack/react-router' {
       path: '/plugins'
       fullPath: '/plugins'
       preLoaderRoute: typeof PluginsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -793,6 +813,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
   CustomizeRoute: CustomizeRoute,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   PluginsRoute: PluginsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRouteWithChildren,

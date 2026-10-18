@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1688,
+  "directMessageCount": 1697,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -57,11 +57,13 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/home/home-page.tsx": [
       "greeting, { name: firstName })",
       "greeting);",
-      "NOTIFICATION_TEXT[notification.type], {",
     ],
     "apps/web/src/components/library/library-actions.tsx": [
       "'Delete the folder "{name}"?', { name: item.title })",
       "'Delete "{name}"? This can\\'t be undone.', { name: item.title }),",
+    ],
+    "apps/web/src/components/notifications/use-notifications.ts": [
+      "NOTIFICATION_TEXT[notification.type], {",
     ],
     "apps/web/src/components/onboarding/onboarding.tsx": [
       "definition.subscription)}",
@@ -361,6 +363,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/markdown/markdown-images.tsx",
     "apps/web/src/components/markdown/markdown-lists.tsx",
     "apps/web/src/components/markdown/markdown-table.tsx",
+    "apps/web/src/components/notifications/notifications-page.tsx",
+    "apps/web/src/components/notifications/use-notifications.ts",
     "apps/web/src/components/onboarding/onboarding.tsx",
     "apps/web/src/components/prompt-dialog.tsx",
     "apps/web/src/components/rich-text-editor.tsx",

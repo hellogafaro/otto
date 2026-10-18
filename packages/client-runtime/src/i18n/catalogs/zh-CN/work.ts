@@ -111,7 +111,7 @@ export const workCatalog = {
   "{name} logged {duration} on {description}": "{name} 为“{description}”记录了 {duration}",
   "Delete comment": "删除评论",
   Home: "主页",
-  "Home, {count} unread": "主页，{count} 条未读",
+  "Notifications, {count} unread": "通知，{count} 条未读",
   "Welcome back": "欢迎回来",
   "Morning, {name}": "早上好，{name}",
   "Good morning, {name}": "早安，{name}",
@@ -142,4 +142,15 @@ export const workCatalog = {
   "New reply": "新回复",
   "No tasks": "没有任务",
   "No chats": "没有聊天",
+  "Loading notifications…": "正在加载通知…",
+  "Hear when something needs you": "有事需要你时及时知道",
+  "When someone gives you a task, mentions you or answers you, it shows up here.":
+    "有人给你分配任务、提到你或回复你时，会显示在这里。",
+  "Turn on notifications": "开启通知",
+  "Get notified on this device": "在此设备上接收通知",
+  "See new notifications while Otto is in the background.": "Otto 在后台时也能看到新通知。",
+  "Notifications are blocked. Allow them for Otto in your browser's site settings.":
+    "通知已被阻止。请在浏览器的网站设置中允许 Otto 发送通知。",
+  "You're all caught up": "已全部处理完毕",
+  Earlier: "更早",
 } as const;
