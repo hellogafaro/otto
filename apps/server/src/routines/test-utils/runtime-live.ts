@@ -93,6 +93,7 @@ const harness = (
 
   const repository = RoutineRepository.of({
     listAll: Effect.succeed([value]),
+    list: () => Effect.succeed({ rows: [], statusCounts: [] }),
     listEnabled: Effect.succeed([value]),
     getById: () => Effect.succeed(value),
     listRuns: () =>

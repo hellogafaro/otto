@@ -1,3 +1,4 @@
+import { WS_METHODS } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -15,7 +16,11 @@ import {
   unassignRoutineSkill,
   updateRoutine,
 } from "../operations/commands.ts";
-import { createAtomCommandScheduler, createEnvironmentCommand } from "./runtime.ts";
+import {
+  createAtomCommandScheduler,
+  createEnvironmentCommand,
+  createEnvironmentRpcCommand,
+} from "./runtime.ts";
 
 export type {
   ApproveRoutineInput,
@@ -46,6 +51,11 @@ export function createRoutineEnvironmentAtoms<R, E>(
   ) => createEnvironmentCommand(runtime, { label, execute, scheduler, concurrency });
 
   return {
+    /** One page of the bounded routine list; the Routines page asks for each page as it scrolls. */
+    list: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:routines:list",
+      tag: WS_METHODS.routinesList,
+    }),
     draft: command("environment-data:commands:routine:draft", draftRoutine),
     approve: command("environment-data:commands:routine:approve", approveRoutine),
     enable: command("environment-data:commands:routine:enable", enableRoutine),
