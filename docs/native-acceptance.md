@@ -126,3 +126,20 @@ mutation or live-app restart occurred.
 
 - Source manifest SHA-256: `dea6bbe55f590df5920239887b3236f7cd792a89c4789c7720328803bc0c3ec5`.
 - Evidence manifest SHA-256: `35d287c1b16a7ab54230f85ba01841265b658d6f9c90c2888aef9aa4721a15b2`.
+
+### PR integration verification — 2026-10-18
+
+The hotfix is integrated with upstream `07e94294975501068cc88e4a15bcb9eb3c91d054`
+on `fix/explicit-routine-authorization`. The single-chat routine implementation and its existing
+tests are retained. The authorization matrix now covers all four permission modes across target,
+single and per-run chats, reused single chats and helper execution.
+
+The combined controller and focused regression run passes **280 tests across 36 files**, including
+the upstream routine repository tests. Server typecheck and scoped lint/format checks pass.
+Detailed logs and the 17-file source manifest are retained locally in
+`~/.capy/work/merge-authorization-hotfix/pr/`. Its source manifest SHA-256 is
+`19e811b2f91433b170e371fe141448953400e3dc6cabe07040930480031e045c`.
+
+These are controlled integration results, not live GitHub/model/MCP or independent actual-app
+acceptance. The preceding verification limits remain. PR publication is authorized; merging,
+deployment and changes to the unrelated desktop generated-style edit are not part of this delivery.

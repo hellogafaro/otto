@@ -175,7 +175,7 @@ const make = Effect.gen(function* () {
         routineId,
         botId,
         targetThreadId: threadId,
-        threadMode: input.newChatEachRun === true ? "per-run" : "target",
+        threadMode: input.threadMode ?? "target",
         job: input.name,
         procedure: input.instructions,
         schedule: input.schedule,

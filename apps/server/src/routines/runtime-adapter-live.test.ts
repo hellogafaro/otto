@@ -31,6 +31,7 @@ import { AgentController } from "../provider/services/agent-controller.ts";
 import type { OttoDelegationDispatch } from "../provider/otto-delegation-runtime.ts";
 import { ProviderRegistry } from "../provider/services/provider-registry.ts";
 import { BotUsageLedger } from "../usage/bot-usage-ledger.ts";
+import { RoutineRepository } from "./repository.ts";
 import { RoutineRuntimeAdapterLive } from "./runtime-adapter-live.ts";
 import { RoutineRuntimeAdapter, type Routine, type RoutineRun } from "./types.ts";
 
@@ -116,6 +117,14 @@ const makeLayer = (options: {
   /** Makes `routine.run.start` fail for a reason other than an ended run. */
   readonly startFailure?: boolean;
   readonly usageRecordFailure?: boolean;
+  /** The chat of the routine's newest run, and the chats that exist. */
+  readonly latestThreadRef?: ThreadId;
+  readonly threads?: ReadonlyArray<{
+    readonly id: ThreadId;
+    readonly botId: BotId;
+    readonly projectId: ProjectId;
+    readonly archivedAt: string | null;
+  }>;
   readonly commands: Array<OrchestrationCommand>;
   readonly delegations?: Array<OttoDelegationDispatch>;
 }) =>
@@ -151,7 +160,13 @@ const makeLayer = (options: {
         } as never),
         Layer.succeed(ProjectionMcpServerRepository, {} as never),
         Layer.succeed(ProjectionSnapshotQuery, {
-          getThreadShellById: () => Effect.succeed(Option.none()),
+          getThreadShellById: (threadId: ThreadId) =>
+            Effect.succeed(
+              Option.fromNullishOr(options.threads?.find((thread) => thread.id === threadId)),
+            ),
+        } as never),
+        Layer.succeed(RoutineRepository, {
+          getLatestThreadRef: () => Effect.succeed(options.latestThreadRef ?? null),
         } as never),
         Layer.succeed(ProviderRegistry, {
           getProviders: Effect.succeed([
@@ -325,7 +340,7 @@ for (const approvalPolicy of [
   "auto",
   "full-access",
 ] as const) {
-  for (const threadMode of ["target", "per-run"] as const) {
+  for (const threadMode of ["target", "single", "per-run"] as const) {
     it.effect(`preserves ${approvalPolicy} authorization in a ${threadMode} scheduled turn`, () => {
       const commands: Array<OrchestrationCommand> = [];
 
@@ -343,11 +358,36 @@ for (const approvalPolicy of [
         assert.isTrue(turn?.message.text.endsWith(procedure));
         const create = commands.find((command) => command.type === "thread.create");
 
-        if (threadMode === "per-run") assert.equal(create?.runtimeMode, approvalPolicy);
+        if (threadMode !== "target") assert.equal(create?.runtimeMode, approvalPolicy);
         else assert.isUndefined(create);
       }).pipe(Effect.provide(makeLayer({ bots: [bot("bot-owner", "Ada", "codex")], commands })));
     });
   }
+
+  it.effect(`preserves ${approvalPolicy} authorization when reusing a routine chat`, () => {
+    const commands: Array<OrchestrationCommand> = [];
+    const chat = ThreadId.make("routine-run-prior");
+    const value = routine({ approvalPolicy, threadMode: "single", delegateToBotId: null });
+
+    return Effect.gen(function* () {
+      const adapter = yield* RoutineRuntimeAdapter;
+      yield* adapter.dispatchTurn(value, { ...run, trigger: "scheduled", scheduledFor: NOW });
+      const turn = commands.find((command) => command.type === "thread.turn.start");
+      assert.equal(turn?.threadId, chat);
+      assert.equal(turn?.runtimeMode, approvalPolicy);
+      assert.isTrue(turn?.message.text.endsWith(value.procedure));
+      assert.isFalse(commands.some((command) => command.type === "thread.create"));
+    }).pipe(
+      Effect.provide(
+        makeLayer({
+          bots: [bot("bot-owner", "Ada", "codex")],
+          latestThreadRef: chat,
+          threads: [{ id: chat, botId: value.botId, projectId: value.projectId, archivedAt: null }],
+          commands,
+        }),
+      ),
+    );
+  });
 
   it.effect(`preserves ${approvalPolicy} authorization when delegating a scheduled run`, () => {
     const commands: Array<OrchestrationCommand> = [];
@@ -381,6 +421,72 @@ for (const approvalPolicy of [
     );
   });
 }
+
+it.effect("starts one chat for a single-chat routine's first run", () => {
+  const commands: Array<OrchestrationCommand> = [];
+  const value = routine({ delegateToBotId: null, threadMode: "single" });
+
+  return Effect.gen(function* () {
+    const result = yield* (yield* RoutineRuntimeAdapter).dispatchTurn(value, run);
+
+    assert.deepEqual(result, { threadRef: ThreadId.make(`routine-run-${run.id}`) });
+    assert.deepEqual(
+      commands.map((command) => command.type),
+      ["thread.create", "routine.run.start", "thread.turn.start"],
+    );
+  }).pipe(Effect.provide(makeLayer({ bots: [bot("bot-owner", "Ada", "codex")], commands })));
+});
+
+it.effect("keeps posting a single-chat routine's runs in its chat", () => {
+  const commands: Array<OrchestrationCommand> = [];
+  const value = routine({ delegateToBotId: null, threadMode: "single" });
+  const chat = ThreadId.make("routine-run-run-0");
+
+  return Effect.gen(function* () {
+    const result = yield* (yield* RoutineRuntimeAdapter).dispatchTurn(value, run);
+
+    assert.deepEqual(result, { threadRef: chat });
+    assert.deepEqual(
+      commands.map((command) => command.type),
+      ["routine.run.start", "thread.turn.start"],
+    );
+    const turn = commands[1];
+    assert.equal(turn?.type === "thread.turn.start" ? turn.threadId : null, chat);
+  }).pipe(
+    Effect.provide(
+      makeLayer({
+        bots: [bot("bot-owner", "Ada", "codex")],
+        latestThreadRef: chat,
+        threads: [{ id: chat, botId: value.botId, projectId: value.projectId, archivedAt: null }],
+        commands,
+      }),
+    ),
+  );
+});
+
+it.effect("starts a new chat for a single-chat routine whose chat was archived", () => {
+  const commands: Array<OrchestrationCommand> = [];
+  const value = routine({ delegateToBotId: null, threadMode: "single" });
+  const archived = ThreadId.make("routine-run-run-0");
+
+  return Effect.gen(function* () {
+    const result = yield* (yield* RoutineRuntimeAdapter).dispatchTurn(value, run);
+
+    assert.deepEqual(result, { threadRef: ThreadId.make(`routine-run-${run.id}`) });
+    assert.equal(commands[0]?.type, "thread.create");
+  }).pipe(
+    Effect.provide(
+      makeLayer({
+        bots: [bot("bot-owner", "Ada", "codex")],
+        latestThreadRef: archived,
+        threads: [
+          { id: archived, botId: value.botId, projectId: value.projectId, archivedAt: NOW },
+        ],
+        commands,
+      }),
+    ),
+  );
+});
 
 it.effect("blocks a routine whose helper bot cannot take bot work", () =>
   Effect.gen(function* () {
