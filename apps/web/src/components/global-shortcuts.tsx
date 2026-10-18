@@ -1,21 +1,11 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { KeybindingWhenNode } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 
-import { isElectron } from "../env";
-import { useI18n } from "../i18n";
-import { resolveShortcutCommand, isInputFocus } from "../keybindings";
+import { isInputFocus, resolveShortcutCommand } from "../keybindings";
 import { openSettings } from "../settings-dialog-store";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { recordLookup } from "./record-lookup";
-import { KeyCaps } from "./settings/keybinding-presentation";
-import {
-  buildKeybindingGroups,
-  buildKeybindingRows,
-  commandLabel,
-} from "./settings/keybindings-settings.logic";
-import { Dialog, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from "./ui/dialog";
 
 const NAVIGATION_PATHS = {
   "navigation.home": "/",
@@ -32,29 +22,13 @@ function isPathUnder(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-/** Whether a binding's condition can hold in this app, desktop or browser. */
-function appliesHere(node: KeybindingWhenNode | undefined): boolean {
-  if (!node) return true;
-
-  if (node.type === "identifier") return node.name !== "desktop" || isElectron;
-
-  if (node.type === "not" && node.node.type === "identifier" && node.node.name === "desktop") {
-    return !isElectron;
-  }
-
-  if (node.type === "and") return appliesHere(node.left) && appliesHere(node.right);
-
-  return true;
-}
-
 /**
- * Otto: App-wide keys that belong to no one page: Settings, the places in the rail and
- * the keyboard shortcuts sheet. Keys inside a dialog or an open menu stay theirs.
+ * Otto: App-wide keys that belong to no one page: the places in the rail, Settings and
+ * its Shortcuts page. Keys inside a dialog or an open menu stay theirs.
  */
 export function GlobalShortcuts() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const navigate = useNavigate();
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -81,7 +55,7 @@ export function GlobalShortcuts() {
       } else if (command === "settings.open") {
         if (!isPathUnder(pathname, "/settings")) openSettings();
       } else if (command === "shortcuts.show") {
-        setSheetOpen(true);
+        if (!isPathUnder(pathname, "/settings/keybindings")) openSettings("keybindings");
       } else {
         return;
       }
@@ -95,71 +69,5 @@ export function GlobalShortcuts() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [keybindings, navigate]);
 
-  return <KeyboardShortcutsSheet open={sheetOpen} onOpenChange={setSheetOpen} />;
-}
-
-function KeyboardShortcutsSheet({
-  open,
-  onOpenChange,
-}: {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-}) {
-  const { t } = useI18n();
-  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
-
-  const groups = useMemo(
-    () =>
-      buildKeybindingGroups(
-        buildKeybindingRows(keybindings).filter((row) => appliesHere(row.binding.whenAst)),
-      ),
-    [keybindings],
-  );
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogPopup className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("Keyboard shortcuts")}</DialogTitle>
-        </DialogHeader>
-        <DialogPanel className="flex flex-col gap-5">
-          {groups.map((group) => (
-            <section key={group.id} className="flex flex-col gap-1">
-              <h3 className="text-xs font-medium text-muted-foreground">{group.title}</h3>
-              {group.items.map((item) =>
-                item.type === "row" ? (
-                  <ShortcutSheetRow
-                    key={item.row.id}
-                    title={commandLabel(item.row.command)}
-                    value={item.row.key}
-                  />
-                ) : item.series.rangeKey ? (
-                  <ShortcutSheetRow
-                    key={item.series.id}
-                    title={item.series.title}
-                    value={item.series.rangeKey}
-                  />
-                ) : null,
-              )}
-              {group.id === "composer" ? (
-                <>
-                  <ShortcutSheetRow title={t("Leave the composer")} value="esc" />
-                  <ShortcutSheetRow title={t("Back to the composer")} value="enter" />
-                </>
-              ) : null}
-            </section>
-          ))}
-        </DialogPanel>
-      </DialogPopup>
-    </Dialog>
-  );
-}
-
-function ShortcutSheetRow({ title, value }: { readonly title: string; readonly value: string }) {
-  return (
-    <div className="flex min-h-7 items-center justify-between gap-4 text-sm">
-      <span className="min-w-0 truncate text-foreground">{title}</span>
-      <KeyCaps value={value} />
-    </div>
-  );
+  return null;
 }

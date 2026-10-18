@@ -99,7 +99,6 @@ export const settingsCatalog = {
   "Couldn't log out": "无法退出登录",
   "Dismiss provider update notice": "关闭提供商更新通知",
   "Dismiss until provider status changes": "在提供商状态变化前不再显示",
-  "Keyboard shortcuts": "键盘快捷键",
   "Leave the composer": "离开输入框",
   "Back to the composer": "回到输入框",
   "Audio could not play. Retry, or check voice settings.": "音频无法播放。请重试，或检查语音设置。",

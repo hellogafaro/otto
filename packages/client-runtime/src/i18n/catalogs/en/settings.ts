@@ -102,7 +102,6 @@ export const settingsCatalog = {
   "Couldn't log out": "Couldn't log out",
   "Dismiss provider update notice": "Dismiss provider update notice",
   "Dismiss until provider status changes": "Dismiss until provider status changes",
-  "Keyboard shortcuts": "Keyboard shortcuts",
   "Leave the composer": "Leave the composer",
   "Back to the composer": "Back to the composer",
   "Audio could not play. Retry, or check voice settings.":
