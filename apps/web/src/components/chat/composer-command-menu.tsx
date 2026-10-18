@@ -5,16 +5,22 @@ import {
   type ProviderSkillSourceKind,
 } from "@otto/client-runtime/providerSkills";
 import {
+  type KeybindingCommand,
   type ProjectEntry,
   type ProviderDriverKind,
   type ServerProviderSkill,
   type ServerProviderSlashCommand,
 } from "@otto/contracts";
+import type { RemixiconComponentType } from "@remixicon/react";
 import { memo, useLayoutEffect, useRef } from "react";
 
 import { type ComposerSlashCommand, type ComposerTriggerKind } from "../../composer-logic";
+import { BotAvatarView } from "../roster/bot-avatar-view";
+import type { GroupCandidate } from "../roster/group-member-checklist";
+import { PersonAvatar } from "../roster/person-avatar";
+import { ShortcutKbd } from "../shortcut-kbd";
 import { Badge } from "../ui/badge";
-import { Command, CommandGroup, CommandItem, CommandList } from "../ui/command";
+import { Command, CommandGroup, CommandGroupLabel, CommandItem, CommandList } from "../ui/command";
 import { FileEntryIcon } from "./file-entry-icon";
 import { ProviderSkillIcon } from "./provider-skill-icon";
 
@@ -31,6 +37,16 @@ export type ComposerCommandItem =
       id: string;
       type: "slash-command";
       command: ComposerSlashCommand;
+      label: string;
+      description: string;
+      icon?: RemixiconComponentType;
+      /** The keys that run the same action outside the composer, shown at the row's end. */
+      shortcutCommand?: KeybindingCommand;
+    }
+  | {
+      id: string;
+      type: "invitee";
+      candidate: GroupCandidate;
       label: string;
       description: string;
     }
@@ -57,11 +73,33 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
   isLoading: boolean;
   triggerKind: ComposerTriggerKind | null;
   emptyStateText?: string;
+  /** Heads the provider's rows when Otto's own commands are listed above them. */
+  providerGroupLabel?: string;
   activeItemId: string | null;
   onHighlightedItemChange: (itemId: string | null) => void;
   onSelect: (item: ComposerCommandItem) => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
+
+  const ottoItems = props.items.filter(
+    (item) => item.type === "slash-command" || item.type === "invitee",
+  );
+
+  const otherItems = props.items.filter(
+    (item) => item.type !== "slash-command" && item.type !== "invitee",
+  );
+
+  const row = (item: ComposerCommandItem) => (
+    <ComposerCommandMenuItem
+      key={item.id}
+      item={item}
+      triggerKind={props.triggerKind}
+      resolvedTheme={props.resolvedTheme}
+      isActive={props.activeItemId === item.id}
+      onHighlight={props.onHighlightedItemChange}
+      onSelect={props.onSelect}
+    />
+  );
 
   useLayoutEffect(() => {
     if (!props.activeItemId || !listRef.current) return;
@@ -90,19 +128,15 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
       >
         {props.items.length > 0 ? (
           <CommandList className="max-h-72 scroll-pb-6">
-            <CommandGroup>
-              {props.items.map((item) => (
-                <ComposerCommandMenuItem
-                  key={item.id}
-                  item={item}
-                  triggerKind={props.triggerKind}
-                  resolvedTheme={props.resolvedTheme}
-                  isActive={props.activeItemId === item.id}
-                  onHighlight={props.onHighlightedItemChange}
-                  onSelect={props.onSelect}
-                />
-              ))}
-            </CommandGroup>
+            {ottoItems.length > 0 ? <CommandGroup>{ottoItems.map(row)}</CommandGroup> : null}
+            {otherItems.length > 0 ? (
+              <CommandGroup>
+                {ottoItems.length > 0 && props.providerGroupLabel ? (
+                  <CommandGroupLabel className="ms-1">{props.providerGroupLabel}</CommandGroupLabel>
+                ) : null}
+                {otherItems.map(row)}
+              </CommandGroup>
+            ) : null}
           </CommandList>
         ) : (
           <div className="px-5 pt-3.5 pb-7">
@@ -142,6 +176,8 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
   const isSlashSkill =
     props.triggerKind === "slash-command" && props.item.type === "skill" ? props.item.skill : null;
 
+  const CommandIcon = props.item.type === "slash-command" ? props.item.icon : undefined;
+
   return (
     <CommandItem
       value={props.item.id}
@@ -164,6 +200,24 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
       {props.item.type === "skill" ? (
         <ProviderSkillIcon skill={props.item.skill} className={SKILL_ROW_ICON_CLASS_NAME} />
       ) : null}
+      {CommandIcon ? (
+        <CommandIcon aria-hidden="true" className="size-4 shrink-0 opacity-70" />
+      ) : null}
+      {props.item.type === "invitee" ? (
+        props.item.candidate.kind === "bot" ? (
+          <BotAvatarView
+            avatar={props.item.candidate.bot.avatar}
+            name={props.item.label}
+            className="size-5"
+          />
+        ) : (
+          <PersonAvatar
+            name={props.item.label}
+            personId={props.item.candidate.person.personId}
+            className="size-5"
+          />
+        )
+      ) : null}
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <span className="min-w-0 max-w-9/20 shrink-0 truncate font-sans text-xs font-medium">
           {isSlashSkill ? (
@@ -178,6 +232,9 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         <span className="min-w-0 max-w-48ch flex-1 truncate text-left text-secondary-label text-xs">
           {props.item.description}
         </span>
+        {props.item.type === "slash-command" && props.item.shortcutCommand ? (
+          <ShortcutKbd command={props.item.shortcutCommand} className="ms-auto" />
+        ) : null}
         {skillSourceKind ? (
           <SkillSourceBadge
             kind={skillSourceKind}

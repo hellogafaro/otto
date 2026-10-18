@@ -3,8 +3,21 @@ import { INLINE_TERMINAL_CONTEXT_PLACEHOLDER } from "./lib/terminal-context";
 
 export type ComposerTriggerKind = "path" | "slash-command" | "skill";
 
-/** Built-in composer commands; plan mode and its /plan and /default commands are retired. */
-export type ComposerSlashCommand = "model";
+/**
+ * Otto's own composer commands, run in the app at the start of a message; plan mode and its
+ * /plan and /default commands are retired. A provider command with one of these names moves to
+ * its provider's prefix.
+ */
+export const COMPOSER_SLASH_COMMANDS = [
+  "invite",
+  "snooze",
+  "rename",
+  "archive",
+  "model",
+  "new",
+] as const;
+
+export type ComposerSlashCommand = (typeof COMPOSER_SLASH_COMMANDS)[number];
 
 export type ComposerSubmissionIntent = "foreground" | "background";
 

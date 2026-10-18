@@ -5,6 +5,7 @@ import {
   buildComposerProviderMenuItems,
   composerProviderMenuItemText,
   type ComposerProviderCatalog,
+  providerCommandPrefix,
 } from "./composer-provider-menu-items";
 
 const skill = (name: string, enabled = true): ServerProviderSkill => ({
@@ -67,5 +68,28 @@ describe.each(DRIVER_KINDS)("buildComposerProviderMenuItems for %s", (kind) => {
     });
 
     expect(items.map((item) => item.label)).toEqual(["/compact", "/review"]);
+  });
+});
+
+describe("buildComposerProviderMenuItems with Otto's command names", () => {
+  it.each(DRIVER_KINDS)("moves a clashing %s command to the provider's prefix", (kind) => {
+    const provider = ProviderDriverKind.make(kind);
+
+    const items = buildComposerProviderMenuItems({
+      trigger: { kind: "slash-command", query: "" },
+      catalog: { provider, skills: [], slashCommands: [{ name: "model" }, { name: "compact" }] },
+      showSkillsInSlashMenu: true,
+    });
+
+    expect(items.map((item) => item.label)).toEqual([
+      `/${providerCommandPrefix(provider)}:model`,
+      "/compact",
+    ]);
+    expect(providerCommandPrefix(provider)).toMatch(/^[a-z][a-z-]*$/);
+  });
+
+  it("derives the prefix from the provider's own name", () => {
+    expect(providerCommandPrefix(ProviderDriverKind.make("claudeAgent"))).toBe("claude");
+    expect(providerCommandPrefix(ProviderDriverKind.make("opencodeGo"))).toBe("opencode-go");
   });
 });

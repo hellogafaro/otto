@@ -25,11 +25,77 @@ import {
 import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { BotAvatarView } from "./bot-avatar-view";
-import { GroupMemberChecklist, groupCandidates } from "./group-member-checklist";
+import {
+  type GroupCandidate,
+  GroupMemberChecklist,
+  groupCandidates,
+} from "./group-member-checklist";
 import { GroupMemberStack } from "./group-member-stack";
 import { PersonAvatar } from "./person-avatar";
 import { groupBotMembers, groupContainsBot, groupPersonMembers } from "./roster.logic";
 import type { Bot, Group } from "./types";
+
+/**
+ * Otto: The people and bots not yet in a group, and the call that adds one. The details panel's
+ * Add members and the composer's /invite both use it; any member may add.
+ */
+export function useGroupInvites(
+  environmentId: EnvironmentId,
+  group: Group | undefined,
+  bots: readonly Bot[],
+) {
+  const { t } = useI18n();
+
+  const assignMember = useAtomCommand(botEnvironment.groups.assignMember, {
+    reportFailure: false,
+  });
+
+  const assignPerson = useAtomCommand(botEnvironment.groups.assignPerson, {
+    reportFailure: false,
+  });
+
+  const directory = useAtomValue(environmentPeopleAtom(environmentId)).directory;
+  const people = group ? groupPersonMembers(group) : [];
+
+  const addable = group
+    ? groupCandidates(
+        bots.filter((bot) => bot.archivedAt === null && !groupContainsBot(group, bot.id)),
+        directory.filter((person) => !people.some((member) => member.personId === person.personId)),
+      )
+    : [];
+
+  const add = async (candidate: GroupCandidate) => {
+    if (!group) return false;
+    const groupId = GroupId.make(group.id);
+
+    const result = await (candidate.kind === "bot"
+      ? assignMember({
+          environmentId,
+          input: { groupId, botId: BotId.make(candidate.bot.id), role: "specialist" },
+        })
+      : assignPerson({
+          environmentId,
+          input: {
+            groupId,
+            person: {
+              kind: "person",
+              personId: AuthSessionId.make(candidate.person.personId),
+              displayName: candidate.person.displayName,
+            },
+          },
+        }));
+
+    if (Predicate.isTagged(result, "Failure")) {
+      toast.error(t("{name} couldn't be added", { name: candidate.name }));
+
+      return false;
+    }
+
+    return true;
+  };
+
+  return { addable, add };
+}
 
 export function GroupEditor({
   environmentId,
@@ -58,19 +124,11 @@ export function GroupEditor({
     reportFailure: false,
   });
 
-  const assignMember = useAtomCommand(botEnvironment.groups.assignMember, {
-    reportFailure: false,
-  });
-
   const unassignMember = useAtomCommand(botEnvironment.groups.unassignMember, {
     reportFailure: false,
   });
 
   const setBoss = useAtomCommand(botEnvironment.groups.setBoss, {
-    reportFailure: false,
-  });
-
-  const assignPerson = useAtomCommand(botEnvironment.groups.assignPerson, {
     reportFailure: false,
   });
 
@@ -95,12 +153,7 @@ export function GroupEditor({
   const canRemovePeople =
     people[0]?.personId === currentPersonId || canManageChannels(session.data);
 
-  const addable = groupCandidates(
-    activeBots.filter((bot) => !groupContainsBot(group, bot.id)),
-    peopleIdentity.directory.filter(
-      (person) => !people.some((member) => member.personId === person.personId),
-    ),
-  );
+  const { addable, add } = useGroupInvites(environmentId, group, bots);
 
   useEffect(() => setName(group.name), [group.name]);
 
@@ -121,29 +174,13 @@ export function GroupEditor({
   const groupId = GroupId.make(group.id);
 
   const addMembers = async () => {
+    setBusy(true);
+
     for (const candidate of addable.filter(({ key }) => toAdd.includes(key))) {
-      await run(
-        () =>
-          candidate.kind === "bot"
-            ? assignMember({
-                environmentId,
-                input: { groupId, botId: BotId.make(candidate.bot.id), role: "specialist" },
-              })
-            : assignPerson({
-                environmentId,
-                input: {
-                  groupId,
-                  person: {
-                    kind: "person",
-                    personId: AuthSessionId.make(candidate.person.personId),
-                    displayName: candidate.person.displayName,
-                  },
-                },
-              }),
-        t("{name} couldn't be added", { name: candidate.name }),
-      );
+      await add(candidate);
     }
 
+    setBusy(false);
     setAdding(false);
   };
 

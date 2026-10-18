@@ -64,7 +64,13 @@ describe("bot prompt composer", () => {
 
   it("opens the $ and / pickers when no provider catalog is connected", () => {
     const open = (draft: string, commandCatalog: null | undefined, readOnly = false) =>
-      botPromptCommandMenuTrigger({ draft, caret: draft.length, readOnly, commandCatalog })?.kind;
+      botPromptCommandMenuTrigger({
+        draft,
+        caret: draft.length,
+        readOnly,
+        commandCatalog,
+        canInvite: false,
+      })?.kind;
 
     expect(open("$", null)).toBe("skill");
     expect(open("hi $", null)).toBe("skill");
@@ -72,6 +78,20 @@ describe("bot prompt composer", () => {
     // Onboarding previews omit the catalog and read-only chats never type.
     expect(open("$", undefined)).toBeUndefined();
     expect(open("/", null, true)).toBeUndefined();
+  });
+
+  it("opens the /invite picker only where the chat can invite", () => {
+    const open = (canInvite: boolean) =>
+      botPromptCommandMenuTrigger({
+        draft: "/invite @an",
+        caret: 11,
+        readOnly: false,
+        commandCatalog: null,
+        canInvite,
+      });
+
+    expect(open(true)).toEqual({ kind: "invite", query: "an", rangeStart: 0, rangeEnd: 11 });
+    expect(open(false)).toBeNull();
   });
 
   it("expands for long or multiline prompts", () => {

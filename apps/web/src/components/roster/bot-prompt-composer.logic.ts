@@ -112,16 +112,19 @@ export function restoreBotStashPrompt(currentPrompt: string, stashedPrompt: stri
 }
 
 /**
- * The `$` or `/` token the command picker opens for. A null catalog still opens it so
- * the picker can say a provider is missing; only an omitted catalog turns it off.
+ * The `$`, `/` or `/invite` token the command picker opens for. A null catalog still opens it so
+ * the picker can say a provider is missing; only an omitted catalog turns it off. `/invite` names
+ * only open the picker where the chat can invite; elsewhere `@` stays a mention.
  */
 export function botPromptCommandMenuTrigger(input: {
   readonly draft: string;
   readonly caret: number | null;
   readonly readOnly: boolean;
   readonly commandCatalog: ComposerProviderCatalog | null | undefined;
+  readonly canInvite: boolean;
 }) {
   if (input.readOnly || input.commandCatalog === undefined || input.caret === null) return null;
+  const trigger = botPromptCommandTrigger(input.draft, input.caret);
 
-  return botPromptCommandTrigger(input.draft, input.caret);
+  return trigger?.kind === "invite" && !input.canInvite ? null : trigger;
 }
