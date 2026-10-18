@@ -61,7 +61,7 @@ export function createBrowserDictationSession(
             maxBytes: limits.maxAudioBytes,
             segmentMs: DICTATION_SEGMENT_MS,
             onSegment: (blob) => {
-              void pieceOf(blob, performance.now()).then(onSegment, onError);
+              void pieceOf(blob, performance.now()).then((piece) => onSegment?.(piece), onError);
             },
           },
           deps && onStream

@@ -330,8 +330,8 @@ describe("isolated dictation lifecycle", () => {
     h.transcribe.mockImplementation(() => pending.shift()!.promise);
     await h.session.start(h.draft);
     const input = h.capture.mock.calls[0]![0];
-    input.onSegment({ bytes: new Uint8Array([1]), mediaType: "audio/webm", durationMs: 5 });
-    input.onSegment({ bytes: new Uint8Array([2]), mediaType: "audio/webm", durationMs: 5 });
+    input.onSegment!({ bytes: new Uint8Array([1]), mediaType: "audio/webm", durationMs: 5 });
+    input.onSegment!({ bytes: new Uint8Array([2]), mediaType: "audio/webm", durationMs: 5 });
     expect(h.transcribe).toHaveBeenCalledTimes(2);
     expect(h.session.status).toBe("recording");
     const finish = h.session.finish();
@@ -355,7 +355,7 @@ describe("isolated dictation lifecycle", () => {
     const failing = deferred<string>();
     h.transcribe.mockImplementationOnce(() => failing.promise);
     await h.session.start(h.draft);
-    h.capture.mock.calls[0]![0].onSegment(h.audio);
+    h.capture.mock.calls[0]![0].onSegment!(h.audio);
     failing.reject(new Error("network"));
     await h.session.finish();
     expect(h.session.status).toBe("error");

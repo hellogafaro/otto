@@ -45,8 +45,9 @@ export interface DictationDependencies {
     /**
      * A finished piece of a long recording, in order. A capture may cut a long recording into
      * pieces so each one transcribes while the person keeps talking; stop() returns the last one.
+     * A capture that records one file, as on mobile, never calls it.
      */
-    onSegment(audio: DictationAudio): void;
+    onSegment?(audio: DictationAudio): void;
   }): Promise<DictationCapture>;
   /** Inject a real transcription implementation; this module supplies no provider or transport. */
   transcribe(input: {
