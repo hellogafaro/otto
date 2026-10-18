@@ -67,7 +67,12 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
       type="task"
       back={back}
       actions={
-        <WorkMoreActions status={task.status} onStatusChange={(status) => update({ status })} />
+        <WorkMoreActions
+          path={`/tasks/${task.id}`}
+          id={task.id}
+          status={task.status}
+          onStatusChange={(status) => update({ status })}
+        />
       }
       title={task.title}
       onTitleSave={(title) => update({ title })}

@@ -69,6 +69,8 @@ import { useRosterStore } from "./roster-store";
 import { useGroupThreadRuntime } from "./use-group-thread-runtime";
 import { ChatActionsMenu, useMarkChatVisited } from "../chat/chat-actions-menu";
 import { WatchComputerButton } from "./watch-computer-button";
+import { ArchivedChatBar } from "./archived-chat-bar";
+import { useChatShell } from "../../lib/archived-threads-state";
 import { useBotEngineAvailability } from "./use-bot-engine-availability";
 import { buildBotTurnTraces } from "./bot-turn-trace.logic";
 import { useLocalDay } from "./use-local-day";
@@ -126,6 +128,7 @@ export function GroupThreadLanding({
   const rosterLoadState = useRosterLoadState();
   const bots = useRosterStore((state) => state.bots);
   const runtime = useGroupThreadRuntime(groupId, threadRef);
+  const archived = useChatShell(threadRef).shell?.archivedAt != null;
   useMarkChatVisited(runtime.linkedThreadRef);
   const [detailsPanelOpen] = useChatDetailsOpen();
 
@@ -382,6 +385,7 @@ export function GroupThreadLanding({
 
   const chatReply = {
     disabled:
+      archived ||
       runtime.sending ||
       runtime.latestTurn?.state === "running" ||
       runtime.pendingUserInputs.length > 0 ||
@@ -572,7 +576,9 @@ export function GroupThreadLanding({
                 error={inlineError}
                 context={failureContext}
                 environmentId={environmentId}
-                {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
+                {...(runtime.canResume && !archived
+                  ? { onResume: () => void runtime.resume() }
+                  : {})}
                 resuming={runtime.resuming}
               />
             ) : !working && runtime.turnFailure && messages.at(-1)?.role === "user" ? (
@@ -589,95 +595,103 @@ export function GroupThreadLanding({
             ) : null}
           </BotConversationScrollArea>
           <ThreadRuntimeWarningBanner warning={runtimeWarning} />
-          {connectNeeded && connect ? (
-            <ProviderConnectCard
-              id={noProviderNoticeId}
-              environmentId={environmentId}
-              provider={connect.provider}
-              botName={connect.botName}
-              className="mt-2"
-            />
-          ) : null}
-          <BotPromptComposer
-            typeToFocus={!waitingForUserInput}
-            mentionScope={mentionScope}
-            commandCatalog={composerCatalog}
-            onAddressedBotChange={setAddressedBotId}
-            botName={group.name}
-            draftKey={`group:${group.id}`}
-            busy={working && !waitingForApproval}
-            pendingActionSlot={
-              waitingForUserInput ? (
-                <BotUserInputPrompt
-                  pendingUserInputs={runtime.pendingUserInputs}
-                  respondingRequestIds={runtime.respondingRequestIds}
-                  answers={runtime.pendingUserInputAnswers}
-                  step={runtime.pendingUserInputStep}
-                  onStepChange={runtime.setPendingUserInputStep}
-                  onSelectOption={runtime.selectPendingUserInputOption}
-                  onAnswerWithText={(text) => {
-                    void runtime.answerPendingUserInputWithText(text);
-                  }}
-                  onSubmit={() => {
-                    void runtime.submitPendingUserInputAnswers();
-                  }}
+          {archived ? (
+            <ArchivedChatBar threadRef={threadRef} />
+          ) : (
+            <>
+              {connectNeeded && connect ? (
+                <ProviderConnectCard
+                  id={noProviderNoticeId}
+                  environmentId={environmentId}
+                  provider={connect.provider}
+                  botName={connect.botName}
+                  className="mt-2"
                 />
-              ) : memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
-                <MemoryApprovalPrompt
-                  threadRef={runtime.linkedThreadRef}
-                  approvals={memoryApprovals}
+              ) : null}
+              <BotPromptComposer
+                typeToFocus={!waitingForUserInput}
+                mentionScope={mentionScope}
+                commandCatalog={composerCatalog}
+                onAddressedBotChange={setAddressedBotId}
+                botName={group.name}
+                draftKey={`group:${group.id}`}
+                busy={working && !waitingForApproval}
+                pendingActionSlot={
+                  waitingForUserInput ? (
+                    <BotUserInputPrompt
+                      pendingUserInputs={runtime.pendingUserInputs}
+                      respondingRequestIds={runtime.respondingRequestIds}
+                      answers={runtime.pendingUserInputAnswers}
+                      step={runtime.pendingUserInputStep}
+                      onStepChange={runtime.setPendingUserInputStep}
+                      onSelectOption={runtime.selectPendingUserInputOption}
+                      onAnswerWithText={(text) => {
+                        void runtime.answerPendingUserInputWithText(text);
+                      }}
+                      onSubmit={() => {
+                        void runtime.submitPendingUserInputAnswers();
+                      }}
+                    />
+                  ) : memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
+                    <MemoryApprovalPrompt
+                      threadRef={runtime.linkedThreadRef}
+                      approvals={memoryApprovals}
+                    />
+                  ) : null
+                }
+                quietSurface={pendingUserInput !== null}
+                {...(waitingForUserInput ? { placeholder: t("Write a custom answer…") } : {})}
+                disabled={
+                  runtime.respondingRequestIds.length > 0 ||
+                  !runtime.groupReady ||
+                  runtime.project === null ||
+                  (!waitingForUserInput && needsProvider && !runtime.providerAvailable)
+                }
+                mentionEveryone
+                mentionPeople={mentionPeople}
+                mentionBots={members.map((bot) => ({
+                  id: bot.id,
+                  name: bot.name,
+                  title: bot.title,
+                  canTakeWork: botEngineTakesDelegatedWork(
+                    bot.engine,
+                    respondingEngine.instanceEntries,
+                  ),
+                }))}
+                replyPreview={replyTarget}
+                onCancelReply={() => setReplyTarget(null)}
+                sendBlockedDescriptionId={
+                  runtime.providerAvailable || waitingForUserInput || !needsProvider
+                    ? undefined
+                    : noProviderNoticeId
+                }
+                onSubmit={async (prompt, files, respondingBotId) => {
+                  const sent = await runtime.send(
+                    buildReplyPrompt(replyTarget, prompt),
+                    files,
+                    respondingBotId,
+                  );
+
+                  if (sent) setReplyTarget(null);
+
+                  return sent;
+                }}
+              />
+              {needsProvider && !runtime.providerAvailable && !connectNeeded ? (
+                <ProviderUnavailableLine
+                  id={noProviderNoticeId}
+                  presentation={{
+                    title: t("No provider is ready for this group"),
+                    description: t(
+                      "Connect a provider in Settings > Models so this group can reply.",
+                    ),
+                    action: "providers",
+                  }}
+                  environmentId={environmentId}
                 />
-              ) : null
-            }
-            quietSurface={pendingUserInput !== null}
-            {...(waitingForUserInput ? { placeholder: t("Write a custom answer…") } : {})}
-            disabled={
-              runtime.respondingRequestIds.length > 0 ||
-              !runtime.groupReady ||
-              runtime.project === null ||
-              (!waitingForUserInput && needsProvider && !runtime.providerAvailable)
-            }
-            mentionEveryone
-            mentionPeople={mentionPeople}
-            mentionBots={members.map((bot) => ({
-              id: bot.id,
-              name: bot.name,
-              title: bot.title,
-              canTakeWork: botEngineTakesDelegatedWork(
-                bot.engine,
-                respondingEngine.instanceEntries,
-              ),
-            }))}
-            replyPreview={replyTarget}
-            onCancelReply={() => setReplyTarget(null)}
-            sendBlockedDescriptionId={
-              runtime.providerAvailable || waitingForUserInput || !needsProvider
-                ? undefined
-                : noProviderNoticeId
-            }
-            onSubmit={async (prompt, files, respondingBotId) => {
-              const sent = await runtime.send(
-                buildReplyPrompt(replyTarget, prompt),
-                files,
-                respondingBotId,
-              );
-
-              if (sent) setReplyTarget(null);
-
-              return sent;
-            }}
-          />
-          {needsProvider && !runtime.providerAvailable && !connectNeeded ? (
-            <ProviderUnavailableLine
-              id={noProviderNoticeId}
-              presentation={{
-                title: t("No provider is ready for this group"),
-                description: t("Connect a provider in Settings > Models so this group can reply."),
-                action: "providers",
-              }}
-              environmentId={environmentId}
-            />
-          ) : null}
+              ) : null}
+            </>
+          )}
         </div>
       </SidebarInset>
     </ChatReplyContext>

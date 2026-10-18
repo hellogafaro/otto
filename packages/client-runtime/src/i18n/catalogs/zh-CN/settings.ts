@@ -76,8 +76,7 @@ export const settingsCatalog = {
   Updates: "更新",
   "Update channel": "更新通道",
   "Update channel couldn't be changed": "无法更改更新通道",
-  "Beta installs a new build after every change, before it reaches Stable.":
-    "测试版会在每次更改后安装新构建，早于稳定版。",
+  "Beta gets new builds before they reach Stable.": "测试版会先于稳定版获得新版本。",
   Stable: "稳定版",
   Beta: "测试版",
   "Privacy and data": "隐私与数据",

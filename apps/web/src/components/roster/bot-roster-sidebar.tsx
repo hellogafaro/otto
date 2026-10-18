@@ -8,13 +8,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { useI18n } from "../../i18n";
-import { resolveShortcutCommand } from "../../keybindings";
+import {
+  resolveShortcutCommand,
+  shortcutLabelForCommand,
+  threadJumpCommandForIndex,
+} from "../../keybindings";
 import { isPreviewFocused } from "../../lib/preview-focus";
 import { isModelPickerOpen } from "../../model-picker-visibility";
 import { selectActiveRightPanel, useRightPanelStore } from "../../right-panel-store";
 import { botEnvironment } from "../../state/bots";
 import { useThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { useShortcutHintsVisible } from "../../shortcut-hints";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SidebarChromeFooter, SidebarStatusStack } from "../sidebar/sidebar-chrome";
@@ -214,6 +219,21 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     () => orderRosterBotsForShortcuts(bots, pinnedItems, []),
     [bots, pinnedItems],
   );
+
+  const shortcutHintsVisible = useShortcutHintsVisible();
+
+  const shortcutLabelByBotId = useMemo(() => {
+    if (!shortcutHintsVisible) return new Map<string, string>();
+
+    return new Map(
+      shortcutBots.flatMap((bot, index) => {
+        const command = threadJumpCommandForIndex(index);
+        const label = command ? shortcutLabelForCommand(keybindings, command) : null;
+
+        return label ? [[bot.id, label] as const] : [];
+      }),
+    );
+  }, [keybindings, shortcutBots, shortcutHintsVisible]);
 
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
@@ -490,6 +510,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               canMoveDown={canMoveDown}
                               onNudge={nudgeRosterItem}
                               onArchive={setArchivingBot}
+                              shortcutLabel={shortcutLabelByBotId.get(bot.id) ?? null}
                             />
                           );
                         }),

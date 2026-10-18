@@ -20,6 +20,7 @@ import {
   requireBotNotArchived,
   requireGroup,
   requireThread,
+  requireThreadNotArchived,
 } from "../command-invariants.ts";
 import {
   withEventBase,
@@ -91,7 +92,8 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
 > {
   switch (command.type) {
     case "thread.turn.start": {
-      const targetThread = yield* requireThread({
+      // An archived chat stays readable, but a stale client or queued send cannot add to it.
+      const targetThread = yield* requireThreadNotArchived({
         readModel,
         command,
         threadId: command.threadId,

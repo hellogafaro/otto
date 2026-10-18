@@ -126,6 +126,7 @@ export const commonLabelsCatalog = {
   Remove: "移除",
   OK: "好",
   "Copy ID": "复制 ID",
+  "Copy link": "复制链接",
   "Could not dictate": "无法听写",
   "Cancel reply": "取消回复",
   "Dictation unavailable": "听写不可用",
