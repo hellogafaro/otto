@@ -8,6 +8,10 @@ import type { CommandPaletteGroup } from "./command-palette.logic";
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 
+vi.mock("../state/queries", () => ({
+  useThreadSearch: () => ({ matches: [], isPending: false }),
+}));
+
 vi.mock("../hooks/use-theme", () => ({
   useTheme: () => ({ resolvedTheme: "dark", setAppearanceMode: () => undefined }),
 }));
@@ -63,7 +67,7 @@ describe("command palette in Simplified Chinese", () => {
 
     for (const text of [
       'aria-label="命令面板"',
-      'placeholder="搜索命令和聊天..."',
+      'placeholder="搜索聊天、任务、文件等..."',
       "切换到浅色模式",
       "打开自定义",
       "打开用量",

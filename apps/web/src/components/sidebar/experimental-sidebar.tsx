@@ -2,8 +2,8 @@ import {
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
-  RiHome5Line,
   RiInbox2Line,
+  RiSearchLine,
   RiTimeLine,
   RiListCheck3,
   type RemixiconComponentType,
@@ -12,6 +12,7 @@ import type { KeybindingCommand } from "@otto/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 
+import { openCommandPalette } from "../../command-palette-bus";
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { useChangedSinceMount } from "../../hooks/use-changed-since-mount";
@@ -147,25 +148,35 @@ export function ExperimentalSidebar() {
         {/* The first icon centers on the panel title row. */}
         <div className={cn("h-topbar-spacer w-full shrink-0", isElectron && "drag-region")} />
         <div className="flex flex-col items-center gap-1">
-          {/* Otto: The Otto mark is the rail's first button, a ghost button like the rest, and a second way home. */}
-          <button
-            type="button"
-            aria-label="Otto"
-            onClick={() => {
-              if (!onHome) void navigate({ to: "/" });
-            }}
-            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
-          >
-            <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
-          </button>
+          {/* Otto: The Otto mark is the rail's first button and the way home, a ghost button like the rest. */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={t("Home")}
+                  aria-current={onHome || undefined}
+                  onClick={() => {
+                    if (!onHome) void navigate({ to: "/" });
+                  }}
+                  className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
+                >
+                  <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
+                </button>
+              }
+            />
+            <TooltipPopup side="right">
+              <span className="flex items-center gap-2">
+                {t("Home")}
+                <ShortcutKbd command="navigation.home" variant="inline" />
+              </span>
+            </TooltipPopup>
+          </Tooltip>
           <RailButton
-            label={t("Home")}
-            icon={RiHome5Line}
-            shortcut="navigation.home"
-            active={onHome}
-            onClick={() => {
-              if (!onHome) void navigate({ to: "/" });
-            }}
+            label={t("Search")}
+            icon={RiSearchLine}
+            shortcut="commandPalette.toggle"
+            onClick={openCommandPalette}
           />
           <RailButton
             label={

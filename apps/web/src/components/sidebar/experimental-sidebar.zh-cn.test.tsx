@@ -19,6 +19,8 @@ vi.mock("../../hooks/use-settings", async (importOriginal) => ({
 
 vi.mock("../../state/environments", () => ({ usePrimaryEnvironmentId: () => null }));
 
+vi.mock("../../keybindings", () => ({ shortcutLabelForCommand: () => "Ctrl+K" }));
+
 vi.mock("../../state/query", () => ({ useEnvironmentQuery: () => ({ data: null }) }));
 
 vi.mock("../../state/shell", () => ({ environmentSnapshotAtom: () => null }));
@@ -51,6 +53,7 @@ describe("experimental sidebar in Simplified Chinese", () => {
     for (const label of [
       "主导航",
       "主页",
+      "搜索",
       "通知",
       "聊天",
       "例行任务",
