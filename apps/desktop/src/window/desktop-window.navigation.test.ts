@@ -67,7 +67,13 @@ describe("DesktopWindow", () => {
         assert.equal(fakeWindow.reload.mock.calls.length, 0);
 
         didFailLoad({}, -9, "ERR_UNEXPECTED", "otto-dev://app/", true);
+        // The native window follows the renderer instead of resetting to the app name.
+        assert.isFalse(fakeWindow.windowListeners.has("page-title-updated"));
         didFinishLoad();
+        assert.equal(
+          vi.mocked(fakeWindow.window.setTitle).mock.calls.at(-1)?.[0],
+          "Tasks | Otto (Dev)",
+        );
         yield* TestClock.adjust(250);
         assert.equal(fakeWindow.loadURL.mock.calls.length, 2);
         assert.equal(fakeWindow.reload.mock.calls.length, 0);

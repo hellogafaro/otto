@@ -69,6 +69,7 @@ export function makeFakeBrowserWindow() {
   const webContents = {
     copyImageAt: vi.fn(),
     getURL: vi.fn(() => "otto-dev://app/"),
+    getTitle: vi.fn(() => "Tasks | Otto (Dev)"),
     getZoomLevel: vi.fn(() => zoomLevel),
     setZoomLevel: vi.fn((level: number) => {
       zoomLevel = level;

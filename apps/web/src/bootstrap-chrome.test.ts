@@ -7,7 +7,7 @@ import manifestJson from "../public/manifest.webmanifest?raw";
 // lives in index.html instead of branding.ts and needs its own check.
 describe("bootstrap chrome", () => {
   it("brands the static bootstrap shell as Otto", () => {
-    expect(bootstrapHtml).toContain("<title>Otto (Alpha)</title>");
+    expect(bootstrapHtml).toContain("<title>Otto</title>");
     expect(bootstrapHtml).toContain('aria-label="Otto splash screen"');
     expect(bootstrapHtml).toContain('alt="Otto"');
     expect(bootstrapHtml).not.toContain("Otto Legacy");

@@ -21,7 +21,7 @@ const devBundleIdSuffix = NodePath.basename(repoRoot)
   .toLowerCase()
   .replaceAll(/[^a-z0-9]+/g, "");
 
-export const APP_DISPLAY_NAME = isDevelopment ? "Otto (Dev)" : "Otto (Alpha)";
+export const APP_DISPLAY_NAME = isDevelopment ? "Otto (Dev)" : "Otto";
 
 export const APP_BUNDLE_ID = isDevelopment
   ? `studio.hellogafaro.otto.dev.${devBundleIdSuffix || "local"}`

@@ -114,14 +114,8 @@ describe("install-macos.sh", () => {
       script,
       /^osascript - "\$prepared_app" "\$new_app" "\$old_app" "\$app" <<'APPLESCRIPT'$/m,
     );
-    NodeAssert.match(
-      script,
-      /new_app="\/Applications\/\.Otto \(Alpha\)\.app\.installing\.\$install_id"/,
-    );
-    NodeAssert.match(
-      script,
-      /old_app="\/Applications\/\.Otto \(Alpha\)\.app\.backup\.\$install_id"/,
-    );
+    NodeAssert.match(script, /new_app="\/Applications\/\.Otto\.app\.installing\.\$install_id"/);
+    NodeAssert.match(script, /old_app="\/Applications\/\.Otto\.app\.backup\.\$install_id"/);
     NodeAssert.match(script, /mv " & installedApp & " " & oldApp/);
     NodeAssert.match(script, /mv " & newApp & " " & installedApp/);
     NodeAssert.match(script, /mv " & oldApp & " " & installedApp/);
