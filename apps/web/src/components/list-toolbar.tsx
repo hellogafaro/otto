@@ -76,15 +76,17 @@ function TopBarMenu({
   label,
   icon,
   align = "end",
+  filterable = true,
   children,
 }: {
   readonly label: string;
   readonly icon: ReactNode;
   readonly align?: "start" | "end";
+  readonly filterable?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <Menu>
+    <Menu filterable={filterable}>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -125,12 +127,16 @@ export function ListFilterMenu({ filters }: { readonly filters: readonly ListFil
   );
 }
 
-/** Otto: The top bar's Sort action: Sort by, then the order. */
+/** Otto: The top bar's Sort action: Sort by, then the order; too short to filter or number. */
 export function ListSortMenu<Sort extends string>({ sort }: { readonly sort: ListSort<Sort> }) {
   const { t } = useI18n();
 
   return (
-    <TopBarMenu label={t("Sort")} icon={<RiArrowUpDownLine aria-hidden className="size-4" />}>
+    <TopBarMenu
+      label={t("Sort")}
+      icon={<RiArrowUpDownLine aria-hidden className="size-4" />}
+      filterable={false}
+    >
       <MenuGroup>
         <MenuGroupLabel>{t("Sort by")}</MenuGroupLabel>
         <MenuRadioGroup
