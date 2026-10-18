@@ -184,6 +184,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "device-notifications",
+    title: "Notifications on this device",
+    to: "/settings/general",
+    keywords: ["notifications", "alerts", "push", "browser", "desktop", "permission"],
+  },
+  {
     id: "update-channel",
     title: "Updates",
     to: "/settings/general",

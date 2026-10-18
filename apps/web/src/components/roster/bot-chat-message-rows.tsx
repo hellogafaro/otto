@@ -17,6 +17,7 @@ import {
   reactionOptionFromEmoji,
   selectedReactionForPerson,
 } from "../chat/message-controls";
+import { FoldedMessage } from "../chat/folded-message";
 import { MessageReactions } from "../chat/message-reactions";
 import { PluginSearchResultCard } from "../chat/plugin-search-result-card";
 import { SentMessageText } from "../chat/sent-message-text";
@@ -348,13 +349,13 @@ export const UserMessageRow = memo(function UserMessageRow({
           {/* Otto: Someone else's message is an outlined bubble, so a glance tells it from your
               filled one on the right and from a bot's plain reply. */}
           {message.text ? (
-            <div className="mt-0.5 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
+            <FoldedMessage className="mt-0.5 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
               <SentMessageText
                 text={message.text}
                 skills={skills}
                 replySourceMessageId={replySourceMessageId}
               />
-            </div>
+            </FoldedMessage>
           ) : null}
           {/* Otto: Attachments sit under the bubble as cards, like Capy. */}
           {message.attachments?.length ? (
@@ -422,11 +423,13 @@ export const UserMessageRow = memo(function UserMessageRow({
               </div>
             ) : null}
             {message.text ? (
-              <SentMessageText
-                text={message.text}
-                skills={skills}
-                replySourceMessageId={replySourceMessageId}
-              />
+              <FoldedMessage>
+                <SentMessageText
+                  text={message.text}
+                  skills={skills}
+                  replySourceMessageId={replySourceMessageId}
+                />
+              </FoldedMessage>
             ) : null}
           </div>
         ) : null}

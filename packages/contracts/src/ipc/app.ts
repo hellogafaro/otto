@@ -96,6 +96,15 @@ export const DesktopAppBrandingSchema = Schema.Struct({
   isPackaged: Schema.Boolean,
 });
 
+/** Otto: An OS notification the desktop app shows for the web app; a click reports its id back. */
+export const DesktopNotificationSchema = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  body: Schema.String,
+});
+
+export type DesktopNotification = typeof DesktopNotificationSchema.Type;
+
 export interface DesktopRuntimeInfo {
   hostArch: DesktopRuntimeArch;
   appArch: DesktopRuntimeArch;

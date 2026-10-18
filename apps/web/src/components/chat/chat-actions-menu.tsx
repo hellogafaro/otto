@@ -25,8 +25,9 @@ import { registerChatPaletteActions } from "../../chat-actions-registry";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useNowMinute } from "../../hooks/use-now-minute";
 import { useI18n } from "../../i18n";
-import { resolveShortcutCommand } from "../../keybindings";
+import { resolveShortcutCommand, shortcutLabelForCommand } from "../../keybindings";
 import { isModelPickerOpen } from "../../model-picker-visibility";
+import { useShortcutHintsVisible } from "../../shortcut-hints";
 import {
   readEnvironmentSupportsPinning,
   readEnvironmentSupportsSettlement,
@@ -36,6 +37,7 @@ import {
 } from "../../state/entities";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useUiStateStore } from "../../ui-state-store";
+import { CopyMenuItems } from "../copy-menu-items";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import {
@@ -52,6 +54,7 @@ import {
   MenuItem,
   MenuPopup,
   MenuSeparator,
+  MenuShortcut,
   MenuSub,
   MenuSubPopup,
   MenuSubTrigger,
@@ -67,7 +70,7 @@ import {
 
 /**
  * The open chat's state and its menu in the chat header: rename, regenerate
- * the title, pin, mark unread, settle, snooze, archive, and delete. The same
+ * the title, pin, mark unread, settle, snooze, copy link and ID, archive, and delete. The same
  * actions are published to the command palette, and `chat.new` and
  * `thread.settle` shortcuts run here while the chat is open.
  */
@@ -85,6 +88,7 @@ export function ChatActionsMenu({
   const nowMinute = useNowMinute();
   const now = `${nowMinute}:00.000Z`;
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const shortcutHintsVisible = useShortcutHintsVisible();
 
   const lastVisitedAt = useUiStateStore((state) =>
     threadRef ? state.threadLastVisitedAtById[scopedThreadKey(threadRef)] : undefined,
@@ -194,6 +198,10 @@ export function ChatActionsMenu({
 
   const snoozePresets = resolveSnoozePresets(new Date());
 
+  const settleShortcut = shortcutHintsVisible
+    ? shortcutLabelForCommand(keybindings, "thread.settle")
+    : null;
+
   const snoozedUntilLabel = state.snoozedUntil
     ? formatDate(new Date(state.snoozedUntil), {
         weekday: "short",
@@ -298,6 +306,7 @@ export function ChatActionsMenu({
               <MenuItem disabled={!state.canSettle} onClick={() => void actions.settle(threadRef)}>
                 <RiCheckDoubleLine />
                 {t("Settle chat")}
+                {settleShortcut ? <MenuShortcut>{settleShortcut}</MenuShortcut> : null}
               </MenuItem>
             )
           ) : null}
@@ -327,6 +336,8 @@ export function ChatActionsMenu({
               </MenuSub>
             )
           ) : null}
+          <MenuSeparator />
+          <CopyMenuItems path={`/chats/${threadRef.threadId}`} id={threadRef.threadId} />
           <MenuSeparator />
           <MenuItem disabled={!state.canArchive} onClick={() => void actions.archive(threadRef)}>
             <RiArchiveLine />

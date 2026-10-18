@@ -11,6 +11,7 @@ import type { ApprovalRecord } from "../../session-logic";
 import { ComposerPendingApprovalActions } from "../chat/composer-pending-approval-actions";
 import {
   ComposerPendingApprovalPanel,
+  proposedInstructions,
   routineProposalDetails,
   skillProposalDetails,
 } from "../chat/composer-pending-approval-panel";
@@ -26,7 +27,8 @@ type Translate = ReturnType<typeof useI18n>["t"];
 const isProposal = (approval: ApprovalRecord) =>
   approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME ||
   approval.toolName === "skill_create" ||
-  approval.toolName === "skill_update";
+  approval.toolName === "skill_update" ||
+  proposedInstructions(approval) !== null;
 
 const argsCommand = (approval: ApprovalRecord) =>
   Predicate.isObject(approval.args) && Predicate.isString(approval.args.command)
@@ -39,6 +41,8 @@ function approvalHeading(approval: ApprovalRecord, delegateTo: string | null, t:
   if (approval.toolName === "skill_create" || approval.toolName === "skill_update") {
     return t("Review skill");
   }
+
+  if (proposedInstructions(approval) !== null) return t("Review instructions");
 
   if (approval.toolName === "delegate") {
     return delegateTo
@@ -73,6 +77,10 @@ function approvalSubject(approval: ApprovalRecord, delegateTo: string | null) {
   if (approval.toolName === "skill_create" || approval.toolName === "skill_update") {
     return skillProposalDetails(approval.args).name || null;
   }
+
+  const instructions = proposedInstructions(approval);
+
+  if (instructions !== null) return instructions.trim().split("\n", 1)[0] || null;
 
   return argsCommand(approval) ?? approval.toolName ?? null;
 }
@@ -229,6 +237,7 @@ export function InlineApproval({
               requestId={approval.requestId}
               requestKind={approval.requestKind}
               toolName={approval.toolName}
+              proposal={isProposal(approval)}
               isResponding={response.responding}
               options={options}
               shortcuts={shortcuts}

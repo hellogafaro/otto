@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 type Item = { disabled?: boolean; onClick?: () => void; variant?: string };
 
 const mocks = vi.hoisted(() => ({
+  copied: [] as string[],
+  toasts: [] as string[],
   shell: null as ReturnType<typeof shell> | null,
   visited: {} as Record<string, string>,
   items: new Map<string, Item>(),
@@ -80,6 +82,25 @@ vi.mock("../ui/menu", () => ({
     mocks.items.set(textOf(props.children), props);
 
     return null;
+  },
+}));
+
+vi.mock("../../environments/primary/target", () => ({
+  readPrimaryEnvironmentTarget: () => ({ target: { httpBaseUrl: "https://otto.example.com/" } }),
+}));
+
+vi.mock("../../hooks/use-copy-to-clipboard", () => ({
+  writeTextToClipboard: async (value: string) => {
+    mocks.copied.push(value);
+
+    return true;
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: (message: string) => mocks.toasts.push(message),
+    error: (message: string) => mocks.toasts.push(message),
   },
 }));
 
@@ -172,6 +193,8 @@ describe("ChatActionsMenu", () => {
       "Pin chat",
       "Mark unread",
       "Settle chat",
+      "Copy link",
+      "Copy ID",
       "Archive chat",
       "Delete chat",
     ]);
@@ -219,6 +242,8 @@ describe("ChatActionsMenu", () => {
       "Mark unread",
       "Un-settle chat",
       "Wake chat",
+      "Copy link",
+      "Copy ID",
       "Archive chat",
       "Delete chat",
     ]);
@@ -230,6 +255,19 @@ describe("ChatActionsMenu", () => {
     expect(mocks.actions.unpin).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.unsettle).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.unsnooze).toHaveBeenCalledWith(threadRef);
+  });
+
+  it("copies the chat's full link and its ID", async () => {
+    mocks.copied = [];
+    mocks.toasts = [];
+    render();
+
+    click("Copy link");
+    click("Copy ID");
+    await vi.waitFor(() => expect(mocks.toasts).toHaveLength(2));
+
+    expect(mocks.copied).toEqual(["https://otto.example.com/chats/thread-1", "thread-1"]);
+    expect(mocks.toasts).toEqual(["Link has been copied", "ID has been copied"]);
   });
 
   it("labels a settled chat that is not snoozed", () => {

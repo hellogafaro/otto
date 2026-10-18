@@ -387,6 +387,10 @@ export const rosterCatalog = {
     "{name}'s computer starts when {name} works in this chat.",
   "Try again in a moment.": "Try again in a moment.",
   "Review skill": "Review skill",
+  "Review instructions": "Review instructions",
+  "Instructions approval": "Instructions approval",
+  "Replaces the bot's instructions for every chat.":
+    "Replaces the bot's instructions for every chat.",
   "Skill details": "Skill details",
   "Skill approval": "Skill approval",
   "A change to a skill": "A change to a skill",
