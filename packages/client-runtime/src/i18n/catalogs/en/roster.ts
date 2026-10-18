@@ -113,8 +113,6 @@ export const rosterCatalog = {
   "Could not start routine": "Could not start routine",
   Scheduled: "Scheduled",
   "Loading bot…": "Loading bot…",
-  "Paused. Fix the cause in Bot inbox, then resume it.":
-    "Paused. Fix the cause in Bot inbox, then resume it.",
   "Fix this in Plugins on the desktop or web app.":
     "Fix this in Plugins on the desktop or web app.",
   Routines: "Routines",

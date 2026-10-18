@@ -200,7 +200,7 @@ describe("routineStateNote", () => {
     expect(routineStateNote(item)).toBe(null);
   });
 
-  it("tells a user-paused routine apart from one Otto stopped", () => {
+  it("says how to resume a paused routine, including one an older Otto stopped", () => {
     expect(routineStateNote({ ...item, paused: true })).toBe("Paused until you resume it.");
 
     const blocked = toRoutinePanelItem(
@@ -210,8 +210,7 @@ describe("routineStateNote", () => {
       [],
     );
 
-    expect(blocked.pausedByOtto).toBe(true);
-    expect(routineStateNote(blocked)).toBe("Paused. Fix the cause in Bot inbox, then resume it.");
+    expect(routineStateNote(blocked)).toBe("Paused until you resume it.");
   });
 
   it("keeps a routine whose last run failed on its schedule", () => {

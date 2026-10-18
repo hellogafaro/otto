@@ -82,8 +82,6 @@ export interface RoutineAdapterItem {
   readonly procedureApproved: boolean;
   readonly enabled: boolean;
   readonly paused: boolean;
-  /** Paused by an earlier Otto after a blocked or failed run, not by the user. */
-  readonly pausedByOtto: boolean;
   readonly nextRunAt: string | null;
   readonly lastRunAt: string | null;
   readonly latestRun: RoutineAdapterRun | null;
@@ -215,8 +213,6 @@ export function toRoutinePanelItem(
       (routine.lifecycle === "paused" ||
         routine.lifecycle === "blocked" ||
         routine.lifecycle === "failed"),
-    pausedByOtto:
-      !routine.enabled && (routine.lifecycle === "blocked" || routine.lifecycle === "failed"),
     nextRunAt: routine.nextRunAt,
     lastRunAt: routine.lastRunAt,
     latestRun: history[0] ?? null,
@@ -352,13 +348,8 @@ export function routineStatus(routine: RoutineAdapterItem): RoutineStatusResult 
   return { label: "Draft", variant: "secondary" };
 }
 
-/**
- * Why a routine is not running on schedule, or null when it is. A routine Otto paused
- * points to the Bot inbox, where its cause is waiting.
- */
+/** Why a routine is not running on schedule, or null when it is. */
 export function routineStateNote(routine: RoutineAdapterItem): (MessageKey & string) | null {
-  if (routine.pausedByOtto) return "Paused. Fix the cause in Bot inbox, then resume it.";
-
   if (routine.paused) return "Paused until you resume it.";
 
   if (routine.enabled) return null;
