@@ -17,7 +17,7 @@ import { useEnvironmentSessionState } from "../../state/session";
 import { SidebarInset } from "../ui/sidebar";
 import { Spinner } from "../ui/spinner";
 import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../workspace-page-header";
-import { BotActivityStatus, useActivitySubjectName } from "./bot-activity-status";
+import { BotActivityStatus } from "./bot-activity-status";
 import { deriveBotActivity } from "./bot-activity-status.logic";
 import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
@@ -63,7 +63,7 @@ import { BotVoiceCallButton, useVoiceCall } from "../voice/voice-call";
 import { useMessageArrivals } from "./message-arrival";
 import { useRosterStore } from "./roster-store";
 import { useBotThreadRuntime } from "./use-bot-thread-runtime";
-import { buildBotTurnTraces } from "./bot-turn-trace.logic";
+import { buildBotTurnTraces, buildLiveTurnSteps } from "./bot-turn-trace.logic";
 import { resolveBotPresence } from "./roster.logic";
 import { useLocalDay } from "./use-local-day";
 import { useRosterApprovals } from "./use-roster-approvals";
@@ -193,7 +193,13 @@ export function BotThreadLanding({
     [activities, runtime.latestTurn],
   );
 
-  const activitySubjectName = useActivitySubjectName(environmentId ?? null, botActivity.subject);
+  const liveSteps = useMemo(() => {
+    const turn = runtime.latestTurn;
+
+    return turn?.state === "running"
+      ? buildLiveTurnSteps(activities, turn.turnId, turn.startedAt ?? turn.requestedAt)
+      : [];
+  }, [activities, runtime.latestTurn]);
 
   const runtimeWarning = useMemo(
     () => activeThreadRuntimeWarning(activities, runtime.latestTurn),
@@ -646,6 +652,7 @@ export function BotThreadLanding({
                 <BotActivityStatus
                   bot={bot}
                   activity={botActivity}
+                  steps={liveSteps}
                   startedAt={
                     // Otto: Right after a send the latest turn is still the finished one; its
                     // start would flash a stale time, so the timer waits for the new turn.
@@ -653,7 +660,7 @@ export function BotThreadLanding({
                       ? (runtime.latestTurn.startedAt ?? runtime.latestTurn.requestedAt ?? null)
                       : null
                   }
-                  subjectName={activitySubjectName}
+                  environmentId={environmentId ?? null}
                   continuesReply={messages.at(-1)?.role === "assistant"}
                 />
               ) : null}

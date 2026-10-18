@@ -7,7 +7,7 @@ import {
 } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildBotTurnTraces } from "./bot-turn-trace.logic";
+import { buildBotTurnTraces, buildLiveTurnSteps } from "./bot-turn-trace.logic";
 
 const TURN = TurnId.make("turn-1");
 
@@ -128,5 +128,41 @@ describe("buildBotTurnTraces", () => {
     );
 
     expect(traces.size).toBe(0);
+  });
+});
+
+describe("buildLiveTurnSteps", () => {
+  it("keeps a running call in the present tense after the finished ones", () => {
+    const steps = buildLiveTurnSteps(
+      [
+        tool("tool.started", "read", 0, "read", {}),
+        tool("tool.completed", "read", 1, "read", { status: "completed", data: {} }),
+        tool("tool.started", "web_search", 4, "search", { data: { detail: "Madrid weather" } }),
+      ],
+      TURN,
+      at(0),
+    );
+
+    expect(
+      steps.map((step) =>
+        step.kind === "thought"
+          ? ["thought", step.durationMs]
+          : [step.label, step.running, step.durationMs],
+      ),
+    ).toEqual([
+      ["Read files", false, 1_000],
+      ["thought", 3_000],
+      ["Searching the web", true, null],
+    ]);
+  });
+
+  it("leaves out other turns' calls", () => {
+    expect(
+      buildLiveTurnSteps(
+        [tool("tool.started", "read", 0, "read", {})],
+        TurnId.make("turn-2"),
+        at(0),
+      ),
+    ).toEqual([]);
   });
 });

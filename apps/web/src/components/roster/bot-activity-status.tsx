@@ -1,17 +1,23 @@
-import { useAtomValue } from "@effect/atom-react";
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import type { EnvironmentId } from "@otto/contracts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useI18n } from "../../i18n";
-import { environmentMcpServersAtom } from "../../state/mcp-servers";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
+import {
+  Trace,
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceLine,
+  TraceTitle,
+} from "~/components/ui/trace";
 import { cn } from "~/lib/utils";
 
 import { formatLoadingElapsed } from "../chat/response-loading-state";
 import { BotAvatarView } from "./bot-avatar-view";
-import type { BotActivity, BotActivitySubject } from "./bot-activity-status.logic";
+import type { BotActivity } from "./bot-activity-status.logic";
+import { BotTraceSteps } from "./bot-turn-trace";
+import type { BotTraceStep } from "./bot-turn-trace.logic";
 import type { Bot } from "./types";
 
 /** Playful stand-ins while the bot thinks with no tool running. */
@@ -29,34 +35,6 @@ export const THINKING_VERBS = [
 ] as const satisfies readonly MessageKey[];
 
 const THINKING_VERB_MS = 3200;
-
-// SAFETY: An empty id names no environment; the atom and query hold nothing for it.
-const NO_ENVIRONMENT = "" as EnvironmentId;
-
-/** The connected app's or MCP server's name a running tool works on, once known. */
-export function useActivitySubjectName(
-  environmentId: EnvironmentId | null,
-  subject: BotActivitySubject | undefined,
-): string | null {
-  const servers = useAtomValue(environmentMcpServersAtom(environmentId ?? NO_ENVIRONMENT));
-
-  const composio = useEnvironmentQuery(
-    environmentId && subject?.kind === "app"
-      ? serverEnvironment.composioStatus({ environmentId, input: {} })
-      : null,
-  );
-
-  if (subject?.kind === "server") {
-    return servers.find((server) => server.id === subject.id)?.name ?? null;
-  }
-
-  if (subject?.kind !== "app") return null;
-
-  return (
-    composio.data?.connections.find((connection) => connection.toolkitSlug === subject.slug)
-      ?.toolkitName ?? null
-  );
-}
 
 /** One playful verb at a time, crossfading to the next every few seconds. */
 function ThinkingVerb() {
@@ -84,67 +62,71 @@ function ShimmerText({ text }: { readonly text: string }) {
   return <span className="min-w-0 truncate shimmer motion-reduce:shimmer-none">{text}</span>;
 }
 
-/** Time since the turn started, shown from 0s; ticks without committing React. */
-function ActivityElapsed({ startedAt }: { readonly startedAt: number }) {
-  const textRef = useRef<HTMLSpanElement>(null);
+/** "Working for 1m 12s" from the turn's start, re-rendering only itself each second. */
+function WorkingFor({ startedAt }: { readonly startedAt: number }) {
+  const { t } = useI18n();
+  const [now, setNow] = useState(Date.now);
 
   useEffect(() => {
-    const update = () => {
-      const node = textRef.current;
-
-      if (!node) return;
-      node.textContent = formatLoadingElapsed(Date.now() - startedAt);
-    };
-
-    update();
-    const id = window.setInterval(update, 1000);
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
 
     return () => window.clearInterval(id);
-  }, [startedAt]);
+  }, []);
 
-  return (
-    <span
-      ref={textRef}
-      className="shrink-0 text-xs tabular-nums text-muted-foreground"
-      data-testid="bot-activity-time"
-    >
-      {formatLoadingElapsed(Date.now() - startedAt)}
-    </span>
-  );
+  return t("Working for {duration}", { duration: formatLoadingElapsed(now - startedAt) });
+}
+
+/** Keeps a scrolling list on its newest row until the person scrolls up, and again once back. */
+function useFollowNewest(count: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+
+    if (node && following.current) node.scrollTop = node.scrollHeight;
+  }, [count]);
+
+  const onScroll = () => {
+    const node = ref.current;
+
+    if (node) following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 8;
+  };
+
+  return { ref, onScroll };
 }
 
 /**
  * Otto: A working bot shows itself in the chat history, where its reply will appear: its own 28px
- * avatar in the working pose, then one shimmering line, without trailing dots, saying what the run
- * is really doing ("Reading a skill", "Using Google Calendar"), the same in a DM and a group. Under
- * the bot's own streaming reply the avatar
- * gives way to the message's indent. While it only thinks, playful verbs rotate in that line.
- * The row shows its own elapsed time from 0s.
+ * avatar in the working pose beside "Working for 12s", the same in a DM and a group. Under it the
+ * trace is already open, the same lines the reply's "Worked for" trace keeps: each finished step
+ * in the past tense with its time, the running one shimmering in the present tense, and "Thinking"
+ * between steps. Before the first step playful verbs rotate there instead. The list shows about
+ * seven rows and scrolls inside, following the newest. Under the bot's own streaming reply the
+ * avatar gives way to the message's indent. When the reply lands, it takes the collapsed trace.
  */
 export function BotActivityStatus({
   bot,
   activity,
+  steps,
   startedAt,
-  subjectName = null,
+  environmentId,
   continuesReply = false,
 }: {
   readonly bot: Pick<Bot, "name" | "avatar">;
   readonly activity: BotActivity;
+  /** What the running turn has done so far. */
+  readonly steps: ReadonlyArray<BotTraceStep>;
   /** When the turn started, for the elapsed time. */
   readonly startedAt: string | null;
-  /** The app's or MCP server's name for a tool working on one. */
-  readonly subjectName?: string | null;
+  readonly environmentId: EnvironmentId | null;
   /** The bot's reply is already streaming above, so the row continues it without the avatar. */
   readonly continuesReply?: boolean;
 }) {
   const { t } = useI18n();
-
-  const rowClass = cn(
-    "motion-message-enter flex w-full min-w-0 items-center gap-3 text-sm",
-    continuesReply ? "mt-1" : "mt-3",
-  );
-
+  const follow = useFollowNewest(steps.length);
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
+  const running = steps.some((step) => step.kind === "tool" && step.running);
 
   const avatar = continuesReply ? (
     <span aria-hidden="true" className="size-7 shrink-0" />
@@ -157,19 +139,49 @@ export function BotActivityStatus({
     />
   );
 
-  const label =
-    activity.subject && subjectName ? t("Using {name}", { name: subjectName }) : t(activity.label);
+  // A running tool is already the trace's shimmering last line.
+  const live = running ? null : activity.thinking ? (
+    steps.length === 0 ? (
+      <ThinkingVerb />
+    ) : (
+      <ShimmerText text={t("Thinking")} />
+    )
+  ) : (
+    <ShimmerText key={activity.label} text={t(activity.label)} />
+  );
 
   return (
-    <div aria-live="polite" className={rowClass} data-testid="bot-activity-status">
+    <div
+      aria-live="polite"
+      className={cn(
+        "motion-message-enter flex w-full min-w-0 items-start gap-3 text-sm",
+        continuesReply ? "mt-1" : "mt-3",
+      )}
+      data-testid="bot-activity-status"
+    >
       {avatar}
       <span className="sr-only">{bot.name}: </span>
-      {/* Otto: The shimmer brightens its own text color, so the line is muted (white has no brighter
-          shade in dark mode); the time shares the label's baseline. */}
-      <span className="flex min-w-0 flex-1 items-baseline gap-2 font-medium text-muted-foreground">
-        {activity.thinking ? <ThinkingVerb /> : <ShimmerText key={label} text={label} />}
-        {Number.isFinite(started) ? <ActivityElapsed startedAt={started} /> : null}
-      </span>
+      <Trace className="min-w-0 flex-1" data-testid="bot-live-trace">
+        <TraceCollapsible defaultOpen>
+          <TraceCollapsibleTrigger className="min-h-7">
+            <TraceLine>
+              <TraceTitle data-testid="bot-activity-time">
+                {Number.isFinite(started) ? <WorkingFor startedAt={started} /> : t("Working")}
+              </TraceTitle>
+            </TraceLine>
+          </TraceCollapsibleTrigger>
+          <TraceCollapsibleContent>
+            <Trace ref={follow.ref} onScroll={follow.onScroll} className="max-h-44 overflow-y-auto">
+              <BotTraceSteps steps={steps} environmentId={environmentId} />
+              {live ? (
+                <TraceLine>
+                  <span className="flex min-w-0">{live}</span>
+                </TraceLine>
+              ) : null}
+            </Trace>
+          </TraceCollapsibleContent>
+        </TraceCollapsible>
+      </Trace>
     </div>
   );
 }

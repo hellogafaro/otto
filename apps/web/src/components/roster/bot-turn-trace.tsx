@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import type { EnvironmentId } from "@otto/contracts";
 import { formatDuration } from "@otto/shared/orchestrationTiming";
 
@@ -18,10 +19,41 @@ import {
 } from "~/components/ui/trace";
 
 import { useI18n } from "../../i18n";
-import { useActivitySubjectName } from "./bot-activity-status";
+import { environmentMcpServersAtom } from "../../state/mcp-servers";
+import { useEnvironmentQuery } from "../../state/query";
+import { serverEnvironment } from "../../state/server";
+import type { BotActivitySubject } from "./bot-activity-status.logic";
 import type { BotTraceStep, BotTurnTrace as BotTurnTraceData } from "./bot-turn-trace.logic";
 
 type ToolStep = Extract<BotTraceStep, { kind: "tool" }>;
+
+// SAFETY: An empty id names no environment; the atom and query hold nothing for it.
+const NO_ENVIRONMENT = "" as EnvironmentId;
+
+/** The connected app's or MCP server's name a running tool works on, once known. */
+export function useActivitySubjectName(
+  environmentId: EnvironmentId | null,
+  subject: BotActivitySubject | undefined,
+): string | null {
+  const servers = useAtomValue(environmentMcpServersAtom(environmentId ?? NO_ENVIRONMENT));
+
+  const composio = useEnvironmentQuery(
+    environmentId && subject?.kind === "app"
+      ? serverEnvironment.composioStatus({ environmentId, input: {} })
+      : null,
+  );
+
+  if (subject?.kind === "server") {
+    return servers.find((server) => server.id === subject.id)?.name ?? null;
+  }
+
+  if (subject?.kind !== "app") return null;
+
+  return (
+    composio.data?.connections.find((connection) => connection.toolkitSlug === subject.slug)
+      ?.toolkitName ?? null
+  );
+}
 
 function ToolStepRow({
   step,
@@ -34,9 +66,17 @@ function ToolStepRow({
   const subjectName = useActivitySubjectName(environmentId, step.subject ?? undefined);
 
   const line = (
-    <TraceLine {...(step.failed ? { status: "error" as const } : {})}>
+    <TraceLine
+      {...(step.failed
+        ? { status: "error" as const }
+        : step.running
+          ? { status: "running" as const }
+          : {})}
+    >
       <TraceTitle>
-        {subjectName ? t("Used {name}", { name: subjectName }) : t(step.label)}
+        {subjectName
+          ? t(step.running ? "Using {name}" : "Used {name}", { name: subjectName })
+          : t(step.label)}
         {step.detail ? <span className="text-muted-foreground/70"> {step.detail}</span> : null}
       </TraceTitle>
       {step.failed ? <TraceDescription>{t("Failed")}</TraceDescription> : null}
@@ -62,6 +102,29 @@ function ToolStepRow({
         </CodeBlock>
       </TraceCollapsibleContent>
     </TraceCollapsible>
+  );
+}
+
+/** A turn's steps in order: each tool call and the thinking between them. */
+export function BotTraceSteps({
+  steps,
+  environmentId,
+}: {
+  readonly steps: ReadonlyArray<BotTraceStep>;
+  readonly environmentId: EnvironmentId | null;
+}) {
+  const { t } = useI18n();
+
+  return steps.map((step) =>
+    step.kind === "thought" ? (
+      <TraceLine key={step.id}>
+        <TraceTitle>
+          {t("Thought for {duration}", { duration: formatDuration(step.durationMs) })}
+        </TraceTitle>
+      </TraceLine>
+    ) : (
+      <ToolStepRow key={step.id} step={step} environmentId={environmentId} />
+    ),
   );
 }
 
@@ -94,17 +157,7 @@ export function BotTurnTrace({
         </TraceCollapsibleTrigger>
         <TraceCollapsibleContent>
           <Trace>
-            {trace.steps.map((step) =>
-              step.kind === "thought" ? (
-                <TraceLine key={step.id}>
-                  <TraceTitle>
-                    {t("Thought for {duration}", { duration: formatDuration(step.durationMs) })}
-                  </TraceTitle>
-                </TraceLine>
-              ) : (
-                <ToolStepRow key={step.id} step={step} environmentId={environmentId} />
-              ),
-            )}
+            <BotTraceSteps steps={trace.steps} environmentId={environmentId} />
           </Trace>
         </TraceCollapsibleContent>
       </TraceCollapsible>
