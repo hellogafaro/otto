@@ -10,7 +10,9 @@ import {
   readLibraryDocument,
   requireVisibleFile,
   saveLibraryDocument,
+  shareLibraryFile,
   storeLibraryFile,
+  unshareLibraryFile,
 } from "./library/library-store.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
@@ -118,6 +120,20 @@ export const createWsLibraryHandlers = ({
         }),
         { "rpc.aggregate": "library" },
       ),
+
+    [WS_METHODS.libraryShareFile]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.libraryShareFile,
+        person.pipe(Effect.flatMap((by) => shareLibraryFile({ fileId: input.fileId, by }))),
+        { "rpc.aggregate": "library" },
+      ),
+
+    [WS_METHODS.libraryUnshareFile]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.libraryUnshareFile,
+        person.pipe(Effect.flatMap((by) => unshareLibraryFile({ fileId: input.fileId, by }))),
+        { "rpc.aggregate": "library" },
+      ),
   } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.libraryCreateUploadUrl
@@ -126,5 +142,7 @@ export const createWsLibraryHandlers = ({
     | typeof WS_METHODS.libraryReadDocument
     | typeof WS_METHODS.librarySaveDocument
     | typeof WS_METHODS.libraryCreateFileUrl
+    | typeof WS_METHODS.libraryShareFile
+    | typeof WS_METHODS.libraryUnshareFile
   >;
 };

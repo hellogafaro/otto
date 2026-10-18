@@ -27,6 +27,7 @@ import {
   LibraryRequestError,
   LibrarySaveDocumentInput,
   LibrarySaveDocumentResult,
+  LibraryShareFileResult,
 } from "../orchestration/library.ts";
 import { OttoBotUsageInput, OttoBotUsageReadError, OttoBotUsageSnapshot } from "../otto-usage.ts";
 import {
@@ -771,6 +772,19 @@ export const WsLibrarySaveDocumentRpc = Rpc.make(WS_METHODS.librarySaveDocument,
 export const WsLibraryCreateFileUrlRpc = Rpc.make(WS_METHODS.libraryCreateFileUrl, {
   payload: LibraryCreateFileUrlInput,
   success: LibraryCreateFileUrlResult,
+  error: libraryError,
+});
+
+/** Publishes a frozen copy of one file at a public link, or refreshes the copy behind it. */
+export const WsLibraryShareFileRpc = Rpc.make(WS_METHODS.libraryShareFile, {
+  payload: LibraryFileInput,
+  success: LibraryShareFileResult,
+  error: libraryError,
+});
+
+export const WsLibraryUnshareFileRpc = Rpc.make(WS_METHODS.libraryUnshareFile, {
+  payload: LibraryFileInput,
+  success: Schema.Void,
   error: libraryError,
 });
 

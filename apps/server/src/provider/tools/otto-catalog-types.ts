@@ -101,6 +101,12 @@ export interface OttoCatalogBackendOptions {
     readonly updateDocument: (
       input: (typeof OttoToolInputSchemas.library_update)["Type"],
     ) => Promise<OttoToolResult>;
+    readonly share: (
+      input: (typeof OttoToolInputSchemas.library_share)["Type"],
+    ) => Promise<OttoToolResult>;
+    readonly unshare: (
+      input: (typeof OttoToolInputSchemas.library_unshare)["Type"],
+    ) => Promise<OttoToolResult>;
     readonly readSkillFile: (
       input: (typeof OttoToolInputSchemas.skill_read)["Type"],
     ) => Promise<OttoToolResult>;

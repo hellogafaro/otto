@@ -1,5 +1,5 @@
 import { type ResolvedKeybindingsConfig } from "@otto/contracts";
-import { shortcutLabelForCommand } from "../keybindings";
+import { shortcutPartsForCommand } from "../keybindings";
 import { type CommandPaletteActionItem, type CommandPaletteGroup } from "./command-palette.logic";
 import {
   CommandCollection,
@@ -7,8 +7,8 @@ import {
   CommandGroupLabel,
   CommandItem,
   CommandList,
-  CommandShortcut,
 } from "./ui/command";
+import { Kbd, KbdGroup } from "./ui/kbd";
 import { SkeletonPaletteRows } from "./ui/skeleton";
 
 interface CommandPaletteResultsProps {
@@ -88,8 +88,8 @@ function CommandPaletteResultRow(props: {
   keybindings: ResolvedKeybindingsConfig;
   onExecuteItem: (item: CommandPaletteActionItem) => void;
 }) {
-  const shortcutLabel = props.item.shortcutCommand
-    ? shortcutLabelForCommand(props.keybindings, props.item.shortcutCommand)
+  const shortcutParts = props.item.shortcutCommand
+    ? shortcutPartsForCommand(props.keybindings, props.item.shortcutCommand)
     : null;
 
   return (
@@ -105,7 +105,13 @@ function CommandPaletteResultRow(props: {
       }}
     >
       <CommandPaletteItemLabel item={props.item} />
-      {shortcutLabel ? <CommandShortcut>{shortcutLabel}</CommandShortcut> : null}
+      {shortcutParts ? (
+        <KbdGroup aria-hidden="true" className="ms-auto gap-0.5">
+          {shortcutParts.map((part) => (
+            <Kbd key={part}>{part}</Kbd>
+          ))}
+        </KbdGroup>
+      ) : null}
     </CommandItem>
   );
 }
