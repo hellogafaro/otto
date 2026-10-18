@@ -4,12 +4,13 @@ import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
 import type { EnvironmentId } from "@otto/contracts";
 
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
 import { useArchivedThreadSnapshots } from "../../lib/archived-threads-state";
-import { useSettingsEnvironmentId } from "../../settings-dialog-store";
+import { closeSettings, useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { environmentBotsAtom, environmentGroupsAtom } from "../../state/bots";
 import { Button } from "../ui/button";
 import { SkeletonSettingsSections } from "../ui/skeleton";
@@ -44,6 +45,7 @@ export function ArchivedChatsSettingsPanel() {
 function ArchivedChatsContent({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const { t, formatDate } = useI18n();
   const actions = useChatActions();
+  const navigate = useNavigate();
   const environmentIds = useMemo(() => [environmentId], [environmentId]);
   const { snapshots, error, isLoading } = useArchivedThreadSnapshots(environmentIds);
   const bots = useAtomValue(environmentBotsAtom(environmentId));
@@ -126,7 +128,23 @@ function ArchivedChatsContent({ environmentId }: { readonly environmentId: Envir
           <SettingsRow
             key={chat.threadId}
             data-testid="archived-chat-row"
-            title={chat.title}
+            title={
+              // A chat with no bot or group has no page on web to open.
+              section.kind === "other" ? (
+                chat.title
+              ) : (
+                <button
+                  type="button"
+                  className="text-left outline-none hover:underline focus-visible:underline"
+                  onClick={() => {
+                    closeSettings();
+                    void navigate({ to: "/chats/$threadId", params: { threadId: chat.threadId } });
+                  }}
+                >
+                  {chat.title}
+                </button>
+              )
+            }
             description={t("Archived {time}", { time: archivedAt })}
             control={
               <>

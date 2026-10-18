@@ -45,7 +45,7 @@ export function createThreadDetail({
   listThreadActivityRowsByThreadWindow,
   listThreadActivityRowsByThreadAndKinds,
   listPinnedThreadActivityRowsByThread,
-  getActiveThreadRowById,
+  getThreadRowById,
   listThreadMessageRowsByThread,
   listThreadMessageRowsByThreadWindow,
   listThreadProposedPlanRowsByThread,
@@ -69,7 +69,7 @@ export function createThreadDetail({
   | "listThreadActivityRowsByThreadWindow"
   | "listThreadActivityRowsByThreadAndKinds"
   | "listPinnedThreadActivityRowsByThread"
-  | "getActiveThreadRowById"
+  | "getThreadRowById"
   | "listThreadMessageRowsByThread"
   | "listThreadMessageRowsByThreadWindow"
   | "listThreadProposedPlanRowsByThread"
@@ -167,6 +167,7 @@ export function createThreadDetail({
     threadId: ThreadId,
     bounds: ThreadDetailBounds | undefined,
     activityRead: ThreadDetailActivityRead = { mode: "raw" },
+    includeArchived = false,
   ) =>
     Effect.gen(function* () {
       const activitiesEffect =
@@ -229,7 +230,7 @@ export function createThreadDetail({
         latestTurnRow,
         sessionRow,
       ] = yield* Effect.all([
-        getActiveThreadRowById({ threadId }).pipe(
+        getThreadRowById({ threadId, includeArchived }).pipe(
           Effect.mapError(
             toPersistenceSqlOrDecodeError(
               "ProjectionSnapshotQuery.getThreadDetailById:getThread:query",
@@ -265,7 +266,7 @@ export function createThreadDetail({
             ),
           ),
         ),
-        getLatestTurnRowByThread({ threadId }).pipe(
+        getLatestTurnRowByThread({ threadId, includeArchived }).pipe(
           Effect.mapError(
             toPersistenceSqlOrDecodeError(
               "ProjectionSnapshotQuery.getThreadDetailById:getLatestTurn:query",
@@ -364,6 +365,7 @@ export function createThreadDetail({
   const getThreadDetailSnapshot: ProjectionSnapshotQueryShape["getThreadDetailSnapshot"] = (
     threadId,
     window,
+    options,
   ) =>
     // Read the thread detail and the snapshot sequence within a single
     // transaction so the sequence is consistent with the returned state; a
@@ -375,9 +377,12 @@ export function createThreadDetail({
       .withTransaction(
         Effect.gen(function* () {
           if (window?.turnLimit === undefined) {
-            const thread = yield* getThreadDetailByIdBounded(threadId, undefined, {
-              mode: "client",
-            });
+            const thread = yield* getThreadDetailByIdBounded(
+              threadId,
+              undefined,
+              { mode: "client" },
+              options?.includeArchived,
+            );
 
             if (Option.isNone(thread)) {
               return Option.none<OrchestrationThreadDetailSnapshot>();
@@ -455,9 +460,12 @@ export function createThreadDetail({
               ? { minAnchorAt: "", minTurnKey: "", beforeAnchorAt: "", beforeTurnKey: "" }
               : undefined;
 
-          const thread = yield* getThreadDetailByIdBounded(threadId, emptyBounds ?? bounds, {
-            mode: "client",
-          });
+          const thread = yield* getThreadDetailByIdBounded(
+            threadId,
+            emptyBounds ?? bounds,
+            { mode: "client" },
+            options?.includeArchived,
+          );
 
           if (Option.isNone(thread)) {
             return Option.none<OrchestrationThreadDetailSnapshot>();

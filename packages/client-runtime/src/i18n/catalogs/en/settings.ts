@@ -77,8 +77,8 @@ export const settingsCatalog = {
   Updates: "Updates",
   "Update channel": "Update channel",
   "Update channel couldn't be changed": "Update channel couldn't be changed",
-  "Beta installs a new build after every change, before it reaches Stable.":
-    "Beta installs a new build after every change, before it reaches Stable.",
+  "Beta gets new builds before they reach Stable.":
+    "Beta gets new builds before they reach Stable.",
   Stable: "Stable",
   Beta: "Beta",
   "Privacy and data": "Privacy and data",
