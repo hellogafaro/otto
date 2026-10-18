@@ -14,6 +14,7 @@ import type {
 } from "@otto/contracts";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 
 import type { ProjectionRepositoryError } from "../errors.ts";
 
@@ -29,6 +30,13 @@ export interface ProjectionLibraryRepositoryShape {
     ProjectionRepositoryError
   >;
   readonly listFiles: () => Effect.Effect<ReadonlyArray<LibraryFile>, ProjectionRepositoryError>;
+  readonly getFile: (
+    fileId: LibraryFileId,
+  ) => Effect.Effect<Option.Option<LibraryFile>, ProjectionRepositoryError>;
+  /** The given folders and every folder above them, at most the deepest nesting allowed. */
+  readonly listFolderPaths: (
+    folderIds: ReadonlyArray<LibraryFolderId>,
+  ) => Effect.Effect<ReadonlyArray<LibraryFolder>, ProjectionRepositoryError>;
   readonly listChatThreads: () => Effect.Effect<
     ReadonlyArray<LibraryChatThread>,
     ProjectionRepositoryError

@@ -8,8 +8,16 @@ import type { CommandPaletteGroup } from "./command-palette.logic";
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 
+vi.mock("./routines/use-routine-search", () => ({ useRoutineSearch: () => [] }));
+
+vi.mock("./library/use-library", () => ({ useLibraryPages: () => ({ files: [], pages: [] }) }));
+
 vi.mock("../state/queries", () => ({
   useThreadSearch: () => ({ matches: [], isPending: false }),
+}));
+
+vi.mock("../state/tasks", () => ({
+  useTaskPages: () => ({ pages: [], status: "ready", hasMore: false, loadMore: () => undefined }),
 }));
 
 vi.mock("../hooks/use-theme", () => ({

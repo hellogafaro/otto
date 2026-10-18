@@ -14,6 +14,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { OrchestrationEngineService } from "../services/orchestration-engine.ts";
 import { OrchestrationProjectionPipeline } from "../services/projection-pipeline.ts";
 import { ProjectionSnapshotQuery } from "../services/projection-snapshot-query.ts";
+import { RoutineRepository } from "../../routines/repository.ts";
 import { TestLayer } from "./test-support/bot-persistence-harness.ts";
 
 it.layer(TestLayer)("bot persistence", (it) => {
@@ -22,6 +23,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
       const engine = yield* OrchestrationEngineService;
       const projectionPipeline = yield* OrchestrationProjectionPipeline;
       const snapshots = yield* ProjectionSnapshotQuery;
+      const routines = yield* RoutineRepository;
       const sql = yield* SqlClient.SqlClient;
       const botId = BotId.make("bot-1");
       const specialistBotId = BotId.make("bot-2");
@@ -109,12 +111,13 @@ it.layer(TestLayer)("bot persistence", (it) => {
       });
 
       const archived = yield* snapshots.getShellSnapshot();
+      const archivedRoutines = yield* routines.listAll;
       assert.equal(archived.bots.length, 1);
       assert.notEqual(archived.bots[0]?.archivedAt, null);
-      assert.equal(archived.routines?.[0]?.lifecycle, "paused");
-      assert.equal(archived.routines?.[0]?.enabled, false);
-      assert.equal(archived.routines?.[0]?.nextRunAt, null);
-      assert.equal(archived.routines?.[0]?.delegateToBotId, specialistBotId);
+      assert.equal(archivedRoutines[0]?.lifecycle, "paused");
+      assert.equal(archivedRoutines[0]?.enabled, false);
+      assert.equal(archivedRoutines[0]?.nextRunAt, null);
+      assert.equal(archivedRoutines[0]?.delegateToBotId, specialistBotId);
 
       yield* engine.dispatch({
         type: "bot.restore",
@@ -151,8 +154,9 @@ it.layer(TestLayer)("bot persistence", (it) => {
       });
 
       const restored = yield* snapshots.getShellSnapshot();
-      assert.equal(restored.routines?.[0]?.lifecycle, "paused");
-      assert.equal(restored.routines?.[0]?.enabled, false);
+      const restoredRoutines = yield* routines.listAll;
+      assert.equal(restoredRoutines[0]?.lifecycle, "paused");
+      assert.equal(restoredRoutines[0]?.enabled, false);
       assert.equal(restored.bots.length, 2);
       const restoredBot = restored.bots.find((bot) => bot.id === botId);
       assert.deepEqual(restoredBot, {

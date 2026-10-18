@@ -12,7 +12,7 @@ import {
   RiSparkling2Line,
 } from "@remixicon/react";
 import { Match } from "effect";
-import { type EnvironmentId, GENERAL_PROJECT_ID, LIBRARY_SKILLS_FOLDER_ID } from "@otto/contracts";
+import { type EnvironmentId, GENERAL_PROJECT_ID } from "@otto/contracts";
 import type { ComposerResourceMentionKind } from "@otto/shared/composerInlineTokens";
 import { rankComposerThreadMentions } from "@otto/shared/composerThreadMentions";
 
@@ -35,8 +35,9 @@ import { useComposerPathSearch, useThreadSearch } from "../../state/queries";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
-import { environmentTasksAtom } from "../../state/tasks";
+import { usePickerTasks, useTaskCache } from "../../state/tasks";
 import { AppLogo } from "../customize/customize-integrations";
+import { useLibrarySkills } from "../library/use-library";
 import { INLINE_TAG_CLASS_NAME } from "../composer-inline-chip";
 import {
   type BotPromptMentionBot,
@@ -48,6 +49,7 @@ import {
   botPromptThreadQuery,
   buildBotPromptMentionItems,
   isBotPromptThreadQuery,
+  TASK_MENTION_LIMIT,
 } from "./bot-prompt-mentions.logic";
 
 /**
@@ -97,21 +99,30 @@ const NO_ENVIRONMENTS: ReadonlyArray<EnvironmentId> = [];
 
 /**
  * The skills, connected apps, and enabled MCP servers a person can tag, with their names.
- * An app with several accounts is one row: the bot picks the account.
+ * An app with several accounts is one row: the bot picks the account. Tasks are the ones the
+ * server found for `taskQuery`, as the picker asks, or else the ones this client has read.
  */
 export function useBotPromptMentionResources(
   environmentId: EnvironmentId | null,
+  taskQuery: string | null = null,
 ): ReadonlyArray<BotPromptMentionResource> {
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
-  const tasks = useAtomValue(environmentTasksAtom(environmentId ?? NO_ENVIRONMENT));
+  const cachedTasks = useTaskCache(environmentId);
+  const found = usePickerTasks(environmentId, taskQuery, TASK_MENTION_LIMIT);
+  const librarySkills = useLibrarySkills(environmentId).skills;
+
+  const tasks = useMemo(
+    () => (taskQuery === null ? [...cachedTasks.values()] : found),
+    [cachedTasks, found, taskQuery],
+  );
 
   const composio = useEnvironmentQuery(
     environmentId ? serverEnvironment.composioStatus({ environmentId, input: {} }) : null,
   );
 
   return useMemo(() => {
-    const skills = (snapshot?.libraryFolders ?? [])
-      .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID)
+    const skills = librarySkills
+      .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt))
       .map(
         (folder): BotPromptMentionResource => ({
           kind: "skill",
@@ -161,7 +172,7 @@ export function useBotPromptMentionResources(
     );
 
     return [...skills, ...apps, ...mcps, ...projects, ...work];
-  }, [composio.data, snapshot, tasks]);
+  }, [composio.data, librarySkills, snapshot, tasks]);
 }
 
 const NO_SHELLS: ReturnType<typeof useThreadShells> = [];
@@ -280,7 +291,10 @@ export function BotPromptMentionMenu({
   });
 
   const resources = workResources(
-    useBotPromptMentionResources(scope?.environmentId ?? workEnvironmentId),
+    useBotPromptMentionResources(
+      scope?.environmentId ?? workEnvironmentId,
+      trigger.query.trim() === "" ? null : trigger.query,
+    ),
     scope === null,
   );
 

@@ -8,10 +8,9 @@ import {
   type LibraryFile,
   type LibraryFolder,
   LibraryFolderId,
-  type LibraryListResult,
   type LibraryListSort,
   type LibraryListType,
-  LibraryListView,
+  type LibraryListView,
   libraryFolderPath,
   type WorkParticipant,
   workParticipantKey,
@@ -32,12 +31,10 @@ import {
   RiUserLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { useCreateRequest } from "../../create-request-store";
-import { useListPages } from "../../hooks/use-list-pages";
 import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { cn, randomUUID } from "../../lib/utils";
@@ -63,7 +60,14 @@ import {
   type LibrarySearch,
   type LibraryTab,
 } from "./library.logic";
-import { useLibraryData, useLibraryUpload, type LibraryData } from "./use-library";
+import {
+  useLibraryData,
+  useLibraryFile,
+  useLibraryFolder,
+  useLibraryPages,
+  useLibraryUpload,
+  type LibraryData,
+} from "./use-library";
 
 const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
@@ -73,10 +77,6 @@ const LIBRARY_SORT_ORDER: Record<LibraryListSort, "asc" | "desc"> = {
   created: "desc",
   title: "asc",
 };
-
-const encodeLibraryView = Schema.encodeSync(Schema.fromJsonString(LibraryListView));
-
-const nextLibraryCursor = (page: LibraryListResult) => page.nextCursor;
 
 /**
  * Otto: The Library, a simple Drive. All browses folders, with the path as
@@ -92,11 +92,12 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const data = useLibraryData();
-  const { environmentId, loaded, folders, files, participants } = data;
-  const listLibrary = useAtomCommand(libraryEnvironment.list, { reportFailure: false });
+  const { environmentId, loaded, folders, participants } = data;
   const tab: LibraryTab = search.tab ?? "all";
-  const folder = folders.find((candidate) => candidate.id === search.folder) ?? null;
-  const folderId = folder?.id ?? null;
+  const opened = useLibraryFolder(environmentId, search.folder ?? null);
+  const folder = opened.folder;
+  // Otto: While the folder is read, its level loads alongside; an unknown folder shows the top.
+  const folderId = folder?.id ?? (opened.loading ? opened.id : null);
   const sort = search.sort ?? "updated";
 
   const view: LibraryListView = {
@@ -111,26 +112,13 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     ...(search.order ? { order: search.order } : {}),
   };
 
-  const revision = useMemo(() => [folders, files], [folders, files]);
-
-  const list = useListPages({
-    view: `${environmentId}:${encodeLibraryView(view)}`,
-    revision,
-    getNextCursor: nextLibraryCursor,
-    fetchPage: async (cursor) => {
-      if (!environmentId) return null;
-
-      const result = await listLibrary({
-        environmentId,
-        input: cursor === undefined ? view : { ...view, cursor },
-      });
-
-      return AsyncResult.isSuccess(result) ? result.value : null;
-    },
-  });
-
-  const items = list.pages.flatMap((page) => page.items);
+  const list = useLibraryPages(environmentId, view);
+  const items = list.items;
   const filtered = (tab === "all" && search.type !== undefined) || search.creator !== undefined;
+  // Otto: The unfiltered top level tells whether the Library is empty; an empty tab or filter asks.
+  const whole = tab === "all" && folderId === null && !filtered;
+  const asks = !whole && folderId === null && list.status === "ready" && items.length === 0;
+  const anything = useLibraryPages(asks ? environmentId : null, { limit: 1 });
   const path = libraryFolderPath(folders, folderId).toReversed();
   const { upload, uploading } = useLibraryUpload();
   const createFolder = useAtomCommand(libraryEnvironment.createFolder, { reportFailure: false });
@@ -148,7 +136,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
 
   const canAddFolder = canAddFiles && path.length < LIBRARY_MAX_FOLDER_DEPTH;
 
-  const preview = files.find((file) => file.id === search.preview) ?? null;
+  const preview = useLibraryFile(environmentId, search.preview ?? null).file;
 
   const place: LibrarySearch = tab === "all" ? (folderId ? { folder: folderId } : {}) : { tab };
 
@@ -300,7 +288,11 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     if (dropped.length > 0) void upload(environmentId, dropped, { folderId });
   };
 
-  const empty = loaded && folders.length === 0 && files.length === 0;
+  const empty =
+    loaded &&
+    (whole
+      ? list.status === "ready" && items.length === 0
+      : asks && anything.status === "ready" && anything.items.length === 0);
 
   const newMenu = environmentId ? (
     <Menu open={newMenuOpen} onOpenChange={setNewMenuOpen}>

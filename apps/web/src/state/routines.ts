@@ -2,4 +2,10 @@ import { createRoutineEnvironmentAtoms } from "@otto/client-runtime/state/routin
 
 import { connectionAtomRuntime } from "../connection/runtime";
 
+export {
+  routineCacheAtom,
+  routineChangesAtom,
+  withRoutines,
+} from "@otto/client-runtime/state/routines";
+
 export const routineEnvironment = createRoutineEnvironmentAtoms(connectionAtomRuntime);

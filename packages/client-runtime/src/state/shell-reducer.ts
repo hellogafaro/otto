@@ -65,49 +65,8 @@ export function applyShellStreamEvent(
         groups: Arr.filter(snapshot.groups, (group) => group.id !== event.groupId),
         snapshotSequence: event.sequence,
       };
-    case "library-folder-upserted": {
-      const folders = snapshot.libraryFolders ?? [];
-
-      const nextFolders = folders.some((folder) => folder.id === event.folder.id)
-        ? Arr.map(folders, (folder) => (folder.id === event.folder.id ? event.folder : folder))
-        : Arr.append(folders, event.folder);
-
-      return { ...snapshot, libraryFolders: nextFolders, snapshotSequence: event.sequence };
-    }
-
-    case "library-folder-removed":
-      return {
-        ...snapshot,
-        libraryFolders: (snapshot.libraryFolders ?? []).filter(
-          (folder) => folder.id !== event.folderId,
-        ),
-        snapshotSequence: event.sequence,
-      };
-    case "library-file-upserted": {
-      const files = snapshot.libraryFiles ?? [];
-
-      const nextFiles = files.some((file) => file.id === event.file.id)
-        ? Arr.map(files, (file) => (file.id === event.file.id ? event.file : file))
-        : Arr.append(files, event.file);
-
-      return { ...snapshot, libraryFiles: nextFiles, snapshotSequence: event.sequence };
-    }
-
-    case "library-file-removed":
-      return {
-        ...snapshot,
-        libraryFiles: (snapshot.libraryFiles ?? []).filter((file) => file.id !== event.fileId),
-        snapshotSequence: event.sequence,
-      };
-    case "task-upserted": {
-      const tasks = snapshot.tasks ?? [];
-
-      const nextTasks = tasks.some((task) => task.id === event.task.id)
-        ? Arr.map(tasks, (task) => (task.id === event.task.id ? event.task : task))
-        : Arr.append(tasks, event.task);
-
-      return { ...snapshot, tasks: nextTasks, snapshotSequence: event.sequence };
-    }
+    case "task-upserted":
+      return { ...snapshot, snapshotSequence: event.sequence };
 
     case "mcp-server-upserted": {
       const mcpServers = snapshot.mcpServers ?? [];
@@ -150,76 +109,16 @@ export function applyShellStreamEvent(
       };
     }
 
-    case "routine-upserted": {
-      const routines = snapshot.routines ?? [];
-
-      const nextRoutines = routines.some((routine) => routine.id === event.routine.id)
-        ? Arr.map(routines, (routine) =>
-            routine.id === event.routine.id ? event.routine : routine,
-          )
-        : Arr.append(routines, event.routine);
-
-      const runs = snapshot.routineRuns ?? [];
-      const eventRun = event.run;
-
-      const nextRuns = eventRun
-        ? runs.some((run) => run.id === eventRun.id)
-          ? Arr.map(runs, (run) => (run.id === eventRun.id ? eventRun : run))
-          : Arr.append(runs, eventRun)
-        : runs;
-
-      return {
-        ...snapshot,
-        routines: nextRoutines,
-        routineRuns: nextRuns,
-        snapshotSequence: event.sequence,
-      };
-    }
-
+    // Otto: Routines and Library live in their own caches, so their events only move the snapshot on.
+    case "routine-upserted":
     case "routine-removed":
-      return {
-        ...snapshot,
-        routines: Arr.filter(snapshot.routines ?? [], (routine) => routine.id !== event.routineId),
-        routineReceiptSources: event.receiptSource
-          ? [
-              ...(snapshot.routineReceiptSources ?? []).filter(
-                (source) => source.id !== event.routineId,
-              ),
-              event.receiptSource,
-            ]
-          : snapshot.routineReceiptSources,
-        routineRuns: event.receiptSource
-          ? snapshot.routineRuns
-          : Arr.filter(snapshot.routineRuns ?? [], (run) => run.routineId !== event.routineId),
-        snapshotSequence: event.sequence,
-      };
-    case "skill-assignment-upserted": {
-      const assignments = snapshot.skillAssignments ?? [];
-
-      const nextAssignments = assignments.some(
-        (assignment) => assignment.id === event.assignment.id,
-      )
-        ? Arr.map(assignments, (assignment) =>
-            assignment.id === event.assignment.id ? event.assignment : assignment,
-          )
-        : Arr.append(assignments, event.assignment);
-
-      return {
-        ...snapshot,
-        skillAssignments: nextAssignments,
-        snapshotSequence: event.sequence,
-      };
-    }
-
+    case "skill-assignment-upserted":
     case "skill-assignment-removed":
-      return {
-        ...snapshot,
-        skillAssignments: Arr.filter(
-          snapshot.skillAssignments ?? [],
-          (assignment) => assignment.id !== event.assignmentId,
-        ),
-        snapshotSequence: event.sequence,
-      };
+    case "library-folder-upserted":
+    case "library-folder-removed":
+    case "library-file-upserted":
+    case "library-file-removed":
+      return { ...snapshot, snapshotSequence: event.sequence };
     case "thread-upserted": {
       const threads = snapshot.threads.some((t) => t.id === event.thread.id)
         ? Arr.map(snapshot.threads, (t) => (t.id === event.thread.id ? event.thread : t))

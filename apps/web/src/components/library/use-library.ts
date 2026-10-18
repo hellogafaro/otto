@@ -1,19 +1,30 @@
 import { useAtomValue } from "@effect/atom-react";
 import {
+  libraryCacheAtom,
+  libraryPathCached,
+  libraryRevisionAtom,
+} from "@otto/client-runtime/state/library";
+import {
   canEditLibraryItem,
   type EnvironmentId,
   type LibraryFile,
-  type LibraryFileId,
+  LibraryFileId,
   type LibraryFolder,
-  type LibraryFolderId,
+  LibraryFolderId,
+  isSkillFile,
   LIBRARY_FILE_MAX_BYTES,
+  type LibraryListQuery,
+  type LibraryListResult,
   type ProjectId,
   type ThreadId,
 } from "@otto/contracts";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { resolveAssetUrl } from "../../assets/asset-urls";
+import { useListPages } from "../../hooks/use-list-pages";
 import { useI18n } from "../../i18n";
 import { hasTag } from "../../lib/tagged-union";
 import { usePrimaryEnvironmentId } from "../../state/environments";
@@ -24,18 +35,20 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { toast } from "sonner";
 import { useWorkParticipants } from "../work/work-participants";
 
-const EMPTY_FOLDERS: readonly LibraryFolder[] = [];
+// SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
+const NO_ENVIRONMENT = "" as EnvironmentId;
 
-const EMPTY_FILES: readonly LibraryFile[] = [];
-
-/** The Library as this person sees it; the server already left out what they can't. */
+/**
+ * Otto: The Library as this person sees it: the folders read so far, from the server's lists and
+ * gets, which already leave out what they can't see.
+ */
 export function useLibraryData() {
   const environmentId = usePrimaryEnvironmentId();
-  // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
-  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
+  const cached = useAtomValue(libraryCacheAtom(environmentId ?? NO_ENVIRONMENT)).folders;
   const participants = useWorkParticipants(snapshot ?? null);
   const currentPersonId = snapshot?.currentPersonId ?? null;
-  const folders = snapshot?.libraryFolders ?? EMPTY_FOLDERS;
+  const folders = useMemo(() => [...cached.values()], [cached]);
 
   const canEdit = useCallback(
     (item: LibraryFolder | LibraryFile) =>
@@ -48,8 +61,6 @@ export function useLibraryData() {
     environmentId,
     loaded: snapshot !== null && snapshot !== undefined,
     folders,
-    files: snapshot?.libraryFiles ?? EMPTY_FILES,
-    threads: snapshot?.threads ?? [],
     participants,
     currentPersonId,
     canEdit,
@@ -57,6 +68,162 @@ export function useLibraryData() {
 }
 
 export type LibraryData = ReturnType<typeof useLibraryData>;
+
+const nextLibraryCursor = (page: LibraryListResult) => page.nextCursor;
+
+/**
+ * Otto: A bounded Library list read page by page, loaded again in place whenever a Library change
+ * arrives. `all` keeps loading pages until the end, for the few places that need every match;
+ * without an environment it asks nothing.
+ */
+export function useLibraryPages(
+  environmentId: EnvironmentId | null,
+  query: Omit<LibraryListQuery, "cursor">,
+  { all = false }: { readonly all?: boolean } = {},
+) {
+  const listLibrary = useAtomCommand(libraryEnvironment.list, { reportFailure: false });
+  const revision = useAtomValue(libraryRevisionAtom(environmentId ?? NO_ENVIRONMENT));
+
+  const list = useListPages({
+    view: `${environmentId}:${JSON.stringify(query)}`,
+    revision,
+    getNextCursor: nextLibraryCursor,
+    fetchPage: async (cursor) => {
+      if (!environmentId) return null;
+
+      const result = await listLibrary({
+        environmentId,
+        input: cursor === undefined ? query : { ...query, cursor },
+      });
+
+      return AsyncResult.isSuccess(result) ? result.value : null;
+    },
+  });
+
+  const { hasMore, status, loadMore } = list;
+
+  useEffect(() => {
+    if (all && hasMore && status === "ready") loadMore();
+  }, [all, hasMore, status, loadMore]);
+
+  const loaded = useMemo(() => {
+    const items = list.pages.flatMap((page) => page.items);
+
+    return {
+      items,
+      folders: items.flatMap((item) => (item.kind === "folder" ? [item.folder] : [])),
+      files: items.flatMap((item) => (item.kind === "file" ? [item.file] : [])),
+    };
+  }, [list.pages]);
+
+  return { ...list, ...loaded, loading: list.status === "loading" && list.pages.length === 0 };
+}
+
+const byTitle = (left: LibraryFolder, right: LibraryFolder) =>
+  left.title.localeCompare(right.title);
+
+const NO_SKILLS: readonly [LibraryListResult, LibraryListResult] = [
+  { items: [], folders: [], nextCursor: null },
+  { items: [], folders: [], nextCursor: null },
+];
+
+/** The skills this person sees, A to Z, with each one's SKILL.md. */
+export function useLibrarySkills(environmentId: EnvironmentId | null) {
+  const result = useAtomValue(libraryEnvironment.skills(environmentId ?? NO_ENVIRONMENT));
+  const [folders, documents] = Option.getOrElse(AsyncResult.value(result), () => NO_SKILLS);
+
+  const skills = useMemo(
+    () =>
+      folders.items
+        .flatMap((item) => (item.kind === "folder" ? [item.folder] : []))
+        .toSorted(byTitle),
+    [folders],
+  );
+
+  const main = useCallback(
+    (skillId: LibraryFolderId) =>
+      documents.items
+        .flatMap((item) => (item.kind === "file" ? [item.file] : []))
+        .find((file) => file.folderId === skillId && isSkillFile(file)),
+    [documents],
+  );
+
+  return { skills, main, loading: environmentId !== null && AsyncResult.isInitial(result) };
+}
+
+const isFileId = Schema.is(LibraryFileId);
+
+const isFolderId = Schema.is(LibraryFolderId);
+
+function useLibraryCache(environmentId: EnvironmentId | null) {
+  return useAtomValue(libraryCacheAtom(environmentId ?? NO_ENVIRONMENT));
+}
+
+/**
+ * Otto: Reads what the cache lacks from the server once per `key`, which moves on with the
+ * Library's revision. Resolves to whether that read found nothing the person may see.
+ */
+function useLibraryRead(key: string | null, read: () => Promise<boolean>) {
+  const [missing, setMissing] = useState<string | null>(null);
+  const latestRead = useRef(read);
+  latestRead.current = read;
+
+  useEffect(() => {
+    if (key === null) return;
+    let current = true;
+
+    void latestRead.current().then((found) => {
+      if (current && !found) setMissing(key);
+    });
+
+    return () => {
+      current = false;
+    };
+  }, [key]);
+
+  return key !== null && missing === key;
+}
+
+/**
+ * One file by id with every folder above it, from the cache or else the server. It is loading
+ * until that read answers, then null when the file is missing or hidden.
+ */
+export function useLibraryFile(environmentId: EnvironmentId | null, fileId: string | null) {
+  const cache = useLibraryCache(environmentId);
+  const getFile = useAtomCommand(libraryEnvironment.getFile, { reportFailure: false });
+  const id = environmentId !== null && fileId !== null && isFileId(fileId) ? fileId : null;
+  const file = id === null ? undefined : cache.files.get(id);
+  const complete = file !== undefined && libraryPathCached(cache, file.folderId);
+
+  const missing = useLibraryRead(
+    id === null || complete ? null : `${environmentId}:${id}:${cache.revision}`,
+    async () =>
+      environmentId !== null &&
+      id !== null &&
+      AsyncResult.isSuccess(await getFile({ environmentId, input: { fileId: id } })),
+  );
+
+  return { file: file ?? null, loading: id !== null && file === undefined && !missing };
+}
+
+/** One folder by id with every folder above it, from the cache or else the server. */
+export function useLibraryFolder(environmentId: EnvironmentId | null, folderId: string | null) {
+  const cache = useLibraryCache(environmentId);
+  const getFolder = useAtomCommand(libraryEnvironment.getFolder, { reportFailure: false });
+  const id = environmentId !== null && folderId !== null && isFolderId(folderId) ? folderId : null;
+  const folder = id === null ? undefined : cache.folders.get(id);
+  const complete = folder !== undefined && libraryPathCached(cache, folder.id);
+
+  const missing = useLibraryRead(
+    id === null || complete ? null : `${environmentId}:${id}:${cache.revision}`,
+    async () =>
+      environmentId !== null &&
+      id !== null &&
+      AsyncResult.isSuccess(await getFolder({ environmentId, input: { folderId: id } })),
+  );
+
+  return { id, folder: folder ?? null, loading: id !== null && folder === undefined && !missing };
+}
 
 /** A signed URL for showing one file; it refreshes before it expires. */
 export function useLibraryFileUrl(environmentId: EnvironmentId, fileId: LibraryFileId) {

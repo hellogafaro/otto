@@ -27,7 +27,12 @@ import { useEntities } from "../work/work-links";
 import { LibraryItemMenu } from "./library-actions";
 import { LibraryFileDetails } from "./library-details";
 import { joinFrontMatter } from "./library.logic";
-import { useLibraryData, useLibraryDownload, type LibraryData } from "./use-library";
+import {
+  useLibraryData,
+  useLibraryDownload,
+  useLibraryFile,
+  type LibraryData,
+} from "./use-library";
 import { useDesktopTabTitle } from "../../desktop-tabs-store";
 
 const SAVE_DELAY_MS = 800;
@@ -42,7 +47,7 @@ export function LibraryDocumentPage({ fileId }: { readonly fileId: LibraryFileId
   const { t } = useI18n();
   const navigate = useNavigate();
   const data = useLibraryData();
-  const file = data.files.find((candidate) => candidate.id === fileId);
+  const { file, loading } = useLibraryFile(data.environmentId, fileId);
   useDesktopTabTitle(file?.title);
 
   const back = {
@@ -51,7 +56,7 @@ export function LibraryDocumentPage({ fileId }: { readonly fileId: LibraryFileId
       void navigate({ to: "/library", search: file?.folderId ? { folder: file.folderId } : {} }),
   };
 
-  if (!data.loaded) return <WorkPage back={back}>{null}</WorkPage>;
+  if (!data.loaded || loading) return <WorkPage back={back}>{null}</WorkPage>;
 
   if (!file || file.type !== "document" || data.environmentId === null) {
     return (
@@ -90,7 +95,8 @@ function DocumentEditor({
   readonly back: { readonly label: string; readonly onBack: () => void };
 }) {
   const { t } = useI18n();
-  const links = useEntities();
+  const [linkQuery, setLinkQuery] = useState<string | null>(null);
+  const links = useEntities(linkQuery);
   const download = useLibraryDownload();
   const readDocument = useAtomCommand(libraryEnvironment.readDocument, { reportFailure: false });
   const saveDocument = useAtomCommand(libraryEnvironment.saveDocument, { reportFailure: false });
@@ -304,6 +310,7 @@ function DocumentEditor({
                   placeholder={editable ? t("Start writing…") : t("This document is empty.")}
                   ariaLabel={t("Document")}
                   links={links}
+                  onLinkQueryChange={setLinkQuery}
                   editable={editable}
                   onChange={(body) => onChange({ body })}
                   onBlur={() => void flush()}

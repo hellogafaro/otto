@@ -148,9 +148,9 @@ it("keeps a private routine to its creator and its bot", () => {
 it("keeps a private chat in its creator's shell only", () => {
   const privateDm = shellWith({ ...dm, visibility: "user" });
 
-  expect(visibleShellSnapshot(privateDm, ANA, []).threads).toHaveLength(1);
-  expect(visibleShellSnapshot(privateDm, BEN, []).threads).toHaveLength(0);
-  expect(visibleShellSnapshot(shellWith(dm), BEN, []).threads).toHaveLength(1);
+  expect(visibleShellSnapshot(privateDm, ANA).threads).toHaveLength(1);
+  expect(visibleShellSnapshot(privateDm, BEN).threads).toHaveLength(0);
+  expect(visibleShellSnapshot(shellWith(dm), BEN).threads).toHaveLength(1);
 });
 
 it.effect("removes a chat from everyone else's list when it turns private", () =>
@@ -170,6 +170,7 @@ it.effect("removes a chat from everyone else's list when it turns private", () =
         personId,
         loadSnapshot: Effect.succeed(shellWith(dm)),
         loadChatThreads: Effect.succeed([]),
+        loadLibraryFolders: Effect.succeed([]),
         resuming: false,
       }).pipe(
         Effect.flatMap(Stream.runCollect),

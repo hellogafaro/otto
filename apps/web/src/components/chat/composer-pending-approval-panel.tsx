@@ -1,13 +1,14 @@
-import { RiTimeLine } from "@remixicon/react";
+import { RiFlashlightLine, RiTimeLine } from "@remixicon/react";
 import { Predicate, Schema, Option } from "effect";
 
 import { memo } from "react";
 import { createTranslator } from "@otto/client-runtime/i18n";
-import { hourlyScheduleText } from "@otto/client-runtime/routines";
+import { hourlyScheduleText, routineTriggerProposalText } from "@otto/client-runtime/routines";
 import { OTTO_CREATE_ROUTINE_TOOL_NAME } from "@otto/contracts";
 import { type PendingApproval } from "../../session-logic";
 import { describeCommandApproval } from "~/lib/command-approval-details";
-import { useLibraryData } from "../library/use-library";
+import { usePrimaryEnvironmentId } from "../../state/environments";
+import { useLibraryFolder } from "../library/use-library";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 
@@ -45,6 +46,7 @@ interface RoutineProposalDetails {
   readonly name: string | null;
   readonly instructions: string | null;
   readonly schedule: string | null;
+  readonly trigger: string | null;
   readonly timezone: string | null;
   readonly uses: ReadonlyArray<string>;
 }
@@ -202,11 +204,14 @@ export function routineProposalDetails(
     name: stringField(record, "name"),
     instructions: routineInstructions(stringField(record, "instructions"), record.schedule),
     schedule: routineScheduleText(record.schedule, t, locale),
+    trigger: routineTriggerProposalText(args, t),
     timezone: stringField(record, "timezone"),
     uses: [...stringList(record.skillNames), ...stringList(record.connectorNames)],
   };
 
-  return details.name || details.instructions || details.schedule ? details : null;
+  return details.name || details.instructions || details.schedule || details.trigger
+    ? details
+    : null;
 }
 
 function RoutineProposal({
@@ -261,6 +266,15 @@ function RoutineProposal({
                   <span className="text-muted-foreground"> · {details.timezone}</span>
                 ) : null}
               </span>
+            </p>
+          ) : null}
+          {details.trigger ? (
+            <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <RiFlashlightLine
+                aria-hidden="true"
+                className="size-3.5 shrink-0 text-muted-foreground"
+              />
+              <span className="min-w-0 truncate">{details.trigger}</span>
             </p>
           ) : null}
           {details.instructions ? (
@@ -319,7 +333,6 @@ function SkillProposal({
   pendingCount: number;
 }) {
   const { t } = useI18n();
-  const library = useLibraryData();
   const details = skillProposalDetails(args);
 
   const skillId =
@@ -327,7 +340,8 @@ function SkillProposal({
       ? args.skillId
       : null;
 
-  const name = details.name || library.folders.find((folder) => folder.id === skillId)?.title || "";
+  const skill = useLibraryFolder(usePrimaryEnvironmentId(), details.name ? null : skillId).folder;
+  const name = details.name || skill?.title || "";
 
   return (
     <div

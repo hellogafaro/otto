@@ -48,11 +48,6 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **Better memory.**
 - **Email addresses for bots.**
 - **Relay architecture**: a proper relay between apps and servers.
-- **Slim startup snapshot.** On connect the server still sends every task, routine, routine run and
-  Library file and folder in the shell snapshot, though the index pages now page from `tasks.list`,
-  `projects.list`, `routines.list` and `library.list`. Drop them from the snapshot and have the
-  task, project, routine and Library pages, Home, links and @-mentions fetch by id or through those
-  lists. Worth it only once a workspace holds thousands of rows; measure the snapshot size first.
 
 ## Not verified yet
 

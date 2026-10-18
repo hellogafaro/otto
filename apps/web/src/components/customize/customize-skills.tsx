@@ -1,7 +1,5 @@
 import {
   type EnvironmentId,
-  isSkillFile,
-  LIBRARY_SKILLS_FOLDER_ID,
   type LibraryFile,
   type LibraryFolder,
   LibraryFolderId,
@@ -21,7 +19,7 @@ import { randomUUID } from "../../lib/utils";
 import { libraryEnvironment } from "../../state/library";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { useLibraryData, useLibraryUpload } from "../library/use-library";
+import { useLibrarySkills, useLibraryUpload } from "../library/use-library";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -354,18 +352,13 @@ function SkillRow({
 export function CustomizeSkills({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const { t, plural } = useI18n();
   const navigate = useNavigate();
-  const data = useLibraryData();
+  const { skills, main, loading } = useLibrarySkills(environmentId);
   const [draft, setDraft] = useState<SkillDraft | null>(null);
   const importVisibility = useRef<LibraryVisibility>("user");
   const folderInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
 
-  const skills = data.folders
-    .filter((folder) => folder.parentId === LIBRARY_SKILLS_FOLDER_ID)
-    .toSorted((left, right) => left.title.localeCompare(right.title));
-
-  if (!data.loaded)
-    return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 2]} />;
+  if (loading) return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 2]} />;
 
   const importSkill = async (
     read: () => Promise<ReadonlyArray<{ readonly path: string; readonly value: File }>>,
@@ -438,7 +431,7 @@ export function CustomizeSkills({ environmentId }: { readonly environmentId: Env
                 key={skill.id}
                 environmentId={environmentId}
                 skill={skill}
-                main={data.files.find((file) => file.folderId === skill.id && isSkillFile(file))}
+                main={main(skill.id)}
               />
             ))}
           </CustomizeGroup>

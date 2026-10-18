@@ -11,7 +11,7 @@ import { detectComposerTrigger, serializeComposerFileLink } from "@otto/shared/c
 
 const THREAD_QUERY_PREFIX = "chat:";
 
-const TASK_MENTION_LIMIT = 8;
+export const TASK_MENTION_LIMIT = 8;
 
 export interface BotPromptMentionTrigger {
   /** Text typed after `@`, used to filter the picker. */

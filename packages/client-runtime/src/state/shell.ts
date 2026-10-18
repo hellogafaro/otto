@@ -12,7 +12,7 @@ import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity";
 
 import { EnvironmentRegistry } from "../connection/registry.ts";
 import { connectionProjectionPhase } from "../connection/model.ts";
@@ -23,6 +23,9 @@ import { EnvironmentCacheStore } from "../platform/persistence.ts";
 import { subscribeDynamic } from "../rpc/client.ts";
 import type { RpcSession } from "../rpc/session.ts";
 import { ShellSnapshotLoader } from "./shell-snapshot-http.ts";
+import { recordLibraryShellItem } from "./library-cache.ts";
+import { recordRoutineShellItem } from "./routine-cache.ts";
+import { recordTaskShellItem } from "./task-cache.ts";
 import { applyShellStreamEvent } from "./shell-reducer.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
@@ -54,6 +57,7 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
   const cache = yield* EnvironmentCacheStore;
   const snapshotLoader = yield* ShellSnapshotLoader;
   const wakeups = yield* Effect.serviceOption(ConnectionWakeups.ConnectionWakeups);
+  const atoms = yield* Effect.serviceOption(AtomRegistry.AtomRegistry);
   const environmentId = supervisor.target.environmentId;
 
   const cachedSnapshot = yield* cache.loadShell(environmentId).pipe(
@@ -170,6 +174,12 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
 
     if (nextSnapshot === null) {
       return;
+    }
+
+    if (Option.isSome(atoms) && nextSnapshot !== Option.getOrNull(current.snapshot)) {
+      recordRoutineShellItem(atoms.value, environmentId, item);
+      recordTaskShellItem(atoms.value, environmentId, item);
+      recordLibraryShellItem(atoms.value, environmentId, item);
     }
 
     const waiting = yield* Ref.get(awaitingCompletion);

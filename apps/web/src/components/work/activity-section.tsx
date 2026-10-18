@@ -3,12 +3,10 @@ import {
   type ActivityEntry,
   type EnvironmentId,
   GENERAL_PROJECT_ID,
-  type LibraryFile,
   type ProjectId,
   type TaskChanges,
   type WorkParticipant,
 } from "@otto/contracts";
-import { useAtomValue } from "@effect/atom-react";
 import { RiAttachment2, RiDeleteBinLine, RiReplyLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -24,11 +22,12 @@ import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestamp-format";
 import ChatMarkdown from "../chat-markdown";
-import { useLibraryUpload } from "../library/use-library";
-import { environmentTasksAtom } from "../../state/tasks";
+import { useLibraryFile, useLibraryUpload } from "../library/use-library";
+import { useTaskCache } from "../../state/tasks";
 import type { MessageReplyTarget } from "../chat/message-controls";
 import { BotPromptComposer } from "../roster/bot-prompt-composer";
 import { Button } from "../ui/button";
+import { Skeleton } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   activityMarkdown,
@@ -61,7 +60,6 @@ export function ActivitySection({
   refreshKey,
   participants,
   projects,
-  files,
   currentPersonId,
 }: {
   readonly environmentId: EnvironmentId;
@@ -72,11 +70,10 @@ export function ActivitySection({
   readonly refreshKey: string;
   readonly participants: WorkParticipants;
   readonly projects: ReadonlyArray<{ readonly id: string; readonly title: string }>;
-  readonly files: ReadonlyArray<LibraryFile>;
   readonly currentPersonId: string | null;
 }) {
   const { t } = useI18n();
-  const tasks = useAtomValue(environmentTasksAtom(environmentId));
+  const tasks = useTaskCache(environmentId);
   const query = useEnvironmentQuery(activityEnvironment.list({ environmentId, input: entity }));
   const addComment = useAtomCommand(activityEnvironment.addComment);
   const { upload } = useLibraryUpload();
@@ -102,7 +99,11 @@ export function ActivitySection({
         id: project.id,
         label: project.title,
       })),
-    ...tasks.map((task) => ({ type: "task" as const, id: task.id, label: task.title })),
+    ...[...tasks.values()].map((task) => ({
+      type: "task" as const,
+      id: task.id,
+      label: task.title,
+    })),
   ];
 
   const actorParticipant = (actor: Actor | null): WorkParticipant | null =>
@@ -180,7 +181,6 @@ export function ActivitySection({
                 comment={entry}
                 author={actorParticipant(entry.actor)}
                 participants={participants}
-                files={files}
                 own={entry.actor?.type === "person" && entry.actor.id === currentPersonId}
                 onChanged={query.refresh}
                 onReply={(target) => {
@@ -297,7 +297,6 @@ function CommentRow({
   comment,
   author,
   participants,
-  files,
   own,
   onChanged,
   onReply,
@@ -306,14 +305,12 @@ function CommentRow({
   readonly comment: Comment;
   readonly author: WorkParticipant | null;
   readonly participants: WorkParticipants;
-  readonly files: ReadonlyArray<LibraryFile>;
   readonly own: boolean;
   readonly onChanged: () => void;
   readonly onReply: (target: MessageReplyTarget) => void;
 }) {
   const { t } = useI18n();
   const authorName = author ? participantName(author, participants.allBots) : t("Someone");
-  const navigate = useNavigate();
   const removeComment = useAtomCommand(activityEnvironment.removeComment);
 
   const remove = async () => {
@@ -390,26 +387,40 @@ function CommentRow({
         ) : null}
         {comment.fileIds.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 px-1 pb-1">
-            {comment.fileIds.map((fileId) => {
-              const file = files.find((candidate) => candidate.id === fileId);
-
-              return (
-                <Button
-                  key={fileId}
-                  size="xs"
-                  variant="outline"
-                  disabled={file === undefined}
-                  onClick={() => void navigate({ to: "/library/$fileId", params: { fileId } })}
-                >
-                  <RiAttachment2 />
-                  {file?.title ?? t("Deleted file")}
-                </Button>
-              );
-            })}
+            {comment.fileIds.map((fileId) => (
+              <CommentFile key={fileId} environmentId={environmentId} fileId={fileId} />
+            ))}
           </div>
         ) : null}
       </div>
     </li>
+  );
+}
+
+/** A file attached to a comment, opening its page; a file gone or hidden reads as deleted. */
+function CommentFile({
+  environmentId,
+  fileId,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly fileId: string;
+}) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const { file, loading } = useLibraryFile(environmentId, fileId);
+
+  if (loading) return <Skeleton className="h-6 w-24 rounded-md" />;
+
+  return (
+    <Button
+      size="xs"
+      variant="outline"
+      disabled={file === null}
+      onClick={() => void navigate({ to: "/library/$fileId", params: { fileId } })}
+    >
+      <RiAttachment2 />
+      {file?.title ?? t("Deleted file")}
+    </Button>
   );
 }
 

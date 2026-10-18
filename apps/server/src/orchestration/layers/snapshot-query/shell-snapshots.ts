@@ -7,7 +7,6 @@ import {
   toPersistenceDecodeError,
   toPersistenceSqlError,
 } from "../../../persistence/errors.ts";
-import { deletedRoutineReceiptSources } from "../../routine-receipt-sources.ts";
 import { toShellDelegation } from "../../shell-delegations.ts";
 import { type ProjectionSnapshotQueryShape } from "../../services/projection-snapshot-query.ts";
 import {
@@ -33,9 +32,6 @@ export function createShellSnapshots({
   listGroupRows,
   listShellDelegationRows,
   projectionMcpServerRepository,
-  projectionTaskRepository,
-  projectionLibraryRepository,
-  routineRepository,
   listActiveThreadRows,
   listActiveThreadSessionRows,
   listActiveLatestTurnRows,
@@ -56,9 +52,6 @@ export function createShellSnapshots({
   | "listGroupRows"
   | "listShellDelegationRows"
   | "projectionMcpServerRepository"
-  | "projectionTaskRepository"
-  | "projectionLibraryRepository"
-  | "routineRepository"
   | "listActiveThreadRows"
   | "listActiveThreadSessionRows"
   | "listActiveLatestTurnRows"
@@ -107,12 +100,6 @@ export function createShellSnapshots({
             ),
           ),
           projectionMcpServerRepository.listAll(),
-          projectionTaskRepository.listAll(),
-          projectionLibraryRepository.listFolders(),
-          projectionLibraryRepository.listFiles(),
-          routineRepository.listAll,
-          routineRepository.listAllRuns,
-          routineRepository.listSkillAssignments,
           listActiveThreadRows(undefined).pipe(
             Effect.mapError(
               toPersistenceSqlOrDecodeError(
@@ -155,12 +142,6 @@ export function createShellSnapshots({
             groupRows,
             delegationRows,
             mcpServers,
-            tasks,
-            libraryFolders,
-            libraryFiles,
-            routines,
-            routineRuns,
-            skillAssignments,
             threadRows,
             sessionRows,
             latestTurnRows,
@@ -237,13 +218,6 @@ export function createShellSnapshots({
                 groups: groupRows.map(mapGroupRow),
                 delegations: delegationRows.map((row) => toShellDelegation(row.delegation)),
                 mcpServers,
-                tasks,
-                libraryFolders,
-                libraryFiles,
-                routines: routines.filter((routine) => routine.deletedAt === null),
-                routineReceiptSources: deletedRoutineReceiptSources(routines),
-                routineRuns,
-                skillAssignments,
                 threads: Arr.filterMap(threadRows, (row) =>
                   row.deletedAt === null
                     ? Result.succeed({

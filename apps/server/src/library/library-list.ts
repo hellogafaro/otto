@@ -20,7 +20,8 @@ const isLibraryListError = Schema.is(LibraryListError);
 /**
  * One page of the Library as this person sees it. The query hides what they can't see before
  * the limit, and a cursor is sealed to the person and view, so a cursor from someone else, another
- * view or another server is refused.
+ * view or another server is refused. Every folder above a listed item is one they see, so the
+ * page carries those folders too.
  */
 export const listLibrary = (
   query: LibraryListQuery,
@@ -43,9 +44,19 @@ export const listLibrary = (
     const page = yield* services.projectionLibrary.list({ query: view, personId, limit, after });
     const rows = page.slice(0, limit);
     const last = rows.at(-1);
+    const items = rows.map((row) => row.item);
+
+    const parentIds = new Set(
+      items.flatMap((item) => {
+        const parentId = item.kind === "folder" ? item.folder.parentId : item.file.folderId;
+
+        return parentId === null ? [] : [parentId];
+      }),
+    );
 
     return {
-      items: rows.map((row) => row.item),
+      items,
+      folders: yield* services.projectionLibrary.listFolderPaths([...parentIds]),
       nextCursor: page.length > limit && last ? sealListCursor(secret, viewKey, last.key) : null,
     };
   }).pipe(

@@ -4,6 +4,7 @@ import {
   LibraryFileShare,
   LibraryFolder,
   LibraryFolderId,
+  LIBRARY_MAX_FOLDER_DEPTH,
   type LibraryListSort,
   type LibraryListType,
   GroupId,
@@ -16,6 +17,7 @@ import {
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -231,6 +233,60 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
       `,
   });
 
+  const getFileRow = SqlSchema.findOneOption({
+    Request: LibraryFileId,
+    Result: FileDbRow,
+    execute: (fileId) =>
+      sql`
+        SELECT
+          file_id AS id,
+          folder_id AS "folderId",
+          type,
+          title,
+          extension,
+          size_bytes AS "sizeBytes",
+          visibility,
+          share_json AS "share",
+          created_by_json AS "createdBy",
+          created_at AS "createdAt",
+          updated_by_json AS "updatedBy",
+          updated_at AS "updatedAt"
+        FROM projection_library_files
+        WHERE file_id = ${fileId}
+      `,
+  });
+
+  const listFolderPathRows = SqlSchema.findAll({
+    Request: Schema.Array(LibraryFolderId),
+    Result: FolderDbRow,
+    execute: (folderIds) =>
+      sql`
+        WITH RECURSIVE path(folder_id, depth) AS (
+          SELECT folder_id, 1 FROM projection_library_folders
+          WHERE ${sql.in("folder_id", folderIds)}
+          UNION
+          SELECT parent.folder_id, path.depth + 1
+          FROM path
+          JOIN projection_library_folders AS child ON child.folder_id = path.folder_id
+          JOIN projection_library_folders AS parent ON parent.folder_id = child.parent_id
+          WHERE path.depth < ${LIBRARY_MAX_FOLDER_DEPTH}
+        )
+        SELECT
+          folder_id AS id,
+          parent_id AS "parentId",
+          thread_id AS "threadId",
+          project_id AS "projectId",
+          title,
+          visibility,
+          created_by_json AS "createdBy",
+          created_at AS "createdAt",
+          updated_by_json AS "updatedBy",
+          updated_at AS "updatedAt"
+        FROM projection_library_folders
+        WHERE folder_id IN (SELECT folder_id FROM path)
+      `,
+  });
+
   const listChatThreadRows = SqlSchema.findAll({
     Request: Schema.Void,
     Result: Schema.Struct({
@@ -260,11 +316,47 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     const conditions: string[] = [];
     const params: Array<string | number> = [];
 
-    if (!query.everywhere && query.folder === undefined) conditions.push("parent_id IS NULL");
+    const placed =
+      query.folder !== undefined || query.thread !== undefined || query.project !== undefined;
 
-    if (!query.everywhere && query.folder !== undefined) {
-      conditions.push("parent_id = ?");
+    if (!query.everywhere && !placed) conditions.push("parent_id IS NULL");
+
+    if (query.folder !== undefined) {
+      conditions.push(
+        query.everywhere
+          ? `parent_id IN (
+              WITH RECURSIVE subtree(folder_id, depth) AS (
+                SELECT ?, 0
+                UNION
+                SELECT child.folder_id, subtree.depth + 1
+                FROM projection_library_folders AS child
+                JOIN subtree ON child.parent_id = subtree.folder_id
+                WHERE subtree.depth < ${LIBRARY_MAX_FOLDER_DEPTH}
+              )
+              SELECT folder_id FROM subtree
+            )`
+          : "parent_id = ?",
+      );
       params.push(query.folder);
+    }
+
+    if (query.thread !== undefined) {
+      conditions.push(
+        "parent_id IN (SELECT folder_id FROM projection_library_folders WHERE thread_id = ?)",
+      );
+      params.push(query.thread);
+    }
+
+    if (query.project !== undefined) {
+      conditions.push(
+        "parent_id IN (SELECT folder_id FROM projection_library_folders WHERE project_id = ?)",
+      );
+      params.push(query.project);
+    }
+
+    if (query.title !== undefined) {
+      conditions.push("instr(lower(title), lower(?)) > 0");
+      params.push(query.title);
     }
 
     if (query.type !== undefined && query.type.length > 0) {
@@ -387,8 +479,31 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     );
   };
 
+  const toFolders = (rows: ReadonlyArray<typeof FolderDbRow.Type>): ReadonlyArray<LibraryFolder> =>
+    rows.map(({ threadId, projectId, ...folder }) => ({
+      ...folder,
+      ...(threadId === null ? {} : { threadId }),
+      ...(projectId === null ? {} : { projectId }),
+    }));
+
   return {
     list,
+    getFile: (fileId) =>
+      getFileRow(fileId).pipe(
+        Effect.map(
+          Option.map(({ share, ...file }) => (share === null ? file : { ...file, share })),
+        ),
+        Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.getFile:query")),
+      ),
+    listFolderPaths: (folderIds) =>
+      folderIds.length === 0
+        ? Effect.succeed([])
+        : listFolderPathRows(folderIds).pipe(
+            Effect.map(toFolders),
+            Effect.mapError(
+              toPersistenceSqlError("ProjectionLibraryRepository.listFolderPaths:query"),
+            ),
+          ),
     listChatThreads: () =>
       listChatThreadRows().pipe(
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.listChatThreads:query")),
@@ -415,13 +530,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
       ),
     listFolders: () =>
       listFolderRows().pipe(
-        Effect.map((rows) =>
-          rows.map(({ threadId, projectId, ...folder }) => ({
-            ...folder,
-            ...(threadId === null ? {} : { threadId }),
-            ...(projectId === null ? {} : { projectId }),
-          })),
-        ),
+        Effect.map(toFolders),
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.listFolders:query")),
       ),
     listFiles: () =>

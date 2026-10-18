@@ -50,7 +50,7 @@ import { Input } from "../ui/input";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { LibraryShareDialog } from "./library-share-dialog";
-import { useLibraryDownload, type LibraryData } from "./use-library";
+import { useLibraryDownload, useLibraryPages, type LibraryData } from "./use-library";
 
 /** One short line of text: a new folder's name or anything's new title. */
 export function LibraryNameDialog({
@@ -158,7 +158,7 @@ type FolderOption = {
  */
 function moveTargets(
   folders: ReadonlyArray<LibraryFolder>,
-  item: { readonly kind: "folder"; readonly folder: LibraryFolder } | { readonly kind: "file" },
+  item: MoveItem,
   topLabel: string,
 ): FolderOption[] {
   const options: FolderOption[] = [{ id: null, title: topLabel, depth: 0, selectable: true }];
@@ -200,104 +200,133 @@ function moveTargets(
   return options;
 }
 
+type MoveItem =
+  | { readonly kind: "folder"; readonly folder: LibraryFolder }
+  | { readonly kind: "file" };
+
 export function LibraryMoveDialog({
+  environmentId,
   open,
   onOpenChange,
-  folders,
   item,
   current,
   onMove,
 }: {
+  readonly environmentId: EnvironmentId;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly folders: ReadonlyArray<LibraryFolder>;
-  readonly item:
-    | { readonly kind: "folder"; readonly folder: LibraryFolder }
-    | { readonly kind: "file" };
+  readonly item: MoveItem;
   readonly current: LibraryFolderId | null;
   readonly onMove: (folderId: LibraryFolderId | null) => void;
 }) {
-  const { t } = useI18n();
-  const [target, setTarget] = useState<LibraryFolderId | null>(current);
-  const options = moveTargets(folders, item, t("Library"));
-
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (next) setTarget(current);
-        onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup
         className="flex max-h-(--spacing-dvh-2rem) max-w-md flex-col overflow-hidden"
         bottomStickOnMobile={false}
       >
-        <form
-          className="flex min-h-0 flex-col"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onOpenChange(false);
+        {open ? (
+          <LibraryMoveForm
+            environmentId={environmentId}
+            item={item}
+            current={current}
+            onCancel={() => onOpenChange(false)}
+            onMove={(target) => {
+              onOpenChange(false);
 
-            if (target !== current) onMove(target);
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>{t("Move to")}</DialogTitle>
-          </DialogHeader>
-          <DialogPanel>
-            <div role="listbox" aria-label={t("Folders")} className="flex flex-col">
-              {options.map((option) => (
-                <button
-                  key={option.id ?? "top"}
-                  type="button"
-                  role="option"
-                  aria-selected={option.id === target}
-                  aria-disabled={!option.selectable}
-                  onClick={() => option.selectable && setTarget(option.id)}
-                  className={cn(
-                    "flex h-8 items-center rounded-md px-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    !option.selectable
-                      ? "cursor-default text-muted-foreground"
-                      : option.id === target
-                        ? "bg-secondary text-foreground"
-                        : "hover:bg-secondary/60",
-                  )}
-                >
-                  {Array.from({ length: option.depth }, (_, level) => (
-                    <span
-                      key={level}
-                      aria-hidden
-                      className="relative w-4 shrink-0 self-stretch before:absolute before:inset-y-0 before:left-1/2 before:w-px before:bg-border"
-                    />
-                  ))}
-                  {option.id === null ? (
-                    <RiBookShelfLine
-                      aria-hidden
-                      className="me-2 size-4 shrink-0 text-muted-foreground"
-                    />
-                  ) : (
-                    <RiFolderLine
-                      aria-hidden
-                      className="me-2 size-4 shrink-0 text-muted-foreground"
-                    />
-                  )}
-                  <span className="truncate">{option.title}</span>
-                </button>
-              ))}
-            </div>
-          </DialogPanel>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              {t("Cancel")}
-            </Button>
-            <Button type="submit" disabled={target === current}>
-              {t("Move")}
-            </Button>
-          </DialogFooter>
-        </form>
+              if (target !== current) onMove(target);
+            }}
+          />
+        ) : null}
       </DialogPopup>
     </Dialog>
+  );
+}
+
+function LibraryMoveForm({
+  environmentId,
+  item,
+  current,
+  onCancel,
+  onMove,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly item: MoveItem;
+  readonly current: LibraryFolderId | null;
+  readonly onCancel: () => void;
+  readonly onMove: (folderId: LibraryFolderId | null) => void;
+}) {
+  const { t } = useI18n();
+  const [target, setTarget] = useState<LibraryFolderId | null>(current);
+
+  // Otto: Every folder this person sees, read page by page while the dialog is open.
+  const { folders } = useLibraryPages(
+    environmentId,
+    { everywhere: true, type: ["folder"], sort: "title" },
+    { all: true },
+  );
+
+  const options = moveTargets(folders, item, t("Library"));
+
+  return (
+    <form
+      className="flex min-h-0 flex-col"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onMove(target);
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>{t("Move to")}</DialogTitle>
+      </DialogHeader>
+      <DialogPanel>
+        <div role="listbox" aria-label={t("Folders")} className="flex flex-col">
+          {options.map((option) => (
+            <button
+              key={option.id ?? "top"}
+              type="button"
+              role="option"
+              aria-selected={option.id === target}
+              aria-disabled={!option.selectable}
+              onClick={() => option.selectable && setTarget(option.id)}
+              className={cn(
+                "flex h-8 items-center rounded-md px-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                !option.selectable
+                  ? "cursor-default text-muted-foreground"
+                  : option.id === target
+                    ? "bg-secondary text-foreground"
+                    : "hover:bg-secondary/60",
+              )}
+            >
+              {Array.from({ length: option.depth }, (_, level) => (
+                <span
+                  key={level}
+                  aria-hidden
+                  className="relative w-4 shrink-0 self-stretch before:absolute before:inset-y-0 before:left-1/2 before:w-px before:bg-border"
+                />
+              ))}
+              {option.id === null ? (
+                <RiBookShelfLine
+                  aria-hidden
+                  className="me-2 size-4 shrink-0 text-muted-foreground"
+                />
+              ) : (
+                <RiFolderLine aria-hidden className="me-2 size-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="truncate">{option.title}</span>
+            </button>
+          ))}
+        </div>
+      </DialogPanel>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          {t("Cancel")}
+        </Button>
+        <Button type="submit" disabled={target === current}>
+          {t("Move")}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 
@@ -430,7 +459,7 @@ export function LibraryRowActions({
   readonly pageActions: ReadonlyArray<PageAction>;
 }) {
   const { t } = useI18n();
-  const actions = useLibraryItemActions(environmentId, data, target);
+  const actions = useLibraryItemActions(environmentId, target);
   const { isHolder, isFixedFolder, editable } = libraryItemRights(data, target);
   const copy = useLibraryItemCopy(target);
   const { setRenaming, remove } = actions;
@@ -497,7 +526,7 @@ export function LibraryItemMenu({
   readonly onDeleted?: () => void;
 }) {
   const { t } = useI18n();
-  const actions = useLibraryItemActions(environmentId, data, target, onDeleted);
+  const actions = useLibraryItemActions(environmentId, target, onDeleted);
   const download = useLibraryDownload();
   const item = target.kind === "folder" ? target.folder : target.file;
   const { isHolder, isFixedFolder, editable } = libraryItemRights(data, target);
@@ -588,7 +617,6 @@ export function LibraryItemMenu({
 /** Rename, move, visibility and delete for one item, with their dialogs. */
 export function useLibraryItemActions(
   environmentId: EnvironmentId,
-  data: LibraryData,
   target: MenuTarget,
   onDeleted?: () => void,
 ) {
@@ -668,9 +696,9 @@ export function useLibraryItemActions(
           }}
         />
         <LibraryMoveDialog
+          environmentId={environmentId}
           open={moving}
           onOpenChange={setMoving}
-          folders={data.folders}
           item={
             target.kind === "folder" ? { kind: "folder", folder: target.folder } : { kind: "file" }
           }

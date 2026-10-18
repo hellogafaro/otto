@@ -11,9 +11,12 @@ import {
 import {
   ProjectListError,
   ProjectListQuery,
+  OrchestrationTask,
+  TaskGetInput,
   TaskListError,
   TaskListQuery,
   TaskListResult,
+  TaskNotFoundError,
 } from "../orchestration/work.ts";
 import { ProjectListResult } from "../orchestration/roster.ts";
 import {
@@ -31,6 +34,9 @@ import {
   LibraryCreateUploadUrlInput,
   LibraryCreateUploadUrlResult,
   LibraryFileInput,
+  LibraryFolderInput,
+  LibraryGetFileResult,
+  LibraryGetFolderResult,
   LibraryListError,
   LibraryListQuery,
   LibraryListResult,
@@ -188,9 +194,11 @@ import {
   VoiceCancelResult,
 } from "../voice-call.ts";
 import {
+  Routine,
   RoutineListError,
   RoutineListQuery,
   RoutineListResult,
+  RoutineGetInput,
   RoutineListRunsInput,
   RoutineListRunsResult,
   RoutineListThreadRunsResult,
@@ -680,6 +688,12 @@ export const WsRoutinesListRpc = Rpc.make(WS_METHODS.routinesList, {
   error: Schema.Union([RoutineListError, EnvironmentAuthorizationError]),
 });
 
+export const WsRoutinesGetRpc = Rpc.make(WS_METHODS.routinesGet, {
+  payload: RoutineGetInput,
+  success: Schema.NullOr(Routine),
+  error: Schema.Union([RoutineReadError, EnvironmentAuthorizationError]),
+});
+
 export const WsRoutinesListRunsRpc = Rpc.make(WS_METHODS.routinesListRuns, {
   payload: RoutineListRunsInput,
   success: RoutineListRunsResult,
@@ -731,6 +745,12 @@ export const WsTasksListRpc = Rpc.make(WS_METHODS.tasksList, {
   error: Schema.Union([TaskListError, EnvironmentAuthorizationError]),
 });
 
+export const WsTasksGetRpc = Rpc.make(WS_METHODS.tasksGet, {
+  payload: TaskGetInput,
+  success: OrchestrationTask,
+  error: Schema.Union([TaskNotFoundError, EnvironmentAuthorizationError]),
+});
+
 export const WsProjectsListRpc = Rpc.make(WS_METHODS.projectsList, {
   payload: ProjectListQuery,
   success: ProjectListResult,
@@ -775,6 +795,18 @@ export const WsLibraryListRpc = Rpc.make(WS_METHODS.libraryList, {
   payload: LibraryListQuery,
   success: LibraryListResult,
   error: Schema.Union([LibraryListError, EnvironmentAuthorizationError]),
+});
+
+export const WsLibraryGetFileRpc = Rpc.make(WS_METHODS.libraryGetFile, {
+  payload: LibraryFileInput,
+  success: LibraryGetFileResult,
+  error: libraryError,
+});
+
+export const WsLibraryGetFolderRpc = Rpc.make(WS_METHODS.libraryGetFolder, {
+  payload: LibraryFolderInput,
+  success: LibraryGetFolderResult,
+  error: libraryError,
 });
 
 export const WsLibraryCreateUploadUrlRpc = Rpc.make(WS_METHODS.libraryCreateUploadUrl, {

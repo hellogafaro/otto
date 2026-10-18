@@ -11,6 +11,7 @@ import { type ReactNode, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { useThreadShells } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { useCachedTasks } from "../../state/tasks";
 import { INLINE_TAG_CLASS_NAME } from "../composer-inline-chip";
 import { useBotPromptResourceLabel } from "../roster/bot-prompt-mentions";
 import { findNameMentions } from "../roster/bot-prompt-mentions.logic";
@@ -167,7 +168,9 @@ function BotMentionChip({ source, botId }: { source: string; botId: string }) {
 }
 
 function ResourceMentionChip({ mention }: { mention: ComposerResourceMention }) {
-  const label = useBotPromptResourceLabel(usePrimaryEnvironmentId())(mention.kind, mention.id);
+  const environmentId = usePrimaryEnvironmentId();
+  useCachedTasks(environmentId, mention.kind === "task" ? [mention.id] : undefined);
+  const label = useBotPromptResourceLabel(environmentId)(mention.kind, mention.id);
 
   return <MentionChip source={mention.source} label={label} />;
 }

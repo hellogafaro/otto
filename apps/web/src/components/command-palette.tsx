@@ -24,7 +24,7 @@ import {
   type RemixiconComponentType,
 } from "@remixicon/react";
 import type { NavigationKeybindingCommand } from "@otto/contracts";
-import { GENERAL_PROJECT_ID } from "@otto/contracts";
+import { GENERAL_PROJECT_ID, WORK_STATUSES } from "@otto/contracts";
 import { Match, Predicate } from "effect";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
@@ -63,17 +63,20 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
 import { environmentSnapshotAtom } from "../state/shell";
+import { useTaskPages } from "../state/tasks";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useThreadSearch } from "../state/queries";
 import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thread-runtime.logic";
 import { useRosterStore } from "./roster/roster-store";
 import { BotAvatarView } from "./roster/bot-avatar-view";
 import { PersonAvatar } from "./roster/person-avatar";
+import { useLibraryPages } from "./library/use-library";
 import { LIBRARY_TYPE_ICONS } from "./library/library-visuals";
 import { WorkStatusIcon } from "./work/work-status";
 import { projectStatus } from "./work/work.logic";
 import { StatusIcon } from "./status-icon";
 import { ROUTINE_STATUS_ICON, routineStatus } from "./routines/routine-status";
+import { useRoutineSearch } from "./routines/use-routine-search";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
@@ -297,8 +300,15 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   // earlier query. Message search debounces its own RPC.
   const limit = tab === "all" ? COMMAND_PALETTE_SEARCH_GROUP_LIMIT : COMMAND_PALETTE_TAB_LIMIT;
   const chatSearch = useChatSearchItems(query, limit);
-  const workspaceGroups = useWorkspaceSearchGroups();
   const searchQuery = query.startsWith(">") ? "" : query;
+
+  const libraryGroup = useLibrarySearchGroup(
+    searchQuery,
+    tab === "library" || (tab === "all" && normalizeSearchText(searchQuery).length > 0),
+    limit,
+  );
+
+  const workspaceGroups = [...useWorkspaceSearchGroups(searchQuery, tab), libraryGroup];
   const actionGroups = filterCommandPaletteGroups({ groups, query });
 
   const chatGroups =
@@ -505,16 +515,29 @@ function useGoToItems(): CommandPaletteActionItem[] {
 
 /**
  * Everything else the palette finds by name, newest first within each group: live bots, people,
- * tasks, projects, routines and Library files of the primary environment. The server already left
- * out what this person can't see.
+ * tasks, projects and routines of the primary environment. The server already left
+ * out what this person can't see. Tasks are asked of the server only once something is typed or
+ * the Tasks tab is open.
  */
-function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
+function useWorkspaceSearchGroups(query: string, tab: CommandPaletteTab): CommandPaletteGroup[] {
   const { t } = useI18n();
   const navigate = useNavigate();
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
   const bots = useRosterStore((state) => state.bots);
+  const taskSearch = normalizeSearchText(query).slice(0, 300).trim();
+
+  const taskList = useTaskPages(
+    environmentId,
+    taskSearch === "" && tab !== "tasks"
+      ? null
+      : {
+          status: WORK_STATUSES,
+          sort: "updated",
+          ...(taskSearch === "" ? { limit: COMMAND_PALETTE_TAB_LIMIT } : { search: taskSearch }),
+        },
+  );
 
   const newestFirst = <A extends { readonly updatedAt: string }>(items: ReadonlyArray<A>) =>
     items.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -527,10 +550,7 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
   );
 
   const botNames = new Map(bots.map((bot) => [bot.id, bot.name]));
-
-  const folderTitles = new Map(
-    (snapshot?.libraryFolders ?? []).map((folder) => [folder.id, folder.title]),
-  );
+  const routines = useRoutineSearch(query);
 
   return [
     {
@@ -574,7 +594,7 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
     {
       value: "tasks",
       label: t("Tasks"),
-      items: newestFirst(snapshot?.tasks ?? []).map((task) => ({
+      items: (taskList.pages[0]?.tasks ?? []).map((task) => ({
         value: `task:${task.id}`,
         searchTerms: [task.title, task.description],
         title: task.title,
@@ -605,49 +625,76 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
     {
       value: "routines",
       label: t("Routines"),
-      items: newestFirst(
-        (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted"),
-      ).map((routine) => ({
-        value: `routine:${routine.id}`,
-        searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
-        title: routine.job,
-        ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
-        icon: (
-          <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
-        ),
-        run: async () => {
-          await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
-        },
-      })),
-    },
-    {
-      value: "library",
-      label: t("Library"),
-      items: newestFirst(snapshot?.libraryFiles ?? []).map((file) => {
-        const Icon = LIBRARY_TYPE_ICONS[file.type];
-        const folderTitle = file.folderId ? folderTitles.get(file.folderId) : undefined;
-
-        return {
-          value: `file:${file.id}`,
-          searchTerms: [file.title],
-          title: file.title,
-          description: folderTitle ?? t("Library"),
-          icon: <Icon className={ITEM_ICON_CLASS} />,
+      items: newestFirst(routines.filter((routine) => routine.lifecycle !== "deleted")).map(
+        (routine) => ({
+          value: `routine:${routine.id}`,
+          searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
+          title: routine.job,
+          ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
+          icon: (
+            <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
+          ),
           run: async () => {
-            await (file.type === "document"
-              ? navigate({ to: "/library/$fileId", params: { fileId: file.id } })
-              : navigate({
-                  to: "/library",
-                  search: {
-                    ...(file.folderId ? { folder: file.folderId } : {}),
-                    preview: file.id,
-                  },
-                }));
+            await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
           },
-        };
-      }),
+        }),
+      ),
     },
   ];
+}
+
+/**
+ * The palette's Library group: the newest files whose titles contain the query, or the newest
+ * files before anything is typed, each with the folder it sits in.
+ */
+function useLibrarySearchGroup(
+  query: string,
+  enabled: boolean,
+  limit: number,
+): CommandPaletteGroup {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const environmentId = usePrimaryEnvironmentId();
+  const title = query.trim().slice(0, 200);
+
+  const { files, pages } = useLibraryPages(enabled ? environmentId : null, {
+    everywhere: true,
+    type: ["document", "image", "file"],
+    ...(title ? { title } : {}),
+    limit,
+  });
+
+  const folderTitles = new Map(
+    pages.flatMap((page) => page.folders).map((folder) => [folder.id, folder.title]),
+  );
+
+  return {
+    value: "library",
+    label: t("Library"),
+    items: files.map((file) => {
+      const Icon = LIBRARY_TYPE_ICONS[file.type];
+      const folderTitle = file.folderId ? folderTitles.get(file.folderId) : undefined;
+
+      return {
+        value: `file:${file.id}`,
+        searchTerms: [file.title],
+        title: file.title,
+        description: folderTitle ?? t("Library"),
+        icon: <Icon className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await (file.type === "document"
+            ? navigate({ to: "/library/$fileId", params: { fileId: file.id } })
+            : navigate({
+                to: "/library",
+                search: {
+                  ...(file.folderId ? { folder: file.folderId } : {}),
+                  preview: file.id,
+                },
+              }));
+        },
+      };
+    }),
+  };
 }
 
 /**

@@ -4,7 +4,6 @@ import * as Option from "effect/Option";
 import {
   OttoBotUsageReadError,
   RoutineReadError,
-  RoutineThreadReadError,
   type SubscriptionProviderId,
   WS_METHODS,
   WsRpcGroup,
@@ -12,6 +11,7 @@ import {
 
 import { canSeeRoutine } from "./orchestration/group-visibility.ts";
 import { listRoutines } from "./routines/routine-list.ts";
+import { getRoutine, listThreadRoutineRuns } from "./routines/routine-reads.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
 export const createWsBotServicesHandlers = ({
@@ -39,6 +39,13 @@ export const createWsBotServicesHandlers = ({
   | "observeRpcEffect"
 >) =>
   ({
+    [WS_METHODS.routinesGet]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.routinesGet,
+        getRoutine(input, currentPersonId, routineRepository),
+        { "rpc.aggregate": "routines" },
+      ),
+
     [WS_METHODS.routinesList]: (input) =>
       observeRpcEffect(
         WS_METHODS.routinesList,
@@ -71,15 +78,7 @@ export const createWsBotServicesHandlers = ({
     [WS_METHODS.routinesListThreadRuns]: (input) =>
       observeRpcEffect(
         WS_METHODS.routinesListThreadRuns,
-        routineRepository.listThreadRuns(input.threadId, input.beforeRunId).pipe(
-          Effect.mapError(
-            (cause) =>
-              new RoutineThreadReadError({
-                threadId: input.threadId,
-                message: cause.message,
-              }),
-          ),
-        ),
+        listThreadRoutineRuns(input, currentPersonId, routineRepository),
         { "rpc.aggregate": "routines" },
       ),
 
@@ -224,6 +223,7 @@ export const createWsBotServicesHandlers = ({
       ),
   }) satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
+    | typeof WS_METHODS.routinesGet
     | typeof WS_METHODS.routinesList
     | typeof WS_METHODS.routinesListRuns
     | typeof WS_METHODS.routinesListThreadRuns

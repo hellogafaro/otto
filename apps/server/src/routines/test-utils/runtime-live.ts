@@ -118,6 +118,7 @@ const harness = (
         })) as never,
       ),
     listThreadRuns: () => Effect.succeed({ runs: [], nextCursor: null }),
+    listThreadRoutines: () => Effect.succeed([]),
     listAllRuns: Effect.sync(() => dispatchedRuns),
     getLatestThreadRef: () => Effect.succeed(null),
     getActiveRunByThreadRef: () => Effect.succeed(null),
@@ -180,8 +181,8 @@ const harness = (
     openFailureIncident: () => Effect.sync(() => events.push("incident")),
     resolveFailureIncident: (routineId) =>
       Effect.sync(() => events.push(`incident-resolved:${routineId}`)),
-    dispatchTurn: () =>
-      Effect.sync(() => events.push("turn")).pipe(
+    dispatchTurn: (_routine, _run, event) =>
+      Effect.sync(() => events.push(event ? `turn:${event.id}` : "turn")).pipe(
         Effect.andThen(options.duringDispatch ?? Effect.void),
         Effect.as(options.dispatched ?? { threadRef: ThreadId.make("thread-1") }),
       ),

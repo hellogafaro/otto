@@ -1,7 +1,3 @@
-import * as NodeCrypto from "node:crypto";
-import * as Match from "effect/Match";
-import * as Predicate from "effect/Predicate";
-import { Composio } from "@composio/core";
 import {
   ComposioLabelTakenError,
   ComposioOperationError,
@@ -12,221 +8,69 @@ import {
   type ComposioToolkit,
   type ComposioToolkitDetail,
   type ComposioUpdateConnectionInput,
-  type ComposioVisibility,
   type McpServer,
   McpServerId,
-  TrimmedNonEmptyString,
+  type OttoRoutineAppTriggerInput,
+  type RoutineAppTrigger,
 } from "@otto/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
 import { ServerSecretStore } from "../auth/server-secret-store.ts";
 import { withMcpRuntimeHeaders } from "../provider/mcp-server-config.ts";
+import {
+  accountLabel,
+  type ComposioAccountStore,
+  composioAccountAlias,
+  type ComposioBot,
+  composioAccountServesBot,
+  composioAccountVisibleTo,
+  type ComposioViewer,
+  manageableBy,
+  sqlComposioAccounts,
+} from "./composio-accounts.ts";
+import {
+  type ComposioClient,
+  type ComposioClientFactory,
+  composioStatus,
+  createComposioClient,
+  isNotFoundError,
+  operationError,
+  toConnection,
+  tryComposio,
+} from "./composio-client.ts";
 
 const USER_ID_SECRET = "composio-user-id";
 
+const WEBHOOK_SECRET = "composio-webhook-secret";
+
 const COMPOSIO_MCP_SERVER_ID = McpServerId.make("composio-session");
-
-type ComposioSdk = InstanceType<typeof Composio>;
-
-type HostedSession = Awaited<ReturnType<ComposioSdk["sessions"]["create"]>>;
-
-type ComposioClient = {
-  toolkits: {
-    get: (...args: Parameters<ComposioSdk["toolkits"]["get"]>) => Promise<
-      ReadonlyArray<{
-        slug: string;
-        name: string;
-        meta: {
-          description?: string | null | undefined;
-          logo?: string | null | undefined;
-          categories?: ReadonlyArray<{ name: string }> | null | undefined;
-          toolsCount?: number | null | undefined;
-        };
-      }>
-    >;
-  };
-  tools: {
-    getRawComposioTools: (query: {
-      readonly toolkits: string[];
-      readonly limit: number;
-    }) => Promise<
-      ReadonlyArray<{ slug: string; name: string; description?: string | null | undefined }>
-    >;
-  };
-  connectedAccounts: {
-    list: (
-      ...args: Parameters<ComposioSdk["connectedAccounts"]["list"]>
-    ) => Promise<{ items: ReadonlyArray<Parameters<typeof toConnection>[0]> }>;
-    delete: (...args: Parameters<ComposioSdk["connectedAccounts"]["delete"]>) => Promise<object>;
-  };
-  sessions: {
-    create: (
-      userId: string,
-      options: Parameters<ComposioSdk["sessions"]["create"]>[1] & { mcp: true },
-    ) => Promise<{
-      mcp: { url: string; headers?: Record<string, string> | undefined };
-      authorize: (
-        ...args: Parameters<HostedSession["authorize"]>
-      ) => Promise<{ id: string; redirectUrl?: string | null | undefined }>;
-      delete: () => Promise<object | void>;
-    }>;
-  };
-};
-
-type ComposioClientFactory = (apiKey: string) => ComposioClient;
-
-/** Otto's record of one connected account: Composio itself only knows the server's one user. */
-export interface ComposioAccountRecord {
-  readonly connectionId: string;
-  readonly createdBy: string | null;
-  readonly createdByName: string | null;
-  /** The label the person typed. Older accounts have none and show Composio's bare alias. */
-  readonly label: string | null;
-  readonly visibility: ComposioVisibility;
-  /** Per-bot choices that differ from the default, by bot id. */
-  readonly botAccess: Readonly<Record<string, boolean>>;
-}
-
-export interface ComposioAccountStore {
-  readonly list: Effect.Effect<readonly ComposioAccountRecord[], ComposioOperationError>;
-  readonly save: (record: ComposioAccountRecord) => Effect.Effect<void, ComposioOperationError>;
-  readonly remove: (connectionId: string) => Effect.Effect<void, ComposioOperationError>;
-}
-
-/** The signed-in person managing accounts. */
-export interface ComposioViewer {
-  readonly personId: string;
-  readonly displayName: string;
-}
-
-/**
- * Workspace accounts (and accounts connected before Otto recorded owners) serve
- * everyone. A personal account serves the person who connected it and the bots that
- * person owns: anyone chatting with such a bot uses it without seeing it.
- */
-export function composioAccountVisibleTo(
-  record: ComposioAccountRecord | undefined,
-  personId: string | null,
-): boolean {
-  return (
-    record === undefined ||
-    record.visibility === "organization" ||
-    (personId !== null && record.createdBy === personId)
-  );
-}
-
-/** The bot a chat runs as: which one, and the person who owns it. */
-export interface ComposioBot {
-  readonly botId: string | null;
-  readonly ownerPersonId: string | null;
-}
-
-/**
- * Whether an account serves a bot: its per-bot switch when set, else the default (team
- * accounts serve every bot, a personal account the bots its owner owns).
- */
-export function composioAccountServesBot(
-  record: ComposioAccountRecord | undefined,
-  bot: ComposioBot,
-): boolean {
-  const choice = bot.botId === null ? undefined : record?.botAccess[bot.botId];
-
-  return choice ?? composioAccountVisibleTo(record, bot.ownerPersonId);
-}
 
 const isLabelTaken = Schema.is(ComposioLabelTakenError);
 
-const decodeBotAccess = Schema.decodeUnknownOption(
-  Schema.fromJsonString(Schema.Record(Schema.String, Schema.Boolean)),
+/** The settings an app event needs, from the JSON schema Composio gives for its config. */
+const decodeRequiredConfig = Schema.decodeUnknownOption(
+  Schema.Struct({ required: Schema.Array(Schema.String) }),
 );
 
-/** What people see an account called: the label they typed, else an older account's bare alias. */
-function accountLabel(
-  record: ComposioAccountRecord | undefined,
-  connection: { readonly alias?: string | undefined },
-): string | undefined {
-  return record?.label ?? connection.alias;
+/** One of the server's app triggers in Composio. */
+export interface ComposioTriggerRecord {
+  readonly id: string;
+  readonly connectionId: string;
+  readonly event: string;
+  readonly enabled: boolean;
 }
 
-/**
- * The alias Composio gets. Everyone shares one Composio user, which needs aliases unique per
- * app, so this one carries its owner: their name for bots to read, and a short tag from their
- * person id because two people can share a name.
- */
-export function composioAccountAlias(viewer: ComposioViewer, label: string): string {
-  const tag = NodeCrypto.createHash("sha256").update(viewer.personId).digest("hex").slice(0, 6);
-
-  return `${viewer.displayName} · ${label} · ${tag}`;
+/** A webhook delivery whose signature checked out: the trigger that fired and its event data. */
+export interface ComposioWebhookDelivery {
+  readonly triggerId: string;
+  readonly data: object;
 }
-
-function manageableBy(record: ComposioAccountRecord | undefined, personId: string): boolean {
-  return record === undefined || record.createdBy === null || record.createdBy === personId;
-}
-
-export function inMemoryComposioAccounts(): ComposioAccountStore {
-  const records = new Map<string, ComposioAccountRecord>();
-
-  return {
-    list: Effect.sync(() => [...records.values()]),
-    save: (record) => Effect.sync(() => void records.set(record.connectionId, record)),
-    remove: (connectionId) => Effect.sync(() => void records.delete(connectionId)),
-  };
-}
-
-export const sqlComposioAccounts = Effect.gen(function* () {
-  const sql = yield* SqlClient.SqlClient;
-  const fail = (operation: string) => (cause: unknown) => operationError(operation, cause);
-
-  const store: ComposioAccountStore = {
-    list: sql<{
-      readonly connection_id: string;
-      readonly created_by: string | null;
-      readonly created_by_name: string | null;
-      readonly label: string | null;
-      readonly visibility: ComposioVisibility;
-      readonly bot_access_json: string;
-    }>`SELECT connection_id, created_by, created_by_name, label, visibility, bot_access_json FROM composio_accounts`.pipe(
-      Effect.map((rows) =>
-        rows.map(
-          (row): ComposioAccountRecord => ({
-            connectionId: row.connection_id,
-            createdBy: row.created_by,
-            createdByName: row.created_by_name,
-            label: row.label,
-            visibility: row.visibility,
-            botAccess: Option.getOrElse(decodeBotAccess(row.bot_access_json), () => ({})),
-          }),
-        ),
-      ),
-      Effect.mapError(fail("load account owners")),
-    ),
-    save: (record) =>
-      sql`
-        INSERT INTO composio_accounts (connection_id, created_by, created_by_name, label, visibility, bot_access_json, created_at)
-        VALUES (${record.connectionId}, ${record.createdBy}, ${record.createdByName}, ${record.label}, ${record.visibility}, ${JSON.stringify(record.botAccess)}, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-        ON CONFLICT (connection_id) DO UPDATE SET
-          visibility = excluded.visibility,
-          bot_access_json = excluded.bot_access_json,
-          created_by = COALESCE(composio_accounts.created_by, excluded.created_by),
-          created_by_name = COALESCE(composio_accounts.created_by_name, excluded.created_by_name),
-          label = COALESCE(composio_accounts.label, excluded.label)
-      `.pipe(Effect.asVoid, Effect.mapError(fail("save the account owner"))),
-    remove: (connectionId) =>
-      sql`DELETE FROM composio_accounts WHERE connection_id = ${connectionId}`.pipe(
-        Effect.asVoid,
-        Effect.mapError(fail("forget the account owner")),
-      ),
-  };
-
-  return store;
-});
 
 export interface ComposioServiceShape {
   readonly isConfigured: Effect.Effect<boolean, ComposioOperationError>;
@@ -261,90 +105,48 @@ export interface ComposioServiceShape {
     resourceId: string,
     bot: ComposioBot,
   ) => Effect.Effect<McpServer | undefined, ComposioOperationError>;
+  /**
+   * A bot's pick of an app event as a routine trigger: the event must be one the app reports,
+   * the account one the person sees and the bot may use, and the settings the event needs set.
+   */
+  readonly prepareTrigger: (
+    input: OttoRoutineAppTriggerInput,
+    bot: ComposioBot,
+    personId: string | null,
+  ) => Effect.Effect<RoutineAppTrigger, ComposioOperationError>;
+  /** Why a trigger's account cannot start runs for the bot, or null when it can. */
+  readonly checkTriggerAccount: (
+    connectionId: string,
+    bot: ComposioBot,
+  ) => Effect.Effect<string | null, ComposioOperationError>;
+  /** The app triggers on the server's accounts, enabled or not. */
+  readonly listTriggers: Effect.Effect<readonly ComposioTriggerRecord[], ComposioOperationError>;
+  /** Creates the trigger in Composio, or finds the same one, and returns its id. */
+  readonly createTrigger: (
+    trigger: RoutineAppTrigger,
+  ) => Effect.Effect<string, ComposioOperationError>;
+  readonly setTriggerEnabled: (
+    triggerId: string,
+    enabled: boolean,
+  ) => Effect.Effect<void, ComposioOperationError>;
+  readonly deleteTrigger: (triggerId: string) => Effect.Effect<void, ComposioOperationError>;
+  /** Points the Composio project's webhook at this server and keeps its signing secret. */
+  readonly subscribeWebhook: (webhookUrl: string) => Effect.Effect<void, ComposioOperationError>;
+  /** The delivery a signed webhook carries, or null when its signature or age does not check. */
+  readonly verifyWebhook: (input: {
+    readonly id: string;
+    readonly timestamp: string;
+    readonly signature: string;
+    readonly body: string;
+  }) => Effect.Effect<ComposioWebhookDelivery | null, ComposioOperationError>;
 }
 
 export class ComposioService extends Context.Service<ComposioService, ComposioServiceShape>()(
   "@otto/server/composio/composio-service/ComposioService",
 ) {}
 
-/** The HTTP status of a Composio failure. The SDK wraps API errors, so the status can sit on `cause`. */
-function composioStatus(cause: unknown): number | undefined {
-  if (!Predicate.isObjectOrArray(cause)) return undefined;
-
-  if ("status" in cause && cause.status !== undefined) return Number(cause.status);
-
-  return "cause" in cause ? composioStatus(cause.cause) : undefined;
-}
-
-function operationError(operation: string, cause: unknown): ComposioOperationError {
-  const status = composioStatus(cause);
-
-  const message = Match.value(status).pipe(
-    Match.when(401, () => "The Composio API key is invalid."),
-    Match.when(403, () => "The Composio API key does not have permission for this operation."),
-    Match.when(429, () => "Composio rate-limited this request. Try again shortly."),
-    Match.orElse(() => {
-      // Otto: keep Composio's own reason so a failed run says why, not just what.
-      const reason = cause instanceof Error ? cause.message.trim().slice(0, 300) : "";
-
-      return reason
-        ? `Composio could not ${operation}: ${reason}`
-        : `Composio could not ${operation}.`;
-    }),
-  );
-
-  return new ComposioOperationError({ operation, message });
-}
-
-function isNotFoundError(cause: unknown): boolean {
-  return composioStatus(cause) === 404;
-}
-
-const tryComposio = <A>(operation: string, run: () => Promise<A>) =>
-  Effect.tryPromise({
-    try: run,
-    catch: (cause) => operationError(operation, cause),
-  });
-
 function bytesToId(bytes: Uint8Array): string {
   return `otto_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/** Composio fills `state.val.displayName` with the provider's account, such as an email. */
-const decodeAccountName = Schema.decodeUnknownOption(
-  Schema.Struct({ val: Schema.Struct({ displayName: TrimmedNonEmptyString }) }),
-);
-
-function toConnection(input: {
-  readonly id: string;
-  readonly toolkit: { readonly slug: string };
-  readonly status: ComposioConnection["status"];
-  readonly alias?: string | null;
-  readonly state?: unknown;
-}): Pick<ComposioConnection, "id" | "toolkitSlug" | "status" | "alias" | "accountName"> {
-  const accountName = decodeAccountName(input.state);
-
-  return {
-    id: input.id,
-    toolkitSlug: input.toolkit.slug,
-    status: input.status,
-    ...(input.alias ? { alias: input.alias } : {}),
-    ...(Option.isSome(accountName) ? { accountName: accountName.value.val.displayName } : {}),
-  };
-}
-
-function createComposioClient(apiKey: string): ComposioClient {
-  const sdk = new Composio({ apiKey });
-
-  return {
-    toolkits: { get: (...args) => sdk.toolkits.get(...args) },
-    tools: { getRawComposioTools: (query) => sdk.tools.getRawComposioTools(query) },
-    connectedAccounts: {
-      list: (...args) => sdk.connectedAccounts.list(...args),
-      delete: (...args) => sdk.connectedAccounts.delete(...args),
-    },
-    sessions: { create: (userId, options) => sdk.sessions.create(userId, options) },
-  };
 }
 
 /** `apiKey` is the server's COMPOSIO_API_KEY: one Composio project for the whole workspace. */
@@ -559,7 +361,11 @@ export function make(
       const toolkit = (await loadCatalog(client)).find((candidate) => candidate.slug === slug);
 
       if (!toolkit) throw new Error(`Composio does not list ${slug}.`);
-      const tools = await client.tools.getRawComposioTools({ toolkits: [slug], limit: 1000 });
+
+      const [tools, triggers] = await Promise.all([
+        client.tools.getRawComposioTools({ toolkits: [slug], limit: 1000 }),
+        listTriggerTypes(client, slug),
+      ]);
 
       return {
         toolkit,
@@ -568,8 +374,18 @@ export function make(
           name: tool.name,
           ...(tool.description ? { description: tool.description } : {}),
         })),
+        triggers: triggers.map((trigger) => ({
+          slug: trigger.slug,
+          name: trigger.name,
+          ...(trigger.description ? { description: trigger.description } : {}),
+        })),
       };
     });
+
+  const listTriggerTypes = (client: ComposioClient, toolkitSlug: string) =>
+    client.triggers
+      .listTypes({ toolkits: [toolkitSlug], limit: 1000 })
+      .then((response) => response.items);
 
   /**
    * Refuses a label the person already gave one of their accounts for this app, and returns the
@@ -889,6 +705,226 @@ export function make(
       ),
     );
 
+  const prepareTrigger: ComposioServiceShape["prepareTrigger"] = (input, bot, personId) =>
+    Effect.flatMap(accounts.list, (records) => {
+      const owners = new Map(records.map((record) => [record.connectionId, record]));
+
+      return withClient("set up the app trigger", async (client, userId) => {
+        const app = input.app.trim().toLowerCase();
+
+        const toolkit = (await loadCatalog(client)).find(
+          (candidate) => candidate.slug === app || candidate.name.toLowerCase() === app,
+        );
+
+        if (!toolkit) throw new Error(`Composio does not list ${input.app}.`);
+        const events = await listTriggerTypes(client, toolkit.slug);
+        const wanted = input.event.trim().toLowerCase();
+
+        const event = events.find(
+          (candidate) =>
+            candidate.slug.toLowerCase() === wanted || candidate.name.toLowerCase() === wanted,
+        );
+
+        if (!event) {
+          throw new Error(
+            events.length === 0
+              ? `${toolkit.name} reports no events.`
+              : `${toolkit.name} has no event ${input.event}. Its events: ${events.map((candidate) => `${candidate.slug} (${candidate.name})`).join(", ")}.`,
+          );
+        }
+
+        const config = input.config ?? {};
+
+        const required = Option.match(decodeRequiredConfig(event.config), {
+          onNone: () => [],
+          onSome: (schema) => schema.required,
+        });
+
+        const missing = required.filter((key) => config[key] === undefined);
+
+        if (missing.length > 0) {
+          throw new Error(`${event.name} needs ${missing.join(", ")} in config.`);
+        }
+
+        const usable = (await listConnections(client, userId)).filter(
+          (connection) =>
+            connection.toolkitSlug === toolkit.slug &&
+            connection.status === "ACTIVE" &&
+            composioAccountVisibleTo(owners.get(connection.id), personId) &&
+            composioAccountServesBot(owners.get(connection.id), bot),
+        );
+
+        const names = (connection: (typeof usable)[number]) =>
+          [accountLabel(owners.get(connection.id), connection), connection.accountName].filter(
+            (name): name is string => name !== undefined,
+          );
+
+        const account = input.account?.trim().toLowerCase();
+
+        const matches =
+          account === undefined
+            ? usable
+            : usable.filter((connection) =>
+                names(connection).some((name) => name.toLowerCase() === account),
+              );
+
+        const [connection] = matches;
+
+        if (connection === undefined || matches.length > 1) {
+          const choices = usable.map((candidate) => names(candidate).join(" / ")).join(", ");
+
+          throw new Error(
+            usable.length === 0
+              ? `Connect a ${toolkit.name} account this bot may use first.`
+              : account === undefined
+                ? `Pick which ${toolkit.name} account to watch: ${choices}.`
+                : `No ${toolkit.name} account is called ${input.account}. Accounts: ${choices}.`,
+          );
+        }
+
+        return {
+          type: "app" as const,
+          app: toolkit.slug,
+          event: event.slug,
+          title: event.name,
+          connectionId: connection.id,
+          config,
+          triggerId: null,
+        };
+      });
+    });
+
+  const checkTriggerAccount: ComposioServiceShape["checkTriggerAccount"] = (connectionId, bot) =>
+    Effect.flatMap(accounts.list, (records) =>
+      withClient("check the trigger's account", async (client, userId) => {
+        const connection = (await listConnections(client, userId)).find(
+          (candidate) => candidate.id === connectionId,
+        );
+
+        if (!connection) return "The app account this routine watches was disconnected.";
+
+        if (connection.status !== "ACTIVE") {
+          return "The app account this routine watches needs to be connected again.";
+        }
+
+        return composioAccountServesBot(
+          records.find((record) => record.connectionId === connectionId),
+          bot,
+        )
+          ? null
+          : "The routine's bot may no longer use the app account it watches.";
+      }),
+    );
+
+  const listTriggers: ComposioServiceShape["listTriggers"] = withClient(
+    "list app triggers",
+    async (client, userId) => {
+      const connectedAccountIds = (await listConnections(client, userId)).map(
+        (connection) => connection.id,
+      );
+
+      const triggers: ComposioTriggerRecord[] = [];
+      let cursor: string | undefined;
+
+      if (connectedAccountIds.length === 0) return triggers;
+
+      do {
+        const page = await client.triggers.listActive({
+          connectedAccountIds,
+          showDisabled: true,
+          limit: 100,
+          ...(cursor ? { cursor } : {}),
+        });
+
+        triggers.push(
+          ...page.items.map((trigger) => ({
+            id: trigger.id,
+            connectionId: trigger.connectedAccountId,
+            event: trigger.triggerName,
+            enabled: trigger.disabledAt === null,
+          })),
+        );
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+
+      return triggers;
+    },
+  );
+
+  const createTrigger: ComposioServiceShape["createTrigger"] = (trigger) =>
+    withClient("create the app trigger", (client, userId) =>
+      client.triggers
+        .create(userId, trigger.event, {
+          connectedAccountId: trigger.connectionId,
+          triggerConfig: trigger.config,
+        })
+        .then((created) => created.triggerId),
+    );
+
+  const setTriggerEnabled: ComposioServiceShape["setTriggerEnabled"] = (triggerId, enabled) =>
+    withClient(enabled ? "turn on the app trigger" : "turn off the app trigger", (client) =>
+      (enabled ? client.triggers.enable(triggerId) : client.triggers.disable(triggerId)).then(
+        () => undefined,
+      ),
+    );
+
+  const deleteTrigger: ComposioServiceShape["deleteTrigger"] = (triggerId) =>
+    withClient("delete the app trigger", (client) =>
+      client.triggers.delete(triggerId).then(
+        () => undefined,
+        (cause: unknown) => {
+          if (!isNotFoundError(cause)) throw cause;
+        },
+      ),
+    );
+
+  // Otto: Composio returns the project's signing secret with its subscription, so the
+  // secret kept here is the one it signs with since this server last started.
+  const subscribeWebhook: ComposioServiceShape["subscribeWebhook"] = (webhookUrl) =>
+    Effect.gen(function* () {
+      const { secret } = yield* withClient("set up its webhook", (client) =>
+        client.triggers.setWebhookSubscription({ webhookUrl }),
+      );
+
+      if (!secret) {
+        return yield* new ComposioOperationError({
+          operation: "set up its webhook",
+          message: "Composio did not return the webhook signing secret.",
+        });
+      }
+
+      yield* secretStore
+        .set(WEBHOOK_SECRET, new TextEncoder().encode(secret))
+        .pipe(Effect.mapError((cause) => operationError("keep its webhook secret", cause)));
+    });
+
+  const verifyWebhook: ComposioServiceShape["verifyWebhook"] = (input) =>
+    Effect.gen(function* () {
+      const stored = yield* secretStore
+        .get(WEBHOOK_SECRET)
+        .pipe(Effect.mapError((cause) => operationError("read its webhook secret", cause)));
+
+      if (Option.isNone(stored)) return null;
+
+      return yield* withClient("check a webhook", (client) =>
+        client.triggers
+          .verifyWebhook({
+            id: input.id,
+            payload: input.body,
+            secret: new TextDecoder().decode(stored.value),
+            signature: input.signature,
+            timestamp: input.timestamp,
+          })
+          .then(
+            (result): ComposioWebhookDelivery => ({
+              triggerId: result.payload.id,
+              data: result.payload.payload ?? {},
+            }),
+            () => null,
+          ),
+      );
+    });
+
   return {
     isConfigured,
     getStatus,
@@ -899,6 +935,14 @@ export function make(
     updateConnection,
     connectedToolkits,
     resolveRuntimeMcpServer,
+    prepareTrigger,
+    checkTriggerAccount,
+    listTriggers,
+    createTrigger,
+    setTriggerEnabled,
+    deleteTrigger,
+    subscribeWebhook,
+    verifyWebhook,
   };
 }
 

@@ -26,7 +26,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "../../i18n";
 import { cn, randomUUID } from "../../lib/utils";
 import type { PageAction } from "../../page-actions-registry";
-import { taskEnvironment } from "../../state/tasks";
+import { taskEnvironment, useTask } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsGroup, DetailsRow } from "../details-aside";
 import { Button } from "../ui/button";
@@ -40,7 +40,6 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { useLibraryData } from "../library/use-library";
 import { ActivitySection } from "./activity-section";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
 import { TaskDueDate } from "./task-due-date";
@@ -60,11 +59,13 @@ type TaskFields = Omit<UpdateTaskInput, "taskId">;
 export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { environmentId, loaded, tasks } = useWorkData();
-  const task = tasks.find((candidate) => candidate.id === taskId);
+  const { environmentId, loaded } = useWorkData();
+  const { task, missing } = useTask(environmentId, taskId);
   const back = { label: t("Tasks"), onBack: () => void navigate({ to: "/tasks" }) };
 
-  if (!loaded) return <WorkPage back={back}>{null}</WorkPage>;
+  if (!loaded || (!task && !missing && environmentId !== null)) {
+    return <WorkPage back={back}>{null}</WorkPage>;
+  }
 
   if (!task || environmentId === null) {
     return (
@@ -99,7 +100,6 @@ function TaskDetail({
   const { t } = useI18n();
   const updateTask = useAtomCommand(taskEnvironment.update);
   const { projects, participants, currentPersonId } = useWorkData();
-  const { files } = useLibraryData();
   const { open: openPicker, props: picker } = useWorkPickers<TaskPicker>("task", "task-properties");
 
   const [loggingTime, setLoggingTime] = useState(false);
@@ -200,7 +200,6 @@ function TaskDetail({
               refreshKey={`${task.updatedAt}:${task.timeEntries.length}`}
               participants={participants}
               projects={projects}
-              files={files}
               currentPersonId={currentPersonId}
             />
           ),

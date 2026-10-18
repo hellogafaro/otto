@@ -20,6 +20,7 @@ import { forkParked } from "./server-activation.ts";
 import * as ServiceLauncherClient from "./cloud/service-launcher-client.ts";
 import { isRemoteInstall } from "./remote/remote-mode.ts";
 import { formatHeadlessServeOutput, resolveHeadlessServeUrl } from "./startup-access.ts";
+import { RoutineTriggers } from "./routines/routine-triggers.ts";
 import { RoutineRuntime } from "./routines/runtime.ts";
 
 import { type StartupOptions, restoreExternalChannels } from "./startup-channels.ts";
@@ -116,6 +117,12 @@ export const make = (options?: StartupOptions) =>
 
           if (Option.isSome(routineRuntime)) {
             yield* routineRuntime.value.start.pipe(Scope.provide(reactorScope));
+          }
+
+          const routineTriggers = yield* Effect.serviceOption(RoutineTriggers);
+
+          if (Option.isSome(routineTriggers)) {
+            yield* routineTriggers.value.start.pipe(Scope.provide(reactorScope));
           }
         }),
       );

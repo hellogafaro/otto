@@ -22,6 +22,7 @@ export const WS_METHODS = {
 
   // Task methods
   tasksList: "tasks.list",
+  tasksGet: "tasks.get",
 
   // Notification methods
   notificationsList: "notifications.list",
@@ -29,6 +30,8 @@ export const WS_METHODS = {
 
   // Library methods
   libraryList: "library.list",
+  libraryGetFile: "library.getFile",
+  libraryGetFolder: "library.getFolder",
   libraryCreateUploadUrl: "library.createUploadUrl",
   libraryCreateDocument: "library.createDocument",
   libraryCreateSkill: "library.createSkill",
@@ -132,6 +135,7 @@ export const WS_METHODS = {
   memoryDelete: "memory.delete",
   memoryDecide: "memory.decide",
   botUsage: "bot.usage",
+  routinesGet: "routines.get",
   routinesList: "routines.list",
   routinesListRuns: "routines.listRuns",
   routinesListThreadRuns: "routines.listThreadRuns",

@@ -30,6 +30,7 @@ import { AgentControllerRuntimeError, ProviderValidationError } from "../../erro
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { MODEL_FILE_MAX_BYTES, modelReadsAttachment } from "../../chat-history.ts";
+import { routineWakeText } from "../../mastra/otto-routine-signals.ts";
 import { taskWakeSignal, taskWakeText } from "../../mastra/otto-task-signals.ts";
 
 import {
@@ -282,13 +283,17 @@ export function createTurnRequests(deps: {
           memoryChat: requestedMemoryChat,
           authorPersonId,
           taskWake,
+          routineWake,
           ...requested
         } = input;
 
-        // Otto: providers without signals read the task event as the tag Mastra would send.
+        // Otto: providers without signals read the task event or routine run as the tag
+        // Mastra would send.
         const providerInput = taskWake
           ? { ...requested, input: taskWakeText(taskWake) }
-          : requested;
+          : routineWake
+            ? { ...requested, input: routineWakeText(routineWake) }
+            : requested;
 
         const memoryChat = deps.legacyResourceIdentity.get(key)?.memory
           ? requestedMemoryChat
@@ -446,6 +451,7 @@ export function createTurnRequests(deps: {
             hiddenWake: input.hiddenWake === true,
             delegationResults: input.delegationResults,
             taskWake: input.taskWake,
+            routineWake: input.routineWake,
           });
 
           return turnId;

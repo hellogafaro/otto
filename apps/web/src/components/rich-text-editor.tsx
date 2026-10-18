@@ -32,7 +32,7 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Suggestion, type SuggestionProps } from "@tiptap/suggestion";
 import { useNavigate } from "@tanstack/react-router";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
@@ -117,6 +117,7 @@ export function RichTextEditor({
   ariaLabel,
   className,
   links = NO_LINKS,
+  onLinkQueryChange,
   editable = true,
 }: {
   /** Markdown; read once when the editor mounts, so key the editor to reset it. */
@@ -129,6 +130,8 @@ export function RichTextEditor({
   readonly className?: string;
   /** What @ can link to; each link is stored as a Markdown link to its Otto page. */
   readonly links?: ReadonlyArray<EditorLink>;
+  /** What is typed after @ while its menu is open, or null once it closes, for links read on demand. */
+  readonly onLinkQueryChange?: (query: string | null) => void;
   /** False shows the Markdown read-only; read once on mount like the value. */
   readonly editable?: boolean;
 }) {
@@ -250,6 +253,11 @@ export function RichTextEditor({
   ];
 
   const query = menu?.query.trim().toLowerCase() ?? "";
+  const linkQuery = menu?.kind === "mention" ? menu.query.trim() : null;
+
+  useEffect(() => {
+    onLinkQueryChange?.(linkQuery);
+  }, [linkQuery, onLinkQueryChange]);
 
   const items: ReadonlyArray<MenuEntry> =
     menu === null

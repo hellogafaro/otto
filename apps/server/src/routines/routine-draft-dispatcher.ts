@@ -18,9 +18,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { ComposioService } from "../composio/composio-service.ts";
 import { canSeeRoutine, chatPeople } from "../orchestration/group-visibility.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
+import { RoutineRepository } from "./repository.ts";
 
 const decodeRoutineTimeZone = Schema.decodeUnknownEffect(RoutineTimeZone);
 
@@ -113,7 +115,9 @@ export class RoutineDraftDispatcher extends Context.Service<
 const make = Effect.gen(function* () {
   const engine = yield* OrchestrationEngineService;
   const snapshots = yield* ProjectionSnapshotQuery;
+  const routineRepository = yield* RoutineRepository;
   const crypto = yield* Crypto.Crypto;
+  const composio = yield* Effect.serviceOption(ComposioService);
   const decodeTimezone = decodeRoutineTimeZone;
   const fail = (message: string) => new RoutineDraftError({ message });
 
@@ -149,7 +153,7 @@ const make = Effect.gen(function* () {
 
       const requestedSkills = new Set((input.skillNames ?? []).map((name) => name.toLowerCase()));
 
-      const skillAssignmentIds = (snapshot.skillAssignments ?? [])
+      const skillAssignmentIds = (yield* routineRepository.listSkillAssignments)
         .filter(
           (assignment) =>
             assignment.botId === botId && requestedSkills.has(assignment.name.toLowerCase()),
@@ -172,6 +176,28 @@ const make = Effect.gen(function* () {
         return yield* fail("Connect the requested plugin first.");
       }
 
+      if ((input.schedule === undefined) === (input.trigger === undefined)) {
+        return yield* fail("Give the routine either a schedule or an app event, not both.");
+      }
+
+      // Otto: The routine is its chat starter's, so the account it watches must be one they
+      // see and the bot may use.
+      const trigger =
+        input.trigger === undefined
+          ? undefined
+          : Option.isNone(composio)
+            ? yield* fail("App events are not available on this server.")
+            : yield* composio.value
+                .prepareTrigger(
+                  input.trigger,
+                  {
+                    botId,
+                    ownerPersonId: bot.owner?.kind === "person" ? bot.owner.personId : null,
+                  },
+                  thread.createdBy ?? null,
+                )
+                .pipe(Effect.mapError((error) => fail(error.message)));
+
       const uuid = yield* crypto.randomUUIDv4;
       const now = DateTime.formatIso(yield* DateTime.now);
       const routineId = RoutineId.make(uuid);
@@ -191,8 +217,10 @@ const make = Effect.gen(function* () {
               : "single",
         job: input.name,
         procedure: input.instructions,
-        schedule: input.schedule,
+        // Otto: An app routine never reads its schedule; it keeps the default daily one.
+        schedule: input.schedule ?? { kind: "daily", time: "09:00" },
         timezone: decodedTimezone,
+        ...(trigger !== undefined ? { trigger } : {}),
         skillAssignmentIds,
         connectorDependencies,
         projectId: thread.projectId,
@@ -246,7 +274,7 @@ const make = Effect.gen(function* () {
       if (!bot) return yield* fail("The current bot is unavailable.");
 
       return routineStatusesForBot(
-        snapshot.routines ?? [],
+        yield* routineRepository.listAll,
         botId,
         chatPeople(thread, snapshot.groups),
       );
@@ -288,7 +316,7 @@ const make = Effect.gen(function* () {
 
       const availableRoutineIds = new Set(
         routineStatusesForBot(
-          snapshot.routines ?? [],
+          yield* routineRepository.listAll,
           botId,
           chatPeople(thread, snapshot.groups),
         ).map((routine) => routine.id),
@@ -348,7 +376,7 @@ const make = Effect.gen(function* () {
 
       const people = chatPeople(thread, snapshot.groups);
 
-      const routine = (snapshot.routines ?? []).find(
+      const routine = (yield* routineRepository.listAll).find(
         (candidate) =>
           candidate.id === routineId &&
           candidate.botId === botId &&
@@ -385,6 +413,10 @@ const make = Effect.gen(function* () {
         procedure: input.instructions ?? routine.procedure,
         schedule: input.schedule ?? routine.schedule,
         timezone: routine.timezone,
+        // Otto: A new schedule replaces an app event; otherwise the routine keeps its trigger.
+        ...(input.schedule === undefined && routine.trigger !== undefined
+          ? { trigger: routine.trigger }
+          : {}),
         skillAssignmentIds: routine.skillAssignmentIds,
         connectorDependencies: routine.connectorDependencies,
         projectId: routine.projectId,

@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import { issueLibraryFileUrl } from "./assets/asset-access.ts";
+import { getLibraryFile, getLibraryFolder } from "./library/library-get.ts";
 import { listLibrary } from "./library/library-list.ts";
 import {
   createSkill,
@@ -26,6 +27,7 @@ export const createWsLibraryHandlers = ({
   currentPersonId,
   loadEnvironmentPeople,
   projectionLibrary,
+  projectionGroups,
   secretStore,
   observeRpcEffect,
 }: Pick<
@@ -34,6 +36,7 @@ export const createWsLibraryHandlers = ({
   | "currentPersonId"
   | "loadEnvironmentPeople"
   | "projectionLibrary"
+  | "projectionGroups"
   | "secretStore"
   | "observeRpcEffect"
 >) => {
@@ -53,6 +56,20 @@ export const createWsLibraryHandlers = ({
       observeRpcEffect(
         WS_METHODS.libraryList,
         listLibrary(input, currentPersonId, { projectionLibrary, secretStore }),
+        { "rpc.aggregate": "library" },
+      ),
+
+    [WS_METHODS.libraryGetFile]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.libraryGetFile,
+        getLibraryFile(input.fileId, currentPersonId, { projectionLibrary, projectionGroups }),
+        { "rpc.aggregate": "library" },
+      ),
+
+    [WS_METHODS.libraryGetFolder]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.libraryGetFolder,
+        getLibraryFolder(input.folderId, currentPersonId, { projectionLibrary, projectionGroups }),
         { "rpc.aggregate": "library" },
       ),
 
@@ -155,6 +172,8 @@ export const createWsLibraryHandlers = ({
   } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
     | typeof WS_METHODS.libraryList
+    | typeof WS_METHODS.libraryGetFile
+    | typeof WS_METHODS.libraryGetFolder
     | typeof WS_METHODS.libraryCreateUploadUrl
     | typeof WS_METHODS.libraryCreateDocument
     | typeof WS_METHODS.libraryCreateSkill
