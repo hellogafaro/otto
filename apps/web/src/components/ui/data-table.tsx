@@ -223,7 +223,7 @@ type VirtualItem<T> =
   | { readonly type: "group"; readonly group: DataTableGroup; readonly count: number }
   | { readonly type: "row"; readonly row: T };
 
-function scrollParent(element: HTMLElement | null): HTMLElement | null {
+export function scrollParent(element: HTMLElement | null): HTMLElement | null {
   for (let parent = element?.parentElement; parent; parent = parent.parentElement) {
     if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) return parent;
   }

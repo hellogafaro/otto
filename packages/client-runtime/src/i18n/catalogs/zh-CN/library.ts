@@ -75,4 +75,6 @@ export const libraryCatalog = {
     "链接分享的是文件的当前版本。之后的修改会保留在 Otto 中，直到你更新链接。",
   "This link doesn't exist or was removed.": "此链接不存在或已被移除。",
   "Update link": "更新链接",
+  "{count} types": "{count} 种类型",
+  "The Library couldn't be loaded.": "资料库无法加载。",
 } as const;
