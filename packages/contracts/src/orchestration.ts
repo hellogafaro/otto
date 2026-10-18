@@ -52,6 +52,8 @@ export {
   ProjectScript,
   ProjectFaviconPath,
   OrchestrationProject,
+  ProjectListItem,
+  ProjectListResult,
   BotAvatar,
   BotEngine,
   BotSandbox,

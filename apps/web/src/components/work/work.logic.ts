@@ -1,7 +1,7 @@
 import {
   type OrchestrationProjectShell,
   type OrchestrationTask,
-  ProjectListFilter,
+  ProjectListView,
   TaskListView,
   WORK_STATUS_ORDER,
   type WorkStatus,
@@ -63,10 +63,14 @@ export const parseTaskSearch = (search: Parameters<typeof decodeTaskSearch>[0]) 
 
 const decodeTaskSearch = Schema.decodeUnknownOption(TaskListView);
 
-export const parseProjectSearch = (search: Parameters<typeof decodeProjectSearch>[0]) =>
-  Option.getOrElse(decodeProjectSearch(search), (): ProjectListFilter => ({}));
+/** What the Projects page puts in its URL: statuses as one comma list. */
+export const encodeProjectSearch = Schema.encodeSync(ProjectListView);
 
-const decodeProjectSearch = Schema.decodeUnknownOption(ProjectListFilter);
+/** URL search to a project view; a malformed URL shows the unfiltered list instead of failing. */
+export const parseProjectSearch = (search: Parameters<typeof decodeProjectSearch>[0]) =>
+  Option.getOrElse(decodeProjectSearch(search), (): ProjectListView => ({}));
+
+const decodeProjectSearch = Schema.decodeUnknownOption(ProjectListView);
 
 /** A project page's tabs; the overview is the default and stays out of the URL. */
 export const PROJECT_TABS = ["overview", "tasks", "chats", "library"] as const;

@@ -110,6 +110,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.shellRevealAttachment]: AuthAccessWriteScope,
   [WS_METHODS.assetsCreateUrl]: AuthOrchestrationReadScope,
   [WS_METHODS.attachmentsCreateUploadUrl]: AuthOrchestrationOperateScope,
+  [WS_METHODS.projectsList]: AuthOrchestrationReadScope,
   [WS_METHODS.tasksList]: AuthOrchestrationReadScope,
   [WS_METHODS.activityList]: AuthOrchestrationReadScope,
   [WS_METHODS.activityCommentAdd]: AuthOrchestrationOperateScope,

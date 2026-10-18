@@ -163,6 +163,7 @@ export const workCatalog = {
   "Last updated": "最近更新",
   "Tasks couldn't be loaded.": "无法加载任务。",
   "Routines couldn't be loaded.": "无法加载例行任务。",
+  "Projects couldn't be loaded.": "无法加载项目。",
   "Loading notifications…": "正在加载通知…",
   "Hear when something needs you": "有事需要你时及时知道",
   "When someone gives you a task, mentions you or answers you, it shows up here.":

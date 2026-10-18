@@ -8,7 +8,14 @@ import {
   ActivityListResult,
   ActivityRequestError,
 } from "../orchestration/activity.ts";
-import { TaskListError, TaskListQuery, TaskListResult } from "../orchestration/work.ts";
+import {
+  ProjectListError,
+  ProjectListQuery,
+  TaskListError,
+  TaskListQuery,
+  TaskListResult,
+} from "../orchestration/work.ts";
+import { ProjectListResult } from "../orchestration/roster.ts";
 import {
   NotificationListResult,
   NotificationMarkReadInput,
@@ -719,6 +726,12 @@ export const WsTasksListRpc = Rpc.make(WS_METHODS.tasksList, {
   payload: TaskListQuery,
   success: TaskListResult,
   error: Schema.Union([TaskListError, EnvironmentAuthorizationError]),
+});
+
+export const WsProjectsListRpc = Rpc.make(WS_METHODS.projectsList, {
+  payload: ProjectListQuery,
+  success: ProjectListResult,
+  error: Schema.Union([ProjectListError, EnvironmentAuthorizationError]),
 });
 
 export const WsActivityListRpc = Rpc.make(WS_METHODS.activityList, {
