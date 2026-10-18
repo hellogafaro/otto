@@ -11,6 +11,7 @@ import {
 } from "@otto/contracts";
 
 import { canSeeRoutine } from "./orchestration/group-visibility.ts";
+import { listRoutines } from "./routines/routine-list.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
 export const createWsBotServicesHandlers = ({
@@ -18,6 +19,7 @@ export const createWsBotServicesHandlers = ({
   projectionBots,
   botUsageLedger,
   routineRepository,
+  secretStore,
   providerRegistry,
   botInbox,
   usage,
@@ -29,6 +31,7 @@ export const createWsBotServicesHandlers = ({
   | "projectionBots"
   | "botUsageLedger"
   | "routineRepository"
+  | "secretStore"
   | "providerRegistry"
   | "botInbox"
   | "usage"
@@ -36,6 +39,13 @@ export const createWsBotServicesHandlers = ({
   | "observeRpcEffect"
 >) =>
   ({
+    [WS_METHODS.routinesList]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.routinesList,
+        listRoutines(input, currentPersonId, { routineRepository, secretStore }),
+        { "rpc.aggregate": "routines" },
+      ),
+
     [WS_METHODS.routinesListRuns]: (input) =>
       observeRpcEffect(
         WS_METHODS.routinesListRuns,
@@ -214,6 +224,7 @@ export const createWsBotServicesHandlers = ({
       ),
   }) satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
+    | typeof WS_METHODS.routinesList
     | typeof WS_METHODS.routinesListRuns
     | typeof WS_METHODS.routinesListThreadRuns
     | typeof WS_METHODS.botInboxList

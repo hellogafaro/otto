@@ -222,7 +222,7 @@ export function WorkEmpty({
 }
 
 /** A filter matches nothing once something is set; the page then offers to clear it. */
-function NoMatches({ to }: { readonly to: "/tasks" | "/projects" }) {
+export function NoMatches({ to }: { readonly to: "/tasks" | "/projects" | "/routines" }) {
   const { t } = useI18n();
 
   return (
@@ -249,20 +249,15 @@ const encodeTaskView = Schema.encodeSync(Schema.fromJsonString(TaskListView));
 const nextTaskCursor = (page: TaskListResult) => page.nextCursor;
 
 /** The view with one field set, or left out when it is empty. */
-function withField<View extends TaskListView | ProjectListView, K extends keyof View>(
+export function withField<View extends object, K extends keyof View>(
   view: View,
   key: K,
   value: View[K] | undefined,
 ): View {
-  const next = { ...view };
+  const { [key]: _, ...rest } = view;
 
-  if (value === undefined) {
-    delete next[key];
-  } else {
-    next[key] = value;
-  }
-
-  return next;
+  // SAFETY: every field of a list view is optional, so leaving one out keeps it a view.
+  return (value === undefined ? rest : { ...rest, [key]: value }) as View;
 }
 
 /** Every person and bot as a filter choice, each with its avatar. */

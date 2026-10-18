@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 
 import {
   AuthSessionId,
@@ -14,6 +15,7 @@ import {
   Visibility,
 } from "./base-schemas.ts";
 import { McpServerId } from "./mcp-server.ts";
+import { ListCursor, ListLimit, ListOrder } from "./orchestration/lists.ts";
 
 export const RoutineId = TrimmedNonEmptyString.pipe(Schema.brand("RoutineId"));
 
@@ -304,6 +306,76 @@ export class RoutineReadError extends Schema.TaggedErrorClass<RoutineReadError>(
   "RoutineReadError",
   { routineId: RoutineId, message: TrimmedNonEmptyString },
 ) {}
+
+/**
+ * Otto: Where a routine stands, in the order lists group it: Active runs on schedule, Draft
+ * still waits for its instructions to be approved, Paused was switched off, Failed had its last
+ * run fail.
+ */
+export const RoutineStatus = Schema.Literals(["active", "draft", "paused", "failed"]);
+
+export type RoutineStatus = typeof RoutineStatus.Type;
+
+export const ROUTINE_STATUSES = RoutineStatus.literals;
+
+const RoutineStatusList = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Array(RoutineStatus),
+    SchemaTransformation.transform({
+      decode: (list) =>
+        // SAFETY: decodeTo validates each entry against RoutineStatus right after this split.
+        list.split(",").map((status) => status.trim()) as ReadonlyArray<RoutineStatus>,
+      encode: (statuses) => statuses.join(","),
+    }),
+  ),
+);
+
+/**
+ * How the routine list is ordered: by status (newest change first within it), next run
+ * (unscheduled last), last change, creation or title. Each has a natural order that `order`
+ * may reverse.
+ */
+export const ROUTINE_LIST_SORTS = ["status", "next", "updated", "created", "title"] as const;
+
+export const RoutineListSort = Schema.Literals(ROUTINE_LIST_SORTS);
+
+export type RoutineListSort = typeof RoutineListSort.Type;
+
+/** The filter and order the Routines page keeps in its URL; no status means every routine. */
+export const RoutineListView = Schema.Struct({
+  status: Schema.optional(RoutineStatusList),
+  bot: Schema.optional(BotId),
+  sort: Schema.optional(RoutineListSort),
+  order: Schema.optional(ListOrder),
+});
+
+export type RoutineListView = typeof RoutineListView.Type;
+
+export const RoutineListQuery = Schema.Struct({
+  ...RoutineListView.fields,
+  limit: Schema.optional(ListLimit),
+  cursor: Schema.optional(ListCursor),
+});
+
+export type RoutineListQuery = typeof RoutineListQuery.Type;
+
+export const RoutineListResult = Schema.Struct({
+  routines: Schema.Array(Routine),
+  nextCursor: Schema.NullOr(ListCursor),
+  /** How many routines match the filter in each status, across every page. */
+  statusCounts: Schema.Array(Schema.Struct({ status: RoutineStatus, count: Schema.Int })),
+});
+
+export type RoutineListResult = typeof RoutineListResult.Type;
+
+export class RoutineListError extends Schema.TaggedErrorClass<RoutineListError>()(
+  "RoutineListError",
+  { detail: Schema.String },
+) {
+  override get message(): string {
+    return this.detail;
+  }
+}
 
 const RoutineCommandFields = {
   commandId: CommandId,

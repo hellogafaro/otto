@@ -513,6 +513,7 @@ export const buildAppUnderTest = (options?: {
             RoutineRepository,
             RoutineRepository.of({
               listAll: Effect.succeed([]),
+              list: () => Effect.succeed({ rows: [], statusCounts: [] }),
               listEnabled: Effect.succeed([]),
               getById: () => Effect.succeed(null),
               listRuns: () => Effect.succeed([]),

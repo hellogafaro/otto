@@ -16,6 +16,11 @@ import {
   RoutineFailureKind,
   RoutineRun,
   RoutineHourInterval,
+  type ListOrder,
+  ROUTINE_STATUSES,
+  type RoutineListSort,
+  type RoutineListView,
+  RoutineStatus,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -137,6 +142,101 @@ const decodeRun = flow(
 
 const decodeSkillAssignment = Schema.decodeUnknownSync(SkillAssignmentRow);
 
+const decodeListRow = Schema.decodeUnknownSync(
+  RoutineRow.mapFields((fields) => ({
+    ...fields,
+    sortKey: Schema.fromJsonString(Schema.Array(Schema.Union([Schema.String, Schema.Number]))),
+  })),
+);
+
+const decodeStatusCount = Schema.decodeUnknownSync(
+  Schema.Struct({ status: RoutineStatus, count: Schema.Int }),
+);
+
+/** The status a routine's page shows: Draft until approved, then Failed, Active or Paused. */
+const STATUS_SQL = `CASE WHEN approval_version IS NULL OR approval_version <> procedure_version THEN 'draft' WHEN lifecycle IN ('failed', 'blocked') THEN 'failed' WHEN enabled = 1 THEN 'active' ELSE 'paused' END`;
+
+const STATUS_RANK = `CASE ${STATUS_SQL} ${ROUTINE_STATUSES.map(
+  (status, rank) => `WHEN '${status}' THEN ${rank}`,
+).join(" ")} END`;
+
+interface SortKey {
+  readonly sql: string;
+  readonly direction: ListOrder;
+  /** Kept whichever way the list runs, so unscheduled routines stay last. */
+  readonly fixed?: true;
+}
+
+/** Each sort's natural order and its keys; the routine id breaks ties so every row has a place. */
+const ROUTINE_SORTS: Record<
+  RoutineListSort,
+  { readonly natural: ListOrder; readonly keys: SortKey[] }
+> = {
+  status: {
+    natural: "asc",
+    keys: [
+      { sql: STATUS_RANK, direction: "asc" },
+      { sql: "updated_at", direction: "desc" },
+      { sql: "routine_id", direction: "desc" },
+    ],
+  },
+  next: {
+    natural: "asc",
+    keys: [
+      { sql: "next_run_at IS NULL", direction: "asc", fixed: true },
+      { sql: "COALESCE(next_run_at, '')", direction: "asc" },
+      { sql: "routine_id", direction: "asc" },
+    ],
+  },
+  updated: {
+    natural: "desc",
+    keys: [
+      { sql: "updated_at", direction: "desc" },
+      { sql: "routine_id", direction: "desc" },
+    ],
+  },
+  created: {
+    natural: "desc",
+    keys: [
+      { sql: "created_at", direction: "desc" },
+      { sql: "routine_id", direction: "desc" },
+    ],
+  },
+  title: {
+    natural: "asc",
+    keys: [
+      { sql: "lower(job)", direction: "asc" },
+      { sql: "routine_id", direction: "asc" },
+    ],
+  },
+};
+
+/**
+ * The filter as SQL conditions and their parameters. Deleted routines never list, and a
+ * private routine lists only for the person who set it up, as `canSeeRoutine` decides.
+ */
+function routineFilterSql(query: RoutineListView, viewer: string) {
+  const conditions = [
+    "deleted_at IS NULL",
+    "lifecycle <> 'deleted'",
+    "(visibility <> 'user' OR created_by IS NULL OR created_by = ?)",
+  ];
+
+  const params: Array<string | number> = [viewer];
+
+  if (query.status !== undefined && query.status.length > 0) {
+    conditions.push(`${STATUS_SQL} IN (${query.status.map(() => "?").join(", ")})`);
+    params.push(...query.status);
+  }
+
+  if (query.bot !== undefined) {
+    conditions.push("bot_id = ?");
+    params.push(query.bot);
+  }
+
+  return { conditions, params };
+}
+
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
@@ -183,6 +283,82 @@ const make = Effect.gen(function* () {
     ),
     Effect.mapError(toPersistenceSqlError("RoutineRepository.listAll")),
   );
+
+  const list: RoutineRepositoryShape["list"] = ({ query, viewer, limit, after }) => {
+    const sort = ROUTINE_SORTS[query.sort ?? "status"];
+    const reversed = query.order !== undefined && query.order !== sort.natural;
+
+    const keys = sort.keys.map((key) => ({
+      sql: key.sql,
+      direction:
+        reversed && !key.fixed ? (key.direction === "asc" ? "desc" : "asc") : key.direction,
+    }));
+
+    const filter = routineFilterSql(query, viewer);
+    const conditions = [...filter.conditions];
+    const params: Array<string | number> = [...filter.params];
+
+    // Keyset paging: rows strictly after the last key, comparing one sort key at a time.
+    if (after !== null && after.length === keys.length) {
+      conditions.push(
+        `(${keys
+          .map((key, index) =>
+            [
+              ...keys.slice(0, index).map((earlier) => `${earlier.sql} = ?`),
+              `${key.sql} ${key.direction === "asc" ? ">" : "<"} ?`,
+            ].join(" AND "),
+          )
+          .join(" OR ")})`,
+      );
+
+      keys.forEach((_, index) => params.push(...after.slice(0, index + 1)));
+    }
+
+    const rows = sql.unsafe(
+      `
+        SELECT routine_id AS id, bot_id AS "botId", target_thread_id AS "targetThreadId", thread_mode AS "threadMode",
+          project_id AS "projectId", job,
+          procedure, procedure_version AS "procedureVersion",
+          approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
+          skill_assignment_ids_json AS "skillAssignmentIds",
+          connector_dependencies_json AS "connectorDependencies", sandbox,
+          approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
+          created_by AS "createdBy", visibility,
+          enabled, lifecycle,
+          next_run_at AS "nextRunAt", last_run_at AS "lastRunAt",
+          latest_result_json AS "latestResult", latest_failure_json AS "latestFailure",
+          created_at AS "createdAt", updated_at AS "updatedAt", deleted_at AS "deletedAt",
+          json_array(${keys.map((key) => key.sql).join(", ")}) AS "sortKey"
+        FROM projection_routines
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY ${keys.map((key) => `${key.sql} ${key.direction.toUpperCase()}`).join(", ")}
+        LIMIT ?
+      `,
+      [...params, limit + 1],
+    );
+
+    const counts = sql.unsafe(
+      `
+        SELECT ${STATUS_SQL} AS status, COUNT(*) AS count
+        FROM projection_routines
+        WHERE ${filter.conditions.join(" AND ")}
+        GROUP BY 1
+      `,
+      filter.params,
+    );
+
+    return Effect.all([rows, counts]).pipe(
+      Effect.map(([routineRows, statusRows]) => ({
+        rows: routineRows.map((row) => {
+          const { sortKey, ...routine } = decodeListRow(row);
+
+          return { routine: { ...routine, enabled: routine.enabled === 1 }, key: sortKey };
+        }),
+        statusCounts: statusRows.map((row) => decodeStatusCount(row)),
+      })),
+      Effect.mapError(toPersistenceSqlError("RoutineRepository.list")),
+    );
+  };
 
   const listEnabled: RoutineRepositoryShape["listEnabled"] = listAll.pipe(
     Effect.map((routines) => routines.filter((routine) => routine.enabled)),
@@ -374,6 +550,7 @@ const make = Effect.gen(function* () {
 
   return {
     listAll,
+    list,
     listEnabled,
     getById,
     listRuns,
