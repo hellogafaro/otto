@@ -112,11 +112,13 @@ export function createTurns({
     const { message, hasOtherUserMessages } = turnStart.value;
 
     // A message sent while the bot works joins that turn, and the bot reads it at
-    // its next step. Messages that carry their own turn context still start a turn.
+    // its next step. Messages that carry their own turn context still start a turn,
+    // and a routine run is its own turn, which settles the run.
     if (
       thread.session?.status === "running" &&
       event.payload.groupInput === undefined &&
       event.payload.hiddenWake !== true &&
+      event.payload.routineWake === undefined &&
       event.payload.sourceProposedPlan === undefined &&
       (event.payload.acknowledgedDelegationIds?.length ?? 0) === 0 &&
       message.channelOrigin == null
@@ -325,6 +327,9 @@ export function createTurns({
         ...sendTurnRequest.value,
         ...(delegationResults.value ? { delegationResults: delegationResults.value } : {}),
         ...(event.payload.taskWake !== undefined ? { taskWake: event.payload.taskWake } : {}),
+        ...(event.payload.routineWake !== undefined
+          ? { routineWake: event.payload.routineWake }
+          : {}),
       })
       .pipe(
         Effect.tap((result) =>

@@ -2,6 +2,7 @@ import {
   CommandId,
   DEFAULT_PROVIDER_INTERACTION_MODE,
   ProviderInstanceId,
+  RoutineId,
   ThreadId,
 } from "@otto/contracts";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -85,6 +86,30 @@ describe("ProviderCommandReactor signals", () => {
 
     expect(harness.signalTurn).toHaveBeenCalledOnce();
     expect(harness.sendTurn.mock.calls.at(-1)?.[0]).toMatchObject({ input: "are you there" });
+  });
+
+  it("queues a routine run behind the running turn instead of joining it", async () => {
+    const harness = await createHarness({ signalTurnDelivers: true });
+
+    await harness.run(harness.engine.dispatch(markRunning));
+    await harness.drain();
+    const turnsBefore = harness.sendTurn.mock.calls.length;
+
+    const routineWake = {
+      routineId: RoutineId.make("routine-1"),
+      title: "Invoice triage",
+      trigger: "app" as const,
+      event: '{"subject":"Invoice"}',
+      text: "File the invoice.",
+    };
+
+    await harness.run(
+      harness.engine.dispatch({ ...sendWhileRunning("File the invoice."), routineWake }),
+    );
+    await harness.waitFor(() => harness.sendTurn.mock.calls.length === turnsBefore + 1);
+
+    expect(harness.signalTurn).not.toHaveBeenCalled();
+    expect(harness.sendTurn.mock.calls.at(-1)?.[0]).toMatchObject({ routineWake });
   });
 
   it("starts a turn without signalling when the bot is idle", async () => {
