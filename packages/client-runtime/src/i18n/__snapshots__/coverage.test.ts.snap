@@ -481,6 +481,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/sidebar/sidebar-provider-update-pill.tsx",
     "apps/web/src/components/sidebar/sidebar-update-pill.tsx",
     "apps/web/src/components/ui/code-block.tsx",
+    "apps/web/src/components/ui/menu.tsx",
     "apps/web/src/components/ui/sidebar-rail.tsx",
     "apps/web/src/components/ui/sidebar.tsx",
     "apps/web/src/components/ui/sonner.tsx",

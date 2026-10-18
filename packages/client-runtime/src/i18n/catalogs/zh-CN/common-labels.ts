@@ -30,6 +30,7 @@ export const commonLabelsCatalog = {
   Done: "完成",
   Errors: "错误",
   "Fill in the pending answers": "填写待回答问题",
+  Filter: "筛选",
   "Glass opacity": "玻璃透明度",
   Health: "健康状态",
   "Hide whitespace changes": "隐藏空白更改",

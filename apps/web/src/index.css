@@ -13,6 +13,18 @@
 
 @custom-variant wco (&:is(.wco, .wco *));
 
+/* Otto: Menu rows show 1–9 then 0, the keys that pick them; later rows show nothing. */
+@counter-style menu-key {
+  system: fixed;
+  symbols: "1" "2" "3" "4" "5" "6" "7" "8" "9" "0";
+  fallback: menu-key-none;
+}
+
+@counter-style menu-key-none {
+  system: cyclic;
+  symbols: "";
+}
+
 /* Otto: Scales a dithered project cover up without smoothing its dots. */
 @utility project-cover-pixels {
   image-rendering: pixelated;

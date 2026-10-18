@@ -30,6 +30,7 @@ export const commonLabelsCatalog = {
   Done: "Done",
   Errors: "Errors",
   "Fill in the pending answers": "Fill in the pending answers",
+  Filter: "Filter",
   "Glass opacity": "Glass opacity",
   Health: "Health",
   "Hide whitespace changes": "Hide whitespace changes",
