@@ -44,17 +44,51 @@ function MenuTrigger({ className, children, ...props }: MenuPrimitive.Trigger.Pr
   );
 }
 
-// Otto: With an empty filter, 1–9 and 0 pick the first ten choice rows; once you type, digits filter.
+// Otto: With an empty filter, 1–9 and 0 pick the first ten choice rows, and a row's letter, such as
+// R for Rename, runs that row. Once you type, keys filter; a letter no row owns starts the filter.
 function activateItemByKey(event: React.KeyboardEvent<HTMLInputElement>) {
-  const { altKey, ctrlKey, currentTarget, key, metaKey } = event;
+  const { altKey, ctrlKey, currentTarget, key, metaKey, shiftKey } = event;
 
-  if (currentTarget.value || altKey || ctrlKey || metaKey || !/^\d$/.test(key)) return;
+  if (currentTarget.value || altKey || ctrlKey || metaKey) return;
 
-  event.preventDefault();
-  const keys = currentTarget.parentElement?.querySelectorAll("[data-slot=menu-key]:not([hidden])");
-  const item = keys?.[(Number(key) + 9) % 10]?.parentElement;
+  const popup = currentTarget.parentElement;
+  let item: Element | null | undefined = null;
 
-  if (item && !item.hasAttribute("data-disabled")) item.click();
+  if (/^\d$/.test(key)) {
+    event.preventDefault();
+    const keys = popup?.querySelectorAll("[data-slot=menu-key]:not([hidden])");
+    item = keys?.[(Number(key) + 9) % 10]?.parentElement;
+  } else if (!shiftKey && /^[a-z]$/i.test(key)) {
+    item = popup
+      ?.querySelector(`[data-menu-letter="${key.toLowerCase()}"]`)
+      ?.closest("[data-slot=menu-item], [data-slot=menu-sub-trigger]");
+
+    if (!item) return;
+    event.preventDefault();
+  } else {
+    return;
+  }
+
+  if (item instanceof HTMLElement && !item.hasAttribute("data-disabled")) item.click();
+}
+
+/**
+ * Otto: The letter that runs an action row while its menu is open, such as R for Rename, shown at
+ * the row's end. It works only inside the open menu, so typing elsewhere never runs it.
+ */
+function MenuLetter({ letter, className }: { letter: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "-me-0.5 sm:-me-1 ms-auto flex shrink-0 ps-4 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
+        className,
+      )}
+      data-menu-letter={letter.toLowerCase()}
+    >
+      <Kbd>{letter.toUpperCase()}</Kbd>
+    </span>
+  );
 }
 
 // Otto: Choice rows are numbered 1–9 then 0 in the shared Kbd; later rows get no key.
@@ -427,4 +461,5 @@ export {
   MenuSubTrigger as DropdownMenuSubTrigger,
   MenuSubPopup,
   MenuSubPopup as DropdownMenuSubContent,
+  MenuLetter,
 };

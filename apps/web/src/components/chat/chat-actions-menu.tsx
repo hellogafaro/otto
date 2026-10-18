@@ -17,7 +17,6 @@ import {
 import { useUiStateStore } from "../../ui-state-store";
 import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
 import { PageActionMenuItem } from "../page-action-menu-item";
-import { ShortcutKbd } from "../shortcut-kbd";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import {
@@ -36,6 +35,7 @@ import {
   MenuSeparator,
   MenuSub,
   MenuSubPopup,
+  MenuLetter,
   MenuSubTrigger,
   MenuTrigger,
 } from "../ui/menu";
@@ -230,7 +230,7 @@ export function ChatActionsMenu({
               <MenuSubTrigger disabled={!state.canSnooze}>
                 <RiAlarmLine />
                 {t("Snooze")}
-                <ShortcutKbd command="item.snooze" className="ms-auto" />
+                <MenuLetter letter="h" />
               </MenuSubTrigger>
               <MenuSubPopup>{snoozeItems}</MenuSubPopup>
             </MenuSub>
