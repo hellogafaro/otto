@@ -18,6 +18,7 @@ const STATUS_ICON: Record<Exclude<RoutineReceiptStatus, "created">, StatusKind> 
 /**
  * A routine's creation or one of its runs in the routine's chat: a two-line card that opens
  * the routine, with the run's live status, or why it failed in place of the status word.
+ * It sits in the bot's content column, past the avatar gutter, like the bot's own rows.
  */
 export function RoutineReceiptRow({ receipt }: { readonly receipt: RoutineReceipt }) {
   const { formatDate, t } = useI18n();
@@ -63,7 +64,7 @@ export function RoutineReceiptRow({ receipt }: { readonly receipt: RoutineReceip
     "flex w-full max-w-sm items-center gap-2.5 rounded-lg border bg-card p-2 pr-3 text-left";
 
   return (
-    <div className="mx-auto w-full max-w-3xl py-1" data-testid="routine-receipt">
+    <div className="w-full py-1 pl-10" data-testid="routine-receipt">
       {receipt.archived ? (
         <div className={cardClassName}>{content}</div>
       ) : (

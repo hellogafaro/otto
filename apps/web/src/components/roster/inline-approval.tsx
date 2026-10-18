@@ -174,23 +174,28 @@ export function InlineApproval({
 
     const allowed = approval.resolution.decision?.startsWith("accept") ?? false;
 
+    // Only a command or tool reads as code; a routine, skill or bot keeps its plain name.
+    const code = !isProposal(approval) && approval.toolName !== "delegate";
+
     return grouped(
       undefined,
-      <div
-        className="flex w-fit max-w-2xl min-w-0 items-start gap-2.5 rounded-(--toast-radius) border bg-card px-3 py-2"
+      <p
+        className="flex max-w-2xl min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
         data-testid="answered-approval"
       >
-        <StatusIcon
-          status={allowed ? "completed" : "cancelled"}
-          className="mt-0.5 size-4 shrink-0"
-        />
-        <div className="flex min-w-0 flex-col">
-          <span className="text-13px text-foreground">{answeredLabel(approval, t)}</span>
-          {subject ? (
-            <span className="truncate font-mono text-xs text-muted-foreground">{subject}</span>
-          ) : null}
-        </div>
-      </div>,
+        <StatusIcon status={allowed ? "completed" : "cancelled"} />
+        <span className="shrink-0">{answeredLabel(approval, t)}</span>
+        {subject ? (
+          <>
+            <span aria-hidden="true" className="shrink-0">
+              ·
+            </span>
+            <span className={cn("min-w-0 truncate text-foreground/80", code && "font-mono")}>
+              {subject}
+            </span>
+          </>
+        ) : null}
+      </p>,
     );
   }
 

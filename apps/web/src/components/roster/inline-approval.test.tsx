@@ -247,6 +247,30 @@ describe("InlineApproval", () => {
     expect(markup).toContain("pwd");
     expect(markup).not.toContain("inline-approval-card");
     expect(markup).not.toContain("<button");
+    // A quiet line, not a second card next to the bot's other rows.
+    expect(markup).not.toContain("border");
+    expect(markup).not.toContain("bg-card");
+    expect(markup).toContain("font-mono");
+  });
+
+  it("keeps an approved routine's name in plain type on its answered line", () => {
+    const markup = render({
+      requestId: ApprovalRequestId.make("answered-routine"),
+      requestKind: "command",
+      toolName: OTTO_CREATE_ROUTINE_TOOL_NAME,
+      createdAt: "2026-10-18T16:34:00.000Z",
+      args: {
+        name: "Weekly lessons review",
+        instructions: "Review the week's lessons.",
+        schedule: { kind: "weekly", weekdays: ["friday"], time: "17:00" },
+        timezone: "Europe/Madrid",
+      },
+      resolution: { decision: "accept", actor: "user", respondedBy: "Johan Gafaro" },
+    });
+
+    expect(markup).toContain("Approved by Johan Gafaro");
+    expect(markup).toContain("Weekly lessons review");
+    expect(markup).not.toContain("font-mono");
   });
 
   it("joins the bot's group: only an approval that opens it shows the avatar and name", () => {
