@@ -8,6 +8,7 @@ import {
   ActivityListResult,
   ActivityRequestError,
 } from "../orchestration/activity.ts";
+import { TaskListError, TaskListQuery, TaskListResult } from "../orchestration/work.ts";
 import {
   NotificationListResult,
   NotificationMarkReadInput,
@@ -704,6 +705,12 @@ export const WsAttachmentsDeleteRpc = Rpc.make(WS_METHODS.attachmentsDelete, {
 });
 
 const activityError = Schema.Union([ActivityRequestError, EnvironmentAuthorizationError]);
+
+export const WsTasksListRpc = Rpc.make(WS_METHODS.tasksList, {
+  payload: TaskListQuery,
+  success: TaskListResult,
+  error: Schema.Union([TaskListError, EnvironmentAuthorizationError]),
+});
 
 export const WsActivityListRpc = Rpc.make(WS_METHODS.activityList, {
   payload: ActivityEntity,

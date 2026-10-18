@@ -33,6 +33,7 @@
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-pacer": "^0.19.4",
     "@tanstack/react-router": "^1.160.2",
+    "@tanstack/react-virtual": "^3.14.20",
     "@tiptap/extension-table": "3.31.4",
     "@tiptap/extensions": "3.31.4",
     "@tiptap/markdown": "3.31.4",

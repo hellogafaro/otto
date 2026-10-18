@@ -2,21 +2,14 @@ import {
   type OrchestrationProjectShell,
   type OrchestrationTask,
   ProjectListFilter,
-  TaskListFilter,
+  TaskListView,
+  WORK_STATUS_ORDER,
   type WorkStatus,
 } from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-/** Linear's order: what is moving first, then what is waiting, then what is done. */
-export const WORK_STATUS_ORDER: readonly WorkStatus[] = [
-  "in_progress",
-  "pending",
-  "backlog",
-  "completed",
-  "cancelled",
-  "archived",
-];
+import { localDateKey } from "../../timestamp-format";
 
 /** The statuses a person picks; archiving is its own action. */
 export const WORK_STATUS_CHOICES = WORK_STATUS_ORDER.filter((status) => status !== "archived");
@@ -26,11 +19,49 @@ export function projectStatus(project: Pick<OrchestrationProjectShell, "status">
   return project.status ?? "in_progress";
 }
 
-/** URL search to a task filter; a malformed URL shows the unfiltered list instead of failing. */
-export const parseTaskSearch = (search: Parameters<typeof decodeTaskSearch>[0]) =>
-  Option.getOrElse(decodeTaskSearch(search), (): TaskListFilter => ({}));
+/** What the Tasks page puts in its URL: statuses as one comma list. */
+export const encodeTaskSearch = Schema.encodeSync(TaskListView);
 
-const decodeTaskSearch = Schema.decodeUnknownOption(TaskListFilter);
+/** Due-date filters a person picks; each is a date range relative to today. */
+export const DUE_PRESETS = ["overdue", "today", "week"] as const;
+
+export type DuePreset = (typeof DUE_PRESETS)[number];
+
+function addDays(day: string, days: number): string {
+  const [year = 1970, month = 1, date = 1] = day.split("-").map(Number);
+
+  return localDateKey(new Date(year, month - 1, date + days));
+}
+
+/** Overdue ends yesterday; Due today is today; Due this week is today and the next six days. */
+export function duePresetRange(
+  preset: DuePreset,
+  today: string,
+): Pick<TaskListView, "dueFrom" | "dueTo"> {
+  switch (preset) {
+    case "overdue":
+      return { dueTo: addDays(today, -1) };
+    case "today":
+      return { dueFrom: today, dueTo: today };
+    case "week":
+      return { dueFrom: today, dueTo: addDays(today, 6) };
+  }
+}
+
+/** The preset a view's due range is today, if any. */
+export function duePresetOf(view: TaskListView, today: string): DuePreset | undefined {
+  return DUE_PRESETS.find((preset) => {
+    const range = duePresetRange(preset, today);
+
+    return range.dueFrom === view.dueFrom && range.dueTo === view.dueTo;
+  });
+}
+
+/** URL search to a task view; a malformed URL shows the unfiltered list instead of failing. */
+export const parseTaskSearch = (search: Parameters<typeof decodeTaskSearch>[0]) =>
+  Option.getOrElse(decodeTaskSearch(search), (): TaskListView => ({}));
+
+const decodeTaskSearch = Schema.decodeUnknownOption(TaskListView);
 
 export const parseProjectSearch = (search: Parameters<typeof decodeProjectSearch>[0]) =>
   Option.getOrElse(decodeProjectSearch(search), (): ProjectListFilter => ({}));
