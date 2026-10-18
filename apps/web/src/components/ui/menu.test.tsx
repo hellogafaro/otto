@@ -21,3 +21,13 @@ describe("menu radio item geometry", () => {
     expect(html).toContain("-mx-0.5");
   });
 });
+
+describe("menu letters", () => {
+  it("marks an action row with its letter so the open menu can run it", async () => {
+    const { MenuLetter } = await import("./menu");
+    const html = renderToStaticMarkup(<MenuLetter letter="r" />);
+
+    expect(html).toContain('data-menu-letter="r"');
+    expect(html).toContain(">R<");
+  });
+});
