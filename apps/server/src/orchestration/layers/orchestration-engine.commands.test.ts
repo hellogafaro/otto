@@ -10,6 +10,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import { it as effectIt } from "@effect/vitest";
@@ -325,6 +326,98 @@ describe("OrchestrationEngine", () => {
     expect(
       (await system.readModel()).threads.find((thread) => thread.id === "thread-archive")?.title,
     ).toBe("Archive me");
+
+    await system.dispose();
+  });
+
+  it("keeps an archived chat readable on request, out of live reads, and closed to turns", async () => {
+    const system = await createOrchestrationSystem();
+    const { engine, snapshotQuery } = system;
+    const createdAt = now();
+    const threadId = ThreadId.make("thread-archived-read");
+
+    const turnStart = (id: string) =>
+      engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.make(`cmd-turn-${id}`),
+        threadId,
+        message: {
+          messageId: asMessageId(`msg-${id}`),
+          role: "user",
+          text: id,
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt,
+      });
+
+    await system.run(
+      engine.dispatch({
+        type: "project.create",
+        commandId: CommandId.make("cmd-project-archived-read"),
+        projectId: asProjectId("project-archived-read"),
+        title: "Project",
+        workspaceRoot: "/tmp/project-archived-read",
+        defaultModelSelection: {
+          instanceId: ProviderInstanceId.make("codex"),
+          model: "gpt-5-codex",
+        },
+        createdAt,
+      }),
+    );
+    await system.run(
+      engine.dispatch({
+        type: "thread.create",
+        commandId: CommandId.make("cmd-thread-archived-read"),
+        threadId,
+        projectId: asProjectId("project-archived-read"),
+        title: "Archived chat",
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("codex"),
+          model: "gpt-5-codex",
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "full-access",
+        branch: null,
+        worktreePath: null,
+        createdAt,
+      }),
+    );
+    await system.run(turnStart("before"));
+    await system.run(
+      engine.dispatch({
+        type: "thread.archive",
+        commandId: CommandId.make("cmd-thread-archived-read-archive"),
+        threadId,
+      }),
+    );
+
+    const shell = await system.run(
+      snapshotQuery.getThreadShellById(threadId, { includeArchived: true }),
+    );
+
+    const detail = await system.run(
+      snapshotQuery.getThreadDetailSnapshot(threadId, undefined, { includeArchived: true }),
+    );
+
+    expect(Option.getOrThrow(shell).archivedAt).not.toBeNull();
+    expect(Option.getOrThrow(detail).thread.messages.map((message) => message.text)).toEqual([
+      "before",
+    ]);
+    expect(Option.isNone(await system.run(snapshotQuery.getThreadShellById(threadId)))).toBe(true);
+    expect(Option.isNone(await system.run(snapshotQuery.getThreadDetailSnapshot(threadId)))).toBe(
+      true,
+    );
+    expect(
+      (await system.run(snapshotQuery.getShellSnapshot())).threads.some(
+        (thread) => thread.id === threadId,
+      ),
+    ).toBe(false);
+
+    const sequenceBefore = await system.run(engine.latestSequence);
+    await expect(system.run(turnStart("after"))).rejects.toThrow(/already archived/);
+    expect(await system.run(engine.latestSequence)).toBe(sequenceBefore);
 
     await system.dispose();
   });
