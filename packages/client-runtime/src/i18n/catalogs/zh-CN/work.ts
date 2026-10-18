@@ -159,4 +159,5 @@ export const workCatalog = {
   "This browser can't show notifications.": "此浏览器无法显示通知。",
   "You're all caught up": "已全部处理完毕",
   Earlier: "更早",
+  "Assign to me": "分配给我",
 } as const;

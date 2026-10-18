@@ -33,6 +33,7 @@ import { useI18n } from "../../i18n";
 import { ensureLocalApi } from "../../local-api";
 import { cn } from "../../lib/utils";
 import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
+import type { PickerOpenState } from "../details-aside";
 import { libraryEnvironment } from "../../state/library";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
@@ -304,10 +305,12 @@ export function LibraryVisibilitySelect({
   value,
   editable,
   onChange,
+  picker,
 }: {
   readonly value: LibraryVisibility;
   readonly editable: boolean;
   readonly onChange: (visibility: LibraryVisibility) => void;
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
 
@@ -338,6 +341,8 @@ export function LibraryVisibilitySelect({
       onValueChange={(next) => {
         if (next === "user" || next === "organization") onChange(next);
       }}
+      open={picker?.open}
+      onOpenChange={picker?.onOpenChange}
     >
       <SelectTrigger
         size="sm"
@@ -352,7 +357,7 @@ export function LibraryVisibilitySelect({
           </span>
         </SelectValue>
       </SelectTrigger>
-      <SelectPopup alignItemWithTrigger={false}>
+      <SelectPopup alignItemWithTrigger={false} finalFocus={picker?.finalFocus}>
         {(["organization", "user"] as const).map((visibility) => (
           <SelectItem key={visibility} hideIndicator value={visibility}>
             <span className="flex items-center gap-2">

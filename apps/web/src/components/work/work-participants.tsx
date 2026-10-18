@@ -18,6 +18,7 @@ import {
   ComposerSelectControl,
 } from "../chat/composer-control";
 import { personImageAtom } from "../../state/people";
+import type { PickerOpenState } from "../details-aside";
 import { useRosterStore } from "../roster/roster-store";
 import type { Bot } from "../roster/types";
 import { Button } from "../ui/button";
@@ -217,12 +218,14 @@ export function OwnerSelect({
   onChange,
   participants,
   variant,
+  picker,
 }: {
   readonly value: WorkParticipant | null;
   readonly onChange: (owner: WorkParticipant | null) => void;
   readonly participants: WorkParticipants;
   /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
   readonly variant?: "ghost" | "composer";
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
   const Trigger = variant === "composer" ? ComposerSelectControl : SelectTrigger;
@@ -233,6 +236,8 @@ export function OwnerSelect({
       onValueChange={(next: string | null) =>
         onChange(next === null || next === "none" ? null : parseParticipant(next, participants))
       }
+      open={picker?.open}
+      onOpenChange={picker?.onOpenChange}
     >
       <Trigger
         size="sm"
@@ -255,7 +260,7 @@ export function OwnerSelect({
           </span>
         </SelectValue>
       </Trigger>
-      <SelectPopup alignItemWithTrigger={false}>
+      <SelectPopup alignItemWithTrigger={false} finalFocus={picker?.finalFocus}>
         <SelectItem hideIndicator value="none">
           {t("No owner")}
         </SelectItem>
@@ -287,6 +292,7 @@ export function AssigneesMenu({
   participants,
   variant = "outline",
   label,
+  picker,
 }: {
   readonly value: readonly WorkParticipant[];
   readonly onChange: (assignees: WorkParticipant[]) => void;
@@ -298,6 +304,7 @@ export function AssigneesMenu({
   readonly variant?: "outline" | "ghost" | "composer";
   /** Names the menu in place of Assignees. */
   readonly label?: string;
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
   const selected = new Set(value.map(workParticipantKey));
@@ -313,7 +320,7 @@ export function AssigneesMenu({
   const menuLabel = label ?? t("Assignees");
 
   return (
-    <Menu>
+    <Menu open={picker?.open} onOpenChange={picker?.onOpenChange}>
       {Match.value(variant).pipe(
         Match.when("composer", () => (
           <MenuTrigger
@@ -370,7 +377,7 @@ export function AssigneesMenu({
           </MenuTrigger>
         )),
       )}
-      <MenuPopup align="start">
+      <MenuPopup align="start" finalFocus={picker?.finalFocus}>
         {everyone.map((participant) => (
           <MenuCheckboxItem
             key={workParticipantKey(participant)}

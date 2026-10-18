@@ -9,6 +9,7 @@ import {
   RiRadioButtonLine,
   RiSunLine,
   RiUnpinLine,
+  RiUserAddLine,
 } from "@remixicon/react";
 import type { SnoozePresetId } from "@otto/client-runtime/state/thread-snoozed";
 import type { ScopedThreadRef } from "@otto/contracts";
@@ -52,6 +53,7 @@ export function buildChatPaletteActions({
   openRename,
   openSnooze,
   copy,
+  addMembers,
 }: {
   readonly threadRef: ScopedThreadRef | null;
   readonly state: ChatMenuState | null;
@@ -62,6 +64,8 @@ export function buildChatPaletteActions({
   /** Opens the snooze presets beside the chat's More actions button. */
   readonly openSnooze: () => void;
   readonly copy: ReturnType<typeof useCopyPageActions> | null;
+  /** Opens a group chat's Add members, in the details panel. */
+  readonly addMembers: (() => void) | null;
 }): PageAction[] {
   const list: PageAction[] = [];
 
@@ -158,6 +162,17 @@ export function buildChatPaletteActions({
             run: openSnooze,
           },
     );
+  }
+
+  if (addMembers) {
+    list.push({
+      id: "add-members",
+      title: t("Add members"),
+      icon: RiUserAddLine,
+      searchTerms: ["add members", "invite", "members"],
+      shortcutCommand: "property.members",
+      run: addMembers,
+    });
   }
 
   if (copy) list.push(copy.link, copy.id);

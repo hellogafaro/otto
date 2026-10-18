@@ -197,7 +197,7 @@ describe("KeybindingsSettings.logic", () => {
       ...Array.from({ length: 7 }, () => ""),
       "!inputFocus",
       "desktop",
-      ...Array.from({ length: 8 }, () => "!inputFocus"),
+      ...Array.from({ length: 19 }, () => "!inputFocus"),
       "!inputFocus",
       "!inputFocus",
       "approvalPending",

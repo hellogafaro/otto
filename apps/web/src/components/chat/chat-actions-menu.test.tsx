@@ -291,7 +291,11 @@ describe("buildChatPaletteActions", () => {
     typeof buildChatPaletteActions
   >[0]["t"];
 
-  function paletteActions(overrides: Partial<OrchestrationThreadShell> = {}, openSnooze = vi.fn()) {
+  function paletteActions(
+    overrides: Partial<OrchestrationThreadShell> = {},
+    openSnooze = vi.fn(),
+    addMembers: (() => void) | null = null,
+  ) {
     const state = resolveChatMenuState({
       shell: shell(overrides),
       lastVisitedAt: "2026-09-27T10:01:00.000Z",
@@ -308,6 +312,7 @@ describe("buildChatPaletteActions", () => {
       openRename: vi.fn(),
       openSnooze,
       copy: null,
+      addMembers,
     });
   }
 
@@ -324,6 +329,20 @@ describe("buildChatPaletteActions", () => {
       archive: "item.archive",
       delete: "item.delete",
     });
+  });
+
+  it("adds members with M only in a group chat", async () => {
+    const addMembers = vi.fn();
+
+    expect(paletteActions().some((action) => action.id === "add-members")).toBe(false);
+
+    const action = paletteActions({}, vi.fn(), addMembers).find(
+      (entry) => entry.id === "add-members",
+    );
+
+    expect(action?.shortcutCommand).toBe("property.members");
+    await action?.run();
+    expect(addMembers).toHaveBeenCalledOnce();
   });
 
   it("opens the snooze presets from Snooze", async () => {

@@ -11,6 +11,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ComposerSelectControl } from "../chat/composer-control";
 import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
+import type { PickerOpenState } from "../details-aside";
 import { PageActionMenuItem } from "../page-action-menu-item";
 import { StatusIcon } from "../status-icon";
 import { WORK_STATUS_CHOICES } from "./work.logic";
@@ -69,12 +70,14 @@ export function WorkStatusSelect({
   onChange,
   className,
   variant,
+  picker,
 }: {
   readonly value: WorkStatus;
   readonly onChange: (status: WorkStatus) => void;
   readonly className?: string;
   /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
   readonly variant?: "ghost" | "composer";
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
   const label = useWorkStatusLabel();
@@ -86,6 +89,8 @@ export function WorkStatusSelect({
       onValueChange={(next) => {
         if (isWorkStatus(next)) onChange(next);
       }}
+      open={picker?.open}
+      onOpenChange={picker?.onOpenChange}
     >
       <Trigger
         size="sm"
@@ -100,7 +105,7 @@ export function WorkStatusSelect({
           </span>
         </SelectValue>
       </Trigger>
-      <SelectPopup alignItemWithTrigger={false}>
+      <SelectPopup alignItemWithTrigger={false} finalFocus={picker?.finalFocus}>
         {WORK_STATUS_CHOICES.map((status) => (
           <SelectItem key={status} hideIndicator value={status}>
             <span className="flex items-center gap-2">
@@ -114,6 +119,8 @@ export function WorkStatusSelect({
   );
 }
 
+const NO_PROPERTIES: ReadonlyArray<PageAction> = [];
+
 /**
  * A task or project page's More actions menu: New task on a project, Copy link and Copy ID, then
  * Archive. The same entries are the page's command palette group and its keys. Archiving lives
@@ -126,6 +133,7 @@ export function WorkMoreActions({
   status,
   onStatusChange,
   onNewTask,
+  properties = NO_PROPERTIES,
 }: {
   /** The palette group title, such as This task. */
   readonly label: string;
@@ -134,6 +142,8 @@ export function WorkMoreActions({
   readonly status: WorkStatus;
   readonly onStatusChange: (status: WorkStatus) => void;
   readonly onNewTask?: () => void;
+  /** The page's property keys, which open its pickers; they join the palette, not this menu. */
+  readonly properties?: ReadonlyArray<PageAction>;
 }) {
   const { t } = useI18n();
   const copy = useCopyPageActions(path, id);
@@ -176,8 +186,8 @@ export function WorkMoreActions({
   );
 
   const actions = useMemo(
-    () => [...(newTask ? [newTask] : []), copy.link, copy.id, archive],
-    [archive, copy, newTask],
+    () => [...(newTask ? [newTask] : []), ...properties, copy.link, copy.id, archive],
+    [archive, copy, newTask, properties],
   );
 
   usePageActions(label, actions);

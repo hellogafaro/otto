@@ -422,7 +422,7 @@ export function GroupThreadLanding({
                   threadRef={runtime.linkedThreadRef}
                 />
               ) : null}
-              <ChatActionsMenu threadRef={runtime.linkedThreadRef} />
+              <ChatActionsMenu threadRef={runtime.linkedThreadRef} groupId={group.id} />
             </div>
           </WorkspacePageHeader>
           <BotConversationScrollArea

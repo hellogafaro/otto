@@ -15,7 +15,10 @@ import {
 } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
+  RiBox3Line,
+  RiChat1Line,
   RiDeleteBinLine,
+  RiGlobalLine,
   RiMoreLine,
   RiPauseCircleLine,
   RiPencilLine,
@@ -48,7 +51,7 @@ import { Menu, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectStatus } from "../work/work.logic";
-import { WorkDetailPage } from "../work/work-detail";
+import { WorkDetailPage, useWorkPickers } from "../work/work-detail";
 import { ProjectSelect } from "../work/work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "../work/work-pages";
 import { RoutineChatSelect } from "./routine-chat-options";
@@ -137,6 +140,7 @@ function RoutineDetail({
 
   const { projects } = useWorkData();
   const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
+  const { open: openPicker, props: picker } = useWorkPickers<"project" | "visibility">("routine");
 
   const running = item.latestRun?.status === "running";
   const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
@@ -187,7 +191,8 @@ function RoutineDetail({
             id: "pause",
             title: t("Pause"),
             icon: RiPauseCircleLine,
-            searchTerms: ["pause", "stop", "disable"],
+            searchTerms: ["pause", "stop", "disable", "status"],
+            shortcutCommand: "property.status",
             run: () =>
               act(
                 pause({
@@ -205,7 +210,8 @@ function RoutineDetail({
             id: "resume",
             title: t("Resume"),
             icon: RiPlayCircleLine,
-            searchTerms: ["resume", "enable", "start"],
+            searchTerms: ["resume", "enable", "start", "status"],
+            shortcutCommand: "property.status",
             run: () =>
               act(
                 enable({
@@ -247,6 +253,9 @@ function RoutineDetail({
     [environmentId, remove, routine.id, routine.job, t],
   );
 
+  const projectEditable = routine.threadMode !== "target";
+  const visibilityEditable = routine.createdBy != null && routine.createdBy === currentPersonId;
+
   const pageActions = useMemo(
     (): PageAction[] => [
       {
@@ -258,11 +267,55 @@ function RoutineDetail({
       },
       runNow,
       pauseOrResume,
+      {
+        id: "open-chat",
+        title: t("Open chat"),
+        icon: RiChat1Line,
+        searchTerms: ["open chat", "bot"],
+        shortcutCommand: "property.bot",
+        run: () =>
+          void navigate({ to: "/chats/$threadId", params: { threadId: routine.targetThreadId } }),
+      },
+      ...(projectEditable
+        ? [
+            {
+              id: "project",
+              title: t("Project"),
+              icon: RiBox3Line,
+              searchTerms: ["project"],
+              shortcutCommand: "property.project",
+              run: () => openPicker("project"),
+            } satisfies PageAction,
+          ]
+        : []),
+      ...(visibilityEditable
+        ? [
+            {
+              id: "visibility",
+              title: t("Visibility"),
+              icon: RiGlobalLine,
+              searchTerms: ["visibility", "share", "private"],
+              shortcutCommand: "property.visibility",
+              run: () => openPicker("visibility"),
+            } satisfies PageAction,
+          ]
+        : []),
       copy.link,
       copy.id,
       deleteRoutine,
     ],
-    [copy, deleteRoutine, pauseOrResume, runNow, t],
+    [
+      copy,
+      deleteRoutine,
+      navigate,
+      openPicker,
+      pauseOrResume,
+      projectEditable,
+      routine.targetThreadId,
+      runNow,
+      t,
+      visibilityEditable,
+    ],
   );
 
   usePageActions(t("This routine"), pageActions);
@@ -383,11 +436,12 @@ function RoutineDetail({
               />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
-              {routine.threadMode !== "target" ? (
+              {projectEditable ? (
                 <ProjectSelect
                   variant="ghost"
                   value={routine.projectId}
                   onChange={(projectId) => void save({ projectId })}
+                  picker={picker("project")}
                   projects={projects.filter(
                     (project) =>
                       project.id === routine.projectId || projectStatus(project) !== "archived",
@@ -402,8 +456,9 @@ function RoutineDetail({
             <DetailsRow label={t("Visibility")}>
               <LibraryVisibilitySelect
                 value={routine.visibility}
-                editable={routine.createdBy != null && routine.createdBy === currentPersonId}
+                editable={visibilityEditable}
                 onChange={(visibility) => void save({ visibility })}
+                picker={picker("visibility")}
               />
             </DetailsRow>
             <DetailsRow label={t("Schedule")}>
