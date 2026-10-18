@@ -45,12 +45,13 @@ import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "..
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
 import { SkeletonCards } from "../ui/skeleton";
+import { useRowHighlight } from "../use-row-highlight";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { ParticipantAvatar, participantName } from "../work/work-participants";
 import { NoMatches, WorkEmpty, WorkPage, withField } from "../work/work-pages";
-import { LibraryItemMenu, LibraryNameDialog } from "./library-actions";
+import { LibraryItemMenu, LibraryNameDialog, LibraryRowActions } from "./library-actions";
 import { LibraryLightbox } from "./library-lightbox";
 import { LibraryFileTile, LibraryFolderTile } from "./library-visuals";
 import {
@@ -227,6 +228,11 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     file.type === "document"
       ? void navigate({ to: "/library/$fileId", params: { fileId: file.id } })
       : go({ ...here, preview: file.id });
+
+  const openItem = (item: LibraryCardItem) =>
+    item.kind === "folder" ? go({ folder: item.folder.id }) : openFile(item.file);
+
+  const highlighted = useRowHighlight(items, libraryItemKey, openItem);
 
   const newDocument = async () => {
     if (!environmentId) return;
@@ -493,18 +499,15 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
                 loading: list.status !== "ready",
                 onLoadMore: list.loadMore,
               }}
-              getItemKey={(item) =>
-                item.kind === "folder" ? `folder:${item.folder.id}` : `file:${item.file.id}`
-              }
+              getItemKey={libraryItemKey}
+              highlightedKey={highlighted ? libraryItemKey(highlighted) : null}
               renderItem={(item) =>
                 environmentId ? (
                   <LibraryCard
                     environmentId={environmentId}
                     data={data}
                     item={item}
-                    onOpen={() =>
-                      item.kind === "folder" ? go({ folder: item.folder.id }) : openFile(item.file)
-                    }
+                    onOpen={() => openItem(item)}
                   />
                 ) : null
               }
@@ -514,6 +517,15 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
       )}
       {environmentId ? (
         <>
+          {highlighted ? (
+            <LibraryRowActions
+              key={libraryItemKey(highlighted)}
+              environmentId={environmentId}
+              data={data}
+              target={highlighted}
+              pageActions={pageActions}
+            />
+          ) : null}
           <LibraryNameDialog
             open={naming}
             onOpenChange={setNaming}
@@ -550,6 +562,9 @@ export type LibraryCardItem =
   | { readonly kind: "folder"; readonly folder: LibraryFolder }
   | { readonly kind: "file"; readonly file: LibraryFile };
 
+const libraryItemKey = (item: LibraryCardItem) =>
+  item.kind === "folder" ? `folder:${item.folder.id}` : `file:${item.file.id}`;
+
 /** A Library item as a DataGrid card: a 16:9 preview, then its title and who changed it when. */
 export function LibraryCard({
   environmentId,
@@ -574,7 +589,7 @@ export function LibraryCard({
         aria-label={entry.title}
         className="flex flex-col gap-2.5 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md">
+        <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md in-data-row-highlighted:shadow-md">
           {item.kind === "folder" ? (
             <LibraryFolderTile />
           ) : (

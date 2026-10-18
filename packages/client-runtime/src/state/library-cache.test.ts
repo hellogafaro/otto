@@ -6,7 +6,7 @@ import {
   LibraryFolderId,
   type OrchestrationShellStreamItem,
 } from "@otto/contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyLibraryShellItem,

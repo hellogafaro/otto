@@ -6,6 +6,7 @@ import {
 } from "@otto/client-runtime/routines";
 import {
   BotId,
+  type EnvironmentId,
   ROUTINE_LIST_SORTS,
   ROUTINE_STATUSES,
   type Routine,
@@ -28,9 +29,10 @@ import { useListPages } from "../../hooks/use-list-pages";
 import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { routineEnvironment } from "../../state/routines";
+import { routineChangesAtom, routineEnvironment } from "../../state/routines";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { useCopyPageActions } from "../copy-menu-items";
 import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "../list-toolbar";
 import { PromptDialog } from "../prompt-dialog";
 import { BotPicker } from "../roster/bot-picker";
@@ -42,6 +44,7 @@ import { StatusIcon } from "../status-icon";
 import { Button } from "../ui/button";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { SkeletonTableRows } from "../ui/skeleton";
+import { useRowHighlight } from "../use-row-highlight";
 import { ParticipantAvatar } from "../work/work-participants";
 import {
   NoMatches,
@@ -53,6 +56,7 @@ import {
 } from "../work/work-pages";
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
+import { useRoutineDeleteAction } from "./routine-page";
 import { ROUTINE_STATUS_ICON, routineStatus, useRoutineStatusLabel } from "./routine-status";
 import { encodeRoutineSearch } from "./routines.logic";
 
@@ -81,6 +85,10 @@ function routineColumns({
       id: "schedule",
       type: "chips",
       cell: (routine) => {
+        if (routine.trigger?.type === "app") {
+          return <DataTableChip>{routine.trigger.title}</DataTableChip>;
+        }
+
         const routineSchedule = schedule(routine);
 
         return (
@@ -109,7 +117,8 @@ const nextRoutineCursor = (page: RoutineListResult) => page.nextCursor;
 
 /**
  * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Draft, Paused, Failed),
- * each row the job with its bot's avatar after it, then two chips, how often and at what time; a row opens the
+ * each row the job with its bot's avatar after it, then two chips, how often and at what time (an app routine
+ * has one chip, its app event, and sorts after scheduled ones by next run); a row opens the
  * routine's page. It is a bounded server list like Tasks: Filter (status, bot) and Sort live in the URL,
  * the server answers 100 routines a page, and the table loads the next page near the end.
  * New routine is a conversation: the prompt opens a fresh chat with the chosen bot, which sets
@@ -125,13 +134,15 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
   const bots = useRosterStore((state) => state.bots);
   const liveBots = useLiveBots();
   const listRoutines = useAtomCommand(routineEnvironment.list, { reportFailure: false });
+  // SAFETY: the empty environment ID is an inactive sentinel, like the snapshot's above.
+  const routineChanges = useAtomValue(routineChangesAtom(environmentId ?? ("" as never)));
   const [creating, setCreating] = useState(false);
   const openNewRoutine = useCallback(() => setCreating(true), []);
   const sort = view.sort ?? "status";
 
   const list = useListPages({
     view: `${environmentId}:${encodeRoutineView(view)}`,
-    revision: snapshot?.routines,
+    revision: routineChanges,
     getNextCursor: nextRoutineCursor,
     fetchPage: async (cursor) => {
       if (!environmentId) return null;
@@ -150,6 +161,14 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
 
   const setView = (next: RoutineListView) =>
     void navigate({ to: "/routines", search: encodeRoutineSearch(next), replace: true });
+
+  const openRoutine = useCallback(
+    (routine: Routine) =>
+      void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(routines, (routine) => routine.id, openRoutine);
 
   useCreateRequest("routine", Boolean(snapshot), openNewRoutine);
 
@@ -171,13 +190,7 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
 
   const statusLabel = useRoutineStatusLabel();
 
-  const schedule = (routine: Routine) =>
-    toRoutinePanelItem(
-      routine,
-      snapshot?.routineRuns ?? [],
-      snapshot?.skillAssignments ?? [],
-      snapshot?.mcpServers ?? [],
-    ).schedule;
+  const schedule = (routine: Routine) => toRoutinePanelItem(routine, [], []).schedule;
 
   const filters: ListFilter[] = [
     {
@@ -308,9 +321,8 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
                 columns={routineColumns({ i18n, bots, schedule })}
                 getRowKey={(routine) => routine.id}
                 getRowLabel={(routine) => `${routine.job}, ${statusLabel(routineStatus(routine))}`}
-                onRowClick={(routine) =>
-                  void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } })
-                }
+                onRowClick={openRoutine}
+                highlightedKey={highlighted?.id ?? null}
                 paging={{
                   hasMore: list.hasMore,
                   loading: list.status !== "ready",
@@ -336,9 +348,40 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
           </div>
         </WorkColumn>
       )}
+      {environmentId && highlighted ? (
+        <RoutineRowActions
+          key={highlighted.id}
+          environmentId={environmentId}
+          routine={highlighted}
+          pageActions={pageActions}
+        />
+      ) : null}
       <NewRoutineDialog open={creating} onOpenChange={setCreating} />
     </WorkPage>
   );
+}
+
+/** Otto: The held routine row's item keys, Copy link, Copy ID and Delete, beside New routine. */
+function RoutineRowActions({
+  environmentId,
+  routine,
+  pageActions,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly routine: Routine;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
+  const deleteRoutine = useRoutineDeleteAction(environmentId, routine);
+
+  const actions = useMemo(
+    () => [...pageActions, copy.link, copy.id, deleteRoutine],
+    [copy, deleteRoutine, pageActions],
+  );
+
+  usePageActions(routine.job, actions);
+
+  return null;
 }
 
 /**

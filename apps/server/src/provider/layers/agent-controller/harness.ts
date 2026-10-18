@@ -70,6 +70,7 @@ export function createHarness(deps: {
   readonly runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly sessionResources: OttoSessionResources;
+  readonly secretEnvironment: (threadId: string) => Promise<Readonly<Record<string, string>>>;
   readonly orchestrationEngine: Option.Option<OrchestrationEngineService["Service"]>;
   readonly routineDispatcher: RoutineDraftDispatcher["Service"] | undefined;
   readonly pendingRoutineRequests: PendingWaiters<
@@ -130,6 +131,7 @@ export function createHarness(deps: {
       },
       memoryDbPath: path.join(deps.config.stateDir, "mastra-observational-memory.sqlite"),
       getThreadTools: (threadId) => deps.sessionResources.getConnectorTools(threadId),
+      secretNames: async (threadId) => Object.keys(await deps.secretEnvironment(threadId)),
       onStreamRetry: (threadId) => {
         const turn = deps.sessions.get(threadId)?.activeTurn;
 

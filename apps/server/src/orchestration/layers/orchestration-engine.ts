@@ -128,6 +128,7 @@ function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateR
     case "routine.enable":
     case "routine.pause":
     case "routine.update":
+    case "routine.trigger.bind":
     case "routine.run":
     case "routine.run.scheduled":
     case "routine.run.start":

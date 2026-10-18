@@ -41,8 +41,10 @@ import {
 import { createOttoWebFetch } from "../../otto-web-fetch.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
+import { RoutineRepository } from "../../../routines/repository.ts";
 import { Memories } from "../../../memory/memories.ts";
 import { GitHubAccounts } from "../../../github/github-accounts.ts";
+import { Secrets } from "../../../secrets/secrets.ts";
 import { createBotComputerSetup } from "../../bot-computer-setup.ts";
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
 
@@ -66,6 +68,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
   const runtimeEvents = yield* PubSub.unbounded<ProviderRuntimeEvent>();
   const orchestrationEngine = yield* Effect.serviceOption(OrchestrationEngineService);
   const projectionSnapshotQuery = yield* Effect.serviceOption(ProjectionSnapshotQuery);
+  const routineRepository = yield* Effect.serviceOption(RoutineRepository);
   const projectionMessages = yield* Effect.serviceOption(ProjectionThreadMessageRepository);
   const projectionTurns = yield* Effect.serviceOption(ProjectionTurnRepository);
   const resolvedByThread = new Map<string, ResolvedEngine>();
@@ -162,6 +165,28 @@ export const createControllerState = Effect.fn("createControllerState")(function
   });
 
   const github = yield* Effect.serviceOption(GitHubAccounts);
+  const secrets = yield* Effect.serviceOption(Secrets);
+
+  /** The project and chat secrets a chat's commands get as environment variables. */
+  const secretEnvironment = (threadId: string): Promise<Readonly<Record<string, string>>> =>
+    Option.match(secrets, {
+      onNone: () => Promise.resolve({}),
+      onSome: (service) =>
+        runPromise(
+          Effect.gen(function* () {
+            const thread = Option.isSome(projectionSnapshotQuery)
+              ? yield* projectionSnapshotQuery.value.getThreadRuntimeContext(
+                  ThreadId.make(threadId),
+                )
+              : Option.none();
+
+            return yield* service.environment({
+              projectId: Option.isSome(thread) ? thread.value.projectId : null,
+              threadId,
+            });
+          }),
+        ),
+    });
 
   const computerSetup = createBotComputerSetup({
     turnLogin: (personId) =>
@@ -197,6 +222,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
   return {
     sessionResources,
     computerSetup,
+    secretEnvironment,
     authStorage,
     subscriptionAuth,
     botInbox,
@@ -214,6 +240,7 @@ export const createControllerState = Effect.fn("createControllerState")(function
     runtimeEvents,
     orchestrationEngine,
     projectionSnapshotQuery,
+    routineRepository,
     projectionMessages,
     projectionTurns,
     resolvedByThread,

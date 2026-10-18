@@ -27,6 +27,10 @@ listens on `127.0.0.1:3773`; change `OTTO_HTTP_BIND`/`OTTO_HTTP_PORT` to expose 
 - **Sign-in:** with SMTP set, people sign in with a code sent to their email; without it, with their
   password.
 - **Mail:** any SMTP provider works (`OTTO_SMTP_PORT` defaults to 587, `OTTO_SMTP_SECURE=true` for 465).
+- **Apps:** `COMPOSIO_API_KEY` connects one Composio project to this server. Use a Composio project only
+  for this server; dev and staging need their own. Routines that start on app events also need an
+  https `OTTO_PUBLIC_URL`: Otto registers `<OTTO_PUBLIC_URL>/webhooks/composio` with that project and
+  keeps its signing secret. Without it, those routines show Not live.
 
 `OTTO_ENCRYPTION_KEY` seals every credential saved in Otto. Losing it makes them unreadable, and a backup
 is only useful with it.

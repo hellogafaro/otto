@@ -399,7 +399,7 @@ layer("listLibrary", (it) => {
 
       const fileFor = (id: string, personId: typeof adaId) =>
         getLibraryFile(LibraryFileId.make(id), personId, services).pipe(
-          Effect.map((result) => [
+          Effect.map((result): [string, string[]] => [
             result.file.id,
             result.folders.map((item) => item.id).toSorted(),
           ]),
@@ -408,7 +408,7 @@ layer("listLibrary", (it) => {
 
       const folderFor = (id: string, personId: typeof adaId) =>
         getLibraryFolder(LibraryFolderId.make(id), personId, services).pipe(
-          Effect.map((result) => [
+          Effect.map((result): [string, string[]] => [
             result.folder.id,
             result.folders.map((item) => item.id).toSorted(),
           ]),

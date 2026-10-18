@@ -8,6 +8,7 @@ import {
   ProjectListView,
   type TaskListResult,
   TASK_LIST_SORTS,
+  type TaskListItem,
   type TaskListSort,
   TaskListView,
   WORK_STATUS_ORDER,
@@ -61,6 +62,7 @@ import {
 import { SidebarInset } from "../ui/sidebar";
 import { SkeletonCards, SkeletonTableRows } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { useRowHighlight } from "../use-row-highlight";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../workspace-page-header";
 import type { encodeLibrarySearch } from "../library/library.logic";
@@ -82,7 +84,7 @@ import {
   participantName,
   useWorkParticipants,
 } from "./work-participants";
-import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
+import { WorkRowActions, WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 
 const EMPTY_TASKS: readonly OrchestrationTask[] = [];
 
@@ -447,6 +449,15 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
     title: t("Title"),
   };
 
+  const updateTask = useAtomCommand(taskEnvironment.update);
+
+  const openTask = useCallback(
+    (task: TaskListItem) => void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(rows, (task) => task.id, openTask);
+
   // Otto: Tasks need a project, so with none yet New starts the first project instead.
   const openNewTask = useCallback(
     () => (canCreate ? setTaskDialogOpen(true) : setProjectDialogOpen(true)),
@@ -560,9 +571,8 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
                   loading: list.status !== "ready",
                   onLoadMore: list.loadMore,
                 }}
-                onOpenTask={(task) =>
-                  void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
-                }
+                highlightedKey={highlighted?.id ?? null}
+                onOpenTask={openTask}
               />
             )}
           </div>
@@ -570,6 +580,19 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
       )}
       {environmentId ? (
         <>
+          {highlighted ? (
+            <WorkRowActions
+              key={highlighted.id}
+              label={highlighted.title}
+              path={`/tasks/${highlighted.id}`}
+              id={highlighted.id}
+              status={highlighted.status}
+              onStatusChange={(status) =>
+                void updateTask({ environmentId, input: { taskId: highlighted.id, status } })
+              }
+              pageActions={pageActions}
+            />
+          ) : null}
           <NewTaskDialog
             open={taskDialogOpen}
             onOpenChange={setTaskDialogOpen}
@@ -664,6 +687,15 @@ export function ProjectsPage({ view }: { readonly view: ProjectListView }) {
   };
 
   const openNewProject = useCallback(() => setDialogOpen(true), []);
+  const updateProject = useAtomCommand(projectEnvironment.update);
+
+  const openProject = useCallback(
+    (project: (typeof rows)[number]) =>
+      void navigate({ to: "/projects/$projectId", params: { projectId: project.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(rows, (project) => project.id, openProject);
 
   useCreateRequest("project", loaded && environmentId !== null, openNewProject);
 
@@ -758,6 +790,7 @@ export function ProjectsPage({ view }: { readonly view: ProjectListView }) {
               <DataGrid
                 items={rows}
                 getItemKey={(project) => project.id}
+                highlightedKey={highlighted?.id ?? null}
                 paging={{
                   hasMore: list.hasMore,
                   loading: list.status !== "ready",
@@ -769,7 +802,7 @@ export function ProjectsPage({ view }: { readonly view: ProjectListView }) {
                     params={{ projectId: project.id }}
                     className="group flex flex-col gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md">
+                    <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md in-data-row-highlighted:shadow-md">
                       {environmentId ? (
                         <ProjectCover environmentId={environmentId} project={project} />
                       ) : null}
@@ -786,6 +819,19 @@ export function ProjectsPage({ view }: { readonly view: ProjectListView }) {
           </div>
         </WorkColumn>
       )}
+      {environmentId && highlighted ? (
+        <WorkRowActions
+          key={highlighted.id}
+          label={highlighted.title}
+          path={`/projects/${highlighted.id}`}
+          id={highlighted.id}
+          status={highlighted.status}
+          onStatusChange={(status) =>
+            void updateProject({ environmentId, input: { projectId: highlighted.id, status } })
+          }
+          pageActions={pageActions}
+        />
+      ) : null}
       {environmentId ? (
         <NewProjectDialog
           open={dialogOpen}

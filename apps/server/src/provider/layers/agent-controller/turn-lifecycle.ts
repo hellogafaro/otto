@@ -35,6 +35,7 @@ import {
 
 import { AgentControllerRuntimeError } from "../../errors.ts";
 import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
+import { routineNotification } from "../../mastra/otto-routine-signals.ts";
 import { taskWakeSignal } from "../../mastra/otto-task-signals.ts";
 
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
@@ -332,7 +333,9 @@ export function createTurnLifecycle(deps: {
 
       const wake = pending.taskWake
         ? await deps.runPromise(taskWakeSignal(pending.taskWake, threadId, pending.toolSession))
-        : undefined;
+        : pending.routineWake
+          ? routineNotification(pending.routineWake)
+          : undefined;
 
       const { persistentMemoryContext, ...stateWithoutMemory } = active.session.state.get();
       const turn = turnState(pending);

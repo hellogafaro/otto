@@ -23,6 +23,13 @@ export type {
   RoutineWeekday,
 };
 
+/** Otto: The app event that starts an app routine's run, as the app reported it. */
+export interface RoutineAppEvent {
+  /** The delivery's id, the same on every retry, so one event runs once. */
+  readonly id: string;
+  readonly data: unknown;
+}
+
 export interface RoutineDependencyFailure {
   readonly kind: RoutineFailureKind;
   readonly reason: string;
@@ -74,6 +81,7 @@ export interface RoutineRuntimeAdapterShape {
   readonly dispatchTurn: (
     routine: Routine,
     run: RoutineRun,
+    event?: RoutineAppEvent | null,
   ) => Effect.Effect<RoutineDispatchResult>;
 }
 

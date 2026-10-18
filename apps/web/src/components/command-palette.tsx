@@ -75,6 +75,7 @@ import { WorkStatusIcon } from "./work/work-status";
 import { projectStatus } from "./work/work.logic";
 import { StatusIcon } from "./status-icon";
 import { ROUTINE_STATUS_ICON, routineStatus } from "./routines/routine-status";
+import { useRoutineSearch } from "./routines/use-routine-search";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
@@ -306,7 +307,7 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
     limit,
   );
 
-  const workspaceGroups = [...useWorkspaceSearchGroups(), libraryGroup];
+  const workspaceGroups = [...useWorkspaceSearchGroups(searchQuery), libraryGroup];
   const actionGroups = filterCommandPaletteGroups({ groups, query });
 
   const chatGroups =
@@ -516,7 +517,7 @@ function useGoToItems(): CommandPaletteActionItem[] {
  * tasks, projects and routines of the primary environment. The server already left
  * out what this person can't see.
  */
-function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
+function useWorkspaceSearchGroups(query: string): CommandPaletteGroup[] {
   const { t } = useI18n();
   const navigate = useNavigate();
   const environmentId = usePrimaryEnvironmentId();
@@ -535,6 +536,7 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
   );
 
   const botNames = new Map(bots.map((bot) => [bot.id, bot.name]));
+  const routines = useRoutineSearch(query);
 
   return [
     {
@@ -609,20 +611,20 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
     {
       value: "routines",
       label: t("Routines"),
-      items: newestFirst(
-        (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted"),
-      ).map((routine) => ({
-        value: `routine:${routine.id}`,
-        searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
-        title: routine.job,
-        ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
-        icon: (
-          <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
-        ),
-        run: async () => {
-          await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
-        },
-      })),
+      items: newestFirst(routines.filter((routine) => routine.lifecycle !== "deleted")).map(
+        (routine) => ({
+          value: `routine:${routine.id}`,
+          searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
+          title: routine.job,
+          ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
+          icon: (
+            <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
+          ),
+          run: async () => {
+            await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
+          },
+        }),
+      ),
     },
   ];
 }

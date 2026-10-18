@@ -72,6 +72,7 @@ import {
   WsMemoryDeleteRpc,
   WsMemoryDecideRpc,
   WsBotUsageRpc,
+  WsRoutinesGetRpc,
   WsRoutinesListRpc,
   WsRoutinesListRunsRpc,
   WsRoutinesListThreadRunsRpc,
@@ -132,6 +133,12 @@ import {
   WsOrchestrationSubscribeShellRpc,
   WsOrchestrationSubscribeThreadRpc,
 } from "./rpc/orchestration.ts";
+import {
+  WsSecretsListRpc,
+  WsSecretsRemoveRpc,
+  WsSecretsRevealRpc,
+  WsSecretsSaveRpc,
+} from "./rpc/secrets.ts";
 
 export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
@@ -206,6 +213,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsMemoryDeleteRpc,
   WsMemoryDecideRpc,
   WsBotUsageRpc,
+  WsRoutinesGetRpc,
   WsRoutinesListRpc,
   WsRoutinesListRunsRpc,
   WsRoutinesListThreadRunsRpc,
@@ -236,6 +244,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsLibraryCreateFileUrlRpc,
   WsLibraryShareFileRpc,
   WsLibraryUnshareFileRpc,
+  WsSecretsListRpc,
+  WsSecretsRevealRpc,
+  WsSecretsSaveRpc,
+  WsSecretsRemoveRpc,
   WsProviderUploadFeedbackRpc,
   WsComputerWatchRpc,
   WsPreviewOpenRpc,
@@ -336,6 +348,7 @@ export {
   WsMemoryDeleteRpc,
   WsMemoryDecideRpc,
   WsBotUsageRpc,
+  WsRoutinesGetRpc,
   WsRoutinesListRpc,
   WsRoutinesListRunsRpc,
   WsRoutinesListThreadRunsRpc,
@@ -370,6 +383,13 @@ export {
   WsSubscribeAuthAccessRpc,
   WsSubscribeBackgroundPolicyRpc,
 } from "./rpc/server.ts";
+
+export {
+  WsSecretsListRpc,
+  WsSecretsRevealRpc,
+  WsSecretsSaveRpc,
+  WsSecretsRemoveRpc,
+} from "./rpc/secrets.ts";
 
 export {
   WsProjectsSearchEntriesRpc,

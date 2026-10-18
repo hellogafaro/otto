@@ -83,6 +83,7 @@ import * as RemoteOpenTargets from "./environment/remote-open-targets.ts";
 import * as BackgroundPolicy from "./background/background-policy.ts";
 import * as EnvironmentAuth from "./auth/environment-auth.ts";
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
+import { inMemoryComposioAccounts } from "./composio/composio-accounts.ts";
 import * as Composio from "./composio/composio-service.ts";
 import * as GitHub from "./github/github-accounts.ts";
 import { requiredScopeForRpcMethod } from "./auth/rpc-authorization.ts";
@@ -341,7 +342,7 @@ export const createWsServices = (
     const composioService = yield* Effect.serviceOption(Composio.ComposioService);
 
     const composio = Option.getOrElse(composioService, () =>
-      Composio.make(secretStore, Composio.inMemoryComposioAccounts(), undefined),
+      Composio.make(secretStore, inMemoryComposioAccounts(), undefined),
     );
 
     const github = Option.getOrElse(yield* Effect.serviceOption(GitHub.GitHubAccounts), () =>

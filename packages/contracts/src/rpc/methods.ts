@@ -40,6 +40,12 @@ export const WS_METHODS = {
   libraryShareFile: "library.shareFile",
   libraryUnshareFile: "library.unshareFile",
 
+  // Secret methods
+  secretsList: "secrets.list",
+  secretsReveal: "secrets.reveal",
+  secretsSave: "secrets.save",
+  secretsRemove: "secrets.remove",
+
   // Provider methods
   providerUploadFeedback: "provider.uploadFeedback",
   computerWatch: "computer.watch",
@@ -128,6 +134,7 @@ export const WS_METHODS = {
   memoryDelete: "memory.delete",
   memoryDecide: "memory.decide",
   botUsage: "bot.usage",
+  routinesGet: "routines.get",
   routinesList: "routines.list",
   routinesListRuns: "routines.listRuns",
   routinesListThreadRuns: "routines.listThreadRuns",

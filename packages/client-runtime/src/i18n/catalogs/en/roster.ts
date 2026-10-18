@@ -187,6 +187,8 @@ export const rosterCatalog = {
   "Stable details this bot has learned about you.":
     "Stable details this bot has learned about you.",
   "Not scheduled": "Not scheduled",
+  Trigger: "Trigger",
+  "When {event} in {app}": "When {event} in {app}",
   "Edit schedule": "Edit schedule",
   Days: "Days",
   "Time zone": "Time zone",
@@ -374,6 +376,7 @@ export const rosterCatalog = {
   Thinking: "Thinking",
   Untangling: "Untangling",
   "Updating a routine": "Updating a routine",
+  "Asking for secrets": "Asking for secrets",
   "Updating profile": "Updating profile",
   "Using a tool": "Using a tool",
   "Using an app": "Using an app",

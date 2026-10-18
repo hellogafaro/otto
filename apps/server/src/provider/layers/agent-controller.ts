@@ -101,6 +101,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       runtimeEvents,
       orchestrationEngine,
       projectionSnapshotQuery,
+      routineRepository,
       projectionMessages,
       projectionTurns,
       resolvedByThread,
@@ -120,6 +121,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       preparePreviewMcpSession,
       sessionResources,
       computerSetup,
+      secretEnvironment,
       authStorage,
       subscriptionAuth,
       botInbox,
@@ -203,6 +205,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       toolUsageStarts,
       runPromise,
       botUsageLedger,
+      secrets: secretEnvironment,
       get baseEvent() {
         return baseEvent;
       },
@@ -292,6 +295,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       runPromise,
       legacyProviderBridge,
       sessionResources,
+      secretEnvironment,
       orchestrationEngine,
       routineDispatcher,
       pendingRoutineRequests,
@@ -383,6 +387,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       webFetch,
       runPromise,
       projectionSnapshotQuery,
+      routineRepository,
       projectionMessages,
       storeChatFile: (threadId, file) =>
         runPromise(storeChatFile(fileSystem, path, config.attachmentsDir, threadId, file)),

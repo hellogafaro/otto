@@ -7,7 +7,6 @@ import {
   toPersistenceDecodeError,
   toPersistenceSqlError,
 } from "../../../persistence/errors.ts";
-import { deletedRoutineReceiptSources } from "../../routine-receipt-sources.ts";
 import { toShellDelegation } from "../../shell-delegations.ts";
 import { type ProjectionSnapshotQueryShape } from "../../services/projection-snapshot-query.ts";
 import {
@@ -34,7 +33,6 @@ export function createShellSnapshots({
   listShellDelegationRows,
   projectionMcpServerRepository,
   projectionTaskRepository,
-  routineRepository,
   listActiveThreadRows,
   listActiveThreadSessionRows,
   listActiveLatestTurnRows,
@@ -56,7 +54,6 @@ export function createShellSnapshots({
   | "listShellDelegationRows"
   | "projectionMcpServerRepository"
   | "projectionTaskRepository"
-  | "routineRepository"
   | "listActiveThreadRows"
   | "listActiveThreadSessionRows"
   | "listActiveLatestTurnRows"
@@ -106,9 +103,6 @@ export function createShellSnapshots({
           ),
           projectionMcpServerRepository.listAll(),
           projectionTaskRepository.listAll(),
-          routineRepository.listAll,
-          routineRepository.listAllRuns,
-          routineRepository.listSkillAssignments,
           listActiveThreadRows(undefined).pipe(
             Effect.mapError(
               toPersistenceSqlOrDecodeError(
@@ -152,9 +146,6 @@ export function createShellSnapshots({
             delegationRows,
             mcpServers,
             tasks,
-            routines,
-            routineRuns,
-            skillAssignments,
             threadRows,
             sessionRows,
             latestTurnRows,
@@ -232,10 +223,6 @@ export function createShellSnapshots({
                 delegations: delegationRows.map((row) => toShellDelegation(row.delegation)),
                 mcpServers,
                 tasks,
-                routines: routines.filter((routine) => routine.deletedAt === null),
-                routineReceiptSources: deletedRoutineReceiptSources(routines),
-                routineRuns,
-                skillAssignments,
                 threads: Arr.filterMap(threadRows, (row) =>
                   row.deletedAt === null
                     ? Result.succeed({

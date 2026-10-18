@@ -6,6 +6,8 @@ import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
   OttoCreateRoutineInput,
   OttoUpdateRoutineInput,
+  SECRET_SAVE_TO_CHAT,
+  SECRET_SAVE_TO_PROJECT,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 import { z } from "zod";
@@ -26,6 +28,14 @@ import {
   routineUpdateInputSchema,
   routineUpdateResultSchema,
 } from "./otto-routine-schemas.ts";
+
+const SECRET_REQUEST_TOOL_NAME = "secret_request";
+
+const SECRET_REQUEST_OPTIONS = [
+  { label: SECRET_SAVE_TO_PROJECT, description: "Every chat in this project gets them." },
+  { label: SECRET_SAVE_TO_CHAT, description: "Only this chat, until the server restarts." },
+  { label: "Cancel", description: "Don't save anything." },
+];
 
 export const decodeCreateRoutineInput = Schema.decodeUnknownPromise(OttoCreateRoutineInput);
 
@@ -77,15 +87,26 @@ export async function resolveOttoTools(
     ? createTool({
         id: OTTO_CREATE_ROUTINE_TOOL_NAME,
         description:
-          "Create a routine that runs instructions on a schedule in this chat. The person approves it in the app, so do not ask separately. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time; monthly runs on day of the month, quarterly on day in January, April, July and October, yearly on month and day (a shorter month uses its last day). threadMode is where runs post: target (default) is this chat, per-run starts a new chat every run, single starts one new chat on the first run and posts every later run there; a group chat's routines use single unless per-run is asked for. Returns the routine id.",
+          "Create a routine that runs instructions on a schedule, or each time an event happens in a connected app, in this chat. The person approves it in the app, so do not ask separately. Give schedule or trigger, not both. trigger names the app (such as gmail), its event (the event's slug or name; a wrong one returns the app's events), account when the person has several accounts for that app (its label or address), and config with the settings the event needs; each event starts one run, which gets the event's data. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time; monthly runs on day of the month, quarterly on day in January, April, July and October, yearly on month and day (a shorter month uses its last day). threadMode is where runs post: target (default) is this chat, per-run starts a new chat every run, single starts one new chat on the first run and posts every later run there; a group chat's routines use single unless per-run is asked for. Returns the routine id.",
         inputSchema: routineToolInputSchema,
         requireApproval: false,
-        execute: async ({ threadMode, ...input }) =>
+        execute: async ({ threadMode, schedule, trigger, ...input }) =>
           options.createRoutine!(
             threadId,
             await decodeCreateRoutineInput(
               {
                 ...input,
+                ...(schedule ? { schedule } : {}),
+                ...(trigger
+                  ? {
+                      trigger: {
+                        app: trigger.app,
+                        event: trigger.event,
+                        ...(trigger.account ? { account: trigger.account } : {}),
+                        ...(trigger.config ? { config: trigger.config } : {}),
+                      },
+                    }
+                  : {}),
                 ...(threadMode ? { threadMode } : {}),
               },
               {
@@ -241,6 +262,70 @@ export async function resolveOttoTools(
         })
       : undefined;
 
+  const secretRequestTool = options.secretNames
+    ? createTool({
+        id: SECRET_REQUEST_TOOL_NAME,
+        description:
+          "Ask the person for secrets such as API keys or tokens. They type the values into a masked form in this chat and save them to the project or to this chat only. Saved secrets are environment variables in every shell command; you never see their values, and command output shows [secret NAME] in their place. Never ask for a secret in a message. Returns the names that are set.",
+        inputSchema: z.object({
+          purpose: z.string().trim().min(1).max(300),
+          secrets: z
+            .array(
+              z.object({
+                name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/),
+                description: z.string().trim().max(200).optional(),
+              }),
+            )
+            .min(1)
+            .max(10),
+        }),
+        suspendSchema: z.object({
+          question: z.string(),
+          options: z.array(z.object({ label: z.string(), description: z.string() })),
+          selectionMode: z.literal("single_select"),
+          secrets: z.array(z.object({ name: z.string(), description: z.string().optional() })),
+        }),
+        resumeSchema: z.string(),
+        requireApproval: false,
+        execute: async ({ purpose, secrets }, context) => {
+          const names = [...new Set(secrets.map((secret) => secret.name))];
+          const answer = context?.agent?.resumeData;
+
+          if (answer === undefined) {
+            const set = new Set(await options.secretNames!(threadId));
+            const missing = secrets.filter((secret) => !set.has(secret.name));
+
+            if (missing.length === 0) return { status: "already-set" as const, set: names };
+
+            const suspend = context?.agent?.suspend;
+
+            if (!suspend) return { status: "cancelled" as const };
+            await suspend({
+              question: purpose,
+              options: SECRET_REQUEST_OPTIONS,
+              selectionMode: "single_select",
+              secrets: missing,
+            });
+
+            return;
+          }
+
+          if (answer !== SECRET_SAVE_TO_PROJECT && answer !== SECRET_SAVE_TO_CHAT) {
+            return { status: "cancelled" as const };
+          }
+
+          const set = new Set(await options.secretNames!(threadId));
+
+          return {
+            status: "saved" as const,
+            scope: answer === SECRET_SAVE_TO_PROJECT ? ("project" as const) : ("chat" as const),
+            set: names.filter((name) => set.has(name)),
+            missing: names.filter((name) => !set.has(name)),
+          };
+        },
+      })
+    : undefined;
+
   const search = nativeToolSearch(controllerModelId(requestContext));
 
   const ottoTools = createOttoMastraTools(
@@ -262,6 +347,7 @@ export async function resolveOttoTools(
     ...(routineTool ? { [OTTO_CREATE_ROUTINE_TOOL_NAME]: routineTool } : {}),
     ...(deleteRoutinesTool ? { [OTTO_DELETE_ROUTINES_TOOL_NAME]: deleteRoutinesTool } : {}),
     ...(updateRoutineTool ? { [OTTO_UPDATE_ROUTINE_TOOL_NAME]: updateRoutineTool } : {}),
+    ...(secretRequestTool ? { [SECRET_REQUEST_TOOL_NAME]: secretRequestTool } : {}),
     ...(search && Object.keys(ottoTools).some((id) => deferredToolOptions(search, id))
       ? { tool_search: toolSearchTool(search) }
       : {}),

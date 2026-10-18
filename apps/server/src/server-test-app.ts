@@ -101,6 +101,7 @@ import * as VcsDriverRegistry from "./vcs/vcs-driver-registry.ts";
 import * as GitWorkflowService from "./git/git-workflow-service.ts";
 
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
+import * as Secrets from "./secrets/secrets.ts";
 
 import * as ChannelDeliveryStore from "./channels/channel-delivery-store.ts";
 
@@ -518,6 +519,7 @@ export const buildAppUnderTest = (options?: {
               getById: () => Effect.succeed(null),
               listRuns: () => Effect.succeed([]),
               listThreadRuns: () => Effect.succeed({ runs: [], nextCursor: null }),
+              listThreadRoutines: () => Effect.succeed([]),
               listAllRuns: Effect.succeed([]),
               getLatestThreadRef: () => Effect.succeed(null),
               getActiveRunByThreadRef: () => Effect.succeed(null),
@@ -536,6 +538,7 @@ export const buildAppUnderTest = (options?: {
               runDue: Effect.void,
               canRunNow: () => Effect.succeed(true),
               runNow: () => Effect.succeed(null),
+              runEvent: () => Effect.void,
               recover: Effect.void,
               start: Effect.void,
               ...options?.layers?.routineRuntime,
@@ -760,6 +763,7 @@ export const buildAppUnderTest = (options?: {
         }),
       ),
       Layer.provideMerge(authTestLayer()),
+      Layer.provideMerge(Secrets.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(
         options?.layers?.channelRuntime

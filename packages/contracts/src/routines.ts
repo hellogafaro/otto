@@ -135,7 +135,13 @@ export const RoutineLifecycle = Schema.Literals([
 
 export type RoutineLifecycle = typeof RoutineLifecycle.Type;
 
-export const RoutineRunTrigger = Schema.Literals(["dry-run", "manual", "scheduled", "missed"]);
+export const RoutineRunTrigger = Schema.Literals([
+  "dry-run",
+  "manual",
+  "scheduled",
+  "missed",
+  "app",
+]);
 
 export type RoutineRunTrigger = typeof RoutineRunTrigger.Type;
 
@@ -195,14 +201,39 @@ export const RoutineThreadMode = Schema.Literals(["target", "per-run", "single"]
 
 export type RoutineThreadMode = typeof RoutineThreadMode.Type;
 
+/**
+ * Otto: What starts a routine's runs: its schedule, or an event in a connected app. An app
+ * trigger names the app's event, the connected account it watches and the settings that
+ * event takes; `triggerId` is the app's own record of it, set by the server once it exists.
+ */
+export const RoutineTrigger = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("schedule") }),
+  Schema.Struct({
+    type: Schema.Literal("app"),
+    app: TrimmedNonEmptyString,
+    event: TrimmedNonEmptyString,
+    title: TrimmedNonEmptyString,
+    connectionId: TrimmedNonEmptyString,
+    config: Schema.Record(Schema.String, Schema.Unknown),
+    triggerId: Schema.NullOr(TrimmedNonEmptyString),
+  }),
+]);
+
+export type RoutineTrigger = typeof RoutineTrigger.Type;
+
+export type RoutineAppTrigger = Extract<RoutineTrigger, { readonly type: "app" }>;
+
 export const RoutineDefinition = Schema.Struct({
   botId: BotId,
   targetThreadId: ThreadId,
   threadMode: RoutineThreadMode.pipe(Schema.withDecodingDefault(Effect.succeed("target" as const))),
   job: TrimmedNonEmptyString,
   procedure: TrimmedNonEmptyString,
+  /** Otto: An app routine keeps a schedule it never reads, so older readers still decode it. */
   schedule: RoutineSchedule,
   timezone: RoutineTimeZone,
+  /** Otto: What starts the runs; left out, the schedule does. */
+  trigger: Schema.optional(RoutineTrigger),
   skillAssignmentIds: Schema.Array(SkillAssignmentId),
   connectorDependencies: Schema.Array(McpServerId),
   projectId: ProjectId,
@@ -220,10 +251,26 @@ export type RoutineDefinition = typeof RoutineDefinition.Type;
 
 export const OTTO_CREATE_ROUTINE_TOOL_NAME = "routine_create";
 
+/**
+ * Otto: A bot's pick of an app event to start a routine: the app, its event, which of the
+ * app's connected accounts to watch (by label or signed-in name, needed only when there are
+ * several) and the settings that event takes.
+ */
+export const OttoRoutineAppTriggerInput = Schema.Struct({
+  app: TrimmedNonEmptyString,
+  event: TrimmedNonEmptyString,
+  account: Schema.optional(TrimmedNonEmptyString),
+  config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+});
+
+export type OttoRoutineAppTriggerInput = typeof OttoRoutineAppTriggerInput.Type;
+
 export const OttoCreateRoutineInput = Schema.Struct({
   name: TrimmedNonEmptyString,
   instructions: TrimmedNonEmptyString,
-  schedule: RoutineSchedule,
+  /** Otto: Runs on this schedule, unless `trigger` names an app event instead. */
+  schedule: Schema.optional(RoutineSchedule),
+  trigger: Schema.optional(OttoRoutineAppTriggerInput),
   skillNames: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   connectorNames: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
   /** Otto: Where runs post; left out, every run posts here. */
@@ -287,7 +334,7 @@ const RoutineRunFields = {
 export const RoutineRun = Schema.Union([
   Schema.Struct({
     ...RoutineRunFields,
-    trigger: Schema.Literals(["dry-run", "manual"]),
+    trigger: Schema.Literals(["dry-run", "manual", "app"]),
     scheduledFor: Schema.Null,
   }),
   Schema.Struct({
@@ -298,6 +345,10 @@ export const RoutineRun = Schema.Union([
 ]);
 
 export type RoutineRun = typeof RoutineRun.Type;
+
+export const RoutineGetInput = Schema.Struct({ routineId: RoutineId });
+
+export type RoutineGetInput = typeof RoutineGetInput.Type;
 
 export const RoutineListRunsInput = Schema.Struct({ routineId: RoutineId });
 
@@ -312,9 +363,17 @@ export const RoutineListThreadRunsInput = Schema.Struct({
   beforeRunId: Schema.optional(RoutineRunId),
 });
 
+export type RoutineListThreadRunsInput = typeof RoutineListThreadRunsInput.Type;
+
+/**
+ * One page of the runs posted for a chat's routines, newest first, with the routines that post
+ * there: the live ones the viewer may see, and the deleted ones by their receipt fields.
+ */
 export const RoutineListThreadRunsResult = Schema.Struct({
   runs: Schema.Array(RoutineRun),
   nextCursor: Schema.NullOr(RoutineRunId),
+  routines: Schema.Array(Routine),
+  receiptSources: Schema.Array(RoutineReceiptSource),
 });
 
 export type RoutineListThreadRunsResult = typeof RoutineListThreadRunsResult.Type;
@@ -363,10 +422,17 @@ export const RoutineListSort = Schema.Literals(ROUTINE_LIST_SORTS);
 
 export type RoutineListSort = typeof RoutineListSort.Type;
 
-/** The filter and order the Routines page keeps in its URL; no status means every routine. */
+/**
+ * The filter and order the Routines page keeps in its URL; no status means every routine.
+ * `search` keeps routines whose title holds it. `runFrom` and `runTo` keep routines whose next or
+ * last run falls at or after the one and before the other, as Home asks for today's.
+ */
 export const RoutineListView = Schema.Struct({
   status: Schema.optional(RoutineStatusList),
   bot: Schema.optional(BotId),
+  search: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
+  runFrom: Schema.optional(IsoDateTime),
+  runTo: Schema.optional(IsoDateTime),
   sort: Schema.optional(RoutineListSort),
   order: Schema.optional(ListOrder),
 });
@@ -499,14 +565,25 @@ export const ClientRoutineCommand = Schema.Union([
 
 export type ClientRoutineCommand = typeof ClientRoutineCommand.Type;
 
-export const RoutineRunScheduledCommand = Schema.Struct({
-  type: Schema.Literal("routine.run.scheduled"),
-  ...RoutineCommandFields,
-  runId: RoutineRunId,
-  trigger: Schema.Literals(["scheduled", "missed"]),
-  scheduledFor: IsoDateTime,
-  createdAt: IsoDateTime,
-});
+/** Otto: A run the server starts: on the routine's schedule, or on an event in its app. */
+export const RoutineRunScheduledCommand = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("routine.run.scheduled"),
+    ...RoutineCommandFields,
+    runId: RoutineRunId,
+    trigger: Schema.Literals(["scheduled", "missed"]),
+    scheduledFor: IsoDateTime,
+    createdAt: IsoDateTime,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("routine.run.scheduled"),
+    ...RoutineCommandFields,
+    runId: RoutineRunId,
+    trigger: Schema.Literal("app"),
+    scheduledFor: Schema.Null,
+    createdAt: IsoDateTime,
+  }),
+]);
 
 export const RoutineCreateApprovedCommand = Schema.Struct({
   type: Schema.Literal("routine.create-approved"),
@@ -557,8 +634,17 @@ export const RoutineRunCancelCommand = Schema.Struct({
   createdAt: IsoDateTime,
 });
 
+/** Otto: Records the connected app's id for an app routine's trigger once the app made it. */
+export const RoutineTriggerBindCommand = Schema.Struct({
+  type: Schema.Literal("routine.trigger.bind"),
+  ...RoutineCommandFields,
+  triggerId: Schema.NullOr(TrimmedNonEmptyString),
+  createdAt: IsoDateTime,
+});
+
 export const InternalRoutineCommand = Schema.Union([
   RoutineCreateApprovedCommand,
+  RoutineTriggerBindCommand,
   RoutineRunScheduledCommand,
   RoutineRunStartCommand,
   RoutineRunBlockCommand,

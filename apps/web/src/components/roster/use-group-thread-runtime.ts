@@ -110,9 +110,15 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
     respondingRequestIds,
     answerPendingUserInputWithPrompt,
     answerPendingUserInputWithText,
+    answerSecretRequest,
     selectPendingUserInputOption,
     submitPendingUserInputAnswers,
-  } = useThreadPendingUserInput({ linkedThreadRef, pendingUserInputs, onFailure: setError });
+  } = useThreadPendingUserInput({
+    linkedThreadRef,
+    projectId: activeProject?.id ?? null,
+    pendingUserInputs,
+    onFailure: setError,
+  });
 
   const [resuming, setResuming] = useState(false);
 
@@ -394,6 +400,7 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
     resume,
     resuming,
     answerPendingUserInputWithText,
+    answerSecretRequest,
     selectPendingUserInputOption,
     submitPendingUserInputAnswers,
     send,

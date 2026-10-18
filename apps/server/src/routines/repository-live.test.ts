@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { RoutineId, RoutineRunId, ThreadId } from "@otto/contracts";
+import { AuthSessionId, RoutineId, RoutineRunId, ThreadId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -54,11 +54,12 @@ it.layer(layer)("RoutineRepository.listThreadRuns", (it) => {
         )
       `;
 
-      const first = yield* repository.listThreadRuns(threadId);
+      const viewer = AuthSessionId.make("person-1");
+      const first = yield* repository.listThreadRuns(threadId, viewer);
       assert.equal(first.runs.length, 100);
       assert.equal(first.runs[0]?.id, RoutineRunId.make("paged-run-150"));
       assert.equal(first.nextCursor, RoutineRunId.make("paged-run-051"));
-      const second = yield* repository.listThreadRuns(threadId, first.nextCursor!);
+      const second = yield* repository.listThreadRuns(threadId, viewer, first.nextCursor!);
       assert.equal(second.runs.length, 51);
       assert.equal(second.runs.at(-1)?.id, RoutineRunId.make("paged-run-000"));
       assert.equal(second.nextCursor, null);
@@ -132,6 +133,68 @@ it.layer(layer)("RoutineRepository run history", (it) => {
         history.slice(0, 3).map((run) => run.id),
         ["history-run-7", "history-run-6", "history-run-5"],
       );
+    }),
+  );
+});
+
+it.layer(layer)("RoutineRepository app routines", (it) => {
+  it.effect("reads a routine's app trigger and keeps an app run's event with its claim", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const repository = yield* RoutineRepository;
+
+      const trigger = {
+        type: "app",
+        app: "gmail",
+        event: "GMAIL_NEW_GMAIL_MESSAGE",
+        title: "New Gmail message",
+        connectionId: "gmail-ana",
+        config: {},
+        triggerId: "trigger-1",
+      } as const;
+
+      for (const [routineId, triggerJson] of [
+        ["app-routine", JSON.stringify(trigger)],
+        ["schedule-routine", null],
+      ] as const) {
+        yield* sql`
+          INSERT INTO projection_routines (
+            routine_id, bot_id, target_thread_id, project_id, job, procedure,
+            procedure_version, schedule_json, timezone, trigger_json, sandbox, approval_policy,
+            lifecycle, created_at, updated_at
+          ) VALUES (
+            ${routineId}, 'bot-1', 'thread-1', 'project-1', 'Triage', 'File invoices',
+            1, '{"kind":"daily","time":"09:00"}', 'UTC', ${triggerJson}, 'local',
+            'approval-required', 'enabled', '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'
+          )
+        `;
+      }
+
+      assert.deepEqual(
+        (yield* repository.getById(RoutineId.make("app-routine")))?.trigger,
+        trigger,
+      );
+      assert.deepEqual((yield* repository.getById(RoutineId.make("schedule-routine")))?.trigger, {
+        type: "schedule",
+      });
+
+      const claim = {
+        runId: RoutineRunId.make("routine:app-routine:app:msg_1"),
+        routineId: RoutineId.make("app-routine"),
+        trigger: "app" as const,
+        scheduledFor: null,
+        claimedAt: "2026-09-01T00:00:00.000Z",
+        event: { id: "msg_1", data: { subject: "Invoice" } },
+      };
+
+      assert.isTrue(yield* repository.claim(claim));
+      assert.isFalse(yield* repository.claim(claim));
+
+      const recoverable = (yield* repository.listRecoverable).find(
+        (candidate) => candidate.runId === claim.runId,
+      );
+
+      assert.deepEqual(recoverable?.event, claim.event);
     }),
   );
 });

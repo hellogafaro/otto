@@ -26,13 +26,9 @@ export const decodeMemoryPreview = Schema.decodeUnknownSync(OttoMemoryImportPrev
 
 const decodeSnapshot = Schema.decodeUnknownSync(OrchestrationShellSnapshot);
 
-type ShellFixture = Omit<
-  Partial<typeof OrchestrationShellSnapshot.Encoded>,
-  "threads" | "routineRuns" | "bots"
-> & {
+type ShellFixture = Omit<Partial<typeof OrchestrationShellSnapshot.Encoded>, "threads" | "bots"> & {
   bots?: ReadonlyArray<Partial<typeof OrchestrationBot.Encoded>> | undefined;
   threads?: ReadonlyArray<Partial<typeof OrchestrationThreadShell.Encoded>> | undefined;
-  routineRuns?: ReadonlyArray<Partial<typeof RoutineRun.Encoded>> | undefined;
 };
 
 export function makeShellSnapshot(overrides: ShellFixture) {
@@ -73,27 +69,6 @@ export function makeShellSnapshot(overrides: ShellFixture) {
       hasActionableProposedPlan: false,
       ...thread,
     })),
-    ...(overrides.routineRuns === undefined
-      ? {}
-      : {
-          routineRuns: overrides.routineRuns.map((run) => ({
-            id: "run-1",
-            routineId: "routine-1",
-            procedureVersion: 1,
-            status: "queued",
-            trigger: "manual",
-            scheduledFor: null,
-            result: null,
-            failure: null,
-            usageRef: null,
-            threadRef: null,
-            startedAt: null,
-            completedAt: null,
-            createdAt: "2026-09-29T09:00:00.000Z",
-            updatedAt: "2026-09-29T09:00:00.000Z",
-            ...run,
-          })),
-        }),
   });
 }
 

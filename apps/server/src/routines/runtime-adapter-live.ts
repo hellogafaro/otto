@@ -12,6 +12,7 @@ import {
   ThreadId,
   MessageId,
   type OrchestrationCommand,
+  type RoutineWake,
 } from "@otto/contracts";
 import { driverSupportsDelegation } from "@otto/shared/delegationProviders";
 import * as DateTime from "effect/DateTime";
@@ -21,6 +22,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { BotInboxService, type BotInboxItem } from "../bot-inbox/service.ts";
+import { ComposioService } from "../composio/composio-service.ts";
+import { routineWakeContents } from "../provider/mastra/otto-routine-signals.ts";
 import { ServerConfig } from "../config.ts";
 import { isSubscriptionProviderId, SubscriptionAuthService } from "../subscription-auth/service.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
@@ -34,6 +37,7 @@ import { RoutineRepository } from "./repository.ts";
 import {
   RoutineRuntimeAdapter,
   type Routine,
+  type RoutineAppEvent,
   type RoutineDispatchResult,
   type RoutineDependencyFailure,
   type RoutineRun,
@@ -42,6 +46,32 @@ import {
 
 const routineTask = (procedure: string) =>
   `Run the approved routine procedure below once. Explicit authorization in this procedure applies to this run within its stated scope and conditions; do not ask again for actions it already authorizes. Do not expand that authority or create, update, enable, pause, or delete a routine or schedule.\n\n${procedure}`;
+
+const EVENT_LIMIT = 8_000;
+
+/**
+ * Otto: A run's wake: the routine's instructions, and an app event's data as JSON, capped and
+ * with `<` escaped so the data cannot close the tag that fences it off.
+ */
+const routineWake = (
+  routine: Routine,
+  run: RoutineRun,
+  event: RoutineAppEvent | null,
+): RoutineWake => {
+  const data = JSON.stringify(event?.data ?? null).replaceAll("<", "\\u003c");
+
+  return {
+    routineId: routine.id,
+    title: routine.job,
+    trigger: run.trigger,
+    ...(event === null
+      ? {}
+      : {
+          event: data.length > EVENT_LIMIT ? `${data.slice(0, EVENT_LIMIT)}… (truncated)` : data,
+        }),
+    text: routineTask(routine.procedure),
+  };
+};
 
 export const findBlockingDependencyIncident = (
   incidents: ReadonlyArray<BotInboxItem>,
@@ -79,6 +109,7 @@ const make = Effect.gen(function* () {
   const botUsageLedger = yield* BotUsageLedger;
   const agentController = yield* AgentController;
   const routines = yield* RoutineRepository;
+  const composio = yield* Effect.serviceOption(ComposioService);
 
   const dispatch = (command: OrchestrationCommand) => engine.dispatch(command);
 
@@ -182,6 +213,28 @@ const make = Effect.gen(function* () {
               nextAction: "Pick another bot to do the work, then resume the routine.",
             } satisfies RoutineDependencyFailure;
           }
+        }
+      }
+
+      // Otto: An unreachable Composio does not block a run; a broken account fails it later.
+      if (routine.trigger?.type === "app") {
+        const owner = bot.value.owner;
+
+        const reason = Option.isNone(composio)
+          ? "App events are not available on this server."
+          : yield* composio.value
+              .checkTriggerAccount(routine.trigger.connectionId, {
+                botId: routine.botId,
+                ownerPersonId: owner?.kind === "person" ? owner.personId : null,
+              })
+              .pipe(Effect.orElseSucceed(() => null));
+
+        if (reason !== null) {
+          return {
+            kind: "connector",
+            reason,
+            nextAction: "Reconnect the app account or let the bot use it, then resume the routine.",
+          } satisfies RoutineDependencyFailure;
         }
       }
 
@@ -317,7 +370,17 @@ const make = Effect.gen(function* () {
           scheduledFor: run.scheduledFor,
           createdAt: run.createdAt,
         }).pipe(Effect.asVoid, Effect.orDie)
-      : Effect.void;
+      : run.trigger === "app"
+        ? dispatch({
+            type: "routine.run.scheduled",
+            commandId: CommandId.make(`server:routine.run:${run.id}`),
+            routineId: run.routineId,
+            runId: run.id,
+            trigger: "app",
+            scheduledFor: null,
+            createdAt: run.createdAt,
+          }).pipe(Effect.asVoid, Effect.orDie)
+        : Effect.void;
 
   const recordBlocked: RoutineRuntimeAdapterShape["recordBlocked"] = (run, failure) =>
     DateTime.now.pipe(
@@ -490,7 +553,12 @@ const make = Effect.gen(function* () {
 
   // Scheduled bot work runs in the helper's chat and shows as a card in the owner
   // chat. The run follows that work, so pausing the routine leaves it running.
-  const dispatchDelegatedTurn = (routine: Routine, run: RoutineRun, childBotId: BotId) =>
+  const dispatchDelegatedTurn = (
+    routine: Routine,
+    run: RoutineRun,
+    childBotId: BotId,
+    event: RoutineAppEvent | null,
+  ) =>
     Effect.gen(function* () {
       if (!agentController.dispatchDelegation) {
         return {
@@ -508,7 +576,7 @@ const make = Effect.gen(function* () {
             parentThreadId: routine.targetThreadId,
             parentBotId: routine.botId,
             childBotId,
-            task: routineTask(routine.procedure),
+            task: routineWakeContents(routineWake(routine, run, event)),
             expectedResult: "A short summary of what you did and anything the owner should know.",
             runtimeMode: routine.approvalPolicy,
           }),
@@ -576,10 +644,11 @@ const make = Effect.gen(function* () {
       return threadId;
     });
 
-  const dispatchTurn: RoutineRuntimeAdapterShape["dispatchTurn"] = (routine, run) =>
+  // Otto: Every run reaches the bot as a routine signal; the chat shows its instructions.
+  const dispatchTurn: RoutineRuntimeAdapterShape["dispatchTurn"] = (routine, run, event = null) =>
     Effect.gen(function* () {
       if (routine.delegateToBotId !== null) {
-        return yield* dispatchDelegatedTurn(routine, run, routine.delegateToBotId);
+        return yield* dispatchDelegatedTurn(routine, run, routine.delegateToBotId, event);
       }
 
       const createdAt = DateTime.formatIso(yield* DateTime.now);
@@ -639,6 +708,7 @@ const make = Effect.gen(function* () {
           text: routineTask(routine.procedure),
           attachments: [],
         },
+        routineWake: routineWake(routine, run, event),
         runtimeMode: routine.approvalPolicy,
         interactionMode: "default",
         createdAt,

@@ -73,7 +73,7 @@ export const parseProjectSearch = (search: Parameters<typeof decodeProjectSearch
 const decodeProjectSearch = Schema.decodeUnknownOption(ProjectListView);
 
 /** A project page's tabs; the overview is the default and stays out of the URL. */
-export const PROJECT_TABS = ["overview", "tasks", "chats", "library"] as const;
+export const PROJECT_TABS = ["overview", "tasks", "chats", "library", "secrets"] as const;
 
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 

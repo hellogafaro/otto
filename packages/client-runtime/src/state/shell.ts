@@ -24,6 +24,7 @@ import { subscribeDynamic } from "../rpc/client.ts";
 import type { RpcSession } from "../rpc/session.ts";
 import { ShellSnapshotLoader } from "./shell-snapshot-http.ts";
 import { applyLibraryShellItem, libraryCacheAtom } from "./library-cache.ts";
+import { recordRoutineShellItem } from "./routine-cache.ts";
 import { applyShellStreamEvent } from "./shell-reducer.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
@@ -55,7 +56,7 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
   const cache = yield* EnvironmentCacheStore;
   const snapshotLoader = yield* ShellSnapshotLoader;
   const wakeups = yield* Effect.serviceOption(ConnectionWakeups.ConnectionWakeups);
-  const registry = yield* Effect.serviceOption(AtomRegistry.AtomRegistry);
+  const atoms = yield* Effect.serviceOption(AtomRegistry.AtomRegistry);
   const environmentId = supervisor.target.environmentId;
 
   const cachedSnapshot = yield* cache.loadShell(environmentId).pipe(
@@ -157,12 +158,6 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
       return;
     }
 
-    if (Option.isSome(registry)) {
-      registry.value.update(libraryCacheAtom(environmentId), (cache) =>
-        applyLibraryShellItem(cache, item),
-      );
-    }
-
     const current = yield* SubscriptionRef.get(state);
 
     const nextSnapshot =
@@ -178,6 +173,13 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
 
     if (nextSnapshot === null) {
       return;
+    }
+
+    if (Option.isSome(atoms) && nextSnapshot !== Option.getOrNull(current.snapshot)) {
+      recordRoutineShellItem(atoms.value, environmentId, item);
+      atoms.value.update(libraryCacheAtom(environmentId), (cache) =>
+        applyLibraryShellItem(cache, item),
+      );
     }
 
     const waiting = yield* Ref.get(awaitingCompletion);

@@ -40,6 +40,8 @@ import {
   MenuTrigger,
 } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { useChatDetailsOpen } from "../roster/details-panel-open";
+import { useRosterStore } from "../roster/roster-store";
 import { resolveChatMenuState } from "./chat-actions.logic";
 import {
   buildChatPaletteActions,
@@ -55,9 +57,12 @@ import {
 export function ChatActionsMenu({
   threadRef,
   newChat = null,
+  groupId = null,
 }: {
   readonly threadRef: ScopedThreadRef | null;
   readonly newChat?: NewChatControl | null;
+  /** A group chat's group, whose members its M key adds to. */
+  readonly groupId?: string | null;
 }) {
   const { t, formatDate } = useI18n();
   const actions = useChatActions();
@@ -101,6 +106,18 @@ export function ChatActionsMenu({
   const openSnooze = useCallback(() => setSnoozing(true), []);
   const threadId = threadRef?.threadId ?? "";
   const copy = useCopyPageActions(`/chats/${threadId}`, threadId);
+  const [, setDetailsOpen] = useChatDetailsOpen();
+
+  const addMembers = useMemo(
+    () =>
+      groupId === null
+        ? null
+        : () => {
+            setDetailsOpen(true);
+            useRosterStore.getState().requestAddMembers(groupId);
+          },
+    [groupId, setDetailsOpen],
+  );
 
   const pageActions = useMemo(
     () =>
@@ -113,8 +130,9 @@ export function ChatActionsMenu({
         openRename,
         openSnooze,
         copy: threadRef ? copy : null,
+        addMembers,
       }),
-    [actions, copy, newChat, openRename, openSnooze, state, t, threadRef],
+    [actions, addMembers, copy, newChat, openRename, openSnooze, state, t, threadRef],
   );
 
   usePageActions(t("This chat"), pageActions);

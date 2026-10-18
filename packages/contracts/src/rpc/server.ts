@@ -191,9 +191,11 @@ import {
   VoiceCancelResult,
 } from "../voice-call.ts";
 import {
+  Routine,
   RoutineListError,
   RoutineListQuery,
   RoutineListResult,
+  RoutineGetInput,
   RoutineListRunsInput,
   RoutineListRunsResult,
   RoutineListThreadRunsResult,
@@ -681,6 +683,12 @@ export const WsRoutinesListRpc = Rpc.make(WS_METHODS.routinesList, {
   payload: RoutineListQuery,
   success: RoutineListResult,
   error: Schema.Union([RoutineListError, EnvironmentAuthorizationError]),
+});
+
+export const WsRoutinesGetRpc = Rpc.make(WS_METHODS.routinesGet, {
+  payload: RoutineGetInput,
+  success: Schema.NullOr(Routine),
+  error: Schema.Union([RoutineReadError, EnvironmentAuthorizationError]),
 });
 
 export const WsRoutinesListRunsRpc = Rpc.make(WS_METHODS.routinesListRuns, {

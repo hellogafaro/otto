@@ -114,7 +114,11 @@ const chatWeek = (timezone: string) => {
 export function createSessionSearch(
   deps: Pick<
     SessionLifecycleDependencies,
-    "runPromise" | "projectionSnapshotQuery" | "projectionMessages" | "sessions"
+    | "runPromise"
+    | "projectionSnapshotQuery"
+    | "routineRepository"
+    | "projectionMessages"
+    | "sessions"
   >,
   input: { readonly threadId: ThreadId; readonly botId: BotId },
 ) {
@@ -230,35 +234,38 @@ export function createSessionSearch(
       }));
     };
 
-    const routineHits = (): ReadonlyArray<SearchHit> =>
-      wants("routine")
-        ? (snapshot.routines ?? []).flatMap((routine) => {
-            const text = `${routine.job}\n${routine.procedure}`.toLowerCase();
+    const routineHits = async (): Promise<ReadonlyArray<SearchHit>> => {
+      const routines = Option.getOrUndefined(deps.routineRepository);
 
-            return routine.botId === botId &&
-              routine.deletedAt === null &&
-              routine.lifecycle !== "deleted" &&
-              people.every((personId) => canSeeRoutine(routine, personId)) &&
-              (terms.length === 0 || terms.some((term) => text.includes(term)))
-              ? [
-                  {
-                    type: "routine" as const,
-                    id: routine.id,
-                    title: routine.job,
-                    text: routine.procedure,
-                    updatedAt: routine.updatedAt,
-                    details: {
-                      schedule: routine.schedule,
-                      paused: !routine.enabled,
-                      nextRunAt: routine.nextRunAt,
-                    },
-                  },
-                ]
-              : [];
-          })
-        : [];
+      if (!wants("routine") || routines === undefined) return [];
 
-    const hits: SearchHit[] = [...routineHits()];
+      return (await deps.runPromise(routines.listAll)).flatMap((routine) => {
+        const text = `${routine.job}\n${routine.procedure}`.toLowerCase();
+
+        return routine.botId === botId &&
+          routine.deletedAt === null &&
+          routine.lifecycle !== "deleted" &&
+          people.every((personId) => canSeeRoutine(routine, personId)) &&
+          (terms.length === 0 || terms.some((term) => text.includes(term)))
+          ? [
+              {
+                type: "routine" as const,
+                id: routine.id,
+                title: routine.job,
+                text: routine.procedure,
+                updatedAt: routine.updatedAt,
+                details: {
+                  schedule: routine.schedule,
+                  paused: !routine.enabled,
+                  nextRunAt: routine.nextRunAt,
+                },
+              },
+            ]
+          : [];
+      });
+    };
+
+    const hits: SearchHit[] = [...(await routineHits())];
 
     for (const found of await Promise.all([taskHits(), fileHits(), messageHits()])) {
       if ("error" in found) return found;

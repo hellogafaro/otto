@@ -266,6 +266,21 @@ export function DetailsTabs<T extends string>({
 }
 
 /**
+ * A property picker opened from its key rather than a click: its menu or select's open state, and
+ * whether closing it returns focus to its trigger. A picker its key opened leaves focus on the page,
+ * so the next key works and never lands in the trigger's type-to-select.
+ */
+export interface PickerOpenState {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly finalFocus: boolean;
+}
+
+export function detailsGroupStorageKey(id: string): string {
+  return `otto:details-group:${id}`;
+}
+
+/**
  * Otto: A collapsible group in a details sidebar, headed like the left
  * sidebar's sections (28px row, 12px/500 at 52%) with a chevron; its open
  * state is remembered per group id.
@@ -284,7 +299,7 @@ export function DetailsGroup({
   readonly action?: ReactNode;
   readonly children: ReactNode;
 }) {
-  const [open, setOpen] = useLocalStorage(`otto:details-group:${id}`, true, Schema.Boolean);
+  const [open, setOpen] = useLocalStorage(detailsGroupStorageKey(id), true, Schema.Boolean);
   const headingId = useId();
 
   return (

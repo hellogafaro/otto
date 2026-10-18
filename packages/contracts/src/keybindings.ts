@@ -90,6 +90,21 @@ export const ITEM_KEYBINDING_COMMANDS = [
 
 export type ItemKeybindingCommand = (typeof ITEM_KEYBINDING_COMMANDS)[number];
 
+/** Keys that open one of the open page's property pickers, as if it were clicked. */
+export const PROPERTY_KEYBINDING_COMMANDS = [
+  "property.status",
+  "property.assignees",
+  "property.assignToMe",
+  "property.owner",
+  "property.dueDate",
+  "property.project",
+  "property.repeat",
+  "property.logTime",
+  "property.bot",
+  "property.visibility",
+  "property.members",
+] as const;
+
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
   "terminal.toggle",
@@ -120,6 +135,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   ...APPROVAL_KEYBINDING_COMMANDS,
   ...NAVIGATION_KEYBINDING_COMMANDS,
   ...ITEM_KEYBINDING_COMMANDS,
+  ...PROPERTY_KEYBINDING_COMMANDS,
   "settings.open",
   "shortcuts.show",
 ] as const;

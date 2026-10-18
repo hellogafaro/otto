@@ -24,6 +24,7 @@ import { it } from "@effect/vitest";
 import { describe, expect } from "vite-plus/test";
 
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
+import { RoutineRepository } from "./repository.ts";
 import {
   ProjectionSnapshotQuery,
   type ProjectionSnapshotQueryShape,
@@ -171,7 +172,6 @@ function deleteHarness(input: {
     bots: [bot(botId), bot(otherBotId)],
     groups: [],
     delegations: [],
-    routines: input.routines,
     threads: [],
     updatedAt: now,
   };
@@ -202,6 +202,10 @@ function deleteHarness(input: {
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(ProjectionSnapshotQuery, query),
+        Layer.mock(RoutineRepository)({
+          listAll: Effect.succeed(input.routines),
+          listSkillAssignments: Effect.succeed([]),
+        }),
         Layer.succeed(OrchestrationEngineService, {
           dispatch: (command) =>
             Effect.sync(() => {
