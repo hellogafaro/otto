@@ -56,8 +56,16 @@ import {
   findNameMentions,
   serializeBotPromptMentions,
 } from "./bot-prompt-mentions.logic";
-import { applyBotPromptCommand, botPromptCommandTrigger } from "./bot-prompt-commands.logic";
-import { BotPromptCommandMenu, type BotPromptCommandMenuHandle } from "./bot-prompt-command-menu";
+import {
+  applyBotPromptCommand,
+  botPromptCommandTrigger,
+  providerCommandPrompt,
+} from "./bot-prompt-commands.logic";
+import {
+  BotPromptCommandMenu,
+  type BotPromptCommandMenuHandle,
+  type BotPromptInvite,
+} from "./bot-prompt-command-menu";
 import type { ComposerProviderCatalog } from "../chat/composer-provider-menu-items";
 import {
   BotPromptMentionHighlights,
@@ -99,6 +107,7 @@ export function BotPromptComposer({
   mentionScope = null,
   mentionWork = null,
   commandCatalog,
+  invite = null,
   busy = false,
   pendingActionSlot = null,
   quietSurface = false,
@@ -132,6 +141,8 @@ export function BotPromptComposer({
    * Null keeps the pickers open with a connect-a-provider line; omit it to turn them off.
    */
   commandCatalog?: ComposerProviderCatalog | null;
+  /** Offers `/invite` with the people and bots not yet in the chat; group chats only. */
+  invite?: BotPromptInvite | null;
   /** A turn is still running, so sending again would queue behind it. */
   busy?: boolean;
   /** Rendered above the prompt box so a pending decision reads as part of the composer. */
@@ -234,8 +245,24 @@ export function BotPromptComposer({
   const mentionsEnabled =
     !readOnly && (mentionScope !== null || mentionWork !== null || mentionBots.length > 0);
 
+  const candidateCommandTrigger = botPromptCommandMenuTrigger({
+    draft,
+    caret,
+    readOnly,
+    commandCatalog,
+    canInvite: invite !== null,
+  });
+
+  const commandTrigger =
+    candidateCommandTrigger && candidateCommandTrigger.rangeStart !== dismissedCommandStart
+      ? candidateCommandTrigger
+      : null;
+
+  // The name after /invite picks someone to add, so @ there never opens the mention picker.
   const candidateMentionTrigger =
-    mentionsEnabled && caret !== null ? botPromptMentionTrigger(draft, caret) : null;
+    mentionsEnabled && caret !== null && candidateCommandTrigger?.kind !== "invite"
+      ? botPromptMentionTrigger(draft, caret)
+      : null;
 
   const mentionTrigger =
     candidateMentionTrigger && candidateMentionTrigger.rangeStart !== dismissedMentionStart
@@ -261,18 +288,6 @@ export function BotPromptComposer({
     [persistDraft],
   );
 
-  const candidateCommandTrigger = botPromptCommandMenuTrigger({
-    draft,
-    caret,
-    readOnly,
-    commandCatalog,
-  });
-
-  const commandTrigger =
-    candidateCommandTrigger && candidateCommandTrigger.rangeStart !== dismissedCommandStart
-      ? candidateCommandTrigger
-      : null;
-
   const selectCommand = useCallback(
     (inserted: string) => {
       const input = promptInputRef.current;
@@ -288,6 +303,23 @@ export function BotPromptComposer({
         promptInputRef.current?.focus();
         promptInputRef.current?.setSelectionRange(next.caret, next.caret);
       });
+    },
+    [persistDraft],
+  );
+
+  // Otto's own commands leave the prompt: their token is cleared before they run.
+  const runCommand = useCallback(
+    (run: () => void) => {
+      const input = promptInputRef.current;
+
+      if (!input || input.selectionStart === null) return;
+      const trigger = botPromptCommandTrigger(input.value, input.selectionStart);
+
+      if (!trigger) return;
+      const next = applyBotPromptCommand(input.value, trigger, "");
+      persistDraft(next.text);
+      setCaret(next.caret);
+      run();
     },
     [persistDraft],
   );
@@ -392,7 +424,14 @@ export function BotPromptComposer({
           disabled,
           mentionBots,
           onSubmit: (prompt, files, respondingBotId) =>
-            onSubmit(serializeBotPromptMentions(prompt, mentionNames), files, respondingBotId),
+            onSubmit(
+              serializeBotPromptMentions(
+                commandCatalog ? providerCommandPrompt(prompt, commandCatalog.provider) : prompt,
+                mentionNames,
+              ),
+              files,
+              respondingBotId,
+            ),
           // Sending with Enter settles a failed dictation, so the empty composer returns to the mic.
           onCleared: () => {
             if (dictation.status === "failed") dictation.onCancel();
@@ -459,7 +498,9 @@ export function BotPromptComposer({
               ref={commandMenuRef}
               trigger={commandTrigger}
               catalog={commandCatalog}
+              invite={invite}
               onSelect={selectCommand}
+              onRun={runCommand}
               onClose={closeCommandMenu}
             />
           ) : null}

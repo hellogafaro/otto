@@ -385,6 +385,8 @@ export const chatCatalog = {
   "Could not load archived chats": "Could not load archived chats",
   "Other chats": "Other chats",
   "Archived {time}": "Archived {time}",
+  "Add people or bots to this chat": "Add people or bots to this chat",
+  "Sent to the bot": "Sent to the bot",
   "Values go straight to Otto. The bot gets them in its commands but never sees them.":
     "Values go straight to Otto. The bot gets them in its commands but never sees them.",
   "This chat only": "This chat only",

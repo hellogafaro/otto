@@ -37,6 +37,7 @@ import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { BotConversationScrollArea } from "./bot-conversation-scroll-area";
 import { DelegationCard } from "./delegation-card";
 import { RosterLoadStatus } from "./roster-load-status";
+import { useGroupInvites } from "./group-editor";
 import { GroupMemberStack } from "./group-member-stack";
 import {
   buildBotConversationEntries,
@@ -128,6 +129,7 @@ export function GroupThreadLanding({
   const rosterLoadState = useRosterLoadState();
   const bots = useRosterStore((state) => state.bots);
   const runtime = useGroupThreadRuntime(groupId, threadRef);
+  const invite = useGroupInvites(environmentId ?? NO_ENVIRONMENT, group, bots);
   const archived = useChatShell(threadRef).shell?.archivedAt != null;
   useMarkChatVisited(runtime.linkedThreadRef);
   const [detailsPanelOpen] = useChatDetailsOpen();
@@ -614,6 +616,7 @@ export function GroupThreadLanding({
                 focusOnEnter={!waitingForUserInput}
                 mentionScope={mentionScope}
                 commandCatalog={composerCatalog}
+                invite={environmentId ? invite : null}
                 onAddressedBotChange={setAddressedBotId}
                 botName={group.name}
                 draftKey={`group:${group.id}`}

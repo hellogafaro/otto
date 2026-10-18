@@ -631,6 +631,30 @@ it.layer(NodeServices.layer)("group people", (it) => {
     }),
   );
 
+  it.effect("lets any member, not only the group's first person, add a bot", () =>
+    Effect.gen(function* () {
+      const assign = (actorId: AuthSessionId) =>
+        Effect.result(
+          decideOrchestrationCommand({
+            command: {
+              type: "group.member.assign",
+              commandId: CommandId.make(`cmd-assign-bot-${actorId}`),
+              groupId: GROUP_ID,
+              botId: SPECIALIST_ID,
+              role: "specialist",
+            },
+            readModel: makeReadModel({
+              bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
+              groups: people.groups,
+            }),
+            actor: { personId: actorId, canManageGroups: false },
+          }),
+        );
+
+      expect(tags(yield* assign(BEN), yield* assign(CY))).toEqual(["Success", "Failure"]);
+    }),
+  );
+
   it.effect("lets the group's first person or an admin remove others, and anyone leave", () =>
     Effect.gen(function* () {
       const unassign = (personId: AuthSessionId, actorId: AuthSessionId, admin = false) =>

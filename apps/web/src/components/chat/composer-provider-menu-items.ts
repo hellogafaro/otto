@@ -14,7 +14,9 @@ import type {
   ServerProviderSlashCommand,
 } from "@otto/contracts";
 
+import { COMPOSER_SLASH_COMMANDS } from "../../composer-logic";
 import { searchProviderSkills } from "../../provider-skill-search";
+import { driverKindLabel } from "../../providers/instance-catalog";
 import type { ComposerCommandItem } from "./composer-command-menu";
 import { searchSlashCommandItems } from "./composer-slash-command-search";
 
@@ -31,9 +33,15 @@ const englishTranslate: Translate = createTranslator("en").t;
 
 type ProviderMenuItem = Extract<ComposerCommandItem, { type: "provider-slash-command" | "skill" }>;
 
+/** The prefix a provider command takes when Otto has a command of the same name: `claude`. */
+export function providerCommandPrefix(provider: ProviderDriverKind): string {
+  return driverKindLabel(provider).toLowerCase().replace(/\s+/g, "-");
+}
+
 /**
  * Ranked menu rows for a `/` or `$` trigger. `/` lists provider commands, then the
- * enabled skills when `showSkillsInSlashMenu` is on; `$` searches every skill.
+ * enabled skills when `showSkillsInSlashMenu` is on; `$` searches every skill. A provider
+ * command named like one of Otto's moves to its provider's prefix, such as `/claude:model`.
  * Other triggers return no rows. Pass the active translator for the row descriptions.
  */
 export function buildComposerProviderMenuItems(input: {
@@ -56,16 +64,20 @@ export function buildComposerProviderMenuItems(input: {
     const commandItems = getProviderSlashCommandsForSlashMenu(
       catalog.slashCommands,
       slashMenuSkills,
-    ).map(
-      (command): ProviderMenuItem => ({
+    ).map((providerCommand): ProviderMenuItem => {
+      const command = COMPOSER_SLASH_COMMANDS.some((name) => name === providerCommand.name)
+        ? { ...providerCommand, name: `${providerCommandPrefix(provider)}:${providerCommand.name}` }
+        : providerCommand;
+
+      return {
         id: `provider-slash-command:${provider}:${command.name}`,
         type: "provider-slash-command",
         provider,
         command,
         label: `/${command.name}`,
         description: command.description ?? command.input?.hint ?? t("Run provider command"),
-      }),
-    );
+      };
+    });
 
     const skillItems = slashMenuSkills.map(
       (skill): ProviderMenuItem => ({
