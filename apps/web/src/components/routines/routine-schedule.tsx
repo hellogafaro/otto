@@ -104,7 +104,12 @@ export function RoutineScheduleEdit({
     >
       <PopoverTrigger
         render={
-          <Button size="sm" variant="ghost" className="min-w-0" aria-label={t("Edit schedule")} />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="min-w-0 max-w-full"
+            aria-label={t("Edit schedule")}
+          />
         }
       >
         <span className="truncate">{label}</span>
