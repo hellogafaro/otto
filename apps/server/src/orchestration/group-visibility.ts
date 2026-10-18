@@ -216,19 +216,9 @@ export function visibleShellSnapshot(
       : {}),
   };
 
-  const routines = snapshot.routines?.filter((routine) => canSeeRoutine(routine, personId));
-
   return {
     ...snapshot,
     ...library,
-    ...(routines !== undefined ? { routines } : {}),
-    ...(snapshot.routineRuns !== undefined && routines !== undefined
-      ? {
-          routineRuns: snapshot.routineRuns.filter((run) =>
-            routines.some((routine) => routine.id === run.routineId),
-          ),
-        }
-      : {}),
     groups,
     threads: snapshot.threads.filter((thread) => canSeeThread(thread, snapshot.groups, personId)),
   };
@@ -376,8 +366,7 @@ export function withGroupVisibility<E, R>(input: {
       reset.threads.length !== initial.threads.length ||
       (reset.libraryFolders?.length ?? 0) !== (initial.libraryFolders?.length ?? 0) ||
       (reset.libraryFiles?.length ?? 0) !== (initial.libraryFiles?.length ?? 0) ||
-      (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0) ||
-      (reset.routines?.length ?? 0) !== (initial.routines?.length ?? 0);
+      (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0);
 
     if (!hidesAny) return filtered;
 

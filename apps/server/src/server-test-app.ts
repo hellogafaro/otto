@@ -519,6 +519,7 @@ export const buildAppUnderTest = (options?: {
               getById: () => Effect.succeed(null),
               listRuns: () => Effect.succeed([]),
               listThreadRuns: () => Effect.succeed({ runs: [], nextCursor: null }),
+              listThreadRoutines: () => Effect.succeed([]),
               listAllRuns: Effect.succeed([]),
               getLatestThreadRef: () => Effect.succeed(null),
               getActiveRunByThreadRef: () => Effect.succeed(null),

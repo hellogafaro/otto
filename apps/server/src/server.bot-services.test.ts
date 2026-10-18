@@ -46,7 +46,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       yield* buildAppUnderTest({
         layers: {
           routineRepository: {
-            listThreadRuns: (id, beforeRunId) => {
+            listThreadRuns: (id, _viewer, beforeRunId) => {
               if (id !== threadId) return Effect.succeed({ runs: [], nextCursor: null });
               const start = beforeRunId ? runs.findIndex((run) => run.id === beforeRunId) + 1 : 0;
               const page = runs.slice(start, start + 100);

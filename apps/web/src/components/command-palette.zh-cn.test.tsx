@@ -8,6 +8,8 @@ import type { CommandPaletteGroup } from "./command-palette.logic";
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 
+vi.mock("./routines/use-routine-search", () => ({ useRoutineSearch: () => [] }));
+
 vi.mock("../state/queries", () => ({
   useThreadSearch: () => ({ matches: [], isPending: false }),
 }));

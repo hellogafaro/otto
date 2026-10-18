@@ -106,6 +106,8 @@ const searchFrom = (
         projectionSnapshotQuery: Option.some({
           getShellSnapshot: () => Effect.succeed(snapshot),
         } as never),
+        // SAFETY: Search reads only the routine list.
+        routineRepository: Option.some({ listAll: Effect.succeed(snapshot.routines) } as never),
         projectionMessages: Option.some(messages),
         sessions: new Map(),
       },
