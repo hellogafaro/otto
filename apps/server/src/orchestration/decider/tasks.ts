@@ -13,6 +13,7 @@ import {
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
@@ -228,6 +229,11 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
 
       const crypto = yield* Crypto.Crypto;
       const nextTaskId = TaskId.make(yield* crypto.randomUUIDv4);
+      const zoned = DateTime.makeZoned(occurredAt, { timeZone: command.timezone ?? "UTC" });
+
+      const today = Option.isSome(zoned)
+        ? DateTime.formatIsoDate(zoned.value)
+        : occurredAt.slice(0, 10);
 
       return [
         { ...updated, payload: { ...updated.payload, task: { ...task, repeat: null } } },
@@ -243,7 +249,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
             task: {
               ...task,
               id: nextTaskId,
-              dueDate: nextTaskDueDate(task.repeat, task.dueDate, occurredAt.slice(0, 10)),
+              dueDate: nextTaskDueDate(task.repeat, task.dueDate, today),
               status: "pending" as const,
               timeEntries: [],
               createdAt: occurredAt,

@@ -184,6 +184,8 @@ export const TaskUpdateCommand = Schema.Struct({
   repeat: Schema.optional(Schema.NullOr(TaskRepeat)),
   status: Schema.optional(WorkStatus),
   by: Schema.optional(Actor),
+  /** The sender's IANA time zone; completing a repeating task counts the next due day from its today. */
+  timezone: Schema.optional(TrimmedNonEmptyString),
 });
 
 /** The server records the person logging time as the entry's creator. */

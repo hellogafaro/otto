@@ -387,4 +387,39 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
       expect(again.readModel.tasks).toHaveLength(2);
     }),
   );
+  it.effect("counts the next due day from the sender's today", () =>
+    Effect.gen(function* () {
+      const created = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-zone-create"),
+        taskId,
+        projectId,
+        title: "Water the plants",
+        createdAt: now,
+      });
+
+      const repeating = yield* decideAndProject(created.readModel, {
+        type: "task.update",
+        commandId: CommandId.make("cmd-task-zone-repeat"),
+        taskId,
+        repeat: "daily",
+      });
+
+      const nextDueIn = (timezone: string) =>
+        decideAndProject(repeating.readModel, {
+          type: "task.update",
+          commandId: CommandId.make(`cmd-task-zone-${timezone}`),
+          taskId,
+          status: "completed",
+          timezone,
+        }).pipe(Effect.map(({ readModel }) => readModel.tasks?.[1]?.dueDate ?? ""));
+
+      // The test clock reads 1970-01-01T00:00Z: already the 1st at UTC+14, still Dec 31 at UTC-12.
+      const ahead = yield* nextDueIn("Etc/GMT-14");
+      const behind = yield* nextDueIn("Etc/GMT+12");
+
+      expect(ahead).toBe("1970-01-02");
+      expect(behind).toBe("1970-01-01");
+    }),
+  );
 });
