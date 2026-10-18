@@ -2,7 +2,10 @@ import {
   BotId,
   GENERAL_PROJECT_ID,
   type OrchestrationTask,
-  type ProjectListFilter,
+  PROJECT_LIST_SORTS,
+  type ProjectListResult,
+  type ProjectListSort,
+  ProjectListView,
   type TaskListResult,
   TASK_LIST_SORTS,
   type TaskListItem,
@@ -10,7 +13,7 @@ import {
   TaskListView,
   WORK_STATUS_ORDER,
   type WorkParticipant,
-  matchesProjectFilter,
+  type WorkStatus,
   workParticipantKey,
 } from "@otto/contracts";
 import {
@@ -39,7 +42,13 @@ import { projectEnvironment } from "../../state/projects";
 import { environmentTasksAtom, taskEnvironment } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { localDateKey } from "../../timestamp-format";
-import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "../list-toolbar";
+import {
+  type ListFilter,
+  ListFilterBar,
+  ListFilterMenu,
+  type ListFilterOption,
+  ListSortMenu,
+} from "../list-toolbar";
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
 import {
@@ -56,6 +65,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useRowHighlight } from "../use-row-highlight";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../workspace-page-header";
+import type { encodeLibrarySearch } from "../library/library.logic";
 import { ProjectCover } from "./project-cover";
 import { TasksTable } from "./tasks-table";
 import {
@@ -63,11 +73,17 @@ import {
   type DuePreset,
   duePresetOf,
   duePresetRange,
+  encodeProjectSearch,
   encodeTaskSearch,
   projectStatus,
 } from "./work.logic";
 import { NewProjectDialog, NewTaskDialog } from "./work-dialogs";
-import { ParticipantAvatar, participantName, useWorkParticipants } from "./work-participants";
+import {
+  ParticipantAvatar,
+  type WorkParticipants,
+  participantName,
+  useWorkParticipants,
+} from "./work-participants";
 import { WorkRowActions, WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 
 const EMPTY_TASKS: readonly OrchestrationTask[] = [];
@@ -80,13 +96,20 @@ export function useWorkData() {
   // SAFETY: same inactive-query sentinel as the snapshot above.
   const tasks = useAtomValue(environmentTasksAtom(environmentId ?? ("" as never)));
   const participants = useWorkParticipants(snapshot ?? null);
+  const snapshotProjects = snapshot?.projects;
+
+  const projects = useMemo(
+    () =>
+      (snapshotProjects ?? []).map((project) =>
+        project.id === GENERAL_PROJECT_ID ? { ...project, title: t("No project") } : project,
+      ),
+    [snapshotProjects, t],
+  );
 
   return {
     environmentId,
     loaded: snapshot !== null && snapshot !== undefined,
-    projects: (snapshot?.projects ?? []).map((project) =>
-      project.id === GENERAL_PROJECT_ID ? { ...project, title: t("No project") } : project,
-    ),
+    projects,
     tasks: environmentId ? tasks : EMPTY_TASKS,
     groups: snapshot?.groups ?? [],
     currentPersonId: snapshot?.currentPersonId ?? null,
@@ -202,13 +225,24 @@ export function WorkEmpty({
 }
 
 /** A filter matches nothing once something is set; the page then offers to clear it. */
-function NoMatches({ to }: { readonly to: "/tasks" | "/projects" }) {
+export function NoMatches({
+  to,
+  search,
+}: {
+  readonly to: "/tasks" | "/projects" | "/routines" | "/library";
+  /** Where clearing lands on that page, such as the Library folder being browsed. */
+  readonly search?: ReturnType<typeof encodeLibrarySearch>;
+}) {
   const { t } = useI18n();
 
   return (
     <p className="text-13px text-muted-foreground">
       {t("Nothing matches these filters.")}{" "}
-      <Link to={to} className="text-foreground underline-offset-2 hover:underline">
+      <Link
+        to={to}
+        {...(search === undefined ? {} : { search })}
+        className="text-foreground underline-offset-2 hover:underline"
+      >
         {t("Clear filters")}
       </Link>
     </p>
@@ -229,14 +263,60 @@ const encodeTaskView = Schema.encodeSync(Schema.fromJsonString(TaskListView));
 const nextTaskCursor = (page: TaskListResult) => page.nextCursor;
 
 /** The view with one field set, or left out when it is empty. */
-function withField<K extends keyof TaskListView>(
-  view: TaskListView,
+export function withField<View extends object, K extends keyof View>(
+  view: View,
   key: K,
-  value: TaskListView[K] | undefined,
-): TaskListView {
+  value: View[K] | undefined,
+): View {
   const { [key]: _, ...rest } = view;
 
-  return value === undefined ? rest : { ...rest, [key]: value };
+  // SAFETY: every field of a list view is optional, so leaving one out keeps it a view.
+  return (value === undefined ? rest : { ...rest, [key]: value }) as View;
+}
+
+/** Every person and bot as a filter choice, each with its avatar. */
+function participantOptions(participants: WorkParticipants): ListFilterOption[] {
+  return [
+    ...participants.people,
+    ...participants.bots.map(
+      (bot): WorkParticipant => ({ kind: "bot", botId: BotId.make(bot.id) }),
+    ),
+  ].map((participant) => ({
+    value: workParticipantKey(participant),
+    label: participantName(participant, participants.allBots),
+    icon: (
+      <ParticipantAvatar participant={participant} bots={participants.allBots} className="size-4" />
+    ),
+  }));
+}
+
+/** The Status filter: any of the statuses, kept in Linear's order. */
+function useStatusFilter(
+  selected: readonly WorkStatus[] | undefined,
+  onChange: (statuses: readonly WorkStatus[] | undefined) => void,
+): ListFilter {
+  const { t } = useI18n();
+  const statusLabel = useWorkStatusLabel();
+
+  return {
+    id: "status",
+    label: t("Status"),
+    icon: <RiProgress4Line aria-hidden />,
+    multiple: true,
+    options: WORK_STATUS_ORDER.map((status) => ({
+      value: status,
+      label: statusLabel(status),
+      icon: <WorkStatusIcon status={status} />,
+    })),
+    selected: selected ?? [],
+    ...((selected?.length ?? 0) > 1
+      ? { selectedLabel: t("{count} statuses", { count: selected?.length ?? 0 }) }
+      : {}),
+    onChange: (next) =>
+      onChange(
+        next.length > 0 ? WORK_STATUS_ORDER.filter((status) => next.includes(status)) : undefined,
+      ),
+  };
 }
 
 const shortDay = (day: string) => {
@@ -256,7 +336,6 @@ const shortDay = (day: string) => {
 export function TasksPage({ view }: { readonly view: TaskListView }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const statusLabel = useWorkStatusLabel();
   const { environmentId, loaded, projects, tasks, participants } = useWorkData();
   const listTasks = useAtomCommand(taskEnvironment.list, { reportFailure: false });
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -288,20 +367,11 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
   const setView = (next: TaskListView) =>
     void navigate({ to: "/tasks", search: encodeTaskSearch(next), replace: true });
 
-  const people: readonly WorkParticipant[] = [
-    ...participants.people,
-    ...participants.bots.map(
-      (bot): WorkParticipant => ({ kind: "bot", botId: BotId.make(bot.id) }),
-    ),
-  ];
+  const peopleOptions = participantOptions(participants);
 
-  const peopleOptions = people.map((participant) => ({
-    value: workParticipantKey(participant),
-    label: participantName(participant, participants.allBots),
-    icon: (
-      <ParticipantAvatar participant={participant} bots={participants.allBots} className="size-4" />
-    ),
-  }));
+  const statusFilter = useStatusFilter(view.status, (status) =>
+    setView(withField(view, "status", status)),
+  );
 
   const duePreset = duePresetOf(view, today);
 
@@ -312,31 +382,7 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
   };
 
   const filters: ListFilter[] = [
-    {
-      id: "status",
-      label: t("Status"),
-      icon: <RiProgress4Line aria-hidden />,
-      multiple: true,
-      options: WORK_STATUS_ORDER.map((status) => ({
-        value: status,
-        label: statusLabel(status),
-        icon: <WorkStatusIcon status={status} />,
-      })),
-      selected: view.status ?? [],
-      ...((view.status?.length ?? 0) > 1
-        ? { selectedLabel: t("{count} statuses", { count: view.status?.length ?? 0 }) }
-        : {}),
-      onChange: (selected) =>
-        setView(
-          withField(
-            view,
-            "status",
-            selected.length > 0
-              ? WORK_STATUS_ORDER.filter((status) => selected.includes(status))
-              : undefined,
-          ),
-        ),
-    },
+    statusFilter,
     {
       id: "owner",
       label: t("Owner"),
@@ -570,28 +616,86 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
   );
 }
 
-export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter }) {
+/** Each project sort's natural order, the one a fresh list uses. */
+const PROJECT_SORT_ORDER: Record<ProjectListSort, "asc" | "desc"> = {
+  updated: "desc",
+  created: "desc",
+  title: "asc",
+};
+
+const encodeProjectView = Schema.encodeSync(Schema.fromJsonString(ProjectListView));
+
+const nextProjectCursor = (page: ProjectListResult) => page.nextCursor;
+
+/**
+ * Otto: Projects is a bounded server list like Tasks: filters and sort live in the URL, the
+ * server answers 100 projects a page, and the card grid loads the next page as the reader nears
+ * the end. Any project change reloads the pages shown.
+ */
+export function ProjectsPage({ view }: { readonly view: ProjectListView }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const statusLabel = useWorkStatusLabel();
-  const { environmentId, loaded, participants, ...work } = useWorkData();
+  const { environmentId, loaded, participants, projects } = useWorkData();
+  const listProjects = useAtomCommand(projectEnvironment.list, { reportFailure: false });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const projects = work.projects.filter((project) => project.id !== GENERAL_PROJECT_ID);
+  const sort = view.sort ?? "updated";
 
-  const visible = projects
-    .filter((project) => matchesProjectFilter(project, filter))
-    .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const list = useListPages({
+    view: `${environmentId}:${encodeProjectView(view)}`,
+    revision: projects,
+    getNextCursor: nextProjectCursor,
+    fetchPage: async (cursor) => {
+      if (!environmentId) return null;
+
+      const result = await listProjects({
+        environmentId,
+        input: cursor === undefined ? view : { ...view, cursor },
+      });
+
+      return AsyncResult.isSuccess(result) ? result.value : null;
+    },
+  });
+
+  const rows = list.pages.flatMap((page) => page.projects);
+  const filtered = Object.keys(view).some((key) => key !== "sort" && key !== "order");
+
+  const setView = (next: ProjectListView) =>
+    void navigate({ to: "/projects", search: encodeProjectSearch(next), replace: true });
+
+  const statusFilter = useStatusFilter(view.status, (status) =>
+    setView(withField(view, "status", status)),
+  );
+
+  const filters: ListFilter[] = [
+    statusFilter,
+    {
+      id: "owner",
+      label: t("Owner"),
+      icon: <RiUserStarLine aria-hidden />,
+      multiple: false,
+      options: participantOptions(participants),
+      selected: view.owner ? [view.owner] : [],
+      onChange: ([owner]) => setView(withField(view, "owner", owner)),
+    },
+  ];
+
+  const sortLabels: Record<ProjectListSort, string> = {
+    updated: t("Last updated"),
+    created: t("Created"),
+    title: t("Title"),
+  };
 
   const openNewProject = useCallback(() => setDialogOpen(true), []);
   const updateProject = useAtomCommand(projectEnvironment.update);
 
   const openProject = useCallback(
-    (project: (typeof visible)[number]) =>
+    (project: (typeof rows)[number]) =>
       void navigate({ to: "/projects/$projectId", params: { projectId: project.id } }),
     [navigate],
   );
 
-  const highlighted = useRowHighlight(visible, (project) => project.id, openProject);
+  const highlighted = useRowHighlight(rows, (project) => project.id, openProject);
 
   useCreateRequest("project", loaded && environmentId !== null, openNewProject);
 
@@ -617,20 +721,40 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
   return (
     <WorkPage
       actions={
-        environmentId && projects.length > 0 ? (
-          <WorkHeaderAction
-            label={t("New project")}
-            icon={RiAddLine}
-            onClick={() => setDialogOpen(true)}
-          />
+        rows.length > 0 || filtered ? (
+          <>
+            <ListFilterMenu filters={filters} />
+            <ListSortMenu
+              sort={{
+                options: PROJECT_LIST_SORTS.map((value) => ({ value, label: sortLabels[value] })),
+                value: sort,
+                order: view.order ?? PROJECT_SORT_ORDER[sort],
+                onChange: (nextSort, order) =>
+                  setView(
+                    withField(
+                      withField(view, "sort", nextSort === "updated" ? undefined : nextSort),
+                      "order",
+                      order === PROJECT_SORT_ORDER[nextSort] ? undefined : order,
+                    ),
+                  ),
+              }}
+            />
+            {environmentId ? (
+              <WorkHeaderAction
+                label={t("New project")}
+                icon={RiAddLine}
+                onClick={() => setDialogOpen(true)}
+              />
+            ) : null}
+          </>
         ) : null
       }
     >
-      {!loaded ? (
+      {!loaded || (list.status === "loading" && rows.length === 0) ? (
         <WorkColumn title={t("Projects")}>
           <SkeletonCards label={t("Loading projects…")} />
         </WorkColumn>
-      ) : projects.length === 0 ? (
+      ) : !filtered && list.status !== "error" && rows.length === 0 ? (
         <WorkEmpty
           icon={<RiBox3Line />}
           title={t("Plan work around an outcome")}
@@ -648,33 +772,51 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
         />
       ) : (
         <WorkColumn title={t("Projects")}>
-          {visible.length === 0 ? (
-            <NoMatches to="/projects" />
-          ) : (
-            <DataGrid
-              items={visible}
-              getItemKey={(project) => project.id}
-              highlightedKey={highlighted?.id ?? null}
-              renderItem={(project) => (
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: project.id }}
-                  className="group flex flex-col gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md in-data-row-highlighted:shadow-md">
-                    {environmentId ? (
-                      <ProjectCover environmentId={environmentId} project={project} />
-                    ) : null}
-                  </div>
-                  <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
-                    <WorkStatusIcon status={projectStatus(project)} />
-                    <span className="sr-only">{statusLabel(projectStatus(project))}: </span>
-                    <span className="truncate">{project.title}</span>
-                  </span>
-                </Link>
-              )}
+          <div className="flex flex-col gap-3">
+            <ListFilterBar
+              filters={filters}
+              onClear={() =>
+                setView({
+                  ...(view.sort === undefined ? {} : { sort: view.sort }),
+                  ...(view.order === undefined ? {} : { order: view.order }),
+                })
+              }
             />
-          )}
+            {list.status === "error" && rows.length === 0 ? (
+              <p className="text-13px text-muted-foreground">{t("Projects couldn't be loaded.")}</p>
+            ) : rows.length === 0 ? (
+              <NoMatches to="/projects" />
+            ) : (
+              <DataGrid
+                items={rows}
+                getItemKey={(project) => project.id}
+                highlightedKey={highlighted?.id ?? null}
+                paging={{
+                  hasMore: list.hasMore,
+                  loading: list.status !== "ready",
+                  onLoadMore: list.loadMore,
+                }}
+                renderItem={(project) => (
+                  <Link
+                    to="/projects/$projectId"
+                    params={{ projectId: project.id }}
+                    className="group flex flex-col gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md in-data-row-highlighted:shadow-md">
+                      {environmentId ? (
+                        <ProjectCover environmentId={environmentId} project={project} />
+                      ) : null}
+                    </div>
+                    <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+                      <WorkStatusIcon status={project.status} />
+                      <span className="sr-only">{statusLabel(project.status)}: </span>
+                      <span className="truncate">{project.title}</span>
+                    </span>
+                  </Link>
+                )}
+              />
+            )}
+          </div>
         </WorkColumn>
       )}
       {environmentId && highlighted ? (
@@ -683,7 +825,7 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
           label={highlighted.title}
           path={`/projects/${highlighted.id}`}
           id={highlighted.id}
-          status={projectStatus(highlighted)}
+          status={highlighted.status}
           onStatusChange={(status) =>
             void updateProject({ environmentId, input: { projectId: highlighted.id, status } })
           }

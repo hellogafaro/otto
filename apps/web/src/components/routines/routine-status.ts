@@ -1,11 +1,7 @@
-import type { Routine } from "@otto/contracts";
+import type { Routine, RoutineStatus } from "@otto/contracts";
 
 import { useI18n } from "../../i18n";
 import type { StatusKind } from "../status-icon";
-
-export type RoutineStatus = "active" | "draft" | "paused" | "failed";
-
-export const ROUTINE_STATUSES = ["active", "draft", "paused", "failed"] as const;
 
 export const ROUTINE_STATUS_ICON = {
   active: "pending",

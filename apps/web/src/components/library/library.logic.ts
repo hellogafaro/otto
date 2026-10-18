@@ -1,4 +1,12 @@
-import type { LibraryFile, LibraryFolder } from "@otto/contracts";
+import {
+  type LibraryFile,
+  type LibraryFolder,
+  LibraryListSort,
+  LibraryListTypeList,
+  type LibraryListType,
+  ListOrder,
+  WorkParticipantKey,
+} from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -6,10 +14,21 @@ export const LIBRARY_TABS = ["all", "documents", "images", "files"] as const;
 
 export type LibraryTab = (typeof LIBRARY_TABS)[number];
 
+/** The type each tab other than All lists in every folder. */
+export const LIBRARY_TAB_TYPES: Record<Exclude<LibraryTab, "all">, LibraryListType> = {
+  documents: "document",
+  images: "image",
+  files: "file",
+};
+
 const LibrarySearch = Schema.Struct({
   folder: Schema.optional(Schema.String),
   tab: Schema.optional(Schema.Literals(LIBRARY_TABS)),
   preview: Schema.optional(Schema.String),
+  type: Schema.optional(LibraryListTypeList),
+  creator: Schema.optional(WorkParticipantKey),
+  sort: Schema.optional(LibraryListSort),
+  order: Schema.optional(ListOrder),
 });
 
 export type LibrarySearch = typeof LibrarySearch.Type;
@@ -20,19 +39,8 @@ const decodeLibrarySearch = Schema.decodeUnknownOption(LibrarySearch);
 export const parseLibrarySearch = (search: Parameters<typeof decodeLibrarySearch>[0]) =>
   Option.getOrElse(decodeLibrarySearch(search), (): LibrarySearch => ({}));
 
-/** Documents, Images, and Files (PDFs and everything else); All keeps every type. */
-export function matchesLibraryTab(file: Pick<LibraryFile, "type">, tab: LibraryTab): boolean {
-  switch (tab) {
-    case "all":
-      return true;
-    case "documents":
-      return file.type === "document";
-    case "images":
-      return file.type === "image";
-    case "files":
-      return file.type === "pdf" || file.type === "file";
-  }
-}
+/** What the Library puts in its URL: types as one comma list. */
+export const encodeLibrarySearch = Schema.encodeSync(LibrarySearch);
 
 const byTitle = (left: { title: string }, right: { title: string }) =>
   left.title.localeCompare(right.title, undefined, { sensitivity: "base", numeric: true });

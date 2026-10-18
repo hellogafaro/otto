@@ -8,6 +8,7 @@ import {
   ProjectionLibraryRepository,
   type ProjectionLibraryRepositoryShape,
 } from "./persistence/services/projection-library.ts";
+import { ProjectionProjectRepository } from "./persistence/services/projection-projects.ts";
 import { ProjectionTaskRepository } from "./persistence/services/projection-tasks.ts";
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
@@ -512,6 +513,7 @@ export const buildAppUnderTest = (options?: {
             RoutineRepository,
             RoutineRepository.of({
               listAll: Effect.succeed([]),
+              list: () => Effect.succeed({ rows: [], statusCounts: [] }),
               listEnabled: Effect.succeed([]),
               getById: () => Effect.succeed(null),
               listRuns: () => Effect.succeed([]),
@@ -596,9 +598,11 @@ export const buildAppUnderTest = (options?: {
             listFolders: () => Effect.succeed([]),
             listFiles: () => Effect.succeed([]),
             listChatThreads: () => Effect.succeed([]),
+            list: () => Effect.succeed([]),
             ...options?.layers?.projectionLibrary,
           } satisfies ProjectionLibraryRepositoryShape),
           Layer.mock(ProjectionTaskRepository)({}),
+          Layer.mock(ProjectionProjectRepository)({}),
           Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
             getCommandReadModel: () => Effect.succeed(defaultOrchestrationReadModel()),
             getSnapshot: () => Effect.succeed(defaultOrchestrationReadModel()),

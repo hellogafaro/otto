@@ -19,8 +19,9 @@ export function isRowListMounted(): boolean {
 /**
  * Otto: J and K (Next and Previous) walk an index page's rows in the order they show, with the
  * row's hover wash, taking focus off any button so Enter opens the row; Escape or moving the
- * mouse lets go. Rows carry `data-row-key`, which DataTable and DataGrid set, so a collapsed
- * group is skipped. The page publishes the held row's item keys while there is one.
+ * mouse lets go. Keys typed in an open dialog or menu stay theirs. Rows carry `data-row-key`,
+ * which DataTable and DataGrid set, so a collapsed group is skipped. The page publishes the held
+ * row's item keys while there is one.
  */
 export function useRowHighlight<T>(
   rows: readonly T[],
@@ -44,6 +45,16 @@ export function useRowHighlight<T>(
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || isInputFocus(event.target)) return;
+
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          '[role="dialog"], [role="alertdialog"], [role="menu"], [data-keybinding-capture]',
+        )
+      ) {
+        return;
+      }
+
       const plain = !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
 
       if (highlighted && plain && event.key === "Escape") {

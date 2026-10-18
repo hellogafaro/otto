@@ -1,11 +1,20 @@
 import { toast } from "sonner";
 import {
+  BotId,
+  LIBRARY_LIST_SORTS,
+  LIBRARY_LIST_TYPES,
   LIBRARY_MAX_FOLDER_DEPTH,
   LIBRARY_SYSTEM_FOLDER_IDS,
   type LibraryFile,
   type LibraryFolder,
   LibraryFolderId,
+  type LibraryListResult,
+  type LibraryListSort,
+  type LibraryListType,
+  LibraryListView,
   libraryFolderPath,
+  type WorkParticipant,
+  workParticipantKey,
 } from "@otto/contracts";
 import {
   RiAddLine,
@@ -17,20 +26,25 @@ import {
   RiFolderAddLine,
   RiImageLine,
   RiLockLine,
+  RiShapesLine,
   RiStackLine,
   RiUploadLine,
+  RiUserLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
+import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useMemo, useRef, useState, type DragEvent } from "react";
+import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
 import { useCreateRequest } from "../../create-request-store";
+import { useListPages } from "../../hooks/use-list-pages";
 import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { cn, randomUUID } from "../../lib/utils";
 import { libraryEnvironment } from "../../state/library";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsTabs } from "../details-aside";
+import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "../list-toolbar";
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
 import { SkeletonCards } from "../ui/skeleton";
@@ -38,36 +52,85 @@ import { useRowHighlight } from "../use-row-highlight";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
-import { participantName } from "../work/work-participants";
-import { WorkEmpty, WorkPage } from "../work/work-pages";
+import { ParticipantAvatar, participantName } from "../work/work-participants";
+import { NoMatches, WorkEmpty, WorkPage, withField } from "../work/work-pages";
 import { LibraryItemMenu, LibraryNameDialog, LibraryRowActions } from "./library-actions";
 import { LibraryLightbox } from "./library-lightbox";
 import { LibraryFileTile, LibraryFolderTile } from "./library-visuals";
 import {
+  encodeLibrarySearch,
+  LIBRARY_TAB_TYPES,
   type LibrarySearch,
   type LibraryTab,
-  matchesLibraryTab,
-  sortLibraryItems,
 } from "./library.logic";
 import { useLibraryData, useLibraryUpload, type LibraryData } from "./use-library";
 
 const shortDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
+/** Each sort's natural order, the one a fresh list uses. */
+const LIBRARY_SORT_ORDER: Record<LibraryListSort, "asc" | "desc"> = {
+  updated: "desc",
+  created: "desc",
+  title: "asc",
+};
+
+const encodeLibraryView = Schema.encodeSync(Schema.fromJsonString(LibraryListView));
+
+const nextLibraryCursor = (page: LibraryListResult) => page.nextCursor;
+
 /**
  * Otto: The Library, a simple Drive. All browses folders, with the path as
  * quiet 28px buttons at the top bar's left (Library › Chats › Launch crew); Documents, Images and Files list every file of
  * that type wherever it sits. Items are cards in the shared DataGrid: a 16:9
- * preview, then the title and who changed it when. New makes a document or a
- * folder or uploads files, and files dropped on the page upload here too.
+ * preview, then the title and who changed it when. The cards are a bounded
+ * server list: Filter and Sort sit before New in the top bar and live in the
+ * URL, and the grid loads the next page as the reader nears its end. New makes
+ * a document or a folder or uploads files, and files dropped on the page upload
+ * here too.
  */
 export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const data = useLibraryData();
-  const { environmentId, loaded, folders, files } = data;
+  const { environmentId, loaded, folders, files, participants } = data;
+  const listLibrary = useAtomCommand(libraryEnvironment.list, { reportFailure: false });
   const tab: LibraryTab = search.tab ?? "all";
   const folder = folders.find((candidate) => candidate.id === search.folder) ?? null;
   const folderId = folder?.id ?? null;
+  const sort = search.sort ?? "updated";
+
+  const view: LibraryListView = {
+    ...(tab === "all"
+      ? {
+          ...(folderId ? { folder: folderId } : {}),
+          ...(search.type ? { type: search.type } : {}),
+        }
+      : { everywhere: true, type: [LIBRARY_TAB_TYPES[tab]] }),
+    ...(search.creator ? { creator: search.creator } : {}),
+    ...(search.sort ? { sort: search.sort } : {}),
+    ...(search.order ? { order: search.order } : {}),
+  };
+
+  const revision = useMemo(() => [folders, files], [folders, files]);
+
+  const list = useListPages({
+    view: `${environmentId}:${encodeLibraryView(view)}`,
+    revision,
+    getNextCursor: nextLibraryCursor,
+    fetchPage: async (cursor) => {
+      if (!environmentId) return null;
+
+      const result = await listLibrary({
+        environmentId,
+        input: cursor === undefined ? view : { ...view, cursor },
+      });
+
+      return AsyncResult.isSuccess(result) ? result.value : null;
+    },
+  });
+
+  const items = list.pages.flatMap((page) => page.items);
+  const filtered = (tab === "all" && search.type !== undefined) || search.creator !== undefined;
   const path = libraryFolderPath(folders, folderId).toReversed();
   const { upload, uploading } = useLibraryUpload();
   const createFolder = useAtomCommand(libraryEnvironment.createFolder, { reportFailure: false });
@@ -85,27 +148,93 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
 
   const canAddFolder = canAddFiles && path.length < LIBRARY_MAX_FOLDER_DEPTH;
 
-  const { folders: shownFolders, files: shownFiles } =
-    tab === "all"
-      ? sortLibraryItems(
-          folders.filter((candidate) => candidate.parentId === folderId),
-          files.filter((file) => file.folderId === folderId),
-        )
-      : sortLibraryItems(
-          [],
-          files.filter((file) => matchesLibraryTab(file, tab)),
-        );
-
-  const items: LibraryCardItem[] = [
-    ...shownFolders.map((item) => ({ kind: "folder" as const, folder: item })),
-    ...shownFiles.map((item) => ({ kind: "file" as const, file: item })),
-  ];
-
   const preview = files.find((file) => file.id === search.preview) ?? null;
 
-  const here: LibrarySearch = tab === "all" ? (folderId ? { folder: folderId } : {}) : { tab };
+  const place: LibrarySearch = tab === "all" ? (folderId ? { folder: folderId } : {}) : { tab };
 
-  const go = (search: LibrarySearch) => void navigate({ to: "/library", search });
+  const { folder: _folder, tab: _tab, preview: _preview, ...listSearch } = search;
+  const here: LibrarySearch = { ...place, ...listSearch };
+
+  const go = (next: LibrarySearch) =>
+    void navigate({ to: "/library", search: encodeLibrarySearch(next) });
+
+  const setView = (next: LibrarySearch) =>
+    void navigate({ to: "/library", search: encodeLibrarySearch(next), replace: true });
+
+  const typeLabels: Record<LibraryListType, { readonly label: string; readonly icon: ReactNode }> =
+    {
+      folder: { label: t("Folder"), icon: <RiFolderLine aria-hidden /> },
+      document: { label: t("Document"), icon: <RiFileTextLine aria-hidden /> },
+      image: { label: t("Image"), icon: <RiImageLine aria-hidden /> },
+      file: { label: t("File"), icon: <RiFileLine aria-hidden /> },
+    };
+
+  const creators: readonly WorkParticipant[] = [
+    ...participants.people,
+    ...participants.bots.map(
+      (bot): WorkParticipant => ({ kind: "bot", botId: BotId.make(bot.id) }),
+    ),
+  ];
+
+  const filters: ListFilter[] = [
+    ...(tab === "all"
+      ? [
+          {
+            id: "type",
+            label: t("Type"),
+            icon: <RiShapesLine aria-hidden />,
+            multiple: true,
+            options: LIBRARY_LIST_TYPES.map((type) => ({ value: type, ...typeLabels[type] })),
+            selected: search.type ?? [],
+            ...((search.type?.length ?? 0) > 1
+              ? { selectedLabel: t("{count} types", { count: search.type?.length ?? 0 }) }
+              : {}),
+            onChange: (selected: readonly string[]) =>
+              setView(
+                withField(
+                  here,
+                  "type",
+                  selected.length > 0
+                    ? LIBRARY_LIST_TYPES.filter((type) => selected.includes(type))
+                    : undefined,
+                ),
+              ),
+          },
+        ]
+      : []),
+    {
+      id: "creator",
+      label: t("Created by"),
+      icon: <RiUserLine aria-hidden />,
+      multiple: false,
+      options: creators.map((participant) => ({
+        value: workParticipantKey(participant),
+        label: participantName(participant, participants.allBots),
+        icon: (
+          <ParticipantAvatar
+            participant={participant}
+            bots={participants.allBots}
+            className="size-4"
+          />
+        ),
+      })),
+      selected: search.creator ? [search.creator] : [],
+      onChange: ([creator]) =>
+        setView(
+          withField(
+            here,
+            "creator",
+            creators.map(workParticipantKey).find((candidate) => candidate === creator),
+          ),
+        ),
+    },
+  ];
+
+  const sortLabels: Record<LibraryListSort, string> = {
+    updated: t("Last updated"),
+    created: t("Created"),
+    title: t("Title"),
+  };
 
   const openFile = (file: LibraryFile) =>
     file.type === "document"
@@ -222,6 +351,25 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     </Menu>
   ) : null;
 
+  const listActions =
+    items.length > 0 || filtered ? (
+      <>
+        <ListFilterMenu filters={filters} />
+        <ListSortMenu
+          sort={{
+            options: LIBRARY_LIST_SORTS.map((value) => ({ value, label: sortLabels[value] })),
+            value: sort,
+            order: search.order ?? LIBRARY_SORT_ORDER[sort],
+            onChange: (nextSort, order) =>
+              setView({
+                ...withField(here, "sort", nextSort === "updated" ? undefined : nextSort),
+                ...(order === LIBRARY_SORT_ORDER[nextSort] ? {} : { order }),
+              }),
+          }}
+        />
+      </>
+    ) : null;
+
   const tabs = [
     { value: "all" as const, label: t("All"), icon: RiStackLine },
     { value: "documents" as const, label: t("Documents"), icon: RiFileTextLine },
@@ -269,7 +417,17 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
     ) : null;
 
   return (
-    <WorkPage leading={folderPath} actions={empty ? null : newMenu}>
+    <WorkPage
+      leading={folderPath}
+      actions={
+        empty ? null : (
+          <>
+            {listActions}
+            {newMenu}
+          </>
+        )
+      }
+    >
       <input
         ref={fileInput}
         type="file"
@@ -318,16 +476,37 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
                 }
               />
             </div>
+            <ListFilterBar
+              filters={filters}
+              onClear={() =>
+                setView({
+                  ...place,
+                  ...(search.sort === undefined ? {} : { sort: search.sort }),
+                  ...(search.order === undefined ? {} : { order: search.order }),
+                })
+              }
+            />
           </div>
-          {!loaded ? (
+          {!loaded || (list.status === "loading" && items.length === 0) ? (
             <SkeletonCards label={t("Loading files…")} />
-          ) : shownFolders.length === 0 && shownFiles.length === 0 ? (
+          ) : list.status === "error" && items.length === 0 ? (
+            <p className="text-13px text-muted-foreground">
+              {t("The Library couldn't be loaded.")}
+            </p>
+          ) : items.length === 0 && filtered ? (
+            <NoMatches to="/library" search={encodeLibrarySearch(place)} />
+          ) : items.length === 0 ? (
             <p className="text-13px text-muted-foreground">
               {tab === "all" ? t("This folder is empty.") : t("Nothing here yet.")}
             </p>
           ) : (
             <DataGrid
               items={items}
+              paging={{
+                hasMore: list.hasMore,
+                loading: list.status !== "ready",
+                onLoadMore: list.loadMore,
+              }}
               getItemKey={libraryItemKey}
               highlightedKey={highlighted ? libraryItemKey(highlighted) : null}
               renderItem={(item) =>
@@ -375,7 +554,9 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
             environmentId={environmentId}
             data={data}
             file={preview}
-            siblings={shownFiles.filter((file) => file.type !== "document")}
+            siblings={items.flatMap((item) =>
+              item.kind === "file" && item.file.type !== "document" ? [item.file] : [],
+            )}
             onSelect={(file) => go({ ...here, preview: file.id })}
             onClose={() => go(here)}
           />

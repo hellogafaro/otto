@@ -15,6 +15,7 @@ import {
 } from "../base-schemas.ts";
 import { McpServerId } from "../mcp-server.ts";
 import { LibraryFileId, LibraryFolderId } from "./library.ts";
+import { ListCursor } from "./lists.ts";
 import { WorkDescription, WorkParticipant, WorkResources, WorkStatus } from "./work.ts";
 import { ImageProviderId } from "../image-generation.ts";
 import { ModelSelection, RuntimeMode, DEFAULT_RUNTIME_MODE } from "./model-selection.ts";
@@ -87,6 +88,26 @@ export const OrchestrationProject = Schema.Struct({
 });
 
 export type OrchestrationProject = typeof OrchestrationProject.Type;
+
+/** A project as lists show it; projects saved before planning fields read as in progress. */
+export const ProjectListItem = Schema.Struct({
+  id: ProjectId,
+  title: TrimmedNonEmptyString,
+  owner: Schema.NullOr(WorkParticipant),
+  status: WorkStatus,
+  coverFileId: Schema.NullOr(LibraryFileId),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+});
+
+export type ProjectListItem = typeof ProjectListItem.Type;
+
+export const ProjectListResult = Schema.Struct({
+  projects: Schema.Array(ProjectListItem),
+  nextCursor: Schema.NullOr(ListCursor),
+});
+
+export type ProjectListResult = typeof ProjectListResult.Type;
 
 export const BotAvatar = Schema.Union([
   Schema.Struct({

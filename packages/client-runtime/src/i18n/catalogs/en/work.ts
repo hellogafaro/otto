@@ -162,6 +162,8 @@ export const workCatalog = {
   Assignee: "Assignee",
   "Last updated": "Last updated",
   "Tasks couldn't be loaded.": "Tasks couldn't be loaded.",
+  "Routines couldn't be loaded.": "Routines couldn't be loaded.",
+  "Projects couldn't be loaded.": "Projects couldn't be loaded.",
   "Loading notifications…": "Loading notifications…",
   "Hear when something needs you": "Hear when something needs you",
   "When someone gives you a task, mentions you or answers you, it shows up here.":

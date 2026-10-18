@@ -34,6 +34,9 @@ function Input({
       "in-data-[slot=settings-control]:h-7 in-data-[slot=settings-control]:px-2.5 in-data-[slot=settings-control]:leading-7",
     props.type === "search" &&
       "[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none [&::-webkit-search-results-button]:appearance-none [&::-webkit-search-results-decoration]:appearance-none",
+    // Otto: A time field is typed in place, shadcn's time picker, never the browser's own popup.
+    props.type === "time" &&
+      "appearance-none tabular-nums [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
     props.type === "file" &&
       "text-muted-foreground file:me-3 file:bg-transparent file:font-medium file:text-foreground file:text-sm",
   );

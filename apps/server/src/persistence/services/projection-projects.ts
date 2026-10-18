@@ -10,6 +10,8 @@ import {
   IsoDateTime,
   ModelSelection,
   ProjectId,
+  type ProjectListItem,
+  type ProjectListQuery,
   ProjectScript,
   ThreadEnvMode,
   WorkDescription,
@@ -83,6 +85,23 @@ export interface ProjectionProjectRepositoryShape {
    */
   readonly listAll: () => Effect.Effect<
     ReadonlyArray<ProjectionProject>,
+    ProjectionRepositoryError
+  >;
+
+  /**
+   * One page of projects matching the query's filter in its order, strictly after `after`, with
+   * one row more than the limit when another page follows. Each row's key holds the values of
+   * its sort expressions, the project id last.
+   */
+  readonly list: (input: {
+    readonly query: ProjectListQuery;
+    readonly limit: number;
+    readonly after: ReadonlyArray<string | number> | null;
+  }) => Effect.Effect<
+    ReadonlyArray<{
+      readonly project: ProjectListItem;
+      readonly key: ReadonlyArray<string | number>;
+    }>,
     ProjectionRepositoryError
   >;
 
