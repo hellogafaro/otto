@@ -256,3 +256,13 @@
   animation: mask-fade-r linear both;
   animation-timeline: scroll(self inline);
 }
+
+/* Otto: A faint wavy rule, like Claude's day dividers: a repeating 12x6 sine wave
+   masked over the current text color, so the element's text color sets its tint. */
+@utility wavy-rule {
+  background-color: currentColor;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6' viewBox='0 0 12 6'%3E%3Cpath d='M0 3 Q3 0.5 6 3 T12 3' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+  mask-repeat: repeat-x;
+  mask-position: left center;
+  mask-size: 12px 6px;
+}
