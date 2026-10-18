@@ -38,6 +38,7 @@ import {
   parseMentionHref,
   toActivityContent,
 } from "./activity.logic";
+import { useTaskRepeatLabel } from "./task-repeat";
 import { formatDuration } from "./work.logic";
 import { WorkSectionHeader } from "./work-detail";
 import { ParticipantAvatar, participantName, type WorkParticipants } from "./work-participants";
@@ -426,6 +427,7 @@ function EventRows({
 }) {
   const { t } = useI18n();
   const statusLabel = useWorkStatusLabel();
+  const repeatLabel = useTaskRepeatLabel();
   const name = actor === null ? t("Someone") : participantName(actor, participants.allBots);
 
   const names = (list: ReadonlyArray<WorkParticipant>) =>
@@ -451,6 +453,16 @@ function EventRows({
           changes.dueDate.to === null
             ? t("{name} removed the due date", { name })
             : t("{name} set the due date to {date}", { name, date: changes.dueDate.to }),
+        ]
+      : []),
+    ...(changes.repeat
+      ? [
+          changes.repeat.to === null
+            ? t("{name} stopped repeating this task", { name })
+            : t("{name} set the repeat to {repeat}", {
+                name,
+                repeat: repeatLabel(changes.repeat.to),
+              }),
         ]
       : []),
     ...(changes.projectId
