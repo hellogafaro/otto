@@ -8,7 +8,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { createContext, use } from "react";
 import type * as React from "react";
 
-import { Kbd } from "~/components/ui/kbd";
+import { Kbd, KbdGroup } from "~/components/ui/kbd";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 
@@ -51,23 +51,29 @@ function activateItemByKey(event: React.KeyboardEvent<HTMLInputElement>) {
   if (currentTarget.value || altKey || ctrlKey || metaKey || !/^\d$/.test(key)) return;
 
   event.preventDefault();
-  const keys = currentTarget.parentElement?.querySelectorAll("[data-slot=menu-key]");
+  const keys = currentTarget.parentElement?.querySelectorAll("[data-slot=menu-key]:not([hidden])");
   const item = keys?.[(Number(key) + 9) % 10]?.parentElement;
 
   if (item && !item.hasAttribute("data-disabled")) item.click();
 }
 
-// Otto: Rows are numbered 1–9 then 0 in the shared Kbd; later rows get no key.
+// Otto: Rows are numbered 1–9 then 0 in the shared Kbd, skipping rows that show their own
+// shortcut; later rows get no key.
 function numberMenuKeys(list: HTMLDivElement | null) {
   if (!list) return;
 
-  const number = () =>
-    list.querySelectorAll("[data-slot=menu-key]").forEach((key, index) => {
-      const label = index < 10 ? String((index + 1) % 10) : "";
+  const number = () => {
+    let count = 0;
 
-      if (key.textContent !== label) key.textContent = label;
-      key.toggleAttribute("hidden", index >= 10);
+    list.querySelectorAll("[data-slot=menu-key]").forEach((key) => {
+      const ownShortcut = key.parentElement?.querySelector(":scope > [data-slot=menu-shortcut]");
+      const label = !ownShortcut && count < 10 ? String((count += 1) % 10) : "";
+      const cap = key.firstElementChild;
+
+      if (cap && cap.textContent !== label) cap.textContent = label;
+      key.toggleAttribute("hidden", label === "");
     });
+  };
 
   const observer = new MutationObserver(number);
 
@@ -77,16 +83,21 @@ function numberMenuKeys(list: HTMLDivElement | null) {
   return () => observer.disconnect();
 }
 
+// Otto: Submenus and the reaction picker show no keys.
 function MenuKey({ className }: { className?: string }) {
+  if (!use(MenuFilterableContext)) return null;
+
   return (
-    <Kbd
+    <span
       aria-hidden
       className={cn(
-        "ms-auto shrink-0 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
+        "ms-auto shrink-0 ps-4 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
         className,
       )}
       data-slot="menu-key"
-    />
+    >
+      <Kbd />
+    </span>
   );
 }
 
@@ -190,7 +201,7 @@ function MenuItem({
     // Otto: Menu rows are 28px on desktop, like radio, checkbox and submenu rows.
     <MenuPrimitive.Item
       className={cn(
-        "[&>svg]:-mx-0.5 flex min-h-8 cursor-pointer [&>[data-slot=menu-shortcut]~[data-slot=menu-key]]:ms-0 select-none items-center gap-2 rounded-md px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-70 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current [&>svg]:pointer-events-none [&>svg]:shrink-0",
+        "[&>svg]:-mx-0.5 flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-70 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current [&>svg]:pointer-events-none [&>svg]:shrink-0",
         className,
       )}
       data-inset={inset}
@@ -309,15 +320,13 @@ function MenuSeparator({ className, ...props }: MenuPrimitive.Separator.Props) {
 }
 
 function MenuShortcut({ className, ...props }: React.ComponentProps<"kbd">) {
-  return <Kbd className={cn("ms-auto", className)} data-slot="menu-shortcut" {...props} />;
+  return (
+    <KbdGroup className={cn("ms-auto ps-4", className)} data-slot="menu-shortcut" {...props} />
+  );
 }
 
 function MenuSub(props: MenuPrimitive.SubmenuRoot.Props) {
-  return (
-    <MenuPrimitive.FilterProvider autoHighlight>
-      <MenuPrimitive.SubmenuRoot data-slot="menu-sub" {...props} />
-    </MenuPrimitive.FilterProvider>
-  );
+  return <MenuPrimitive.SubmenuRoot data-slot="menu-sub" {...props} />;
 }
 
 function MenuSubTrigger({
@@ -360,15 +369,17 @@ function MenuSubPopup({
   const defaultAlignOffset = align !== "center" ? -5 : undefined;
 
   return (
-    <MenuPopup
-      align={align}
-      alignOffset={alignOffset ?? defaultAlignOffset}
-      className={className}
-      data-slot="menu-sub-content"
-      side="inline-end"
-      sideOffset={sideOffset}
-      {...props}
-    />
+    <MenuFilterableContext value={false}>
+      <MenuPopup
+        align={align}
+        alignOffset={alignOffset ?? defaultAlignOffset}
+        className={className}
+        data-slot="menu-sub-content"
+        side="inline-end"
+        sideOffset={sideOffset}
+        {...props}
+      />
+    </MenuFilterableContext>
   );
 }
 
