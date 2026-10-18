@@ -19,7 +19,7 @@ import { useStartChat } from "../roster/chat-navigation";
 import { ProjectComposerControl, useProjectChoice } from "../roster/project-composer-control";
 import { useRosterStore } from "../roster/roster-store";
 import type { Bot } from "../roster/types";
-import { StatusIcon, type StatusKind } from "../status-icon";
+import { StatusIcon } from "../status-icon";
 import { Button } from "../ui/button";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { SkeletonTableRows } from "../ui/skeleton";
@@ -27,20 +27,12 @@ import { ParticipantAvatar } from "../work/work-participants";
 import { WorkColumn, WorkEmpty, WorkHeaderAction, WorkPage } from "../work/work-pages";
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
-
-type RoutineStatus = "active" | "paused" | "failed";
-
-const ROUTINE_STATUS_ICON = {
-  active: "pending",
-  paused: "paused",
-  failed: "error",
-} as const satisfies Record<RoutineStatus, StatusKind>;
-
-function routineStatus(routine: Routine): RoutineStatus {
-  if (routine.lifecycle === "failed" || routine.lifecycle === "blocked") return "failed";
-
-  return routine.enabled ? "active" : "paused";
-}
+import {
+  ROUTINE_STATUSES,
+  ROUTINE_STATUS_ICON,
+  routineStatus,
+  useRoutineStatusLabel,
+} from "./routine-status";
 
 function routineColumns({
   i18n,
@@ -82,7 +74,7 @@ function routineColumns({
 }
 
 /**
- * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Paused, Failed),
+ * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Draft, Paused, Failed),
  * each row the job with its bot's avatar after it, then two chips, how often and at what time; a row opens the
  * routine's page.
  * New routine is a conversation: the prompt opens a fresh chat with the chosen bot, which sets
@@ -99,11 +91,7 @@ export function RoutinesPage() {
   const [creating, setCreating] = useState(false);
   const routines = (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
 
-  const statusLabel: Record<RoutineStatus, string> = {
-    active: t("Active"),
-    paused: t("Paused"),
-    failed: t("Failed"),
-  };
+  const statusLabel = useRoutineStatusLabel();
 
   const schedule = (routine: Routine) =>
     toRoutinePanelItem(
@@ -149,14 +137,14 @@ export function RoutinesPage() {
             rows={routines}
             columns={routineColumns({ i18n, bots, schedule })}
             getRowKey={(routine) => routine.id}
-            getRowLabel={(routine) => `${routine.job}, ${statusLabel[routineStatus(routine)]}`}
+            getRowLabel={(routine) => `${routine.job}, ${statusLabel(routineStatus(routine))}`}
             onRowClick={(routine) =>
               void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } })
             }
             groupBy={{
-              groups: (["active", "paused", "failed"] as const).map((status) => ({
+              groups: ROUTINE_STATUSES.map((status) => ({
                 id: status,
-                label: statusLabel[status],
+                label: statusLabel(status),
                 icon: <StatusIcon status={ROUTINE_STATUS_ICON[status]} />,
               })),
               getGroupId: routineStatus,

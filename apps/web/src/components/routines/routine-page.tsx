@@ -55,6 +55,7 @@ import { WorkEmpty, WorkPage, useWorkData } from "../work/work-pages";
 import { RoutineChatSelect } from "./routine-chat-options";
 import { RoutineHistory } from "./routine-history";
 import { RoutineScheduleEdit } from "./routine-schedule";
+import { ROUTINE_STATUS_ICON, routineStatus, useRoutineStatusLabel } from "./routine-status";
 
 /**
  * Otto: A routine's own page, the task/project pattern: its title (edited in place; a
@@ -156,15 +157,12 @@ function RoutineDetail({
   const { projects } = useWorkData();
 
   const running = item.latestRun?.status === "running";
-  const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
+  const statusLabel = useRoutineStatusLabel();
+  const routineState = routineStatus(routine);
 
   const status: { readonly icon: StatusKind; readonly label: string } = running
     ? { icon: "in_progress", label: t("Running") }
-    : failed
-      ? { icon: "error", label: t("Failed") }
-      : routine.enabled
-        ? { icon: "pending", label: t("Active") }
-        : { icon: "paused", label: t("Paused") };
+    : { icon: ROUTINE_STATUS_ICON[routineState], label: statusLabel(routineState) };
 
   const botName = bot?.name ?? t("Unknown bot");
 
@@ -228,7 +226,7 @@ function RoutineDetail({
                     size="icon-sm"
                     variant="ghost-muted"
                     aria-label={t("Run now")}
-                    disabled={running}
+                    disabled={running || routineState === "draft"}
                     onClick={() =>
                       void act(
                         run({
@@ -266,7 +264,7 @@ function RoutineDetail({
                 <TooltipPopup side="bottom">{t("More actions")}</TooltipPopup>
               </Tooltip>
               <MenuPopup align="end">
-                {routine.enabled ? (
+                {routineState === "draft" ? null : routine.enabled ? (
                   <MenuItem
                     onClick={() =>
                       void act(
@@ -301,7 +299,7 @@ function RoutineDetail({
                     {t("Resume")}
                   </MenuItem>
                 )}
-                <MenuSeparator />
+                {routineState === "draft" ? null : <MenuSeparator />}
                 <CopyMenuItems path={`/routines/${routine.id}`} id={routine.id} />
                 <MenuSeparator />
                 <MenuItem
