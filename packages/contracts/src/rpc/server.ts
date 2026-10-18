@@ -181,6 +181,9 @@ import {
   VoiceCancelResult,
 } from "../voice-call.ts";
 import {
+  RoutineListError,
+  RoutineListQuery,
+  RoutineListResult,
   RoutineListRunsInput,
   RoutineListRunsResult,
   RoutineListThreadRunsResult,
@@ -662,6 +665,12 @@ export const WsBotUsageRpc = Rpc.make(WS_METHODS.botUsage, {
   payload: OttoBotUsageInput,
   success: OttoBotUsageSnapshot,
   error: Schema.Union([OttoBotUsageReadError, EnvironmentAuthorizationError]),
+});
+
+export const WsRoutinesListRpc = Rpc.make(WS_METHODS.routinesList, {
+  payload: RoutineListQuery,
+  success: RoutineListResult,
+  error: Schema.Union([RoutineListError, EnvironmentAuthorizationError]),
 });
 
 export const WsRoutinesListRunsRpc = Rpc.make(WS_METHODS.routinesListRuns, {

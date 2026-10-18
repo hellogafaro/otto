@@ -52,7 +52,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { ParticipantAvatar, participantName } from "../work/work-participants";
-import { NoMatches, WorkEmpty, WorkPage } from "../work/work-pages";
+import { NoMatches, WorkEmpty, WorkPage, withField } from "../work/work-pages";
 import { LibraryItemMenu, LibraryNameDialog } from "./library-actions";
 import { LibraryLightbox } from "./library-lightbox";
 import { LibraryFileTile, LibraryFolderTile } from "./library-visuals";
@@ -160,16 +160,6 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
   const setView = (next: LibrarySearch) =>
     void navigate({ to: "/library", search: encodeLibrarySearch(next), replace: true });
 
-  /** The search with one field set, or left out when it is empty. */
-  const withField = <K extends keyof LibrarySearch>(
-    key: K,
-    value: LibrarySearch[K] | undefined,
-  ) => {
-    const { [key]: _, ...rest } = here;
-
-    return value === undefined ? rest : { ...rest, [key]: value };
-  };
-
   const typeLabels: Record<LibraryListType, { readonly label: string; readonly icon: ReactNode }> =
     {
       folder: { label: t("Folder"), icon: <RiFolderLine aria-hidden /> },
@@ -201,6 +191,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
             onChange: (selected: readonly string[]) =>
               setView(
                 withField(
+                  here,
                   "type",
                   selected.length > 0
                     ? LIBRARY_LIST_TYPES.filter((type) => selected.includes(type))
@@ -230,6 +221,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
       onChange: ([creator]) =>
         setView(
           withField(
+            here,
             "creator",
             creators.map(workParticipantKey).find((candidate) => candidate === creator),
           ),
@@ -364,7 +356,7 @@ export function LibraryPage({ search }: { readonly search: LibrarySearch }) {
             order: search.order ?? LIBRARY_SORT_ORDER[sort],
             onChange: (nextSort, order) =>
               setView({
-                ...withField("sort", nextSort === "updated" ? undefined : nextSort),
+                ...withField(here, "sort", nextSort === "updated" ? undefined : nextSort),
                 ...(order === LIBRARY_SORT_ORDER[nextSort] ? {} : { order }),
               }),
           }}

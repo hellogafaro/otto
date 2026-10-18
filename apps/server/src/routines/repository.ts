@@ -2,7 +2,13 @@ import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
 
 import type { PersistenceSqlError } from "../persistence/errors.ts";
-import type { RoutineSkillAssignment, ThreadId } from "@otto/contracts";
+import type {
+  AuthSessionId,
+  RoutineListResult,
+  RoutineListView,
+  RoutineSkillAssignment,
+  ThreadId,
+} from "@otto/contracts";
 import type { Routine, RoutineId, RoutineRun, RoutineRunId, RoutineRunTrigger } from "./types.ts";
 
 interface RoutineClaimBase {
@@ -36,8 +42,28 @@ export type RoutineClaim = RoutineClaimBase &
       }
   );
 
+/** A row's sort key: the values of its sort expressions, the routine id last. */
+export type RoutineListKey = ReadonlyArray<string | number>;
+
 export interface RoutineRepositoryShape {
   readonly listAll: Effect.Effect<ReadonlyArray<Routine>, PersistenceSqlError>;
+  /**
+   * One page of the routines `viewer` may see that match the filter, in its order and strictly
+   * after `after`, with one row more than the limit when another page follows, and the
+   * filter's status counts.
+   */
+  readonly list: (input: {
+    readonly query: RoutineListView;
+    readonly viewer: AuthSessionId;
+    readonly limit: number;
+    readonly after: RoutineListKey | null;
+  }) => Effect.Effect<
+    {
+      readonly rows: ReadonlyArray<{ readonly routine: Routine; readonly key: RoutineListKey }>;
+      readonly statusCounts: RoutineListResult["statusCounts"];
+    },
+    PersistenceSqlError
+  >;
   readonly listEnabled: Effect.Effect<ReadonlyArray<Routine>, PersistenceSqlError>;
   readonly getById: (routineId: RoutineId) => Effect.Effect<Routine | null, PersistenceSqlError>;
   readonly listRuns: (

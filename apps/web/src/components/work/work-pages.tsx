@@ -204,7 +204,7 @@ export function NoMatches({
   to,
   search,
 }: {
-  readonly to: "/tasks" | "/projects" | "/library";
+  readonly to: "/tasks" | "/projects" | "/routines" | "/library";
   /** Where clearing lands on that page, such as the Library folder being browsed. */
   readonly search?: ReturnType<typeof encodeLibrarySearch>;
 }) {
@@ -238,14 +238,15 @@ const encodeTaskView = Schema.encodeSync(Schema.fromJsonString(TaskListView));
 const nextTaskCursor = (page: TaskListResult) => page.nextCursor;
 
 /** The view with one field set, or left out when it is empty. */
-function withField<K extends keyof TaskListView>(
-  view: TaskListView,
+export function withField<View extends object, K extends keyof View>(
+  view: View,
   key: K,
-  value: TaskListView[K] | undefined,
-): TaskListView {
+  value: View[K] | undefined,
+): View {
   const { [key]: _, ...rest } = view;
 
-  return value === undefined ? rest : { ...rest, [key]: value };
+  // SAFETY: every field of a list view is optional, so leaving one out keeps it a view.
+  return (value === undefined ? rest : { ...rest, [key]: value }) as View;
 }
 
 const shortDay = (day: string) => {
