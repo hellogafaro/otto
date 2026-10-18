@@ -9,10 +9,9 @@ import {
   parseDuration,
   parseProjectSearch,
   parseTaskSearch,
-  GRAY_COVER_PATTERNS,
   GRAY_COVER_TONES,
   grayCover,
-  grayCoverPattern,
+  grayCoverDensity,
 } from "./work.logic";
 
 describe("duePresetRange", () => {
@@ -101,80 +100,30 @@ describe("grayCover", () => {
     return tones;
   };
 
-  const seeds = Array.from({ length: 40 }, (_, index) => `project-${index}`);
-
   it("uses only the base gray and its dot tone, per theme", () => {
     for (const appearance of ["dark", "light"] as const) {
       const { base, dots } = GRAY_COVER_TONES[appearance];
 
-      for (const seed of seeds.slice(0, 10)) {
-        expect(tonesOf(grayCover(seed, 64, 36, appearance))).toEqual(
-          new Set([`${base.join(",")},255`, `${dots.join(",")},255`]),
-        );
-      }
+      expect(tonesOf(grayCover(96, 54, appearance))).toEqual(
+        new Set([`${base.join(",")},255`, `${dots.join(",")},255`]),
+      );
     }
   });
 
-  it("is the same for a project every time, and varies across projects", () => {
-    expect(grayCover("launch", 64, 36, "dark")).toEqual(grayCover("launch", 64, 36, "dark"));
-    expect(new Set(seeds.map(grayCoverPattern))).toEqual(new Set(GRAY_COVER_PATTERNS));
+  it("draws the same still pattern every time", () => {
+    expect(grayCover(64, 36, "dark")).toEqual(grayCover(64, 36, "dark"));
   });
 
-  const dotMap = (seed: string, width: number, height: number) => {
-    const pixels = grayCover(seed, width, height, "dark");
-    const dot = GRAY_COVER_TONES.dark.dots[0];
+  it("keeps the waves a texture: density varies across the card but never fills it", () => {
+    const levels: number[] = [];
 
-    return (x: number, y: number) => pixels[(y * width + x) * 4] === dot;
-  };
-
-  const seedFor = (pattern: string) => seeds.find((seed) => grayCoverPattern(seed) === pattern)!;
-
-  it("keeps every pattern at about one dot in eight", () => {
-    for (const pattern of GRAY_COVER_PATTERNS) {
-      const isDot = dotMap(seedFor(pattern), 96, 54);
-      let count = 0;
-
-      for (let y = 0; y < 54; y++) {
-        for (let x = 0; x < 96; x++) if (isDot(x, y)) count++;
-      }
-
-      expect(count / (96 * 54)).toBeGreaterThan(0.08);
-      expect(count / (96 * 54)).toBeLessThan(0.16);
-    }
-  });
-
-  it("puts one dot in each small square for jitter, and one 2x2 dot per larger square for cluster", () => {
-    const jitter = dotMap(seedFor("jitter"), 48, 48);
-    const cluster = dotMap(seedFor("cluster"), 48, 48);
-
-    const countIn = (
-      isDot: (x: number, y: number) => boolean,
-      x0: number,
-      y0: number,
-      size: number,
-    ) => {
-      let count = 0;
-
-      for (let y = y0; y < y0 + size; y++) {
-        for (let x = x0; x < x0 + size; x++) if (isDot(x, y)) count++;
-      }
-
-      return count;
-    };
-
-    for (let y = 0; y < 48; y += 3) {
-      for (let x = 0; x < 48; x += 3) expect(countIn(jitter, x, y, 3)).toBe(1);
+    for (let v = 0; v <= 1; v += 0.05) {
+      for (let u = 0; u <= 1; u += 0.05) levels.push(grayCoverDensity(u, v));
     }
 
-    for (let y = 0; y < 48; y += 6) {
-      for (let x = 0; x < 48; x += 6) expect(countIn(cluster, x, y, 6)).toBe(4);
-    }
-  });
-
-  it("scatters two projects with the same pattern differently", () => {
-    const [first, second] = seeds.filter((seed) => grayCoverPattern(seed) === "scatter");
-
-    expect(grayCover(first!, 64, 36, "dark")).not.toEqual(grayCover(second!, 64, 36, "dark"));
+    expect(Math.min(...levels)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...levels)).toBeLessThanOrEqual(0.6);
+    expect(Math.max(...levels) - Math.min(...levels)).toBeGreaterThan(0.2);
   });
 });
 
