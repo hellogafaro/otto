@@ -1,3 +1,4 @@
+import * as NodeChildProcess from "node:child_process";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -20,18 +21,61 @@ afterEach(async () => {
   );
 });
 
+const TOOLS = ["sh", "mkdir", "chmod", "rm", "mv", "mktemp", "uname", "tar", "gzip", "cp", "git"];
+
+/**
+ * A computer without gh whose curl serves a gh release archive from disk and logs each URL, so
+ * the install runs for real without the network.
+ */
+async function computerTools(root: string) {
+  const tools = NodePath.join(root, "..", `${NodePath.basename(root)}-tools`);
+  const release = NodePath.join(tools, "release", "gh_test", "bin");
+  roots.push(tools);
+  await NodeFSP.mkdir(release, { recursive: true });
+  await NodeFSP.writeFile(NodePath.join(release, "gh"), '#!/bin/sh\necho "gh $GH_CONFIG_DIR"\n', {
+    mode: 0o755,
+  });
+  NodeChildProcess.execFileSync("tar", ["-czf", "../gh.tar.gz", "gh_test"], {
+    cwd: NodePath.join(tools, "release"),
+  });
+
+  const bin = NodePath.join(tools, "bin");
+  await NodeFSP.mkdir(bin);
+
+  for (const tool of TOOLS) {
+    const path = NodeChildProcess.execFileSync("sh", ["-c", `command -v ${tool}`], {
+      encoding: "utf8",
+    }).trim();
+
+    await NodeFSP.symlink(path, NodePath.join(bin, tool));
+  }
+
+  const log = NodePath.join(tools, "downloads");
+  await NodeFSP.writeFile(
+    NodePath.join(bin, "curl"),
+    `#!/bin/sh\necho "$2" >> '${log}'\ncp '${NodePath.join(tools, "gh.tar.gz")}' "$4"\n`,
+    { mode: 0o755 },
+  );
+
+  return {
+    path: bin,
+    downloads: async () => (await NodeFSP.readFile(log, "utf8")).split("\n").filter(Boolean),
+  };
+}
+
 async function localComputer() {
   const root = await NodeFSP.realpath(
     await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-gh-")),
   );
 
   roots.push(root);
+  const tools = await computerTools(root);
 
   const workspace = new Workspace({
     id: "computer",
     name: "computer",
     filesystem: new LocalFilesystem({ basePath: root }),
-    sandbox: new LocalSandbox({ workingDirectory: root }),
+    sandbox: new LocalSandbox({ workingDirectory: root, env: { PATH: tools.path } }),
   });
 
   const sandbox = workspace.sandbox!;
@@ -52,14 +96,14 @@ async function localComputer() {
     return result.stdout.trim();
   };
 
-  return { root, computer, commands, run };
+  return { root, computer, commands, run, downloads: tools.downloads };
 }
 
 const ana = { githubId: 42, login: "ana", name: 'Ana "Q" Gómez', accessToken: TOKEN };
 
 describe("bot GitHub logins", () => {
-  it("logs git and gh in as the asker for one chat without the token in any command", async () => {
-    const { root, computer, commands, run } = await localComputer();
+  it("installs gh once and logs git and gh in as the asker for one chat without the token in any command", async () => {
+    const { root, computer, commands, run, downloads } = await localComputer();
 
     const logins = createBotGitHubLogins({
       turnLogin: async (personId) => (personId === "person-ana" ? ana : undefined),
@@ -72,6 +116,7 @@ describe("bot GitHub logins", () => {
     expect(JSON.stringify(env)).not.toContain(TOKEN);
     expect(await run("git config user.name", env!)).toBe('Ana "Q" Gómez');
     expect(await run("git config user.email", env!)).toBe("42+ana@users.noreply.github.com");
+    expect(await run("gh", env!)).toBe(`gh ${env!.GH_CONFIG_DIR}`);
     expect(await run("git config otto.installurl", env!)).toBe(
       "https://github.com/apps/otto-by-hello-gafaro/installations/new",
     );
@@ -89,6 +134,18 @@ describe("bot GitHub logins", () => {
 
     await logins.end("thread-1");
     await expect(NodeFSP.stat(folder)).rejects.toThrow();
+
+    const next = await logins.start("thread-1", "person-ana");
+
+    expect(await run("gh", next!)).toBe(`gh ${next!.GH_CONFIG_DIR}`);
+    expect(await downloads()).toEqual([
+      expect.stringMatching(
+        /^https:\/\/github\.com\/cli\/cli\/releases\/download\/v[\d.]+\/gh_[\d.]+_(linux|macOS)_(amd64|arm64)\.(tar\.gz|zip)$/,
+      ),
+    ]);
+    expect(NodePath.dirname(await run("command -v gh", next!))).toBe(
+      NodePath.join(root, ".otto", "bin"),
+    );
 
     for (const call of commands.mock.calls) {
       expect(JSON.stringify(call)).not.toContain(TOKEN);

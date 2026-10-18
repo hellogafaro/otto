@@ -9,14 +9,48 @@ const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 const configValue = (value: string) =>
   `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", " ")}"`;
 
+const GH_VERSION = "2.102.0";
+
+/**
+ * Puts gh's official release in the computer's own folder when the computer has no gh, and
+ * prints the PATH that finds it. Remote computers also link it into /usr/local/bin, because
+ * some run commands in a login shell that resets PATH; local ones never touch system folders.
+ */
+const installGh = (remote: boolean) =>
+  [
+    'b="$PWD/.otto/bin"',
+    "if ! command -v gh >/dev/null 2>&1; then",
+    '  if [ ! -x "$b/gh" ]; then',
+    '    case "$(uname -s)_$(uname -m)" in',
+    "      Linux_x86_64) a=linux_amd64.tar.gz ;;",
+    "      Linux_aarch64 | Linux_arm64) a=linux_arm64.tar.gz ;;",
+    "      Darwin_x86_64) a=macOS_amd64.zip ;;",
+    "      Darwin_arm64) a=macOS_arm64.zip ;;",
+    "      *) exit 1 ;;",
+    "    esac",
+    `    u="https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_$a"`,
+    '    mkdir -p "$b" && x=$(mktemp -d "$b/.gh.XXXXXX") || exit 1',
+    '    { curl -fsSL "$u" -o "$x/a" || wget -qO "$x/a" "$u"; } && tar -xf "$x/a" -C "$x" && mv "$x"/gh_*/bin/gh "$b/gh"',
+    '    s=$?; rm -rf "$x"; [ "$s" = 0 ] || exit 1',
+    "  fi",
+    ...(remote
+      ? [
+          '  ln -sf "$b/gh" /usr/local/bin/gh 2>/dev/null || sudo -n ln -sf "$b/gh" /usr/local/bin/gh 2>/dev/null',
+        ]
+      : []),
+    "fi",
+    'if [ -x "$b/gh" ]; then printf \'%s:%s\' "$b" "$PATH"; fi',
+  ].join("\n");
+
 /** The chat's own folder, so two chats on one bot computer each keep their own person's login. */
 const loginFolder = (threadId: string) =>
   `"$PWD/.otto/github/${NodeCrypto.createHash("sha256").update(threadId).digest("hex").slice(0, 16)}"`;
 
 /**
- * Writes one person's GitHub login for one chat into the bot's computer and returns the
- * path-only environment that points git and gh at it. The token goes only into files, written
- * through the computer's file API; it is never part of a command, argument or environment value.
+ * Writes one person's GitHub login for one chat into the bot's computer, makes sure gh is there,
+ * and returns the path-only environment that points git and gh at it. The token goes only into
+ * files, written through the computer's file API; it is never part of a command, argument or
+ * environment value.
  */
 export async function writeGitHubLogin(input: {
   readonly computer: OttoBotWorkspace;
@@ -80,7 +114,18 @@ export async function writeGitHubLogin(input: {
 
   if (locked.exitCode !== 0) throw new Error("Could not lock the GitHub login folder.");
 
-  return { GIT_CONFIG_GLOBAL: `${folder}/gitconfig`, GH_CONFIG_DIR: `${folder}/gh` };
+  // gh is a convenience: a computer that cannot get it still has its git login.
+  const gh = await sandbox
+    .executeCommand(installGh(input.computer.provider !== "local"), [], { timeout: 120_000 })
+    .catch(() => undefined);
+
+  const path = gh?.exitCode === 0 ? gh.stdout.trim() : "";
+
+  return {
+    GIT_CONFIG_GLOBAL: `${folder}/gitconfig`,
+    GH_CONFIG_DIR: `${folder}/gh`,
+    ...(path ? { PATH: path } : {}),
+  };
 }
 
 /** Deletes a chat's GitHub login from the bot's computer. */
