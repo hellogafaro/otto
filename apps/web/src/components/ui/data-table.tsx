@@ -89,7 +89,8 @@ function RowGroups<T>({
  * on hover. Groups get Capy's 36px section band (6px radius, the same wash,
  * chevron, 13px label, count) and collapse on click. Fills span the whole
  * column like content rows, with 16px inside, so text and the band's chevron
- * sit on the content edge and the time ends 16px from the right.
+ * sit on the content edge and the time ends 16px from the right. The row J and K hold
+ * (`highlightedKey`) wears the hover wash.
  */
 export function DataTable<T>({
   rows,
@@ -98,6 +99,7 @@ export function DataTable<T>({
   getRowLabel,
   onRowClick,
   groupBy,
+  highlightedKey = null,
   className,
 }: {
   readonly rows: readonly T[];
@@ -111,6 +113,7 @@ export function DataTable<T>({
     readonly groups: readonly DataTableGroup[];
     readonly getGroupId: (row: T) => string;
   };
+  readonly highlightedKey?: string | null;
   readonly className?: string;
 }) {
   const hasHeader = columns.some((column) => column.header !== undefined);
@@ -122,9 +125,11 @@ export function DataTable<T>({
       {items.map((row) => (
         <DataTableRow
           key={getRowKey(row)}
+          rowKey={getRowKey(row)}
           row={row}
           columns={columns}
           label={getRowLabel(row)}
+          highlighted={getRowKey(row) === highlightedKey}
           onClick={onRowClick}
         />
       ))}
@@ -222,14 +227,18 @@ function DataTableSection({
 }
 
 function DataTableRow<T>({
+  rowKey,
   row,
   columns,
   label,
+  highlighted,
   onClick,
 }: {
+  readonly rowKey: string;
   readonly row: T;
   readonly columns: readonly DataTableColumn<T>[];
   readonly label: string;
+  readonly highlighted: boolean;
   readonly onClick: ((row: T) => void) | undefined;
 }) {
   const cell = (column: DataTableColumn<T>) => (
@@ -256,10 +265,14 @@ function DataTableRow<T>({
   );
 
   const cells = <RowGroups columns={columns} render={cell} />;
-  const rowClassName = cn(ROW_CLASS, "h-11 text-sm text-foreground outline-none select-none");
+  const rowClassName = cn(
+    ROW_CLASS,
+    "h-11 text-sm text-foreground outline-none select-none",
+    highlighted && "bg-foreground/[0.035]",
+  );
 
   return (
-    <li className="-m-0.5 list-none p-0.5">
+    <li data-row-key={rowKey} className="-m-0.5 list-none p-0.5">
       {onClick ? (
         <button
           type="button"

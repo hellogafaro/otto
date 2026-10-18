@@ -114,6 +114,44 @@ const act = async (result: Promise<{ readonly _tag: string }>, failure: string) 
 
 const createdAt = () => new Date().toISOString();
 
+/** Delete under ⌘⌫, after a confirm; the routine's chat and past runs stay. */
+export function useRoutineDeleteAction(
+  environmentId: EnvironmentId,
+  routine: Pick<Routine, "id" | "job">,
+): PageAction {
+  const { t } = useI18n();
+  const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
+
+  return useMemo(
+    (): PageAction => ({
+      id: "delete",
+      title: t("Delete"),
+      icon: RiDeleteBinLine,
+      searchTerms: ["delete", "remove"],
+      shortcutCommand: "item.delete",
+      run: async () => {
+        const confirmed =
+          (await requestConfirmDialog(
+            t("Delete {name}?\nIt stops running. Its chat and past runs stay.", {
+              name: routine.job,
+            }),
+            { variant: "destructive", confirmLabel: t("Delete") },
+          )) ?? false;
+
+        if (!confirmed) return;
+        await act(
+          remove({
+            environmentId,
+            input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
+          }),
+          t("Routine couldn't be deleted"),
+        );
+      },
+    }),
+    [environmentId, remove, routine.id, routine.job, t],
+  );
+}
+
 function RoutineDetail({
   environmentId,
   routine,
@@ -135,7 +173,6 @@ function RoutineDetail({
   const pause = useAtomCommand(routineEnvironment.pause, { reportFailure: false });
   const enable = useAtomCommand(routineEnvironment.enable, { reportFailure: false });
   const run = useAtomCommand(routineEnvironment.run, { reportFailure: false });
-  const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
   const update = useAtomCommand(routineEnvironment.update, { reportFailure: false });
 
   const { projects } = useWorkData();
@@ -224,34 +261,7 @@ function RoutineDetail({
     [enable, environmentId, pause, routine.enabled, routine.id, t],
   );
 
-  const deleteRoutine = useMemo(
-    (): PageAction => ({
-      id: "delete",
-      title: t("Delete"),
-      icon: RiDeleteBinLine,
-      searchTerms: ["delete", "remove"],
-      shortcutCommand: "item.delete",
-      run: async () => {
-        const confirmed =
-          (await requestConfirmDialog(
-            t("Delete {name}?\nIt stops running. Its chat and past runs stay.", {
-              name: routine.job,
-            }),
-            { variant: "destructive", confirmLabel: t("Delete") },
-          )) ?? false;
-
-        if (!confirmed) return;
-        await act(
-          remove({
-            environmentId,
-            input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
-          }),
-          t("Routine couldn't be deleted"),
-        );
-      },
-    }),
-    [environmentId, remove, routine.id, routine.job, t],
-  );
+  const deleteRoutine = useRoutineDeleteAction(environmentId, routine);
 
   const projectEditable = routine.threadMode !== "target";
   const visibilityEditable = routine.createdBy != null && routine.createdBy === currentPersonId;

@@ -3,7 +3,13 @@ import {
   routineFrequencyLabel,
   toRoutinePanelItem,
 } from "@otto/client-runtime/routines";
-import { BotId, type Routine, type RoutineThreadMode, type Visibility } from "@otto/contracts";
+import {
+  BotId,
+  type EnvironmentId,
+  type Routine,
+  type RoutineThreadMode,
+  type Visibility,
+} from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { RiAddLine, RiTimeLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
@@ -15,6 +21,7 @@ import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
+import { useCopyPageActions } from "../copy-menu-items";
 import { PromptDialog } from "../prompt-dialog";
 import { BotPicker } from "../roster/bot-picker";
 import { useStartChat } from "../roster/chat-navigation";
@@ -25,10 +32,12 @@ import { StatusIcon } from "../status-icon";
 import { Button } from "../ui/button";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { SkeletonTableRows } from "../ui/skeleton";
+import { useRowHighlight } from "../use-row-highlight";
 import { ParticipantAvatar } from "../work/work-participants";
 import { WorkColumn, WorkEmpty, WorkHeaderAction, WorkPage } from "../work/work-pages";
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
+import { useRoutineDeleteAction } from "./routine-page";
 import { ROUTINE_STATUS_ICON, routineStatus, type RoutineStatus } from "./routine-status";
 
 function routineColumns({
@@ -88,6 +97,14 @@ export function RoutinesPage() {
   const [creating, setCreating] = useState(false);
   const routines = (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
   const openNewRoutine = useCallback(() => setCreating(true), []);
+
+  const openRoutine = useCallback(
+    (routine: Routine) =>
+      void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(routines, (routine) => routine.id, openRoutine);
 
   useCreateRequest("routine", Boolean(snapshot), openNewRoutine);
 
@@ -158,9 +175,8 @@ export function RoutinesPage() {
             columns={routineColumns({ i18n, bots, schedule })}
             getRowKey={(routine) => routine.id}
             getRowLabel={(routine) => `${routine.job}, ${statusLabel[routineStatus(routine)]}`}
-            onRowClick={(routine) =>
-              void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } })
-            }
+            onRowClick={openRoutine}
+            highlightedKey={highlighted?.id ?? null}
             groupBy={{
               groups: (["active", "paused", "failed"] as const).map((status) => ({
                 id: status,
@@ -172,9 +188,40 @@ export function RoutinesPage() {
           />
         </WorkColumn>
       )}
+      {environmentId && highlighted ? (
+        <RoutineRowActions
+          key={highlighted.id}
+          environmentId={environmentId}
+          routine={highlighted}
+          pageActions={pageActions}
+        />
+      ) : null}
       <NewRoutineDialog open={creating} onOpenChange={setCreating} />
     </WorkPage>
   );
+}
+
+/** Otto: The held routine row's item keys, Copy link, Copy ID and Delete, beside New routine. */
+function RoutineRowActions({
+  environmentId,
+  routine,
+  pageActions,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly routine: Routine;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
+  const deleteRoutine = useRoutineDeleteAction(environmentId, routine);
+
+  const actions = useMemo(
+    () => [...pageActions, copy.link, copy.id, deleteRoutine],
+    [copy, deleteRoutine, pageActions],
+  );
+
+  usePageActions(routine.job, actions);
+
+  return null;
 }
 
 /**

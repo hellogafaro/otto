@@ -147,6 +147,7 @@ export function WorkMoreActions({
 }) {
   const { t } = useI18n();
   const copy = useCopyPageActions(path, id);
+  const archive = useArchiveAction(status, onStatusChange);
 
   const newTask = useMemo(
     (): PageAction | null =>
@@ -161,28 +162,6 @@ export function WorkMoreActions({
           }
         : null,
     [onNewTask, t],
-  );
-
-  const archive = useMemo(
-    (): PageAction =>
-      status === "archived"
-        ? {
-            id: "unarchive",
-            title: t("Unarchive"),
-            icon: RiInboxUnarchiveLine,
-            searchTerms: ["unarchive", "restore"],
-            shortcutCommand: "item.archive",
-            run: () => onStatusChange("pending"),
-          }
-        : {
-            id: "archive",
-            title: t("Archive"),
-            icon: RiArchiveLine,
-            searchTerms: ["archive", "hide"],
-            shortcutCommand: "item.archive",
-            run: () => onStatusChange("archived"),
-          },
-    [onStatusChange, status, t],
   );
 
   const actions = useMemo(
@@ -221,4 +200,66 @@ export function WorkMoreActions({
       </MenuPopup>
     </Menu>
   );
+}
+
+/** Archive, or Unarchive back to Pending, under E. */
+function useArchiveAction(
+  status: WorkStatus,
+  onStatusChange: (status: WorkStatus) => void,
+): PageAction {
+  const { t } = useI18n();
+
+  return useMemo(
+    (): PageAction =>
+      status === "archived"
+        ? {
+            id: "unarchive",
+            title: t("Unarchive"),
+            icon: RiInboxUnarchiveLine,
+            searchTerms: ["unarchive", "restore"],
+            shortcutCommand: "item.archive",
+            run: () => onStatusChange("pending"),
+          }
+        : {
+            id: "archive",
+            title: t("Archive"),
+            icon: RiArchiveLine,
+            searchTerms: ["archive", "hide"],
+            shortcutCommand: "item.archive",
+            run: () => onStatusChange("archived"),
+          },
+    [onStatusChange, status, t],
+  );
+}
+
+/**
+ * Otto: The item keys of the task or project row J and K hold on Tasks or Projects: Copy link,
+ * Copy ID and Archive, joined to the index page's own actions while the row is held.
+ */
+export function WorkRowActions({
+  label,
+  path,
+  id,
+  status,
+  onStatusChange,
+  pageActions,
+}: {
+  readonly label: string;
+  readonly path: string;
+  readonly id: string;
+  readonly status: WorkStatus;
+  readonly onStatusChange: (status: WorkStatus) => void;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const copy = useCopyPageActions(path, id);
+  const archive = useArchiveAction(status, onStatusChange);
+
+  const actions = useMemo(
+    () => [...pageActions, copy.link, copy.id, archive],
+    [archive, copy, pageActions],
+  );
+
+  usePageActions(label, actions);
+
+  return null;
 }

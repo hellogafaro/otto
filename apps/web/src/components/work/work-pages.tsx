@@ -17,7 +17,9 @@ import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
-import { environmentTasksAtom } from "../../state/tasks";
+import { projectEnvironment } from "../../state/projects";
+import { environmentTasksAtom, taskEnvironment } from "../../state/tasks";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { DataGrid } from "../ui/data-grid";
 import {
@@ -31,6 +33,7 @@ import {
 import { SidebarInset } from "../ui/sidebar";
 import { SkeletonCards, SkeletonTableRows } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { useRowHighlight } from "../use-row-highlight";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../workspace-page-header";
 import { ProjectCover } from "./project-cover";
@@ -38,7 +41,7 @@ import { TasksTable } from "./tasks-table";
 import { projectStatus, sortTasks } from "./work.logic";
 import { NewProjectDialog, NewTaskDialog } from "./work-dialogs";
 import { useWorkParticipants } from "./work-participants";
-import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
+import { WorkRowActions, WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 
 const EMPTY_TASKS: readonly OrchestrationTask[] = [];
 
@@ -194,6 +197,15 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
   const activeProjects = projects.filter((project) => projectStatus(project) !== "archived");
   const canCreate = environmentId !== null && activeProjects.length > 0;
   const visible = sortTasks(tasks.filter((task) => matchesTaskFilter(task, filter)));
+  const updateTask = useAtomCommand(taskEnvironment.update);
+
+  const openTask = useCallback(
+    (task: OrchestrationTask) =>
+      void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(visible, (task) => task.id, openTask);
 
   // Otto: Tasks need a project, so with none yet New starts the first project instead.
   const openNewTask = useCallback(
@@ -269,15 +281,27 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
               projects={projects}
               bots={participants.allBots}
               showProject={filter.project === undefined}
-              onOpenTask={(task) =>
-                void navigate({ to: "/tasks/$taskId", params: { taskId: task.id } })
-              }
+              highlightedKey={highlighted?.id ?? null}
+              onOpenTask={openTask}
             />
           )}
         </WorkColumn>
       )}
       {environmentId ? (
         <>
+          {highlighted ? (
+            <WorkRowActions
+              key={highlighted.id}
+              label={highlighted.title}
+              path={`/tasks/${highlighted.id}`}
+              id={highlighted.id}
+              status={highlighted.status}
+              onStatusChange={(status) =>
+                void updateTask({ environmentId, input: { taskId: highlighted.id, status } })
+              }
+              pageActions={pageActions}
+            />
+          ) : null}
           <NewTaskDialog
             open={taskDialogOpen}
             onOpenChange={setTaskDialogOpen}
@@ -314,6 +338,15 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
     .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 
   const openNewProject = useCallback(() => setDialogOpen(true), []);
+  const updateProject = useAtomCommand(projectEnvironment.update);
+
+  const openProject = useCallback(
+    (project: (typeof visible)[number]) =>
+      void navigate({ to: "/projects/$projectId", params: { projectId: project.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(visible, (project) => project.id, openProject);
 
   useCreateRequest("project", loaded && environmentId !== null, openNewProject);
 
@@ -376,13 +409,14 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
             <DataGrid
               items={visible}
               getItemKey={(project) => project.id}
+              highlightedKey={highlighted?.id ?? null}
               renderItem={(project) => (
                 <Link
                   to="/projects/$projectId"
                   params={{ projectId: project.id }}
                   className="group flex flex-col gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md">
+                  <div className="overflow-hidden rounded-lg border border-border transition-shadow group-hover:shadow-md in-data-row-highlighted:shadow-md">
                     {environmentId ? (
                       <ProjectCover environmentId={environmentId} project={project} />
                     ) : null}
@@ -398,6 +432,19 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
           )}
         </WorkColumn>
       )}
+      {environmentId && highlighted ? (
+        <WorkRowActions
+          key={highlighted.id}
+          label={highlighted.title}
+          path={`/projects/${highlighted.id}`}
+          id={highlighted.id}
+          status={projectStatus(highlighted)}
+          onStatusChange={(status) =>
+            void updateProject({ environmentId, input: { projectId: highlighted.id, status } })
+          }
+          pageActions={pageActions}
+        />
+      ) : null}
       {environmentId ? (
         <NewProjectDialog
           open={dialogOpen}

@@ -114,12 +114,14 @@ export function TasksTable({
   projects,
   bots,
   showProject,
+  highlightedKey = null,
   onOpenTask,
 }: {
   readonly tasks: readonly OrchestrationTask[];
   readonly projects: readonly OrchestrationProjectShell[];
   readonly bots: readonly Bot[];
   readonly showProject: boolean;
+  readonly highlightedKey?: string | null;
   readonly onOpenTask: (task: OrchestrationTask) => void;
 }) {
   const { t } = useI18n();
@@ -133,6 +135,7 @@ export function TasksTable({
       getRowKey={(task) => task.id}
       getRowLabel={(task) => `${task.title}, ${statusLabel(task.status)}`}
       onRowClick={onOpenTask}
+      highlightedKey={highlightedKey}
       groupBy={{
         groups: WORK_STATUS_ORDER.map((status) => ({
           id: status,
