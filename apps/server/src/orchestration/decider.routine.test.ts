@@ -365,6 +365,20 @@ it.layer(NodeServices.layer)("routine decider", (it) => {
       );
 
       expect(error.message).toContain("already ended with status 'completed'");
+
+      const lateFailure = yield* Effect.flip(
+        apply({
+          type: "routine.run.fail",
+          commandId: CommandId.make("command-late-cancel-fail"),
+          routineId,
+          runId,
+          failure: { kind: "execution", message: "Turn ended late." },
+          usageRef: null,
+          createdAt: NOW,
+        }),
+      );
+
+      expect(lateFailure.message).toContain("already ended with status 'completed'");
       expect(readModel.routineRuns?.find((run) => run.id === runId)).toMatchObject({
         status: "completed",
       });

@@ -528,10 +528,9 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         });
       }
 
-      // A run canceled or settled before it started stays ended, and a
-      // cancellation never overwrites a run that already ended.
+      // A run that ended stays ended: a late start, result, failure or cancellation never
+      // overwrites it.
       if (
-        (command.type === "routine.run.start" || command.type === "routine.run.cancel") &&
         existingRun.status !== "queued" &&
         existingRun.status !== "waiting-for-approval" &&
         existingRun.status !== "running"

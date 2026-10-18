@@ -77,7 +77,7 @@ const make = Effect.gen(function* () {
     yield* repository.markBlocked(run.id, failure.reason, completedAt);
   });
 
-  const execute = Effect.fn("RoutineRuntime.execute")(function* (
+  const startRun = Effect.fn("RoutineRuntime.execute")(function* (
     routine: Routine,
     claim: RoutineClaim,
   ) {
@@ -122,6 +122,16 @@ const make = Effect.gen(function* () {
 
     return { ...run, status: "running" as const, ...dispatched };
   });
+
+  // Otto: Runs this server is starting right now. Recovery restarts only claims left behind
+  // by an earlier server, so a Run now in progress is never dispatched a second time.
+  const starting = new Set<string>();
+
+  const execute = (routine: Routine, claim: RoutineClaim) =>
+    Effect.sync(() => starting.add(claim.runId)).pipe(
+      Effect.andThen(startRun(routine, claim)),
+      Effect.ensuring(Effect.sync(() => starting.delete(claim.runId))),
+    );
 
   const claimAndExecute = Effect.fn("RoutineRuntime.claimAndExecute")(function* (
     routine: Routine,
@@ -338,6 +348,7 @@ const make = Effect.gen(function* () {
     }
 
     for (const claim of yield* repository.listRecoverable) {
+      if (starting.has(claim.runId)) continue;
       const routine = yield* repository.getById(claim.routineId);
 
       if (routine === null || routine.lifecycle === "deleted") {

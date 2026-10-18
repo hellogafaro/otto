@@ -332,6 +332,8 @@ const make = Effect.gen(function* () {
         }),
       ),
       Effect.asVoid,
+      // A run that ended meanwhile keeps its outcome.
+      Effect.catchTag("OrchestrationCommandInvariantError", () => Effect.void),
       Effect.orDie,
     );
 
@@ -350,7 +352,12 @@ const make = Effect.gen(function* () {
       usageRef: null,
       nextRunAt,
       createdAt: completedAt,
-    }).pipe(Effect.asVoid, Effect.orDie);
+    }).pipe(
+      Effect.asVoid,
+      // A run that ended meanwhile keeps its outcome.
+      Effect.catchTag("OrchestrationCommandInvariantError", () => Effect.void),
+      Effect.orDie,
+    );
 
   const recordFailed: RoutineRuntimeAdapterShape["recordFailed"] = (run, failure, completedAt) =>
     dispatch({
@@ -361,7 +368,12 @@ const make = Effect.gen(function* () {
       failure: { kind: failure.kind, message: failure.reason },
       usageRef: null,
       createdAt: completedAt,
-    }).pipe(Effect.asVoid, Effect.orDie);
+    }).pipe(
+      Effect.asVoid,
+      // A run that ended meanwhile keeps its outcome.
+      Effect.catchTag("OrchestrationCommandInvariantError", () => Effect.void),
+      Effect.orDie,
+    );
 
   const recordCanceled: RoutineRuntimeAdapterShape["recordCanceled"] = (run, completedAt) =>
     dispatch({
