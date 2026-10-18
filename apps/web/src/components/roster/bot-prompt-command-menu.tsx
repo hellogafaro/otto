@@ -97,7 +97,6 @@ export function BotPromptCommandMenu({
         command,
         description: action.title,
         ...(action.icon ? { icon: action.icon } : {}),
-        shortcutCommand: shortcut,
       },
       () => void action.run(),
     );
@@ -111,7 +110,6 @@ export function BotPromptCommandMenu({
         command: "invite",
         description: t("Add people or bots to this chat"),
         icon: RiUserAddLine,
-        shortcutCommand: "property.members",
       });
     }
 
@@ -126,7 +124,6 @@ export function BotPromptCommandMenu({
           command: "model",
           description: t("Change model"),
           icon: RiRobot2Line,
-          shortcutCommand: "modelPicker.toggle",
         },
         modelPicker.openModelPicker,
       );
@@ -139,7 +136,6 @@ export function BotPromptCommandMenu({
           command: "new",
           description: t("New chat"),
           icon: RiAddLine,
-          shortcutCommand: "item.new",
         },
         () => useRosterStore.getState().openNewChat({}),
       );

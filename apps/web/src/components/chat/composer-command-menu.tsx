@@ -5,7 +5,6 @@ import {
   type ProviderSkillSourceKind,
 } from "@otto/client-runtime/providerSkills";
 import {
-  type KeybindingCommand,
   type ProjectEntry,
   type ProviderDriverKind,
   type ServerProviderSkill,
@@ -18,7 +17,6 @@ import { type ComposerSlashCommand, type ComposerTriggerKind } from "../../compo
 import { BotAvatarView } from "../roster/bot-avatar-view";
 import type { GroupCandidate } from "../roster/group-member-checklist";
 import { PersonAvatar } from "../roster/person-avatar";
-import { ShortcutKbd } from "../shortcut-kbd";
 import { Badge } from "../ui/badge";
 import { Command, CommandGroup, CommandGroupLabel, CommandItem, CommandList } from "../ui/command";
 import { FileEntryIcon } from "./file-entry-icon";
@@ -40,8 +38,6 @@ export type ComposerCommandItem =
       label: string;
       description: string;
       icon?: RemixiconComponentType;
-      /** The keys that run the same action outside the composer, shown at the row's end. */
-      shortcutCommand?: KeybindingCommand;
     }
   | {
       id: string;
@@ -232,9 +228,6 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         <span className="min-w-0 max-w-48ch flex-1 truncate text-left text-secondary-label text-xs">
           {props.item.description}
         </span>
-        {props.item.type === "slash-command" && props.item.shortcutCommand ? (
-          <ShortcutKbd command={props.item.shortcutCommand} className="ms-auto" />
-        ) : null}
         {skillSourceKind ? (
           <SkillSourceBadge
             kind={skillSourceKind}
