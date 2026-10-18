@@ -40,7 +40,6 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { useLibraryData } from "../library/use-library";
 import { ActivitySection } from "./activity-section";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
 import { TaskDueDate } from "./task-due-date";
@@ -101,7 +100,6 @@ function TaskDetail({
   const { t } = useI18n();
   const updateTask = useAtomCommand(taskEnvironment.update);
   const { projects, participants, currentPersonId } = useWorkData();
-  const { files } = useLibraryData();
   const { open: openPicker, props: picker } = useWorkPickers<TaskPicker>("task", "task-properties");
 
   const [loggingTime, setLoggingTime] = useState(false);
@@ -202,7 +200,6 @@ function TaskDetail({
               refreshKey={`${task.updatedAt}:${task.timeEntries.length}`}
               participants={participants}
               projects={projects}
-              files={files}
               currentPersonId={currentPersonId}
             />
           ),

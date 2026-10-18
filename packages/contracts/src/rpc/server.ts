@@ -34,6 +34,9 @@ import {
   LibraryCreateUploadUrlInput,
   LibraryCreateUploadUrlResult,
   LibraryFileInput,
+  LibraryFolderInput,
+  LibraryGetFileResult,
+  LibraryGetFolderResult,
   LibraryListError,
   LibraryListQuery,
   LibraryListResult,
@@ -792,6 +795,18 @@ export const WsLibraryListRpc = Rpc.make(WS_METHODS.libraryList, {
   payload: LibraryListQuery,
   success: LibraryListResult,
   error: Schema.Union([LibraryListError, EnvironmentAuthorizationError]),
+});
+
+export const WsLibraryGetFileRpc = Rpc.make(WS_METHODS.libraryGetFile, {
+  payload: LibraryFileInput,
+  success: LibraryGetFileResult,
+  error: libraryError,
+});
+
+export const WsLibraryGetFolderRpc = Rpc.make(WS_METHODS.libraryGetFolder, {
+  payload: LibraryFolderInput,
+  success: LibraryGetFolderResult,
+  error: libraryError,
 });
 
 export const WsLibraryCreateUploadUrlRpc = Rpc.make(WS_METHODS.libraryCreateUploadUrl, {

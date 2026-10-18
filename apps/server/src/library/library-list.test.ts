@@ -11,6 +11,7 @@ import {
   LibraryFolderId,
   type LibraryListQuery,
   type LibraryViewer,
+  ProjectId,
   ThreadId,
   type Visibility,
   type WorkParticipant,
@@ -21,9 +22,12 @@ import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import type { ServerSecretStore } from "../auth/server-secret-store.ts";
+import { ProjectionGroupRepositoryLive } from "../persistence/layers/projection-groups.ts";
 import { ProjectionLibraryRepositoryLive } from "../persistence/layers/projection-library.ts";
 import { SqlitePersistenceMemory } from "../persistence/layers/sqlite.ts";
+import { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
 import { ProjectionLibraryRepository } from "../persistence/services/projection-library.ts";
+import { getLibraryFile, getLibraryFolder } from "./library-get.ts";
 import { listLibrary } from "./library-list.ts";
 
 const secret = new Uint8Array(32).fill(7);
@@ -52,11 +56,13 @@ const folder = (
     readonly by?: WorkParticipant;
     readonly visibility?: Visibility;
     readonly thread?: string;
+    readonly project?: string;
   },
 ): LibraryFolder => ({
   id: LibraryFolderId.make(id),
   parentId: fields.parent === undefined ? null : LibraryFolderId.make(fields.parent),
   ...(fields.thread === undefined ? {} : { threadId: ThreadId.make(fields.thread) }),
+  ...(fields.project === undefined ? {} : { projectId: ProjectId.make(fields.project) }),
   title: id,
   visibility: fields.visibility ?? "organization",
   createdBy: fields.by ?? bob,
@@ -104,6 +110,7 @@ const FOLDERS = [
   folder("deleted-bobs", { day: 12, parent: "chats", thread: "deleted" }),
   folder("missing-group", { day: 13, parent: "chats", thread: "missing-group" }),
   folder("missing-thread", { day: 14, parent: "chats", thread: "missing-thread" }),
+  folder("launch-project", { day: 24, parent: "pub", project: "launch" }),
 ];
 
 const FILES = [
@@ -116,6 +123,7 @@ const FILES = [
   file("in-pub", { day: 21, folder: "pub", type: "document" }),
   file("in-dm-private", { day: 22, folder: "dm-private" }),
   file("in-group-with-ada", { day: 23, folder: "group-with-ada" }),
+  file("in-project", { day: 25, folder: "launch-project", type: "image", title: "Alphabet" }),
 ];
 
 const THREADS = [
@@ -192,7 +200,9 @@ const ids = (result: {
 }) => result.items.map((item) => (item.kind === "folder" ? item.folder.id : item.file.id));
 
 const layer = it.layer(
-  ProjectionLibraryRepositoryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
+  Layer.mergeAll(ProjectionLibraryRepositoryLive, ProjectionGroupRepositoryLive).pipe(
+    Layer.provideMerge(SqlitePersistenceMemory),
+  ),
 );
 
 layer("listLibrary", (it) => {
@@ -327,6 +337,115 @@ layer("listLibrary", (it) => {
 
       const forged = yield* Effect.flip(list({ limit: 1, cursor: "x".repeat(60) }));
       assert.strictEqual(forged._tag, "LibraryListError");
+    }),
+  );
+
+  it.effect(
+    "lists a chat's or a project's folder, a title match, or everything under a folder",
+    () =>
+      Effect.gen(function* () {
+        const thread = (id: string) => ({ thread: ThreadId.make(id) });
+
+        assert.deepStrictEqual(ids(yield* list(thread("group-with-ada"))), ["in-group-with-ada"]);
+        assert.deepStrictEqual(ids(yield* list(thread("group-with-ada"), bobId)), []);
+        assert.deepStrictEqual(ids(yield* list(thread("dm-private"))), []);
+        assert.deepStrictEqual(ids(yield* list(thread("dm-private"), bobId)), ["in-dm-private"]);
+        assert.deepStrictEqual(ids(yield* list({ project: ProjectId.make("launch") })), [
+          "in-project",
+        ]);
+        assert.deepStrictEqual(ids(yield* list({ everywhere: true, title: "ALPHA" })), [
+          "in-project",
+          "image",
+        ]);
+        assert.deepStrictEqual(ids(yield* list({ title: "alpha" })), ["image"]);
+        assert.deepStrictEqual(
+          ids(yield* list({ folder: LibraryFolderId.make("chats"), everywhere: true })),
+          ["deleted-adas", "bots-only-group", "group-with-ada", "dm-shared", "in-group-with-ada"],
+        );
+        assert.deepStrictEqual(
+          ids(yield* list({ folder: LibraryFolderId.make("bobs"), everywhere: true })),
+          [],
+        );
+        assert.deepStrictEqual(
+          ids(yield* list({ folder: LibraryFolderId.make("bobs"), everywhere: true }, bobId)),
+          ["inside-bobs", "in-bobs"],
+        );
+      }),
+  );
+
+  it.effect("carries the folders above a page's items", () =>
+    Effect.gen(function* () {
+      const folderIds = (result: { readonly folders: ReadonlyArray<LibraryFolder> }) =>
+        result.folders.map((item) => item.id as string).toSorted();
+
+      assert.deepStrictEqual(folderIds(yield* list({})), []);
+      assert.deepStrictEqual(
+        folderIds(yield* list({ folder: LibraryFolderId.make("inside-bobs") }, bobId)),
+        ["bobs", "inside-bobs"],
+      );
+      assert.deepStrictEqual(folderIds(yield* list({ everywhere: true, type: ["image"] })), [
+        "launch-project",
+        "pub",
+      ]);
+    }),
+  );
+
+  it.effect("gets one file or folder only for someone who may see it, with its path", () =>
+    Effect.gen(function* () {
+      const services = {
+        projectionLibrary: yield* ProjectionLibraryRepository,
+        projectionGroups: yield* ProjectionGroupRepository,
+      };
+
+      const fileFor = (id: string, personId: typeof adaId) =>
+        getLibraryFile(LibraryFileId.make(id), personId, services).pipe(
+          Effect.map((result): [string, string[]] => [
+            result.file.id,
+            result.folders.map((item) => item.id).toSorted(),
+          ]),
+          Effect.catchTag("LibraryRequestError", (error) => Effect.succeed(error.detail)),
+        );
+
+      const folderFor = (id: string, personId: typeof adaId) =>
+        getLibraryFolder(LibraryFolderId.make(id), personId, services).pipe(
+          Effect.map((result): [string, string[]] => [
+            result.folder.id,
+            result.folders.map((item) => item.id).toSorted(),
+          ]),
+          Effect.catchTag("LibraryRequestError", (error) => Effect.succeed(error.detail)),
+        );
+
+      const noFile = "That Library file doesn't exist.";
+      const noFolder = "That Library folder doesn't exist.";
+
+      assert.deepStrictEqual(yield* fileFor("doc", adaId), ["doc", []]);
+      assert.deepStrictEqual(yield* fileFor("in-bobs", bobId), [
+        "in-bobs",
+        ["bobs", "inside-bobs"],
+      ]);
+      assert.strictEqual(yield* fileFor("in-bobs", adaId), noFile);
+      assert.strictEqual(yield* fileFor("bobs-private", adaId), noFile);
+      assert.deepStrictEqual(yield* fileFor("adas-private", adaId), ["adas-private", []]);
+      assert.deepStrictEqual(yield* fileFor("in-group-with-ada", adaId), [
+        "in-group-with-ada",
+        ["chats", "group-with-ada"],
+      ]);
+      assert.strictEqual(yield* fileFor("in-group-with-ada", bobId), noFile);
+      assert.strictEqual(yield* fileFor("in-dm-private", adaId), noFile);
+      assert.strictEqual(yield* fileFor("nothing", adaId), noFile);
+
+      assert.deepStrictEqual(yield* folderFor("inside-bobs", bobId), ["inside-bobs", ["bobs"]]);
+      assert.strictEqual(yield* folderFor("inside-bobs", adaId), noFolder);
+      assert.strictEqual(yield* folderFor("bobs", adaId), noFolder);
+      assert.deepStrictEqual(yield* folderFor("group-with-ada", adaId), [
+        "group-with-ada",
+        ["chats"],
+      ]);
+      assert.strictEqual(yield* folderFor("group-without-ada", adaId), noFolder);
+      assert.deepStrictEqual(yield* folderFor("deleted-adas", adaId), ["deleted-adas", ["chats"]]);
+      assert.strictEqual(yield* folderFor("deleted-bobs", adaId), noFolder);
+      assert.strictEqual(yield* folderFor("missing-group", adaId), noFolder);
+      assert.strictEqual(yield* folderFor("nothing", adaId), noFolder);
     }),
   );
 });

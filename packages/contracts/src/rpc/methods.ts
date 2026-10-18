@@ -30,6 +30,8 @@ export const WS_METHODS = {
 
   // Library methods
   libraryList: "library.list",
+  libraryGetFile: "library.getFile",
+  libraryGetFolder: "library.getFolder",
   libraryCreateUploadUrl: "library.createUploadUrl",
   libraryCreateDocument: "library.createDocument",
   libraryCreateSkill: "library.createSkill",

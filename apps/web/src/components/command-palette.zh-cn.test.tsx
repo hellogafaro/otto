@@ -10,6 +10,8 @@ vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 
 vi.mock("./routines/use-routine-search", () => ({ useRoutineSearch: () => [] }));
 
+vi.mock("./library/use-library", () => ({ useLibraryPages: () => ({ files: [], pages: [] }) }));
+
 vi.mock("../state/queries", () => ({
   useThreadSearch: () => ({ matches: [], isPending: false }),
 }));

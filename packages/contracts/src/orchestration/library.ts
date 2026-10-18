@@ -755,14 +755,19 @@ export const LibraryListTypeList = Schema.String.pipe(
 );
 
 /**
- * Every field narrows the list. It lists one folder's level, the top level without `folder`,
- * or with `everywhere` the matching items in every folder.
+ * Every field narrows the list. It lists one folder's level (`folder`, a chat's folder with
+ * `thread` or a project's with `project`), the top level without them, or with `everywhere`
+ * the matching items in every folder, or every folder beneath `folder`. `title` keeps titles
+ * containing it, ignoring case.
  */
 export const LibraryListFilter = Schema.Struct({
   folder: Schema.optional(LibraryFolderId),
+  thread: Schema.optional(ThreadId),
+  project: Schema.optional(ProjectId),
   everywhere: Schema.optional(Schema.Boolean),
   type: Schema.optional(LibraryListTypeList),
   creator: Schema.optional(WorkParticipantKey),
+  title: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
 });
 
 export type LibraryListFilter = typeof LibraryListFilter.Type;
@@ -800,12 +805,27 @@ export const LibraryListItem = Schema.Union([
 
 export type LibraryListItem = typeof LibraryListItem.Type;
 
+/** The folders above a page's items, which their paths and edit rights need. */
+const LibraryAncestors = Schema.Array(LibraryFolder);
+
 export const LibraryListResult = Schema.Struct({
   items: Schema.Array(LibraryListItem),
+  folders: LibraryAncestors,
   nextCursor: Schema.NullOr(ListCursor),
 });
 
 export type LibraryListResult = typeof LibraryListResult.Type;
+
+export const LibraryFolderInput = Schema.Struct({ folderId: LibraryFolderId });
+
+/** One file the viewer may see, with every folder above it. */
+export const LibraryGetFileResult = Schema.Struct({ file: LibraryFile, folders: LibraryAncestors });
+
+/** One folder the viewer may see, with every folder above it. */
+export const LibraryGetFolderResult = Schema.Struct({
+  folder: LibraryFolder,
+  folders: LibraryAncestors,
+});
 
 export class LibraryListError extends Schema.TaggedErrorClass<LibraryListError>()(
   "LibraryListError",

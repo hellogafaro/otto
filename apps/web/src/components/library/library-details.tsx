@@ -54,7 +54,7 @@ export function LibraryFileDetails({
 }) {
   const { t } = useI18n();
   const typeLabels = useLibraryTypeLabel();
-  const actions = useLibraryItemActions(environmentId, data, { kind: "file", file });
+  const actions = useLibraryItemActions(environmentId, { kind: "file", file });
   const folder = libraryFolderPath(data.folders, file.folderId)[0];
   const TypeIcon = LIBRARY_TYPE_ICONS[file.type];
   const bots = data.participants.allBots;

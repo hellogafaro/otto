@@ -120,6 +120,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.notificationsList]: AuthOrchestrationReadScope,
   [WS_METHODS.notificationsMarkRead]: AuthOrchestrationReadScope,
   [WS_METHODS.libraryList]: AuthOrchestrationReadScope,
+  [WS_METHODS.libraryGetFile]: AuthOrchestrationReadScope,
+  [WS_METHODS.libraryGetFolder]: AuthOrchestrationReadScope,
   [WS_METHODS.libraryCreateUploadUrl]: AuthOrchestrationOperateScope,
   [WS_METHODS.libraryCreateDocument]: AuthOrchestrationOperateScope,
   [WS_METHODS.libraryCreateSkill]: AuthOrchestrationOperateScope,

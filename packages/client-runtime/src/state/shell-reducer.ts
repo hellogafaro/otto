@@ -65,40 +65,6 @@ export function applyShellStreamEvent(
         groups: Arr.filter(snapshot.groups, (group) => group.id !== event.groupId),
         snapshotSequence: event.sequence,
       };
-    case "library-folder-upserted": {
-      const folders = snapshot.libraryFolders ?? [];
-
-      const nextFolders = folders.some((folder) => folder.id === event.folder.id)
-        ? Arr.map(folders, (folder) => (folder.id === event.folder.id ? event.folder : folder))
-        : Arr.append(folders, event.folder);
-
-      return { ...snapshot, libraryFolders: nextFolders, snapshotSequence: event.sequence };
-    }
-
-    case "library-folder-removed":
-      return {
-        ...snapshot,
-        libraryFolders: (snapshot.libraryFolders ?? []).filter(
-          (folder) => folder.id !== event.folderId,
-        ),
-        snapshotSequence: event.sequence,
-      };
-    case "library-file-upserted": {
-      const files = snapshot.libraryFiles ?? [];
-
-      const nextFiles = files.some((file) => file.id === event.file.id)
-        ? Arr.map(files, (file) => (file.id === event.file.id ? event.file : file))
-        : Arr.append(files, event.file);
-
-      return { ...snapshot, libraryFiles: nextFiles, snapshotSequence: event.sequence };
-    }
-
-    case "library-file-removed":
-      return {
-        ...snapshot,
-        libraryFiles: (snapshot.libraryFiles ?? []).filter((file) => file.id !== event.fileId),
-        snapshotSequence: event.sequence,
-      };
     case "task-upserted":
       return { ...snapshot, snapshotSequence: event.sequence };
 
@@ -143,11 +109,15 @@ export function applyShellStreamEvent(
       };
     }
 
-    // Otto: Routines live in their own cache, so their events only move the snapshot on.
+    // Otto: Routines and Library live in their own caches, so their events only move the snapshot on.
     case "routine-upserted":
     case "routine-removed":
     case "skill-assignment-upserted":
     case "skill-assignment-removed":
+    case "library-folder-upserted":
+    case "library-folder-removed":
+    case "library-file-upserted":
+    case "library-file-removed":
       return { ...snapshot, snapshotSequence: event.sequence };
     case "thread-upserted": {
       const threads = snapshot.threads.some((t) => t.id === event.thread.id)
