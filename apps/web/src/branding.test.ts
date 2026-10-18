@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { resolveServerBackedAppDisplayName } from "./branding.logic";
+import { formatAppDisplayName, resolveServerBackedAppDisplayName } from "./branding.logic";
 
 const originalWindow = globalThis.window;
 
@@ -48,5 +48,14 @@ describe("branding logic", () => {
         primaryServerVersion: "0.0.27",
       }),
     ).toBe("Otto (Alpha)");
+  });
+});
+
+describe("app display name", () => {
+  it("omits Alpha from production branding", () => {
+    expect(formatAppDisplayName({ baseName: "Otto", stageLabel: "Alpha" })).toBe("Otto");
+  });
+  it("keeps development branding separate", () => {
+    expect(formatAppDisplayName({ baseName: "Otto", stageLabel: "Dev" })).toBe("Otto (Dev)");
   });
 });
