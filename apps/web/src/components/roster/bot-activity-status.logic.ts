@@ -36,6 +36,8 @@ const TOOL_LABELS = {
   library_read: "Reading the library",
   library_create: "Saving to the library",
   library_update: "Editing a document",
+  library_share: "Sharing a file",
+  library_unshare: "Removing a public link",
   web_search: "Searching the web",
   web_fetch: "Reading a web page",
   image_create: "Making an image",

@@ -208,6 +208,7 @@ export const buildAppUnderTest = (options?: {
     projectionSnapshotQuery?: Partial<ProjectionSnapshotQuery.ProjectionSnapshotQuery["Service"]>;
     projectionBots?: Partial<ProjectionBots.ProjectionBotRepositoryShape>;
     projectionGroups?: Partial<ProjectionGroups.ProjectionGroupRepositoryShape>;
+    projectionLibrary?: Partial<ProjectionLibraryRepositoryShape>;
     projectionThreadMessages?: Partial<ProjectionThreadMessageRepositoryShape>;
     botUsageLedger?: Partial<BotUsageLedgerShape>;
     checkpointDiffQuery?: Partial<CheckpointDiffQuery.CheckpointDiffQuery["Service"]>;
@@ -594,6 +595,7 @@ export const buildAppUnderTest = (options?: {
             listFolders: () => Effect.succeed([]),
             listFiles: () => Effect.succeed([]),
             listChatThreads: () => Effect.succeed([]),
+            ...options?.layers?.projectionLibrary,
           } satisfies ProjectionLibraryRepositoryShape),
           Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
             getCommandReadModel: () => Effect.succeed(defaultOrchestrationReadModel()),

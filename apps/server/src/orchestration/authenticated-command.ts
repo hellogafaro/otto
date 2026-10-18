@@ -99,7 +99,12 @@ export function applyAuthenticatedCommandActor(
     }
 
     case "library.file.update": {
-      const { sizeBytes: _sizeBytes, expectedUpdatedAt: _expected, ...rest } = command;
+      const {
+        sizeBytes: _sizeBytes,
+        share: _share,
+        expectedUpdatedAt: _expected,
+        ...rest
+      } = command;
 
       return { ...rest, by: actorParticipant(actor) };
     }

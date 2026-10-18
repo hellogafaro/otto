@@ -59,4 +59,20 @@ export const libraryCatalog = {
   "{count} file": "{count} 个文件",
   "{count} files": "{count} 个文件",
   "{name} · {date}": "{name} · {date}",
+  "Anyone with the link can open the copy from {date}.":
+    "任何拥有链接的人都可以打开 {date} 的副本。",
+  "Anyone with the link can open this copy without signing in.":
+    "任何拥有链接的人无需登录即可打开此副本。",
+  "Copy link": "复制链接",
+  "Create link": "创建链接",
+  "No file here": "这里没有文件",
+  "Public link": "公开链接",
+  "Public link couldn't be removed": "无法移除公开链接",
+  "Public link couldn't be saved": "无法保存公开链接",
+  "Remove link": "移除链接",
+  "Share public link": "分享公开链接",
+  "The link shares the file as it is now. Later edits stay in Otto until you update the link.":
+    "链接分享的是文件的当前版本。之后的修改会保留在 Otto 中，直到你更新链接。",
+  "This link doesn't exist or was removed.": "此链接不存在或已被移除。",
+  "Update link": "更新链接",
 } as const;

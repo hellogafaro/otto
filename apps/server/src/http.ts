@@ -6,6 +6,10 @@ import {
   AuthOrchestrationReadScope,
   AuthSessionId,
   EnvironmentHttpApi,
+  LIBRARY_SHARED_ROUTE_PREFIX,
+  type LibrarySharedFile,
+  libraryContentType,
+  libraryDownloadName,
 } from "@otto/contracts";
 import { isDevProxiedPath } from "@otto/shared/devProxy";
 import { decodeOtlpTraceRecords } from "@otto/shared/observability";
@@ -36,6 +40,7 @@ import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/asset-access.ts";
 import { OrganizationAccounts } from "./auth/organization-accounts.ts";
 import { canReadAttachment } from "./orchestration/group-visibility.ts";
 import { ProjectionSnapshotQuery } from "./orchestration/services/projection-snapshot-query.ts";
+import { ProjectionBotRepository } from "./persistence/services/projection-bots.ts";
 import { ProjectionGroupRepository } from "./persistence/services/projection-groups.ts";
 import { ProjectionThreadMessageRepository } from "./persistence/services/projection-thread-messages.ts";
 import { DESKTOP_RENDERER_ORIGINS } from "./auth/organization-accounts-runtime.ts";
@@ -45,6 +50,7 @@ import {
   validateAttachmentUploadToken,
 } from "./assets/attachment-upload.ts";
 import {
+  findSharedFile,
   LIBRARY_UPLOAD_ROUTE_PREFIX,
   storeLibraryUpload,
   validateLibraryUploadToken,
@@ -361,6 +367,95 @@ export const libraryUploadRouteLayer = HttpRouter.add(
         Effect.succeed(HttpServerResponse.text(error.detail, { status: 400 })),
       ),
     );
+  }),
+);
+
+const SHARED_RESPONSE_HEADERS = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+  "X-Content-Type-Options": "nosniff",
+  "X-Robots-Tag": "noindex",
+};
+
+/**
+ * A public link, with no sign-in: `<shareId>` is the shared file's details and
+ * `<shareId>/content` its frozen copy (`?download=1` saves it). HTML runs sandboxed in an
+ * origin of its own; PDFs keep the browser's viewer; everything else is sandboxed without scripts.
+ */
+export const librarySharedRouteLayer = HttpRouter.add(
+  "GET",
+  `${LIBRARY_SHARED_ROUTE_PREFIX}/*`,
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = HttpServerRequest.toURL(request);
+
+    const notFound = HttpServerResponse.text("Not Found", {
+      status: 404,
+      headers: SHARED_RESPONSE_HEADERS,
+    });
+
+    if (Option.isNone(url)) return notFound;
+
+    const [shareId, part, extra] = url.value.pathname
+      .slice(`${LIBRARY_SHARED_ROUTE_PREFIX}/`.length)
+      .split("/");
+
+    if (!shareId || extra !== undefined || (part !== undefined && part !== "content")) {
+      return notFound;
+    }
+
+    const shared = yield* findSharedFile(shareId);
+
+    if (shared === null) return notFound;
+
+    const { file, share } = shared;
+
+    if (part === undefined) {
+      const sharedBy =
+        share.sharedBy.kind === "person"
+          ? share.sharedBy.displayName
+          : yield* (yield* ProjectionBotRepository).getById({ botId: share.sharedBy.botId }).pipe(
+              Effect.map((bot) =>
+                Option.match(bot, { onNone: () => "A bot", onSome: (row) => row.name }),
+              ),
+              Effect.orElseSucceed(() => "A bot"),
+            );
+
+      return yield* HttpServerResponse.json(
+        {
+          title: file.title,
+          extension: file.extension,
+          type: file.type,
+          sizeBytes: shared.sizeBytes,
+          sharedBy,
+          workspace: (yield* OrganizationAccounts).runtime.getOrganization()?.name ?? null,
+          sharedAt: share.sharedAt,
+        } satisfies LibrarySharedFile,
+        { headers: SHARED_RESPONSE_HEADERS },
+      );
+    }
+
+    const contentType = libraryContentType(file);
+    const download = url.value.searchParams.get("download") === "1";
+
+    const policy =
+      contentType === "application/pdf"
+        ? {}
+        : {
+            "Content-Security-Policy": contentType.startsWith("text/html")
+              ? "sandbox allow-scripts allow-popups"
+              : "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+          };
+
+    return yield* HttpServerResponse.file(shared.path, {
+      status: 200,
+      headers: {
+        ...SHARED_RESPONSE_HEADERS,
+        ...policy,
+        "Content-Type": contentType,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(libraryDownloadName(file))}`,
+      },
+    }).pipe(Effect.orElseSucceed(() => notFound));
   }),
 );
 

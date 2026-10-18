@@ -83,6 +83,10 @@ export function createOttoCatalogToolHandlers(
             backends.library!.read(decodeOttoToolInput("library_read", input)),
           library_update: async ({ input }) =>
             backends.library!.updateDocument(decodeOttoToolInput("library_update", input)),
+          library_share: async ({ input }) =>
+            backends.library!.share(decodeOttoToolInput("library_share", input)),
+          library_unshare: async ({ input }) =>
+            backends.library!.unshare(decodeOttoToolInput("library_unshare", input)),
           skill_read: async ({ input }) =>
             backends.library!.readSkillFile(decodeOttoToolInput("skill_read", input)),
           skill_create: async ({ input, responder }) =>
