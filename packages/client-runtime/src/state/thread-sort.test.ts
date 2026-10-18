@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  compareThreadActivity,
   planPinnedMove,
   sortPinnedThreadsByOrderKey,
   sortThreads,
+  type ThreadActivityInput,
   type ThreadSortInput,
 } from "./thread-sort.ts";
 
@@ -142,5 +144,60 @@ describe("sortPinnedThreadsByOrderKey", () => {
     ]);
 
     expect(sorted.map((thread) => thread.environmentId)).toEqual(["env-a", "env-b"]);
+  });
+});
+
+describe("compareThreadActivity", () => {
+  const chat = (id: string, overrides: Partial<ThreadActivityInput> = {}): ThreadActivityInput => ({
+    id,
+    createdAt: "2026-03-09T10:00:00.000Z",
+    latestUserMessageAt: null,
+    latestTurn: null,
+    ...overrides,
+  });
+
+  const order = (chats: ThreadActivityInput[]) =>
+    chats.toSorted(compareThreadActivity).map((thread) => thread.id);
+
+  it("keeps a chat in place while its turn runs, then moves it up when the turn settles", () => {
+    const working = chat("working", {
+      latestUserMessageAt: "2026-03-09T10:01:00.000Z",
+      latestTurn: {
+        state: "running",
+        requestedAt: "2026-03-09T10:01:00.000Z",
+        completedAt: "2026-03-09T10:09:00.000Z",
+      },
+    });
+
+    const newer = chat("newer", { latestUserMessageAt: "2026-03-09T10:02:00.000Z" });
+
+    expect(order([working, newer])).toEqual(["newer", "working"]);
+
+    const settled = {
+      ...working,
+      latestTurn: { ...working.latestTurn!, state: "completed" as const },
+    };
+
+    expect(order([settled, newer])).toEqual(["working", "newer"]);
+  });
+
+  it("moves a chat up when a person sends a message", () => {
+    const idle = chat("idle", { latestUserMessageAt: "2026-03-09T10:05:00.000Z" });
+
+    const finished = chat("finished", {
+      latestTurn: {
+        state: "completed",
+        requestedAt: "2026-03-09T10:01:00.000Z",
+        completedAt: "2026-03-09T10:04:00.000Z",
+      },
+    });
+
+    expect(order([finished, idle])).toEqual(["idle", "finished"]);
+  });
+
+  it("falls back to creation time and breaks ties on id", () => {
+    expect(
+      order([chat("a"), chat("b"), chat("c", { createdAt: "2026-03-09T11:00:00.000Z" })]),
+    ).toEqual(["c", "b", "a"]);
   });
 });

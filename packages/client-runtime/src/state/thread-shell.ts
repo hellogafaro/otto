@@ -12,6 +12,7 @@ import { Atom } from "effect/unstable/reactivity";
 import type { EnvironmentThreadShell } from "./models.ts";
 import { scopeThreadShell } from "./models.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
+import { compareThreadActivity } from "./thread-sort.ts";
 import {
   arrayElementsEqual,
   parseProjectRefCollectionKey,
@@ -44,10 +45,7 @@ const EMPTY_LATEST_OWNER_THREAD_IDS: LatestOwnerThreadIds = {
 };
 
 function isNewerThread(candidate: OrchestrationThreadShell, current: OrchestrationThreadShell) {
-  return (
-    (candidate.updatedAt.localeCompare(current.updatedAt) ||
-      candidate.id.localeCompare(current.id)) > 0
-  );
+  return compareThreadActivity(candidate, current) < 0;
 }
 
 function threadIdMapsEqual(
@@ -64,7 +62,7 @@ function threadIdMapsEqual(
 }
 
 /**
- * Picks the most recently updated unarchived thread for each bot and group.
+ * Picks the unarchived thread with the latest activity for each bot and group.
  * Ties break on thread id so the choice is stable.
  */
 export function latestOwnerThreadIds(
