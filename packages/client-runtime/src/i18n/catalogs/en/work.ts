@@ -111,7 +111,7 @@ export const workCatalog = {
   "{name} logged {duration} on {description}": "{name} logged {duration} on {description}",
   "Delete comment": "Delete comment",
   Home: "Home",
-  "Home, {count} unread": "Home, {count} unread",
+  "Notifications, {count} unread": "Notifications, {count} unread",
   "Welcome back": "Welcome back",
   "Morning, {name}": "Morning, {name}",
   "Good morning, {name}": "Good morning, {name}",
@@ -142,4 +142,16 @@ export const workCatalog = {
   "New reply": "New reply",
   "No tasks": "No tasks",
   "No chats": "No chats",
+  "Loading notifications…": "Loading notifications…",
+  "Hear when something needs you": "Hear when something needs you",
+  "When someone gives you a task, mentions you or answers you, it shows up here.":
+    "When someone gives you a task, mentions you or answers you, it shows up here.",
+  "Notifications on this device": "Notifications on this device",
+  "Show a notification when something needs you while Otto is in the background.":
+    "Show a notification when something needs you while Otto is in the background.",
+  "Your browser blocks Otto's notifications. Allow them in its site settings.":
+    "Your browser blocks Otto's notifications. Allow them in its site settings.",
+  "This browser can't show notifications.": "This browser can't show notifications.",
+  "You're all caught up": "You're all caught up",
+  Earlier: "Earlier",
 } as const;

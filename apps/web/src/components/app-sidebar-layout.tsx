@@ -15,6 +15,7 @@ import { getLocalStorageItem, removeLocalStorageItem } from "../hooks/use-local-
 import { useI18n } from "../i18n";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import { primaryServerKeybindingsAtom } from "../state/server";
+import { NotificationAlerts } from "./notifications/notification-alerts";
 import BotRosterSidebar from "./roster/bot-roster-sidebar";
 import {
   ExperimentalSidebar,
@@ -220,6 +221,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     >
       {isElectron ? <DesktopTabStrip /> : null}
       <ProjectProjectionRetention />
+      <NotificationAlerts />
       <Sidebar
         side="left"
         collapsible="icon"
