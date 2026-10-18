@@ -14,6 +14,8 @@ interface ComposerPendingApprovalActionsProps {
   requestId: ApprovalRequestId;
   requestKind?: ProviderRequestKind | undefined;
   toolName?: string | undefined;
+  /** A skill or instructions a bot proposes, which a person approves or declines as a whole. */
+  proposal?: boolean | undefined;
   isResponding: boolean;
   options?: ReadonlyArray<ProviderApprovalOption> | undefined;
   onRespondToApproval: (
@@ -37,6 +39,13 @@ function routineApprovalOptions(t: Translate): ReadonlyArray<ProviderApprovalOpt
   return [
     { decision: "decline", label: t("Don't create") },
     { decision: "accept", label: t("Create routine") },
+  ];
+}
+
+function proposalApprovalOptions(t: Translate): ReadonlyArray<ProviderApprovalOption> {
+  return [
+    { decision: "decline", label: t("Decline") },
+    { decision: "accept", label: t("Approve") },
   ];
 }
 
@@ -67,6 +76,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
   requestId,
   requestKind,
   toolName,
+  proposal = false,
   isResponding,
   options: providedOptions,
   onRespondToApproval,
@@ -77,9 +87,11 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
 
   const visibleOptions = isRoutine
     ? routineApprovalOptions(t)
-    : requestKind === "command"
-      ? commandApprovalOptions(options, t)
-      : options;
+    : proposal
+      ? proposalApprovalOptions(t)
+      : requestKind === "command"
+        ? commandApprovalOptions(options, t)
+        : options;
 
   return (
     <>

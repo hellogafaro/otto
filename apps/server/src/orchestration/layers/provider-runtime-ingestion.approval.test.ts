@@ -90,6 +90,27 @@ describe("runtimeEventToActivities approval details", () => {
     expect(JSON.stringify(runtimeEventToActivities(event)[0]?.payload)).not.toContain("secret");
   });
 
+  it("keeps the instructions a bot proposes for itself, not its other profile fields", () => {
+    const event = {
+      type: "request.opened",
+      eventId: EventId.make("evt-instructions-request"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: "2026-10-18T00:00:00.000Z",
+      threadId: ThreadId.make("thread-1"),
+      requestId: RuntimeRequestId.make("approval-instructions"),
+      payload: {
+        requestType: "dynamic_tool_call",
+        toolName: "bot_update",
+        args: { title: "Sales ops", instructions: "Own the weekly pipeline report." },
+      },
+    } satisfies ProviderRuntimeEvent;
+
+    expect(runtimeEventToActivities(event)[0]?.payload).toMatchObject({
+      args: { instructions: "Own the weekly pipeline report." },
+    });
+    expect(JSON.stringify(runtimeEventToActivities(event)[0]?.payload)).not.toContain("Sales ops");
+  });
+
   it("preserves complete multiline command details", () => {
     const detail = `bun run release -- ${"long-argument ".repeat(20)}\nsecond line`;
 
