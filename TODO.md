@@ -33,10 +33,11 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 
 ## Next
 
-- **Long messages** fold after a few lines, with a click to expand.
 - **Meeting recordings**: record a call, then transcribe and summarize it.
 - **Composio triggers**: let an event from a connected app start a bot or routine.
-- **Allow all** is missing on some tool approvals.
+- **Always allow per app.** An Always allow rule covers one kind of action per tool, so "Always
+  allow send" on Composio's combined tool allows sending through every connected app, Gmail and Slack
+  alike. Scope the rule to the app, for example Gmail send.
 - **gh on bot computers.** A bot said "The \`gh\` CLI isn't installed on my machine, so I use git and the
   GitHub API directly." Install \`gh\` on bot computers.
 - **Recurring tasks.**

@@ -185,4 +185,78 @@ describe("AgentControllerLive Always allow", () => {
       mastra.factory,
     );
   });
+
+  it.effect("asks before a connector batch sends, and keeps Always allow to that kind", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    return provideController(
+      Effect.gen(function* () {
+        const { events, saved, allowAlways } = yield* startBotTurn(mastra);
+
+        const batch = (toolCallId: string, ...slugs: string[]) =>
+          mastra.emit({
+            type: "tool_approval_required",
+            toolCallId,
+            toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+            args: { tools: slugs.map((tool_slug) => ({ tool_slug, arguments: {} })) },
+          } as AgentControllerEvent);
+
+        batch("send-1", "LINEAR_CREATE_LINEAR_ISSUE", "GMAIL_SEND_EMAIL");
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(events).toContainEqual(
+              expect.objectContaining({
+                type: "request.opened",
+                requestId: "send-1",
+                payload: expect.objectContaining({
+                  action: "send",
+                  options: [
+                    { decision: "decline", label: "Never" },
+                    { decision: "acceptAlways", label: "Always allow" },
+                    { decision: "accept", label: "Allow once" },
+                  ],
+                }),
+              }),
+            ),
+          ),
+        );
+        yield* allowAlways("send-1");
+        expect(saved).toContainEqual(
+          expect.objectContaining({
+            type: "bot.update",
+            alwaysAllow: expect.objectContaining({
+              toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+              action: "send",
+            }),
+          }),
+        );
+
+        batch("send-2", "GMAIL_SEND_EMAIL");
+        batch("send-delete", "GMAIL_SEND_EMAIL", "GITHUB_DELETE_A_REPOSITORY");
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
+              toolCallId: "send-2",
+              decision: "approve",
+            }),
+          ),
+        );
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(events).toContainEqual(
+              expect.objectContaining({ type: "request.opened", requestId: "send-delete" }),
+            ),
+          ),
+        );
+        expect(mastra.session.respondToToolApproval).not.toHaveBeenCalledWith({
+          toolCallId: "send-delete",
+          decision: "approve",
+        });
+        mastra.finishSend();
+      }),
+      bridge.service,
+      mastra.factory,
+    );
+  });
 });
