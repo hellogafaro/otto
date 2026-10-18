@@ -25,8 +25,9 @@ import { registerChatPaletteActions } from "../../chat-actions-registry";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useNowMinute } from "../../hooks/use-now-minute";
 import { useI18n } from "../../i18n";
-import { resolveShortcutCommand } from "../../keybindings";
+import { resolveShortcutCommand, shortcutLabelForCommand } from "../../keybindings";
 import { isModelPickerOpen } from "../../model-picker-visibility";
+import { useShortcutHintsVisible } from "../../shortcut-hints";
 import {
   readEnvironmentSupportsPinning,
   readEnvironmentSupportsSettlement,
@@ -53,6 +54,7 @@ import {
   MenuItem,
   MenuPopup,
   MenuSeparator,
+  MenuShortcut,
   MenuSub,
   MenuSubPopup,
   MenuSubTrigger,
@@ -86,6 +88,7 @@ export function ChatActionsMenu({
   const nowMinute = useNowMinute();
   const now = `${nowMinute}:00.000Z`;
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const shortcutHintsVisible = useShortcutHintsVisible();
 
   const lastVisitedAt = useUiStateStore((state) =>
     threadRef ? state.threadLastVisitedAtById[scopedThreadKey(threadRef)] : undefined,
@@ -195,6 +198,10 @@ export function ChatActionsMenu({
 
   const snoozePresets = resolveSnoozePresets(new Date());
 
+  const settleShortcut = shortcutHintsVisible
+    ? shortcutLabelForCommand(keybindings, "thread.settle")
+    : null;
+
   const snoozedUntilLabel = state.snoozedUntil
     ? formatDate(new Date(state.snoozedUntil), {
         weekday: "short",
@@ -299,6 +306,7 @@ export function ChatActionsMenu({
               <MenuItem disabled={!state.canSettle} onClick={() => void actions.settle(threadRef)}>
                 <RiCheckDoubleLine />
                 {t("Settle chat")}
+                {settleShortcut ? <MenuShortcut>{settleShortcut}</MenuShortcut> : null}
               </MenuItem>
             )
           ) : null}
