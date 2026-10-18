@@ -68,6 +68,10 @@ property pickers, such as `S` for status. Commands that change an item, such as 
 unread, snooze, archive and assign to me, have no single-letter default. Run them from the item's
 More actions menu or the command palette, or bind a key from **Settings > Keyboard**.
 
+While a More actions menu is open, each of those rows shows its letter: `R` rename, `P` pin, `U`
+mark unread, `H` snooze, `E` archive and `I` assign to me. Press the letter to run that row. A
+letter only works inside the open menu, and once you start filtering, letters type into the filter.
+
 The rail's places (`navigation.home`, `navigation.chats` and the rest) have no default shortcut.
 
 These chat commands have no default shortcut. Add one from **Settings > Keyboard** to use them:

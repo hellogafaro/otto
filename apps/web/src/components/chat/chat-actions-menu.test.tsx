@@ -71,6 +71,7 @@ vi.mock("../ui/menu", () => ({
   MenuSub: ({ children }: { children: ReactNode }) => children,
   MenuSubPopup: ({ children }: { children: ReactNode }) => children,
   MenuSeparator: () => null,
+  MenuLetter: () => null,
   MenuTrigger: () => null,
   MenuSubTrigger: (props: Item & { children: ReactNode }) => {
     mocks.subTriggers.set(textOf(props.children), props);
