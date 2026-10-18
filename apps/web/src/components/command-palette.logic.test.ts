@@ -3,13 +3,12 @@ import {
   activeComposerModelPicker,
   registerComposerModelPicker,
 } from "../composer-model-picker-registry";
-import { activeChatPaletteActions, registerChatPaletteActions } from "../chat-actions-registry";
 import {
-  buildChatCommandPaletteItems,
   buildChatSearchCommandPaletteItems,
   buildEnvironmentOwnerNames,
   buildLanguageCommandPaletteAction,
   buildModelPickerCommandPaletteAction,
+  buildPageCommandPaletteItems,
   filterCommandPaletteGroups,
   type CommandPaletteChat,
   type CommandPaletteGroup,
@@ -133,74 +132,59 @@ describe("roadmap palette commands", () => {
   });
 });
 
-describe("chat actions in the command palette", () => {
-  it("publishes the open chat's actions until that chat unmounts", () => {
-    const first = Symbol("first");
-    const second = Symbol("second");
-    const pin = { id: "pin", title: "Pin chat", searchTerms: ["pin"], run: vi.fn() };
-    const cleanupFirst = registerChatPaletteActions(first, [pin]);
-    expect(activeChatPaletteActions()).toEqual([pin]);
-
-    const cleanupSecond = registerChatPaletteActions(second, []);
-    cleanupFirst();
-    expect(activeChatPaletteActions()).toEqual([]);
-    registerChatPaletteActions(second, [pin]);
-    cleanupFirst();
-    expect(activeChatPaletteActions()).toEqual([pin]);
-    cleanupSecond();
-    expect(activeChatPaletteActions()).toEqual([]);
-  });
-
-  it("turns chat actions into searchable palette rows that run the action", async () => {
+describe("page actions in the command palette", () => {
+  it("turns page actions into searchable palette rows that run the action", async () => {
     const run = vi.fn();
 
-    const [item] = buildChatCommandPaletteItems({
+    const [item] = buildPageCommandPaletteItems({
       actions: [
         {
           id: "new",
           title: "New chat",
           searchTerms: ["new chat", "fresh"],
-          shortcutCommand: "chat.new",
+          shortcutCommand: "item.new",
           run,
         },
       ],
-      icon: null,
+      renderIcon: () => null,
     });
 
     expect(item).toMatchObject({
-      value: "chat:new",
+      value: "page:new",
       title: "New chat",
-      shortcutCommand: "chat.new",
-      searchTerms: ["New chat", "chat", "new chat", "fresh"],
+      shortcutCommand: "item.new",
+      searchTerms: ["New chat", "new chat", "fresh"],
     });
 
     const filtered = filterCommandPaletteGroups({
-      groups: [{ value: "chat", label: "This chat", items: item ? [item] : [] }],
+      groups: [{ value: "page", label: "This chat", items: item ? [item] : [] }],
       query: "fresh",
     });
 
-    expect(filtered[0]?.items.map((entry) => entry.value)).toEqual(["chat:new"]);
+    expect(filtered[0]?.items.map((entry) => entry.value)).toEqual(["page:new"]);
     await item?.run();
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("shows an action's description, such as a snooze preset's wake time", () => {
-    const [snooze, pin] = buildChatCommandPaletteItems({
+  it("keeps a disabled action visible but marked, with its description", () => {
+    const [archive, pin] = buildPageCommandPaletteItems({
       actions: [
         {
-          id: "snooze:hour",
-          title: "Snooze chat: In 1 hour",
-          description: "1:00 PM",
-          searchTerms: ["snooze"],
+          id: "archive",
+          title: "Archive chat",
+          description: "Stop the run first",
+          searchTerms: ["archive"],
+          disabled: true,
           run: () => undefined,
         },
         { id: "pin", title: "Pin chat", searchTerms: ["pin"], run: () => undefined },
       ],
-      icon: null,
+      renderIcon: () => null,
     });
 
-    expect(snooze?.description).toBe("1:00 PM");
+    expect(archive).toMatchObject({ disabled: true, description: "Stop the run first" });
     expect(pin).not.toHaveProperty("description");
+    expect(pin).not.toHaveProperty("disabled");
   });
 });
 

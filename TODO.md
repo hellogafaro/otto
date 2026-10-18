@@ -42,14 +42,13 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
   GitHub API directly." Install \`gh\` on bot computers.
 - **Recurring tasks.**
 - **Public file sharing**: share a file through a public link.
-- **Commands everywhere**: palette commands for every action, for speed.
+- **Commands everywhere, the rest**: Otto `/` commands in the composer (`/invite @name`, `/snooze`,
+  `/rename`, `/archive`, `/model`, `/new`), property keys that open a page's pickers (S status,
+  A assignee and so on) and item keys on the highlighted row of an index table.
 - **Better memory.**
 - **Email addresses for bots.**
 - **Relay architecture**: a proper relay between apps and servers.
 - **Filters on index tables** (Tasks, Projects, Routines, Library).
-- **More page actions**, for example Copy link and Copy ID on a task.
-- **Global search** in the command palette.
-- **Shortcuts for menu actions**: real shortcuts for chat, task, project and other actions, shown in their menus, for example Rename R, Pin P, Mark unread U, Snooze H, Archive E, Delete ⌘⌫, Copy link ⌘⇧, and Copy ID ⌘. (letters work when you aren't typing).
 
 ## Not verified yet
 

@@ -9,10 +9,12 @@ import {
 import { RiAddLine, RiBox3Line, RiListCheck3 } from "@remixicon/react";
 import { useAtomValue } from "@effect/atom-react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
+import { useCreateRequest } from "../../create-request-store";
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { environmentTasksAtom } from "../../state/tasks";
@@ -193,6 +195,33 @@ export function TasksPage({ filter }: { readonly filter: TaskListFilter }) {
   const canCreate = environmentId !== null && activeProjects.length > 0;
   const visible = sortTasks(tasks.filter((task) => matchesTaskFilter(task, filter)));
 
+  // Otto: Tasks need a project, so with none yet New starts the first project instead.
+  const openNewTask = useCallback(
+    () => (canCreate ? setTaskDialogOpen(true) : setProjectDialogOpen(true)),
+    [canCreate],
+  );
+
+  useCreateRequest("task", loaded && environmentId !== null, openNewTask);
+
+  const pageActions = useMemo(
+    (): PageAction[] =>
+      environmentId
+        ? [
+            {
+              id: "new-task",
+              title: t("New task"),
+              icon: RiAddLine,
+              searchTerms: ["new task", "create", "add", "todo"],
+              shortcutCommand: "item.new",
+              run: openNewTask,
+            },
+          ]
+        : [],
+    [environmentId, openNewTask, t],
+  );
+
+  usePageActions(t("Tasks"), pageActions);
+
   return (
     <WorkPage
       actions={
@@ -283,6 +312,29 @@ export function ProjectsPage({ filter }: { readonly filter: ProjectListFilter })
   const visible = projects
     .filter((project) => matchesProjectFilter(project, filter))
     .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+
+  const openNewProject = useCallback(() => setDialogOpen(true), []);
+
+  useCreateRequest("project", loaded && environmentId !== null, openNewProject);
+
+  const pageActions = useMemo(
+    (): PageAction[] =>
+      environmentId
+        ? [
+            {
+              id: "new-project",
+              title: t("New project"),
+              icon: RiAddLine,
+              searchTerms: ["new project", "create", "add"],
+              shortcutCommand: "item.new",
+              run: openNewProject,
+            },
+          ]
+        : [],
+    [environmentId, openNewProject, t],
+  );
+
+  usePageActions(t("Projects"), pageActions);
 
   return (
     <WorkPage

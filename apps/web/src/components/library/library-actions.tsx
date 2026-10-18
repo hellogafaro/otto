@@ -32,7 +32,7 @@ import { useState } from "react";
 import { useI18n } from "../../i18n";
 import { ensureLocalApi } from "../../local-api";
 import { cn } from "../../lib/utils";
-import { CopyMenuItems } from "../copy-menu-items";
+import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
 import { libraryEnvironment } from "../../state/library";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
@@ -405,8 +405,6 @@ export function LibraryItemMenu({
   const editable = !isHolder && data.canEdit(item);
   const [sharing, setSharing] = useState(false);
 
-  if (isHolder) return null;
-
   const path =
     target.kind === "file" && target.file.type === "document"
       ? `/library/${target.file.id}`
@@ -420,6 +418,10 @@ export function LibraryItemMenu({
                   preview: target.file.id,
                 },
         }).href;
+
+  const copy = useCopyPageActions(path, item.id);
+
+  if (isHolder) return null;
 
   return (
     <>
@@ -475,7 +477,7 @@ export function LibraryItemMenu({
             </>
           ) : null}
           {target.kind === "file" || editable ? <MenuSeparator /> : null}
-          <CopyMenuItems path={path} id={item.id} />
+          <CopyMenuItems actions={copy} />
           {editable && !isFixedFolder ? (
             <>
               <MenuSeparator />

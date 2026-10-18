@@ -501,4 +501,9 @@ export const commonLabelsCatalog = {
   Tabs: "Tabs",
   "New tab": "New tab",
   "Close tab": "Close tab",
+  "Go to": "Go to",
+  "New…": "New…",
+  "Snooze…": "Snooze…",
+  "This task": "This task",
+  "This routine": "This routine",
 } as const;

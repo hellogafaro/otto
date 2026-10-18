@@ -45,7 +45,7 @@ describe("KeybindingsSettingsPanel", () => {
   it("renders one card per purpose group with collapsed numbered series", () => {
     const html = render();
 
-    for (const title of ["General", "Chats", "Composer &amp; models", "Layout"]) {
+    for (const title of ["General", "This page", "Chats", "Composer &amp; models", "Layout"]) {
       expect(html).toContain(`>${title}</h2>`);
     }
 
@@ -53,7 +53,7 @@ describe("KeybindingsSettingsPanel", () => {
     expect(html).toContain("Pick model 1–9");
     expect(html).not.toContain("Jump to chat 4");
     expect(html).toContain("Change shortcut for Open command palette, currently ⌘ K");
-    expect(html).toContain("Record shortcut for New chat");
+    expect(html).toContain("Change shortcut for New, currently C");
     expect(html).not.toContain('type="search"');
     expect(html).not.toContain("Reset to default");
   });
