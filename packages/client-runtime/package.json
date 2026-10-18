@@ -232,9 +232,9 @@
       "types": "./src/state/thread-sort.ts",
       "default": "./src/state/thread-sort.ts"
     },
-    "./state/thread-settled": {
-      "types": "./src/state/thread-settled.ts",
-      "default": "./src/state/thread-settled.ts"
+    "./state/thread-snoozed": {
+      "types": "./src/state/thread-snoozed.ts",
+      "default": "./src/state/thread-snoozed.ts"
     },
     "./state/thread-search": {
       "types": "./src/state/thread-search.ts",

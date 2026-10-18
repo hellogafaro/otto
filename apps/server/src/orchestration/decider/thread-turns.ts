@@ -20,6 +20,7 @@ import {
   requireBotNotArchived,
   requireGroup,
   requireThread,
+  requireThreadNotArchived,
 } from "../command-invariants.ts";
 import {
   withEventBase,
@@ -91,7 +92,8 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
 > {
   switch (command.type) {
     case "thread.turn.start": {
-      const targetThread = yield* requireThread({
+      // An archived chat stays readable, but a stale client or queued send cannot add to it.
+      const targetThread = yield* requireThreadNotArchived({
         readModel,
         command,
         threadId: command.threadId,
@@ -275,28 +277,9 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         },
       };
 
-      // Real activity resets any override. It wakes an explicitly settled
-      // thread and clears an active override back to neutral.
-      // A snooze clears the same way — sending a message to a snoozed
-      // thread is the user re-engaging, so the return ticket is spent.
+      // Sending a message to a snoozed thread is the user re-engaging, so
+      // the return ticket is spent.
       const lifecycleResetEvents: Array<Omit<OrchestrationEvent, "sequence">> = [];
-
-      if (targetThread.settledOverride !== null) {
-        lifecycleResetEvents.push({
-          ...(yield* withEventBase({
-            aggregateKind: "thread",
-            aggregateId: command.threadId,
-            occurredAt: command.createdAt,
-            commandId: command.commandId,
-          })),
-          type: "thread.unsettled",
-          payload: {
-            threadId: command.threadId,
-            reason: "activity",
-            updatedAt: command.createdAt,
-          },
-        });
-      }
 
       if (targetThread.snoozedUntil != null) {
         lifecycleResetEvents.push({

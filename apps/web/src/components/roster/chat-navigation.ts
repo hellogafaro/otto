@@ -17,12 +17,8 @@ import { usePrimarySettings } from "../../hooks/use-settings";
 import { useI18n } from "../../i18n";
 import { newThreadId } from "../../lib/utils";
 import { resolveAppModelSelectionState } from "../../model-selection";
-import {
-  readThreadShells,
-  useProjects,
-  useThreadShell,
-  waitForThreadShell,
-} from "../../state/entities";
+import { readThreadShells, useProjects, waitForThreadShell } from "../../state/entities";
+import { useChatShell } from "../../lib/archived-threads-state";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { primaryServerProvidersAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
@@ -215,7 +211,7 @@ export function useRoutedChat(): {
     [environmentId, threadId],
   );
 
-  const shell = useThreadShell(threadRef);
+  const { shell } = useChatShell(threadRef);
 
   return useMemo(
     () =>

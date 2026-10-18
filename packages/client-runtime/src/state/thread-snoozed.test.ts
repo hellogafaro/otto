@@ -10,7 +10,7 @@ import {
   threadRaisedHandWhileSnoozed,
   threadWokeAt,
   type ThreadSnoozeShell,
-} from "./thread-settled.ts";
+} from "./thread-snoozed.ts";
 
 const NOW = "2026-04-10T12:00:00.000Z";
 

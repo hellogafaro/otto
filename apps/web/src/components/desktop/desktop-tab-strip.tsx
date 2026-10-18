@@ -6,6 +6,7 @@ import {
   RiChat1Line,
   RiCloseLine,
   RiHome5Line,
+  RiInbox2Line,
   RiListCheck3,
   RiSettings3Line,
   RiShapesLine,
@@ -50,6 +51,7 @@ interface TabPlace {
 
 const PLACES: ReadonlyArray<TabPlace & { readonly base: string }> = [
   { base: "/settings", label: "Settings", icon: RiSettings3Line },
+  { base: "/notifications", label: "Notifications", icon: RiInbox2Line },
   { base: "/tasks", label: "Tasks", icon: RiListCheck3 },
   { base: "/projects", label: "Projects", icon: RiBox3Line },
   { base: "/routines", label: "Routines", icon: RiTimeLine },

@@ -197,14 +197,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
     if (!ottoTool) throw new Error(`Tool '${tool.id}' has no definition.`);
     ensureWorkspaceCwd(ottoTool.id, input);
 
-    return ottoToolRequiresApproval(
-      ottoTool,
-      {
-        localFullAccess: session.runtimeMode === "full-access",
-        workspaceType: session.workspaceType,
-      },
-      input,
-    );
+    return ottoToolRequiresApproval(ottoTool, { workspaceType: session.workspaceType });
   };
 
   return {

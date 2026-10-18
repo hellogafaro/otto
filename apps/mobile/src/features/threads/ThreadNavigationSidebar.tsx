@@ -4,7 +4,7 @@ import { threadSearchMatchKey } from "@otto/client-runtime/state/thread-search";
 import { LegendList } from "@legendapp/list/react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
-import { Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,16 +36,9 @@ import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
   threadListV2TimeLabel,
-  ThreadListV2SettledShelfHeader,
   ThreadListV2SnoozedShelfHeader,
 } from "./thread-list-v2-items";
-import { THREAD_LIST_V2_SETTLED_PAGE_COUNT, type ThreadListV2ListItem } from "./threadListV2";
-
-/** Flat Thread List v2 rows with queued tasks spliced in, plus the settled
-    "Show more" pager. */
-type SidebarListItem =
-  | ThreadListV2ListItem
-  | { readonly type: "v2-show-more"; readonly key: string; readonly hiddenCount: number };
+import type { ThreadListV2ListItem } from "./threadListV2";
 
 interface ThreadNavigationSidebarProps {
   readonly width: number;
@@ -115,10 +108,8 @@ function ThreadNavigationSidebarPane(
   const {
     archiveThread,
     confirmDeleteThread,
-    settleThread,
     snoozeThread,
     unsnoozeThread,
-    unsettleThread,
     pinThread,
     unpinThread,
     movePinnedThread,
@@ -160,9 +151,7 @@ function ThreadNavigationSidebarPane(
     arrangedPinnedKeys,
     nowMinute,
     shelves,
-    listItems: threadListItems,
-    hiddenSettledCount,
-    showMoreSettled,
+    listItems,
   } = useThreadListV2Projection({
     threads,
     projects,
@@ -176,19 +165,13 @@ function ThreadNavigationSidebarPane(
   });
 
   const {
-    settlement: settlementEnvironmentIds,
     snooze: snoozeEnvironmentIds,
     pinning: pinningEnvironmentIds,
     pinReorder: pinReorderEnvironmentIds,
     titleRegeneration: titleRegenerationEnvironmentIds,
   } = capabilities;
 
-  const {
-    loaded: shelfPreferencesLoaded,
-    settledShelfExpanded,
-    toggleSettledShelf,
-    toggleSnoozedShelf,
-  } = shelves;
+  const { loaded: shelfPreferencesLoaded, toggleSnoozedShelf } = shelves;
 
   const projectFilterOptions = useMemo(
     () =>
@@ -207,17 +190,6 @@ function ThreadNavigationSidebarPane(
       setSelectedProjectKey(null);
     }
   }, [projectFilterOptions, selectedProjectKey]);
-
-  const listItems = useMemo<readonly SidebarListItem[]>(
-    () =>
-      settledShelfExpanded && hiddenSettledCount > 0
-        ? [
-            ...threadListItems,
-            { type: "v2-show-more", key: "v2-show-more", hiddenCount: hiddenSettledCount },
-          ]
-        : threadListItems,
-    [hiddenSettledCount, settledShelfExpanded, threadListItems],
-  );
 
   const backgroundColor = useThemeColor("--color-drawer");
   const borderColor = useThemeColor("--color-border");
@@ -289,7 +261,7 @@ function ThreadNavigationSidebarPane(
   );
 
   const sidebarItemsAreEqual = useCallback(
-    (previous: SidebarListItem, item: SidebarListItem): boolean => {
+    (previous: ThreadListV2ListItem, item: ThreadListV2ListItem): boolean => {
       if (previous.type === "v2-thread" && item.type === "v2-thread") {
         return (
           previous.key === item.key &&
@@ -301,10 +273,6 @@ function ThreadNavigationSidebarPane(
         );
       }
 
-      if (previous.type === "v2-show-more" && item.type === "v2-show-more") {
-        return previous.hiddenCount === item.hiddenCount;
-      }
-
       if (previous.type === "v2-pending" && item.type === "v2-pending") {
         return (
           previous.pendingTask === item.pendingTask &&
@@ -313,10 +281,6 @@ function ThreadNavigationSidebarPane(
       }
 
       if (previous.type === "v2-snoozed-shelf" && item.type === "v2-snoozed-shelf") {
-        return previous.count === item.count && previous.expanded === item.expanded;
-      }
-
-      if (previous.type === "v2-settled-shelf" && item.type === "v2-settled-shelf") {
         return previous.count === item.count && previous.expanded === item.expanded;
       }
 
@@ -349,7 +313,7 @@ function ThreadNavigationSidebarPane(
   useHardwareKeyboardCommand("focusSearch", focusSearch);
 
   const renderListItem = useCallback(
-    ({ item }: { readonly item: SidebarListItem }) => {
+    ({ item }: { readonly item: ThreadListV2ListItem }) => {
       switch (item.type) {
         case "v2-pending": {
           const pendingScopeKey = scopedProjectKey(
@@ -426,8 +390,6 @@ function ThreadNavigationSidebarPane(
               onArchiveThread={archiveThread}
               onRegenerateThreadTitle={regenerateThreadTitle}
               titleRegenerationSupported={titleRegenerationEnvironmentIds.has(thread.environmentId)}
-              settlementSupported={settlementEnvironmentIds.has(thread.environmentId)}
-              onSettleThread={settleThread}
               snoozeSupported={snoozeEnvironmentIds.has(thread.environmentId)}
               pinningSupported={pinningEnvironmentIds.has(thread.environmentId)}
               pinReorderSupported={pinReorderEnvironmentIds.has(thread.environmentId)}
@@ -441,7 +403,6 @@ function ThreadNavigationSidebarPane(
               })()}
               onSnoozeThread={snoozeThread}
               onUnsnoozeThread={unsnoozeThread}
-              onUnsettleThread={unsettleThread}
               onPinThread={pinThread}
               onUnpinThread={unpinThread}
               onMovePinnedThread={movePinnedThread}
@@ -462,30 +423,6 @@ function ThreadNavigationSidebarPane(
               onToggle={toggleSnoozedShelf}
               pane="sidebar"
             />
-          );
-        case "v2-settled-shelf":
-          return (
-            <ThreadListV2SettledShelfHeader
-              count={item.count}
-              disabled={!shelfPreferencesLoaded}
-              expanded={item.expanded}
-              onToggle={toggleSettledShelf}
-              pane="sidebar"
-            />
-          );
-        case "v2-show-more":
-          return (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Show ${Math.min(item.hiddenCount, THREAD_LIST_V2_SETTLED_PAGE_COUNT)} more settled chats`}
-              onPress={showMoreSettled}
-              className="mx-4 mt-2 items-center rounded-lg border border-dashed border-border py-2.5"
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-            >
-              <Text className="text-xs font-ottoLegacy-medium text-foreground-muted">
-                Show more ({item.hiddenCount} settled hidden)
-              </Text>
-            </Pressable>
           );
       }
     },
@@ -514,17 +451,12 @@ function ThreadNavigationSidebarPane(
       shelfPreferencesLoaded,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
-      settleThread,
-      settlementEnvironmentIds,
-      showMoreSettled,
       sidebarScrollGesture,
       snoozeEnvironmentIds,
       snoozeThread,
       nowMinute,
-      toggleSettledShelf,
       toggleSnoozedShelf,
       unpinThread,
-      unsettleThread,
       unsnoozeThread,
     ],
   );

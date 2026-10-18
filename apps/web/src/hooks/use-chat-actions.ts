@@ -10,12 +10,16 @@ import { useCallback, useMemo } from "react";
 
 import { toast } from "sonner";
 import { useI18n } from "../i18n";
-import { refreshArchivedThreadsForEnvironment } from "../lib/archived-threads-state";
+import {
+  refreshArchivedThreadsForEnvironment,
+  setJustArchivedShell,
+} from "../lib/archived-threads-state";
 import { ensureLocalApi } from "../local-api";
 import {
   readEnvironmentSupportsPinReorder,
   readThreadShell,
   readThreadShells,
+  waitForThreadShell,
 } from "../state/entities";
 import { threadEnvironment } from "../state/threads";
 import { useAtomCommand } from "../state/use-atom-command";
@@ -42,6 +46,9 @@ function topOfPinnedRunOrderKey(
   return pinOrderKeyBetween(null, firstKey) ?? undefined;
 }
 
+/** How long Unarchive waits for the chat to rejoin the live list before refetching the archive. */
+const UNARCHIVED_SHELL_ARRIVAL_MS = 10_000;
+
 function input(threadRef: ScopedThreadRef) {
   return { environmentId: threadRef.environmentId, input: { threadId: threadRef.threadId } };
 }
@@ -57,8 +64,6 @@ export function useChatActions() {
   const archive = useAtomCommand(threadEnvironment.archive, { reportFailure: false });
   const unarchive = useAtomCommand(threadEnvironment.unarchive, { reportFailure: false });
   const remove = useAtomCommand(threadEnvironment.delete, { reportFailure: false });
-  const settle = useAtomCommand(threadEnvironment.settle, { reportFailure: false });
-  const unsettle = useAtomCommand(threadEnvironment.unsettle, { reportFailure: false });
   const snooze = useAtomCommand(threadEnvironment.snooze, { reportFailure: false });
   const unsnooze = useAtomCommand(threadEnvironment.unsnooze, { reportFailure: false });
   const pin = useAtomCommand(threadEnvironment.pin, { reportFailure: false });
@@ -131,15 +136,6 @@ export function useChatActions() {
       },
       unpin: (threadRef: ScopedThreadRef) =>
         report(t("Chat couldn't be unpinned"), () => unpin(input(threadRef))),
-      settle: (threadRef: ScopedThreadRef) =>
-        report(t("Chat couldn't be settled"), () => settle(input(threadRef))),
-      unsettle: (threadRef: ScopedThreadRef) =>
-        report(t("Chat couldn't be unsettled"), () =>
-          unsettle({
-            environmentId: threadRef.environmentId,
-            input: { threadId: threadRef.threadId, reason: "user" },
-          }),
-        ),
       snooze: (threadRef: ScopedThreadRef, snoozedUntil: string) =>
         report(t("Chat couldn't be snoozed"), () =>
           snooze({
@@ -158,23 +154,35 @@ export function useChatActions() {
         const completedAt = readThreadShell(threadRef)?.latestTurn?.completedAt;
         markThreadUnread(scopedThreadKey(threadRef), completedAt);
       },
+      // Otto: The open chat stays on screen, read-only, while it moves from the live list to the archive.
       archive: async (threadRef: ScopedThreadRef) => {
+        const shell = readThreadShell(threadRef);
+
+        if (shell)
+          setJustArchivedShell(threadRef, { ...shell, archivedAt: new Date().toISOString() });
+
         const archived = await report(t("Chat couldn't be archived"), () =>
           archive(input(threadRef)),
         );
 
         if (archived) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
+        else setJustArchivedShell(threadRef, null);
 
         return archived;
       },
+      // Otto: The archive is refetched once the chat is back in the live list, so an open chat
+      // never finds itself in neither.
       unarchive: async (threadRef: ScopedThreadRef) => {
         const restored = await report(t("Chat couldn't be unarchived"), () =>
           unarchive(input(threadRef)),
         );
 
-        if (restored) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
+        if (!restored) return false;
+        await waitForThreadShell(threadRef, UNARCHIVED_SHELL_ARRIVAL_MS);
+        setJustArchivedShell(threadRef, null);
+        refreshArchivedThreadsForEnvironment(threadRef.environmentId);
 
-        return restored;
+        return true;
       },
       /** Asks first unless the user turned delete confirmation off. */
       delete: async (threadRef: ScopedThreadRef) => {
@@ -200,7 +208,10 @@ export function useChatActions() {
 
         const deleted = await report(t("Chat couldn't be deleted"), () => remove(input(threadRef)));
 
-        if (deleted) refreshArchivedThreadsForEnvironment(threadRef.environmentId);
+        if (deleted) {
+          setJustArchivedShell(threadRef, null);
+          refreshArchivedThreadsForEnvironment(threadRef.environmentId);
+        }
 
         return deleted;
       },
@@ -212,13 +223,11 @@ export function useChatActions() {
       pin,
       remove,
       report,
-      settle,
       snooze,
       stopSession,
       t,
       unarchive,
       unpin,
-      unsettle,
       unsnooze,
       updateMetadata,
     ],

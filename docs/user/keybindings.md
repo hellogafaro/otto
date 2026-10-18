@@ -61,12 +61,11 @@ These chat commands have no default shortcut. Add one from **Settings > Keyboard
 
 - `chat.new` (**New chat**) starts a fresh chat with the open bot, once its current chat has a
   message.
-- `thread.settle` (**Settle chat**) settles the open chat.
 - `thread.previous` and `thread.next` (**Previous bot** and **Next bot**) move through bots in the
   same order as the numbered shortcuts, wrapping at either end.
 
-`chat.newLocal` is retired. Rules for it still load but do nothing, and **Settings > Keyboard** hides
-it.
+`chat.newLocal` and `thread.settle` are retired. Rules for them still load but do nothing, and
+**Settings > Keyboard** hides them.
 
 The command palette runs app actions: switch between light and dark mode, toggle the theme editor,
 and open plugins, usage, archived chats, or settings. While a chat is open, it also lists

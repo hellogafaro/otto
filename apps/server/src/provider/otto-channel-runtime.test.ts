@@ -85,8 +85,6 @@ const snapshotWithMessage = (reacted = false): OrchestrationReadModel => ({
       createdAt: now,
       updatedAt: now,
       archivedAt: null,
-      settledOverride: null,
-      settledAt: null,
       deletedAt: null,
       messages: [
         {

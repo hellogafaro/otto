@@ -19,13 +19,9 @@ import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
   threadListV2TimeLabel,
-  ThreadListV2SettledShelfHeader,
   ThreadListV2SnoozedShelfHeader,
 } from "../threads/thread-list-v2-items";
-import {
-  THREAD_LIST_V2_SETTLED_PAGE_COUNT,
-  type ThreadListV2ListItem,
-} from "../threads/threadListV2";
+import type { ThreadListV2ListItem } from "../threads/threadListV2";
 import type { HomeListFilterMenuEnvironment } from "./home-list-filter-menu";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useThreadListV2Projection } from "../threads/use-thread-list-v2-projection";
@@ -55,14 +51,11 @@ interface HomeScreenProps {
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
   readonly onArchiveThread: (thread: EnvironmentThreadShell) => void;
   readonly onDeleteThread: (thread: EnvironmentThreadShell) => void;
-  /** Resolves true iff the settle was dispatched and succeeded. */
-  readonly onSettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onSnoozeThread: (
     thread: EnvironmentThreadShell,
     snoozedUntil: string,
   ) => Promise<boolean>;
   readonly onUnsnoozeThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
-  readonly onUnsettleThread: (thread: EnvironmentThreadShell) => void;
   readonly onPinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onUnpinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly onMovePinnedThread: (
@@ -104,8 +97,6 @@ export function HomeScreen(props: HomeScreenProps) {
     nowMinute,
     shelves,
     listItems: threadListV2Items,
-    hiddenSettledCount,
-    showMoreSettled,
   } = useThreadListV2Projection({
     threads: props.threads,
     projects: props.projects,
@@ -119,19 +110,13 @@ export function HomeScreen(props: HomeScreenProps) {
   });
 
   const {
-    settlement: settlementEnvironmentIds,
     snooze: snoozeEnvironmentIds,
     pinning: pinningEnvironmentIds,
     pinReorder: pinReorderEnvironmentIds,
     titleRegeneration: titleRegenerationEnvironmentIds,
   } = capabilities;
 
-  const {
-    loaded: shelfPreferencesLoaded,
-    settledShelfExpanded,
-    toggleSettledShelf,
-    toggleSnoozedShelf,
-  } = shelves;
+  const { loaded: shelfPreferencesLoaded, toggleSnoozedShelf } = shelves;
 
   const handleSwipeableWillOpen = useCallback((methods: SwipeableMethods) => {
     if (openSwipeableRef.current !== methods) {
@@ -153,13 +138,6 @@ export function HomeScreen(props: HomeScreenProps) {
   const { swipeEnabled, scrollGateHandlers } = useSwipeableScrollGate({
     onScrollBeginDrag: handleScrollBeginDrag,
   });
-
-  const handleSettleThread = useCallback(
-    (thread: EnvironmentThreadShell) => {
-      void props.onSettleThread(thread);
-    },
-    [props.onSettleThread],
-  );
 
   const handleSnoozeThread = useCallback(
     (thread: EnvironmentThreadShell, snoozedUntil: string) => {
@@ -204,7 +182,6 @@ export function HomeScreen(props: HomeScreenProps) {
   );
 
   const handleDeleteThread = props.onDeleteThread;
-  const handleUnsettleThread = props.onUnsettleThread;
 
   const renderV2Item = useCallback(
     ({ item, index }: { readonly item: ThreadListV2ListItem; readonly index: number }) => {
@@ -246,17 +223,6 @@ export function HomeScreen(props: HomeScreenProps) {
             disabled={!shelfPreferencesLoaded}
             expanded={item.expanded}
             onToggle={toggleSnoozedShelf}
-          />
-        );
-      }
-
-      if (item.type === "v2-settled-shelf") {
-        return (
-          <ThreadListV2SettledShelfHeader
-            count={item.count}
-            disabled={!shelfPreferencesLoaded}
-            expanded={item.expanded}
-            onToggle={toggleSettledShelf}
           />
         );
       }
@@ -307,8 +273,6 @@ export function HomeScreen(props: HomeScreenProps) {
           onArchiveThread={props.onArchiveThread}
           onRegenerateThreadTitle={handleRegenerateThreadTitle}
           titleRegenerationSupported={titleRegenerationEnvironmentIds.has(thread.environmentId)}
-          settlementSupported={settlementEnvironmentIds.has(thread.environmentId)}
-          onSettleThread={handleSettleThread}
           snoozeSupported={snoozeEnvironmentIds.has(thread.environmentId)}
           pinningSupported={pinningEnvironmentIds.has(thread.environmentId)}
           pinReorderSupported={pinReorderEnvironmentIds.has(thread.environmentId)}
@@ -320,7 +284,6 @@ export function HomeScreen(props: HomeScreenProps) {
           })()}
           onSnoozeThread={handleSnoozeThread}
           onUnsnoozeThread={handleUnsnoozeThread}
-          onUnsettleThread={handleUnsettleThread}
           onPinThread={handlePinThread}
           onUnpinThread={handleUnpinThread}
           onMovePinnedThread={handleMovePinnedThread}
@@ -338,13 +301,11 @@ export function HomeScreen(props: HomeScreenProps) {
       handleMovePinnedThread,
       handlePinThread,
       handleRegenerateThreadTitle,
-      handleSettleThread,
       handleSnoozeThread,
       handleUnpinThread,
       handleUnsnoozeThread,
       handleSwipeableClose,
       handleSwipeableWillOpen,
-      handleUnsettleThread,
       pinningEnvironmentIds,
       pinReorderEnvironmentIds,
       projectByKey,
@@ -356,12 +317,10 @@ export function HomeScreen(props: HomeScreenProps) {
       props.savedConnectionsById,
       serverConfigs,
       shelfPreferencesLoaded,
-      settlementEnvironmentIds,
       snoozeEnvironmentIds,
       threadListV2Items,
       threadSearchMatchByKey,
       titleRegenerationEnvironmentIds,
-      toggleSettledShelf,
       toggleSnoozedShelf,
       v2ProjectTitleByProjectKey,
       props.searchQuery,
@@ -400,8 +359,7 @@ export function HomeScreen(props: HomeScreenProps) {
   /* Empty states */
   // The signal must ignore the search/environment filters: an active query
   // that matches nothing needs the in-list "No results" state, not the
-  // full-page "No chats yet". Settled threads are unarchived live shells,
-  // so they count here too.
+  // full-page "No chats yet".
   const hasAnyThreads =
     props.threads.some((thread) => thread.archivedAt === null) || props.pendingTasks.length > 0;
 
@@ -504,21 +462,6 @@ export function HomeScreen(props: HomeScreenProps) {
           keyExtractor={v2KeyExtractor}
           extraData={v2ExtraData}
           ListHeaderComponent={listHeader}
-          ListFooterComponent={
-            settledShelfExpanded && hiddenSettledCount > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Show ${Math.min(hiddenSettledCount, THREAD_LIST_V2_SETTLED_PAGE_COUNT)} more chats`}
-                onPress={showMoreSettled}
-                className="mx-4 mt-2 items-center rounded-lg border border-dashed border-border py-2.5"
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-              >
-                <Text className="text-xs font-ottoLegacy-medium text-foreground-muted">
-                  Show more ({hiddenSettledCount} settled hidden)
-                </Text>
-              </Pressable>
-            ) : null
-          }
           ListEmptyComponent={listEmpty}
           style={{ flex: 1 }}
           automaticallyAdjustsScrollIndicatorInsets={false}

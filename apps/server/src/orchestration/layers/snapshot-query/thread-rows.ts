@@ -17,6 +17,7 @@ import {
   ProjectIdLookupInput,
   ProjectionThreadIdLookupRowSchema,
   ThreadIdLookupInput,
+  ThreadRowLookupInput,
   ProjectionThreadCheckpointContextThreadRowSchema,
   ProjectionThreadDbRowSchema,
   ProjectionThreadMessageDbRowSchema,
@@ -233,10 +234,10 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
       `,
   });
 
-  const getActiveThreadRowById = SqlSchema.findOneOption({
-    Request: ThreadIdLookupInput,
+  const getThreadRowById = SqlSchema.findOneOption({
+    Request: ThreadRowLookupInput,
     Result: ProjectionThreadDbRowSchema,
-    execute: ({ threadId }) =>
+    execute: ({ threadId, includeArchived }) =>
       sql`
         SELECT
           thread_id AS "threadId",
@@ -259,9 +260,6 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
           created_at AS "createdAt",
           updated_at AS "updatedAt",
           archived_at AS "archivedAt",
-          settled_override AS "settledOverride",
-          settled_at AS "settledAt",
-          unsettled_at AS "unsettledAt",
           snoozed_until AS "snoozedUntil",
           snoozed_at AS "snoozedAt",
           pinned_at AS "pinnedAt",
@@ -276,7 +274,7 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
         FROM projection_threads
         WHERE thread_id = ${threadId}
           AND deleted_at IS NULL
-          AND archived_at IS NULL
+          ${includeArchived ? sql`` : sql`AND archived_at IS NULL`}
         LIMIT 1
       `,
   });
@@ -451,9 +449,9 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
   });
 
   const getLatestTurnRowByThread = SqlSchema.findOneOption({
-    Request: ThreadIdLookupInput,
+    Request: ThreadRowLookupInput,
     Result: ProjectionLatestTurnDbRowSchema,
-    execute: ({ threadId }) =>
+    execute: ({ threadId, includeArchived }) =>
       sql`
         SELECT
           turns.thread_id AS "threadId",
@@ -473,7 +471,7 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
           AND turns.turn_id = threads.latest_turn_id
         WHERE threads.thread_id = ${threadId}
           AND threads.deleted_at IS NULL
-          AND threads.archived_at IS NULL
+          ${includeArchived ? sql`` : sql`AND threads.archived_at IS NULL`}
         LIMIT 1
       `,
   });
@@ -558,7 +556,7 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
     getActiveProjectRowById,
     getFirstActiveThreadIdByProject,
     getThreadCheckpointContextThreadRow,
-    getActiveThreadRowById,
+    getThreadRowById,
     listThreadMessageRowsByThread,
     listThreadProposedPlanRowsByThread,
     getThreadRuntimeContextRow,

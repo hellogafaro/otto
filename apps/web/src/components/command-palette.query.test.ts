@@ -39,7 +39,7 @@ describe("command palette query", () => {
   it("filters rows with the query the input shows", () => {
     const source = NodeFS.readFileSync(new URL("./command-palette.tsx", import.meta.url), "utf8");
     expect(source).not.toContain("useDeferredValue");
-    expect(source).toContain("useChatSearchItems(query)");
+    expect(source).toContain("useChatSearchItems(query, limit)");
     expect(source).toContain("filterCommandPaletteGroups({ groups, query })");
     expect(source).toContain("value={query}");
   });

@@ -13,9 +13,12 @@ import { useLocation } from "@tanstack/react-router";
 import { isElectron } from "../env";
 import { getLocalStorageItem, removeLocalStorageItem } from "../hooks/use-local-storage";
 import { useI18n } from "../i18n";
-import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
+import { resolveShortcutCommand } from "../keybindings";
 import { primaryServerKeybindingsAtom } from "../state/server";
+import { GlobalShortcuts } from "./global-shortcuts";
+import { NotificationAlerts } from "./notifications/notification-alerts";
 import BotRosterSidebar from "./roster/bot-roster-sidebar";
+import { ShortcutKbd } from "./shortcut-kbd";
 import {
   ExperimentalSidebar,
   EXPERIMENTAL_RAIL_ONLY_WIDTH,
@@ -77,7 +80,6 @@ function SidebarControl({ stageArtworkVisible }: { stageArtworkVisible: boolean 
   const { isMobile, toggleSidebar } = useSidebar();
   const isSidebarVisible = useSidebarVisibility();
   const stageBackdropVariant = useSidebarStageBackdropVariant(stageArtworkVisible);
-  const shortcutLabel = shortcutLabelForCommand(keybindings, "sidebar.toggle");
   // The roster has no collapse button. Its rail reopens through the shortcut
   // or the rail edge. Mobile and the legacy offcanvas sidebar still need this
   // global opener.
@@ -130,9 +132,10 @@ function SidebarControl({ stageArtworkVisible }: { stageArtworkVisible: boolean 
           }
         />
         <TooltipPopup side="bottom">
-          {shortcutLabel
-            ? t("Toggle main sidebar ({shortcut})", { shortcut: shortcutLabel })
-            : t("Toggle main sidebar")}
+          <span className="flex items-center gap-2">
+            {t("Toggle main sidebar")}
+            <ShortcutKbd command="sidebar.toggle" variant="inline" />
+          </span>
         </TooltipPopup>
       </Tooltip>
     </div>
@@ -219,7 +222,9 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       style={sidebarProviderStyle}
     >
       {isElectron ? <DesktopTabStrip /> : null}
+      <GlobalShortcuts />
       <ProjectProjectionRetention />
+      <NotificationAlerts />
       <Sidebar
         side="left"
         collapsible="icon"

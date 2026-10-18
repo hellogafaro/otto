@@ -58,8 +58,6 @@ export function providerThreadFixture(
     createdAt: now,
     updatedAt: now,
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     deletedAt: null,
     messages: [],
     proposedPlans: [],

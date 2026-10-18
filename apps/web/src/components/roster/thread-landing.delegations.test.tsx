@@ -115,6 +115,10 @@ vi.mock("../../state/entities", () => ({
   useThreadShell: () => null,
 }));
 
+vi.mock("../../lib/archived-threads-state", () => ({
+  useChatShell: () => ({ shell: null, pending: false }),
+}));
+
 vi.mock("../../state/query", () => ({ useEnvironmentQuery: () => ({ data: { inbox: [] } }) }));
 
 vi.mock("../settings/providers-panel", () => ({

@@ -5,8 +5,6 @@ import { type ReactNode } from "react";
 
 export const ITEM_ICON_CLASS = "size-4 text-icon-muted";
 
-export const COMMAND_PALETTE_INPUT_PLACEHOLDER = "Search commands and chats...";
-
 export interface CommandPaletteActionItem {
   readonly value: string;
   readonly searchTerms: ReadonlyArray<string>;
@@ -127,6 +125,12 @@ export interface CommandPaletteChatMatch {
 
 export const COMMAND_PALETTE_CHAT_LIMIT = 8;
 
+/** Rows per workspace search group (bots, people, tasks, projects, routines, Library). */
+export const COMMAND_PALETTE_SEARCH_GROUP_LIMIT = 5;
+
+/** Rows a category tab lists, typed query or not. */
+export const COMMAND_PALETTE_TAB_LIMIT = 20;
+
 /**
  * Looks up a bot or group name in the roster of the environment a chat lives
  * in. Ids are scoped per environment, so a primary-environment name is never
@@ -170,7 +174,8 @@ export function buildEnvironmentOwnerNames(
  * in its order, with the matching snippet as the description. Chats in another
  * environment are listed but disabled, because this client cannot open them,
  * and only after every chat it can open, so they never crowd one out.
- * A leading ">" asks for actions only, so it yields no chats.
+ * An empty query lists the newest chats. A leading ">" asks for actions only,
+ * so it yields no chats.
  */
 export function buildChatSearchCommandPaletteItems(input: {
   readonly query: string;
@@ -184,8 +189,6 @@ export function buildChatSearchCommandPaletteItems(input: {
 }): CommandPaletteActionItem[] {
   if (input.query.startsWith(">")) return [];
   const normalizedQuery = normalizeSearchText(input.query);
-
-  if (normalizedQuery.length === 0) return [];
   const limit = input.limit ?? COMMAND_PALETTE_CHAT_LIMIT;
 
   const chatKey = (chat: { readonly environmentId: string; readonly threadId: string }) =>
@@ -202,7 +205,7 @@ export function buildChatSearchCommandPaletteItems(input: {
     .map((chat, index) => ({
       chat,
       index,
-      rank: rankSearchFieldMatch(titleOf(chat), normalizedQuery),
+      rank: normalizedQuery.length === 0 ? 0 : rankSearchFieldMatch(titleOf(chat), normalizedQuery),
     }))
     .filter((entry) => entry.rank !== Number.NEGATIVE_INFINITY)
     .toSorted(
@@ -295,18 +298,21 @@ function rankCommandPaletteItemMatch(
 
 /**
  * Filters each group to the items whose search terms contain the query, ranking
- * earlier and tighter term matches first. A leading ">" is accepted and ignored
- * so the VS Code habit of typing it still works.
+ * earlier and tighter term matches first, and keeps at most `limit` per group.
+ * A leading ">" is accepted and ignored so the VS Code habit of typing it still works.
  */
 export function filterCommandPaletteGroups(input: {
   readonly groups: ReadonlyArray<CommandPaletteGroup>;
   readonly query: string;
+  readonly limit?: number;
 }): CommandPaletteGroup[] {
   const searchQuery = input.query.startsWith(">") ? input.query.slice(1) : input.query;
   const normalizedQuery = normalizeSearchText(searchQuery);
 
   if (normalizedQuery.length === 0) {
-    return [...input.groups];
+    return input.groups.flatMap((group) =>
+      group.items.length === 0 ? [] : [{ ...group, items: group.items.slice(0, input.limit) }],
+    );
   }
 
   return input.groups.flatMap((group) => {
@@ -324,6 +330,7 @@ export function filterCommandPaletteGroups(input: {
       });
     })
       .toSorted((left, right) => right.rank - left.rank || left.index - right.index)
+      .slice(0, input.limit)
       .map((entry) => entry.item);
 
     return items.length === 0 ? [] : [{ value: group.value, label: group.label, items }];

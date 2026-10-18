@@ -119,7 +119,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       clearPreviewMcpSession,
       preparePreviewMcpSession,
       sessionResources,
-      githubLogins,
+      computerSetup,
       authStorage,
       subscriptionAuth,
       botInbox,
@@ -159,7 +159,7 @@ const make = (options?: AgentControllerLiveOptions) =>
         return toolRuntime;
       },
       sessionResources,
-      githubLogins,
+      computerSetup,
       turnUsageByThread,
       get publishSessionState() {
         return publishSessionState;

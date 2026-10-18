@@ -309,8 +309,6 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           "thread.ownership-updated",
           "thread.archived",
           "thread.unarchived",
-          "thread.settled",
-          "thread.unsettled",
           "thread.snoozed",
           "thread.unsnoozed",
           "thread.pinned",

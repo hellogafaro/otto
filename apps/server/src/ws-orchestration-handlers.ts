@@ -346,20 +346,13 @@ export const createWsOrchestrationHandlers = ({
             }
           }
 
-          // Archive and settle both mean "done with this thread", so a
-          // live provider session must not keep running background work
-          // (PR monitors, dev servers, subagent fleets) after either
-          // lands. The decider rejects settling a starting/running
-          // session, so for settle this only ever stops an idle one; a
-          // stopped session-set does not count as activity, so the stop
-          // cannot un-settle the thread it follows.
+          // Archive means "done with this thread", so a live provider
+          // session must not keep running background work (PR monitors,
+          // dev servers, subagent fleets) after it lands.
           const parkingCommand =
-            normalizedCommand.type === "thread.archive" ||
-            normalizedCommand.type === "thread.settle"
-              ? normalizedCommand
-              : undefined;
+            normalizedCommand.type === "thread.archive" ? normalizedCommand : undefined;
 
-          // Best-effort on purpose: the user's archive/settle must not
+          // Best-effort on purpose: the user's archive must not
           // fail because this cleanup read blipped, so a failed read
           // logs and skips the stop instead of propagating.
           const shouldStopSessionAfterCommand = parkingCommand
@@ -394,29 +387,19 @@ export const createWsOrchestrationHandlers = ({
           });
 
           if (parkingCommand) {
-            const parkingKind = parkingCommand.type === "thread.archive" ? "archive" : "settle";
-
             if (shouldStopSessionAfterCommand) {
               yield* Effect.gen(function* () {
                 const stopCommand = yield* normalizeDispatchCommand({
                   type: "thread.session.stop",
-                  commandId: CommandId.make(
-                    `session-stop-for-${parkingKind}:${parkingCommand.commandId}`,
-                  ),
+                  commandId: CommandId.make(`session-stop-for-archive:${parkingCommand.commandId}`),
                   threadId: parkingCommand.threadId,
                   createdAt: yield* nowIso,
-                  // A settled thread can be re-engaged before this stop is
-                  // decided; the decider then drops the stop instead of
-                  // killing the new session. Archive stops stay
-                  // unconditional: turn starts on archived threads are
-                  // rejected, so there is no new session to protect.
-                  ...(parkingKind === "settle" ? { onlyIfSettled: true } : {}),
                 });
 
                 yield* dispatchNormalizedCommand(stopCommand);
               }).pipe(
                 Effect.catchCause((cause) =>
-                  Effect.logWarning(`failed to stop provider session during ${parkingKind}`, {
+                  Effect.logWarning(`failed to stop provider session during archive`, {
                     threadId: parkingCommand.threadId,
                     cause,
                   }),

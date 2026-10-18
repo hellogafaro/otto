@@ -20,8 +20,8 @@ import {
   useProjects,
   readEnvironmentSupportsFileAttachments,
   useThreadActivities,
-  useThreadShell,
 } from "../../state/entities";
+import { useChatShell } from "../../lib/archived-threads-state";
 import { environmentBotsAtom } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { primaryServerProvidersAtom } from "../../state/server";
@@ -67,7 +67,7 @@ export function useBotThreadRuntime(
   const settings = usePrimarySettings();
   const providers = useAtomValue(primaryServerProvidersAtom);
   const bot = useRosterStore((state) => state.bots.find((candidate) => candidate.id === botId));
-  const rememberedThread = useThreadShell(threadRef);
+  const rememberedThread = useChatShell(threadRef).shell;
   const linkedThreadRef = rememberedThread ? threadRef : null;
 
   const { messages, lastMessageRole, lastUserMessageAt } =

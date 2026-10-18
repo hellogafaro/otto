@@ -43,7 +43,6 @@ export type ModelPickerJumpKeybindingCommand =
 export const THREAD_KEYBINDING_COMMANDS = [
   "thread.previous",
   "thread.next",
-  "thread.settle",
   ...THREAD_JUMP_KEYBINDING_COMMANDS,
 ] as const;
 
@@ -55,6 +54,26 @@ export const MODEL_PICKER_KEYBINDING_COMMANDS = [
 ] as const;
 
 export type ModelPickerKeybindingCommand = (typeof MODEL_PICKER_KEYBINDING_COMMANDS)[number];
+
+export const APPROVAL_KEYBINDING_COMMANDS = [
+  "approval.approve",
+  "approval.deny",
+  "approval.allowAll",
+] as const;
+
+export type ApprovalKeybindingCommand = (typeof APPROVAL_KEYBINDING_COMMANDS)[number];
+
+export const NAVIGATION_KEYBINDING_COMMANDS = [
+  "navigation.home",
+  "navigation.notifications",
+  "navigation.chats",
+  "navigation.routines",
+  "navigation.tasks",
+  "navigation.projects",
+  "navigation.library",
+] as const;
+
+export type NavigationKeybindingCommand = (typeof NAVIGATION_KEYBINDING_COMMANDS)[number];
 
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
@@ -79,9 +98,14 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "composer.stash",
   "chat.new",
   "chat.newLocal",
+  "thread.settle",
   "editor.openFavorite",
   ...MODEL_PICKER_KEYBINDING_COMMANDS,
   ...THREAD_KEYBINDING_COMMANDS,
+  ...APPROVAL_KEYBINDING_COMMANDS,
+  ...NAVIGATION_KEYBINDING_COMMANDS,
+  "settings.open",
+  "shortcuts.show",
 ] as const;
 
 export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([

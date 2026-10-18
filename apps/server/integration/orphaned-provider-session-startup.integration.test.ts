@@ -287,14 +287,6 @@ it.effect(
             AND state = 'pending'
         `;
 
-        const settleExit = yield* Effect.exit(
-          engine.dispatch({
-            type: "thread.settle",
-            commandId: CommandId.make("command-settle-after-restart"),
-            threadId,
-          }),
-        );
-
         const snoozeExit = yield* Effect.exit(
           engine.dispatch({
             type: "thread.snooze",
@@ -332,7 +324,6 @@ it.effect(
           activeTurnId: restartedThread.session?.activeTurnId,
           latestTurn: restartedThread.latestTurn,
           pendingTurnCount: pendingRows.length,
-          settleSucceeded: Exit.isSuccess(settleExit),
           snoozeSucceeded: Exit.isSuccess(snoozeExit),
           newTurnSucceeded: Exit.isSuccess(newTurnExit),
           bindingStatus: binding.status,
@@ -350,7 +341,6 @@ it.effect(
         activeTurnId: null,
         latestTurn: null,
         pendingTurnCount: 0,
-        settleSucceeded: true,
         snoozeSucceeded: true,
         newTurnSucceeded: true,
         bindingStatus: "stopped",

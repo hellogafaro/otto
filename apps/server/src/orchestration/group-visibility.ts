@@ -116,8 +116,8 @@ interface ThreadVisibilityServices {
 }
 
 /**
- * Whether a person may read a chat. An unknown chat is left to its own checks unless
- * `unknown` says otherwise.
+ * Whether a person may read a chat, archived or not. An unknown chat is left to its own
+ * checks unless `unknown` says otherwise.
  */
 export const canSeeThreadById = (
   services: ThreadVisibilityServices,
@@ -127,7 +127,7 @@ export const canSeeThreadById = (
 ) =>
   Effect.gen(function* () {
     const thread = yield* services.projectionSnapshotQuery
-      .getThreadShellById(threadId)
+      .getThreadShellById(threadId, { includeArchived: true })
       .pipe(Effect.orElseSucceed(() => Option.none()));
 
     if (Option.isNone(thread)) return unknown;
