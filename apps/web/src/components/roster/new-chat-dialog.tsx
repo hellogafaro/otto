@@ -88,13 +88,14 @@ function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
   // Otto: A DM's creator picks who sees it; a group chat is seen by its members.
   const isDirect = members.length === 1 && members[0]?.kind === "bot";
 
-  const submit = async (prompt: string) => {
+  const submit = async (prompt: string, files: readonly File[]) => {
     const bots = members.flatMap((member) => (member.kind === "bot" ? [member.botId] : []));
     const people = members.flatMap((member) => (member.kind === "person" ? [member] : []));
     const named = title.trim();
 
     const options = {
       prompt,
+      files,
       visibility,
       ...(project ? { projectId: project.id } : {}),
       ...(named ? { title: named } : {}),
@@ -123,7 +124,7 @@ function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
         environmentId,
         input: {
           groupId,
-          name: named || threadTitle(prompt, []),
+          name: named || threadTitle(prompt, files),
           ...(bossBotId ? { bossBotId } : {}),
           specialistBotIds,
           ...(people.length > 0
@@ -176,7 +177,8 @@ function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
       }
       submitLabel={t("Start")}
       canSubmit={members.length > 0 && project !== null && !submitting}
-      onSubmit={(prompt) => void submit(prompt)}
+      attachable
+      onSubmit={(prompt, files) => void submit(prompt, files)}
     />
   );
 }

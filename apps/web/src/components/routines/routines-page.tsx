@@ -414,7 +414,7 @@ function NewRoutineDialog({
     onOpenChange(false);
   };
 
-  const submit = (prompt: string) => {
+  const submit = (prompt: string, files: readonly File[]) => {
     if (chosen === null) return;
     const named = title.trim();
 
@@ -434,6 +434,7 @@ function NewRoutineDialog({
       { kind: "bot", id: chosen },
       {
         prompt: request,
+        files,
         visibility,
         ...(project ? { projectId: project.id } : {}),
         ...(named ? { title: named } : {}),
@@ -458,6 +459,7 @@ function NewRoutineDialog({
       }
       submitLabel={t("Start")}
       canSubmit={chosen !== null && project !== null}
+      attachable
       onSubmit={submit}
     />
   );

@@ -137,6 +137,8 @@ export const chatCatalog = {
   "Add to prompt": "添加到提示",
   "Attach file": "附加文件",
   "Attach files": "附加文件",
+  "You can attach up to {count} files": "最多可附加 {count} 个文件",
+  "Some files can't be attached": "部分文件无法附加",
   "{name} is working": "{name} 正在工作",
   "Working for {duration}": "已工作 {duration}",
   "Preview browser": "预览浏览器",

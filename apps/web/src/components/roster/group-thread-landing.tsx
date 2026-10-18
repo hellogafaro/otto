@@ -177,7 +177,7 @@ export function GroupThreadLanding({
     // Read the store, not the render: a re-run before the next render must not send twice.
     if (!promptReady || request?.threadId !== threadRef.threadId) return;
     roster.requestPrompt(null);
-    void runtime.send(request.text, []);
+    void runtime.send(request.text, request.files ?? []);
   }, [promptReady, runtime.send, threadRef.threadId]);
 
   // The default member's provider skills label sent messages.

@@ -595,13 +595,15 @@ function RoutineDetail({
         title={t("Edit {name}", { name: routine.job })}
         placeholder={t("What should change? For example, run at 8:00 instead.")}
         submitLabel={t("Ask {name}", { name: botName })}
-        onSubmit={(prompt) => {
+        attachable
+        onSubmit={(prompt, files) => {
           useRosterStore.getState().requestPrompt({
             threadId: routine.targetThreadId,
             text: t("Change the routine \u201c{name}\u201d: {prompt}", {
               name: routine.job,
               prompt,
             }),
+            files,
           });
 
           setChanging(false);

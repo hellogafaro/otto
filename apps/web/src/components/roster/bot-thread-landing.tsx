@@ -152,7 +152,9 @@ export function BotThreadLanding({
     // Read the store, not the render: a re-run before the next render must not send twice.
     if (!promptReady || request?.threadId !== threadRef.threadId) return;
     roster.requestPrompt(null);
-    void (request.hidden ? runtime.sendHidden(request.text) : runtime.send(request.text, []));
+    void (request.hidden
+      ? runtime.sendHidden(request.text)
+      : runtime.send(request.text, request.files ?? []));
   }, [promptReady, runtime.send, runtime.sendHidden, threadRef.threadId]);
 
   const mentionScope = useBotPromptMentionScope({
