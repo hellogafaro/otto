@@ -24,6 +24,7 @@ import { useShortcutHintsVisible } from "../../shortcut-hints";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SidebarChromeFooter, SidebarStatusStack } from "../sidebar/sidebar-chrome";
+import { isRowListMounted } from "../use-row-highlight";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -255,7 +256,9 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
 
       const item = bot
         ? { kind: "bot" as const, id: bot.id }
-        : resolveAdjacentRosterItem(command ?? "", rosterItems, routedChat);
+        : isRowListMounted()
+          ? null
+          : resolveAdjacentRosterItem(command ?? "", rosterItems, routedChat);
 
       if (!item) return;
 

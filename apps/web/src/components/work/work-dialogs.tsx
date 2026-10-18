@@ -16,6 +16,7 @@ import { projectEnvironment } from "../../state/projects";
 import { taskEnvironment } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { ComposerSelectControl } from "../chat/composer-control";
+import type { PickerOpenState } from "../details-aside";
 import { PromptDialog } from "../prompt-dialog";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { TaskDueDate } from "./task-due-date";
@@ -27,12 +28,14 @@ export function ProjectSelect({
   onChange,
   projects,
   variant,
+  picker,
 }: {
   readonly value: ProjectId | null;
   readonly onChange: (projectId: ProjectId) => void;
   readonly projects: readonly OrchestrationProjectShell[];
   /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
   readonly variant?: "ghost" | "composer";
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
   const current = projects.find((project) => project.id === value);
@@ -46,6 +49,8 @@ export function ProjectSelect({
 
         if (project) onChange(project.id);
       }}
+      open={picker?.open}
+      onOpenChange={picker?.onOpenChange}
     >
       <Trigger
         size="sm"
@@ -60,7 +65,7 @@ export function ProjectSelect({
           </span>
         </SelectValue>
       </Trigger>
-      <SelectPopup alignItemWithTrigger={false}>
+      <SelectPopup alignItemWithTrigger={false} finalFocus={picker?.finalFocus}>
         {projects.map((project) => (
           <SelectItem key={project.id} hideIndicator value={project.id}>
             {project.title}

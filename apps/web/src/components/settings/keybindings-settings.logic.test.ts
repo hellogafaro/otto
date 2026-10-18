@@ -147,8 +147,8 @@ describe("KeybindingsSettings.logic", () => {
         item.type === "row" ? [commandLabel(item.row.command), item.row.key] : null,
       ),
     ).toEqual([
-      ["Next chat", "j"],
-      ["Previous chat", "k"],
+      ["Next chat or row", "j"],
+      ["Previous chat or row", "k"],
       null,
       ["Approve", "mod+enter"],
       ["Allow all", "mod+shift+enter"],
@@ -197,7 +197,7 @@ describe("KeybindingsSettings.logic", () => {
       ...Array.from({ length: 7 }, () => ""),
       "!inputFocus",
       "desktop",
-      ...Array.from({ length: 8 }, () => "!inputFocus"),
+      ...Array.from({ length: 19 }, () => "!inputFocus"),
       "!inputFocus",
       "!inputFocus",
       "approvalPending",
@@ -340,8 +340,8 @@ describe("KeybindingsSettings.logic", () => {
     expect(isRetiredCommand("chat.newLocal")).toBe(true);
     expect(isRetiredCommand("thread.settle")).toBe(true);
     expect(isRetiredCommand("chat.new")).toBe(true);
-    expect(commandLabel("thread.previous")).toBe("Previous chat");
-    expect(commandLabel("thread.next")).toBe("Next chat");
+    expect(commandLabel("thread.previous")).toBe("Previous chat or row");
+    expect(commandLabel("thread.next")).toBe("Next chat or row");
   });
 
   it("hides bindings for retired commands", () => {
@@ -409,13 +409,13 @@ describe("KeybindingsSettings.logic", () => {
       },
     ] satisfies ResolvedKeybindingsConfig);
 
-    expect(rows[0]?.conflicts).toEqual(["Previous chat"]);
+    expect(rows[0]?.conflicts).toEqual(["Previous chat or row"]);
     expect(
       keybindingConflictLabels(rows, {
         rowId: rows[0]?.id ?? "",
         key: "mod+n",
         when: "",
       }),
-    ).toEqual(["Previous chat"]);
+    ).toEqual(["Previous chat or row"]);
   });
 });

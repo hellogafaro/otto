@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { ComposerControl, ComposerControlIcon } from "../chat/composer-control";
+import type { PickerOpenState } from "../details-aside";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { SelectButton } from "../ui/select";
@@ -30,13 +31,17 @@ export function TaskDueDate({
   value,
   onChange,
   variant,
+  picker,
 }: {
   readonly value: string | null;
   readonly onChange: (dueDate: string | null) => void;
   readonly variant: "ghost" | "composer";
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = picker?.open ?? ownOpen;
+  const setOpen = picker?.onOpenChange ?? setOwnOpen;
   const [year, month, day] = (value ?? "").split("-").map(Number);
   const selected = year && month && day ? new Date(year, month - 1, day) : undefined;
 
@@ -64,7 +69,7 @@ export function TaskDueDate({
           </span>
         </PopoverTrigger>
       )}
-      <PopoverPopup align="start">
+      <PopoverPopup align="start" finalFocus={picker?.finalFocus}>
         <Calendar
           mode="single"
           {...(selected ? { selected, defaultMonth: selected } : {})}

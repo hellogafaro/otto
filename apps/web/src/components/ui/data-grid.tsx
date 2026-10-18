@@ -9,19 +9,22 @@ import { type DataTablePaging, scrollParent } from "./data-table";
  * from `lg`, with 16px gutters and 24px between rows. It only lays items
  * out; `renderItem` draws each card. A gallery read page by page from the
  * server passes `paging`, and the next page loads while the last card is
- * less than a screen below the view.
+ * less than a screen below the view. The card J and K hold (`highlightedKey`) carries
+ * `data-row-highlighted`, so a card styles it with `in-data-row-highlighted:` like its hover.
  */
 export function DataGrid<T>({
   items,
   getItemKey,
   renderItem,
   paging,
+  highlightedKey = null,
   className,
 }: {
   readonly items: readonly T[];
   readonly getItemKey: (item: T) => string;
   readonly renderItem: (item: T) => React.ReactNode;
   readonly paging?: DataTablePaging;
+  readonly highlightedKey?: string | null;
   readonly className?: string;
 }) {
   const listRef = useRef<HTMLUListElement>(null);
@@ -52,7 +55,12 @@ export function DataGrid<T>({
       className={cn("grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3", className)}
     >
       {items.map((item) => (
-        <li key={getItemKey(item)} className="min-w-0 list-none">
+        <li
+          key={getItemKey(item)}
+          data-row-key={getItemKey(item)}
+          data-row-highlighted={getItemKey(item) === highlightedKey ? "" : undefined}
+          className="min-w-0 list-none"
+        >
           {renderItem(item)}
         </li>
       ))}

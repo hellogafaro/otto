@@ -8,12 +8,15 @@ import {
   RiFileTextLine,
   RiKey2Line,
   RiListCheck3,
+  RiProgress4Line,
+  RiUserStarLine,
 } from "@remixicon/react";
 import * as Match from "effect/Match";
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useI18n } from "../../i18n";
+import type { PageAction } from "../../page-actions-registry";
 import { DetailsRow, DetailsTabs } from "../details-aside";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
@@ -26,7 +29,7 @@ import { ProjectLibrary, ProjectUpload } from "./project-library";
 import { ProjectAddSecret, ProjectSecrets } from "./project-secrets";
 import { TasksTable } from "./tasks-table";
 import { type ProjectTab, projectStatus, sortTasks } from "./work.logic";
-import { WorkDetailPage, WorkResourcesSection } from "./work-detail";
+import { WorkDetailPage, WorkResourcesSection, useWorkPickers } from "./work-detail";
 import { NewTaskDialog } from "./work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./work-pages";
 import { OwnerSelect } from "./work-participants";
@@ -55,6 +58,30 @@ export function ProjectPage({
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [addingSecret, setAddingSecret] = useState(false);
   const openNewTask = useCallback(() => setNewTaskOpen(true), []);
+  const { open: openPicker, props: picker } = useWorkPickers<"status" | "owner">("project");
+
+  const properties = useMemo(
+    (): PageAction[] => [
+      {
+        id: "status",
+        title: t("Status"),
+        icon: RiProgress4Line,
+        searchTerms: ["status"],
+        shortcutCommand: "property.status",
+        run: () => openPicker("status"),
+      },
+      {
+        id: "owner",
+        title: t("Owner"),
+        icon: RiUserStarLine,
+        searchTerms: ["owner"],
+        shortcutCommand: "property.owner",
+        run: () => openPicker("owner"),
+      },
+    ],
+    [openPicker, t],
+  );
+
   const project = projects.find((candidate) => candidate.id === projectId);
   const back = { label: t("Projects"), onBack: () => void navigate({ to: "/projects" }) };
 
@@ -151,6 +178,7 @@ export function ProjectPage({
               id={project.id}
               status={status}
               onStatusChange={(next) => update({ status: next })}
+              properties={properties}
             />
           </>
         }
@@ -224,6 +252,7 @@ export function ProjectPage({
                 variant="ghost"
                 value={status}
                 onChange={(next) => update({ status: next })}
+                picker={picker("status")}
               />
             </DetailsRow>
             <DetailsRow label={t("Owner")}>
@@ -232,6 +261,7 @@ export function ProjectPage({
                 value={project.owner ?? null}
                 onChange={(owner) => update({ owner })}
                 participants={participants}
+                picker={picker("owner")}
               />
             </DetailsRow>
             <DetailsRow label={t("Open tasks")}>

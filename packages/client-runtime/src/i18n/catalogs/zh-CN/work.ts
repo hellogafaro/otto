@@ -195,4 +195,5 @@ export const workCatalog = {
   "Replace {name}": "替换 {name}",
   "Every chat in this project gets it as an environment variable in its commands.":
     "此项目中的每个聊天都会在命令中以环境变量的形式获得它。",
+  "Assign to me": "分配给我",
 } as const;

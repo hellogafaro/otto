@@ -195,4 +195,5 @@ export const workCatalog = {
   "Replace {name}": "Replace {name}",
   "Every chat in this project gets it as an environment variable in its commands.":
     "Every chat in this project gets it as an environment variable in its commands.",
+  "Assign to me": "Assign to me",
 } as const;
