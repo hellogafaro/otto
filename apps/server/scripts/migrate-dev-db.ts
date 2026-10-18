@@ -6,7 +6,7 @@
  *   1. Nukes `<worktree>/.otto/userdata/state.sqlite`.
  *   2. Snapshots the real db (read-only VACUUM INTO) and prunes it to the
  *      most recently updated projects and, per project, the most recent
- *      threads that have fully stopped. Working, settled, and monitored
+ *      threads that have fully stopped. Working and monitored
  *      threads are skipped so the dev server never adopts live work.
  *      Auth sessions, command receipts, and provider runtime rows are
  *      dropped — sign in again against dev.

@@ -2,7 +2,6 @@ import {
   RiMoreLine,
   RiAlarmLine,
   RiArchiveLine,
-  RiCheckDoubleLine,
   RiRadioButtonLine,
   RiPencilLine,
   RiPushpinLine,
@@ -10,13 +9,12 @@ import {
   RiLoopRightLine,
   RiSunLine,
   RiDeleteBinLine,
-  RiArrowGoBackLine,
 } from "@remixicon/react";
 import { scopedThreadKey } from "@otto/client-runtime/environment";
 import {
   resolveSnoozePresets,
   type SnoozePresetId,
-} from "@otto/client-runtime/state/thread-settled";
+} from "@otto/client-runtime/state/thread-snoozed";
 import type { ScopedThreadRef } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 
@@ -29,13 +27,13 @@ import { resolveShortcutCommand } from "../../keybindings";
 import { isModelPickerOpen } from "../../model-picker-visibility";
 import {
   readEnvironmentSupportsPinning,
-  readEnvironmentSupportsSettlement,
   readEnvironmentSupportsSnooze,
   readEnvironmentSupportsTitleRegeneration,
   useThreadShell,
 } from "../../state/entities";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useUiStateStore } from "../../ui-state-store";
+import { CopyMenuItems } from "../copy-menu-items";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import {
@@ -67,9 +65,9 @@ import {
 
 /**
  * The open chat's state and its menu in the chat header: rename, regenerate
- * the title, pin, mark unread, settle, snooze, archive, and delete. The same
- * actions are published to the command palette, and `chat.new` and
- * `thread.settle` shortcuts run here while the chat is open.
+ * the title, pin, mark unread, snooze, copy link and ID, archive, and delete. The same
+ * actions are published to the command palette, and the `chat.new` shortcut runs here
+ * while the chat is open.
  */
 export function ChatActionsMenu({
   threadRef,
@@ -81,7 +79,7 @@ export function ChatActionsMenu({
   const { t, formatDate } = useI18n();
   const actions = useChatActions();
   const shell = useThreadShell(threadRef);
-  // Minute-quantized UTC, so the menu re-reads settle and snooze state once a minute.
+  // Minute-quantized UTC, so the menu re-reads snooze state once a minute.
   const nowMinute = useNowMinute();
   const now = `${nowMinute}:00.000Z`;
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
@@ -101,7 +99,6 @@ export function ChatActionsMenu({
             lastVisitedAt,
             now,
             supports: {
-              settlement: readEnvironmentSupportsSettlement(threadRef.environmentId),
               snooze: readEnvironmentSupportsSnooze(threadRef.environmentId),
               pinning: readEnvironmentSupportsPinning(threadRef.environmentId),
               titleRegeneration: readEnvironmentSupportsTitleRegeneration(threadRef.environmentId),
@@ -139,15 +136,8 @@ export function ChatActionsMenu({
     [paletteActions],
   );
 
-  const shortcutTargets = useRef({ newChat, settle: () => {} });
-  shortcutTargets.current = {
-    newChat,
-    settle: () => {
-      if (threadRef && state?.supports.settlement && state.canSettle && !state.isSettled) {
-        void actions.settle(threadRef);
-      }
-    },
-  };
+  const newChatTarget = useRef(newChat);
+  newChatTarget.current = newChat;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat) return;
@@ -165,23 +155,14 @@ export function ChatActionsMenu({
         context: { modelPickerOpen: isModelPickerOpen() },
       });
 
-      if (command === "chat.new") {
-        const control = shortcutTargets.current.newChat;
+      if (command !== "chat.new") return;
+      const control = newChatTarget.current;
 
-        if (!control) return;
-        event.preventDefault();
-        event.stopPropagation();
+      if (!control) return;
+      event.preventDefault();
+      event.stopPropagation();
 
-        if (control.canStart) control.start();
-
-        return;
-      }
-
-      if (command === "thread.settle") {
-        event.preventDefault();
-        event.stopPropagation();
-        shortcutTargets.current.settle();
-      }
+      if (control.canStart) control.start();
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -226,13 +207,6 @@ export function ChatActionsMenu({
           className="me-1 rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground"
         >
           {t("Snoozed until {time}", { time: snoozedUntilLabel })}
-        </span>
-      ) : state.isSettled ? (
-        <span
-          data-testid="chat-state-settled"
-          className="me-1 rounded-md border border-border px-1.5 py-px text-xs text-muted-foreground"
-        >
-          {t("Settled")}
         </span>
       ) : null}
       <Menu>
@@ -288,19 +262,6 @@ export function ChatActionsMenu({
             <RiRadioButtonLine />
             {t("Mark unread")}
           </MenuItem>
-          {state.supports.settlement ? (
-            state.isSettled ? (
-              <MenuItem onClick={() => void actions.unsettle(threadRef)}>
-                <RiArrowGoBackLine />
-                {t("Un-settle chat")}
-              </MenuItem>
-            ) : (
-              <MenuItem disabled={!state.canSettle} onClick={() => void actions.settle(threadRef)}>
-                <RiCheckDoubleLine />
-                {t("Settle chat")}
-              </MenuItem>
-            )
-          ) : null}
           {state.supports.snooze ? (
             state.isSnoozed ? (
               <MenuItem onClick={() => void actions.unsnooze(threadRef)}>
@@ -327,6 +288,8 @@ export function ChatActionsMenu({
               </MenuSub>
             )
           ) : null}
+          <MenuSeparator />
+          <CopyMenuItems path={`/chats/${threadRef.threadId}`} id={threadRef.threadId} />
           <MenuSeparator />
           <MenuItem disabled={!state.canArchive} onClick={() => void actions.archive(threadRef)}>
             <RiArchiveLine />

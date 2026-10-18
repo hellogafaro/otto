@@ -34,7 +34,7 @@ export const routineToolInputSchema = z.object({
       time: routineTime,
     }),
   ]),
-  newChatEachRun: z.boolean().nullish(),
+  threadMode: z.enum(["target", "per-run", "single"]).nullish(),
 });
 
 export const routineListOutputSchema = z.object({

@@ -7,14 +7,16 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { useLocalStorage } from "../hooks/use-local-storage";
 import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
-import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
+import { resolveShortcutCommand } from "../keybindings";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../right-panel-layout";
 import { primaryServerKeybindingsAtom } from "../state/server";
+import { ShortcutHint } from "./shortcut-hint";
 import { AppIcon } from "./ui/app-icon";
 import { Button } from "./ui/button";
 import { Sheet, SheetClose, SheetPopup, SheetTitle } from "./ui/sheet";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { useDetailsPanelState } from "./roster/use-details-panel-state";
+import { ShortcutKbd } from "./shortcut-kbd";
 
 /**
  * Otto: The right details sidebar shared by chats and work pages. On desktop it
@@ -54,7 +56,6 @@ export function DetailsAside({
   const setDesktopOpen = onOpenChange;
   const [mobileOpen, setMobileOpen] = useState(false);
   const desktopPanel = useDetailsPanelState(desktopOpen);
-  const shortcutLabel = shortcutLabelForCommand(keybindings, "rightPanel.toggle");
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -128,13 +129,15 @@ export function DetailsAside({
                     onClick={() => setDesktopOpen((open) => !open)}
                   >
                     <AppIcon icon={RiCloseLine} />
+                    <ShortcutHint command="rightPanel.toggle" />
                   </Button>
                 }
               />
               <TooltipPopup side="left">
-                {shortcutLabel
-                  ? t("Collapse ({shortcut})", { shortcut: shortcutLabel })
-                  : t("Collapse")}
+                <span className="flex items-center gap-2">
+                  {t("Collapse")}
+                  <ShortcutKbd command="rightPanel.toggle" variant="inline" />
+                </span>
               </TooltipPopup>
             </Tooltip>,
           )}
@@ -154,6 +157,7 @@ export function DetailsAside({
             onClick={() => setDesktopOpen((open) => !open)}
           >
             <AppIcon icon={RiListCheck} />
+            <ShortcutHint command="rightPanel.toggle" />
           </Button>
         </div>
       ) : null}
@@ -165,6 +169,7 @@ export function DetailsAside({
           onClick={() => setMobileOpen(true)}
         >
           <AppIcon icon={RiListCheck} />
+          <ShortcutHint command="rightPanel.toggle" />
         </Button>
       </div>
       <Sheet open={mobileOpen} onOpenChange={(open) => setMobileOpen(open)}>
@@ -181,6 +186,7 @@ export function DetailsAside({
               render={<Button size="icon-sm" variant="ghost" />}
             >
               <AppIcon icon={RiCloseLine} />
+              <ShortcutHint command="rightPanel.toggle" />
             </SheetClose>,
           )}
         </SheetPopup>
@@ -192,7 +198,7 @@ export function DetailsAside({
 export interface DetailsTab<T extends string> {
   readonly value: T;
   readonly label: string;
-  readonly icon: typeof RiListCheck;
+  readonly icon?: typeof RiListCheck;
 }
 
 /**
@@ -250,7 +256,7 @@ export function DetailsTabs<T extends string>({
                 : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
             )}
           >
-            <Icon aria-hidden className="size-3.5 shrink-0" />
+            {Icon ? <Icon aria-hidden className="size-3.5 shrink-0" /> : null}
             {tab.label}
           </button>
         );

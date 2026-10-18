@@ -65,8 +65,6 @@ export function makeMobileThreadShell(
     createdAt: timestamp,
     updatedAt: timestamp,
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     session: null,
     latestUserMessageAt: null,
     hasPendingApprovals: false,

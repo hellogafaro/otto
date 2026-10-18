@@ -63,6 +63,10 @@ vi.mock("../../state/entities", () => ({
   readEnvironmentSupportsFileAttachments: () => true,
 }));
 
+vi.mock("../../lib/archived-threads-state", () => ({
+  useChatShell: () => ({ shell: mocks.threadShell, pending: false }),
+}));
+
 vi.mock("../../state/bots", () => ({ environmentBotsAtom: () => null }));
 
 vi.mock("../../state/environments", () => ({

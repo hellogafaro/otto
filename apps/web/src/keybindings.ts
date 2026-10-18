@@ -9,6 +9,8 @@ import {
   type ModelPickerJumpKeybindingCommand,
   type ThreadJumpKeybindingCommand,
 } from "@otto/contracts";
+import { recordLookup } from "./components/record-lookup";
+import { isElectron } from "./env";
 import { isMacPlatform } from "./lib/utils";
 
 export interface ShortcutEventLike {
@@ -46,10 +48,11 @@ interface ResolvedShortcutLabelOptions extends ShortcutMatchOptions {
 const EVENT_CODE_KEY_ALIASES = {
   BracketLeft: ["["],
   BracketRight: ["]"],
+  Comma: [","],
   Digit0: ["0"],
   Digit1: ["1"],
   Digit2: ["2"],
-  DigiottoLegacy: ["3"],
+  Digit3: ["3"],
   Digit4: ["4"],
   Digit5: ["5"],
   Digit6: ["6"],
@@ -115,7 +118,18 @@ function matchesShortcut(
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
 ): boolean {
-  if (!matchesShortcutModifiers(event, shortcut, platform)) return false;
+  // A symbol the layout itself typed, such as ?, needs Shift on some layouts and not on
+  // others, so Shift belongs to the symbol rather than to the shortcut.
+  const typedSymbol = /^[\p{P}\p{S}]$/u.test(shortcut.key) && event.key === shortcut.key;
+
+  const modifiers = {
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    shiftKey: typedSymbol ? shortcut.shiftKey : event.shiftKey,
+  };
+
+  if (!matchesShortcutModifiers(modifiers, shortcut, platform)) return false;
 
   return resolveEventKeys(event).has(shortcut.key);
 }
@@ -128,6 +142,7 @@ function resolveContext(options: ShortcutMatchOptions | undefined): ShortcutMatc
   return {
     previewFocus: false,
     previewOpen: false,
+    desktop: isElectron,
     ...options?.context,
   };
 }
@@ -245,33 +260,64 @@ function formatShortcutKeyLabel(key: string): string {
   return key.slice(0, 1).toUpperCase() + key.slice(1);
 }
 
-export function formatShortcutLabel(
+/**
+ * Whether a key belongs to what has focus rather than to the app: a text field, or an
+ * open dialog, menu or list, which own their keys. Bare-key shortcuts wait for this to
+ * be false.
+ */
+export function isInputFocus(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-keybinding-capture]',
+    ) !== null
+  );
+}
+
+const MAC_KEY_GLYPHS = { enter: "\u21b5", backspace: "\u232b" } satisfies Readonly<
+  Record<string, string>
+>;
+
+/** One key cap per modifier and key, in the platform's order and notation. */
+export function formatShortcutParts(
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
-): string {
+): ReadonlyArray<string> {
   const keyLabel = formatShortcutKeyLabel(shortcut.key);
   const useMetaForMod = isMacPlatform(platform);
   const showMeta = shortcut.metaKey || (shortcut.modKey && useMetaForMod);
   const showCtrl = shortcut.ctrlKey || (shortcut.modKey && !useMetaForMod);
-  const showAlt = shortcut.altKey;
-  const showShift = shortcut.shiftKey;
 
   if (useMetaForMod) {
-    return `${showCtrl ? "\u2303" : ""}${showAlt ? "\u2325" : ""}${showShift ? "\u21e7" : ""}${showMeta ? "\u2318" : ""}${keyLabel}`;
+    return [
+      ...(showCtrl ? ["\u2303"] : []),
+      ...(shortcut.altKey ? ["\u2325"] : []),
+      ...(shortcut.shiftKey ? ["\u21e7"] : []),
+      ...(showMeta ? ["\u2318"] : []),
+      recordLookup(MAC_KEY_GLYPHS, shortcut.key) ?? keyLabel,
+    ];
   }
 
-  const parts: string[] = [];
+  return [
+    ...(showCtrl ? ["Ctrl"] : []),
+    ...(shortcut.altKey ? ["Alt"] : []),
+    ...(shortcut.shiftKey ? ["Shift"] : []),
+    ...(showMeta ? ["Meta"] : []),
+    keyLabel,
+  ];
+}
 
-  if (showCtrl) parts.push("Ctrl");
+export function formatShortcutLabel(
+  shortcut: KeybindingShortcut,
+  platform = navigator.platform,
+): string {
+  return formatShortcutParts(shortcut, platform).join(isMacPlatform(platform) ? "" : "+");
+}
 
-  if (showAlt) parts.push("Alt");
-
-  if (showShift) parts.push("Shift");
-
-  if (showMeta) parts.push("Meta");
-  parts.push(keyLabel);
-
-  return parts.join("+");
+function resolveLabelOptions(
+  options: string | ResolvedShortcutLabelOptions | undefined,
+): ResolvedShortcutLabelOptions | undefined {
+  return Predicate.isString(options) ? { platform: options } : options;
 }
 
 export function shortcutLabelForCommand(
@@ -279,14 +325,20 @@ export function shortcutLabelForCommand(
   command: KeybindingCommand,
   options?: string | ResolvedShortcutLabelOptions,
 ): string | null {
-  const resolvedOptions = Predicate.isString(options)
-    ? ({ platform: options } satisfies ResolvedShortcutLabelOptions)
-    : options;
-
-  const platform = resolvePlatform(resolvedOptions);
+  const resolvedOptions = resolveLabelOptions(options);
   const shortcut = findEffectiveShortcutForCommand(keybindings, command, resolvedOptions);
 
-  return shortcut ? formatShortcutLabel(shortcut, platform) : null;
+  return shortcut ? formatShortcutLabel(shortcut, resolvePlatform(resolvedOptions)) : null;
+}
+
+export function shortcutPartsForCommand(
+  keybindings: ResolvedKeybindingsConfig,
+  command: KeybindingCommand,
+  options?: ResolvedShortcutLabelOptions,
+): ReadonlyArray<string> | null {
+  const shortcut = findEffectiveShortcutForCommand(keybindings, command, options);
+
+  return shortcut ? formatShortcutParts(shortcut, resolvePlatform(options)) : null;
 }
 
 export function threadJumpCommandForIndex(index: number): ThreadJumpKeybindingCommand | null {

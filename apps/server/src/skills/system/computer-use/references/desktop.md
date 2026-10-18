@@ -1,6 +1,6 @@
 # Desktop
 
-On a Linux computer with a screen, everything goes through shell. `DISPLAY` is set in the environment: use it, never guess another. Install what is missing with `sudo apt-get install -y imagemagick scrot xdotool wmctrl ffmpeg`.
+On a Linux computer with a screen, everything goes through shell. `DISPLAY` is set in the environment: use it, never guess another. The tools below come installed; if one is still missing, install it with `sudo apt-get install -y imagemagick scrot xdotool wmctrl ffmpeg`.
 
 ## See
 

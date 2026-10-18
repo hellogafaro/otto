@@ -11,6 +11,7 @@ import {
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import type * as Schema from "effect/Schema";
 
 import { decideOrchestrationCommand } from "./decider.ts";
 
@@ -51,8 +52,6 @@ function makeReadModel(input: {
         createdAt: NOW,
         updatedAt: NOW,
         archivedAt: input.archivedAt ?? null,
-        settledOverride: null,
-        settledAt: null,
         snoozedUntil: input.snoozedUntil ?? null,
         snoozedAt: input.snoozedAt ?? (input.snoozedUntil != null ? SNOOZED_AT : null),
         deletedAt: null,
@@ -260,6 +259,104 @@ it.layer(NodeServices.layer)("snoozed thread decider", (it) => {
       }).pipe(Effect.flip);
 
       expect(error._tag).toBe("OrchestrationCommandInvariantError");
+    }),
+  );
+
+  it.effect("clears an open request when its respond failure marks it stale", () =>
+    Effect.gen(function* () {
+      const activity = (
+        kind: string,
+        requestId: string,
+        payload: Record<string, Schema.Json>,
+      ): OrchestrationThread["activities"][number] =>
+        ({
+          id: EventId.make(`activity-${requestId}-${kind}`),
+          tone: "approval" as const,
+          kind,
+          summary: kind,
+          payload: { requestId, ...payload },
+          turnId: null,
+          createdAt: NOW,
+        }) as OrchestrationThread["activities"][number];
+
+      // Stale-failure detail clears the request, mirroring the projection's
+      // pending accounting.
+      const snoozed = yield* decideOrchestrationCommand({
+        command: {
+          type: "thread.snooze",
+          commandId: CommandId.make("cmd-snooze-stale-failed"),
+          threadId: ThreadId.make("thread-1"),
+          snoozedUntil: FUTURE_WAKE,
+        },
+        readModel: makeReadModel({
+          activities: [
+            activity("approval.requested", "req-1", {}),
+            activity("provider.approval.respond.failed", "req-1", {
+              detail: "Unknown pending approval request req-1",
+            }),
+            activity("user-input.requested", "req-2", {}),
+            activity("provider.user-input.respond.failed", "req-2", {
+              detail: "stale pending user-input request req-2",
+            }),
+          ],
+        }),
+      });
+
+      const snoozedEvents = Array.isArray(snoozed) ? snoozed : [snoozed];
+      expect(snoozedEvents[0]?.type).toBe("thread.snoozed");
+
+      // A non-stale respond failure (transient provider error) keeps the
+      // request open: the user can retry, so it is still blocked-on-you.
+      const stillOpen = yield* decideOrchestrationCommand({
+        command: {
+          type: "thread.snooze",
+          commandId: CommandId.make("cmd-snooze-transient-failed"),
+          threadId: ThreadId.make("thread-1"),
+          snoozedUntil: FUTURE_WAKE,
+        },
+        readModel: makeReadModel({
+          activities: [
+            activity("approval.requested", "req-3", {}),
+            activity("provider.approval.respond.failed", "req-3", {
+              detail: "provider connection reset",
+            }),
+          ],
+        }),
+      }).pipe(Effect.flip);
+
+      expect(stillOpen._tag).toBe("OrchestrationCommandInvariantError");
+    }),
+  );
+
+  it.effect("bounds the queued-turn grace window against client clock skew", () =>
+    Effect.gen(function* () {
+      // A message timestamp far in the future (client clock ahead of the
+      // server) must not read as queued forever: past the grace bound in
+      // either direction the thread is snoozable.
+      const skewed = yield* decideOrchestrationCommand({
+        command: {
+          type: "thread.snooze",
+          commandId: CommandId.make("cmd-snooze-skewed"),
+          threadId: ThreadId.make("thread-1"),
+          snoozedUntil: FUTURE_WAKE,
+        },
+        readModel: makeReadModel({
+          messages: [
+            {
+              id: MessageId.make("message-queued"),
+              role: "user",
+              text: "Continue",
+              turnId: null,
+              streaming: false,
+              createdAt: "1970-01-01T01:00:00.000Z",
+              updatedAt: "1970-01-01T01:00:00.000Z",
+            },
+          ],
+        }),
+      });
+
+      const skewedEvents = Array.isArray(skewed) ? skewed : [skewed];
+      expect(skewedEvents[0]?.type).toBe("thread.snoozed");
     }),
   );
 

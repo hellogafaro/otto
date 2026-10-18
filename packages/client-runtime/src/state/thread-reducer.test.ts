@@ -146,67 +146,6 @@ describe("applyThreadDetailEvent", () => {
     });
   });
 
-  describe("thread.settled / thread.unsettled", () => {
-    it("sets the settled override and timestamp", () => {
-      const settledAt = "2026-04-01T05:00:00.000Z";
-
-      const result = applyThreadDetailEvent(baseThread, {
-        ...baseEventFields,
-        sequence: 5,
-        occurredAt: settledAt,
-        aggregateKind: "thread",
-        aggregateId: ThreadId.make("thread-1"),
-        type: "thread.settled",
-        payload: {
-          threadId: ThreadId.make("thread-1"),
-          settledAt,
-          updatedAt: settledAt,
-        },
-      });
-
-      expect(result.kind).toBe("updated");
-
-      if (result.kind === "updated") {
-        expect(result.thread.settledOverride).toBe("settled");
-        expect(result.thread.settledAt).toBe(settledAt);
-      }
-    });
-
-    it.each([
-      ["user", "active"],
-      ["activity", null],
-    ] as const)("unsettles for %s with override %s", (reason, settledOverride) => {
-      const settledThread: OrchestrationThread = {
-        ...baseThread,
-        settledOverride: "settled",
-        settledAt: "2026-04-01T05:00:00.000Z",
-      };
-
-      const updatedAt = "2026-04-01T06:00:00.000Z";
-
-      const result = applyThreadDetailEvent(settledThread, {
-        ...baseEventFields,
-        sequence: 6,
-        occurredAt: updatedAt,
-        aggregateKind: "thread",
-        aggregateId: ThreadId.make("thread-1"),
-        type: "thread.unsettled",
-        payload: {
-          threadId: ThreadId.make("thread-1"),
-          reason,
-          updatedAt,
-        },
-      });
-
-      expect(result.kind).toBe("updated");
-
-      if (result.kind === "updated") {
-        expect(result.thread.settledOverride).toBe(settledOverride);
-        expect(result.thread.settledAt).toBeNull();
-      }
-    });
-  });
-
   describe("thread.pinned / thread.unpinned", () => {
     it("sets pinnedAt", () => {
       const pinnedAt = "2026-04-01T05:00:00.000Z";

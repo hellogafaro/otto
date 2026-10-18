@@ -212,11 +212,6 @@ it.layer(NodeServices.layer)("group membership decider", (it) => {
           threadId: ThreadId.make("thread-group"),
         },
         {
-          type: "thread.settle",
-          commandId: CommandId.make("cmd-outsider-thread-settle"),
-          threadId: ThreadId.make("thread-group"),
-        },
-        {
           type: "thread.meta.update",
           commandId: CommandId.make("cmd-outsider-thread-meta"),
           threadId: ThreadId.make("thread-group"),

@@ -111,6 +111,13 @@ export const TaskDueDate = TrimmedNonEmptyString.check(Schema.isPattern(/^\d{4}-
 
 export type TaskDueDate = typeof TaskDueDate.Type;
 
+/** How a task repeats; completing it creates the next one with the next due date. */
+export const TaskRepeat = Schema.Literals(["daily", "weekdays", "weekly", "monthly"]);
+
+export type TaskRepeat = typeof TaskRepeat.Type;
+
+export const TASK_REPEATS = TaskRepeat.literals;
+
 /** Logged time, millisecond precision so start/stop timers can be added later. */
 export const TaskTimeDuration = Schema.Int.check(
   Schema.isGreaterThanOrEqualTo(1),
@@ -140,6 +147,7 @@ export const OrchestrationTask = Schema.Struct({
   assignees: TaskAssignees,
   resources: WorkResources,
   dueDate: Schema.NullOr(TaskDueDate),
+  repeat: Schema.NullOr(TaskRepeat).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   status: WorkStatus,
   timeEntries: Schema.Array(TaskTimeEntry).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   createdAt: IsoDateTime,
@@ -173,7 +181,7 @@ export const TaskCreateCommand = Schema.Struct({
   createdAt: IsoDateTime,
 });
 
-/** Absent fields stay unchanged; null clears the owner or due date. */
+/** Absent fields stay unchanged; null clears the owner, due date or repeat. */
 export const TaskUpdateCommand = Schema.Struct({
   type: Schema.Literal("task.update"),
   commandId: CommandId,
@@ -185,8 +193,11 @@ export const TaskUpdateCommand = Schema.Struct({
   assignees: Schema.optional(TaskAssignees),
   resources: Schema.optional(WorkResources),
   dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
+  repeat: Schema.optional(Schema.NullOr(TaskRepeat)),
   status: Schema.optional(WorkStatus),
   by: Schema.optional(Actor),
+  /** The sender's IANA time zone; completing a repeating task counts the next due day from its today. */
+  timezone: Schema.optional(TrimmedNonEmptyString),
 });
 
 /** The server records the person logging time as the entry's creator. */
@@ -228,6 +239,9 @@ export const TaskChanges = Schema.Struct({
   assignees: Schema.optional(Schema.Struct({ from: TaskAssignees, to: TaskAssignees })),
   dueDate: Schema.optional(
     Schema.Struct({ from: Schema.NullOr(TaskDueDate), to: Schema.NullOr(TaskDueDate) }),
+  ),
+  repeat: Schema.optional(
+    Schema.Struct({ from: Schema.NullOr(TaskRepeat), to: Schema.NullOr(TaskRepeat) }),
   ),
   projectId: Schema.optional(Schema.Struct({ from: ProjectId, to: ProjectId })),
   resources: Schema.optional(Schema.Struct({ from: WorkResources, to: WorkResources })),

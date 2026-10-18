@@ -161,8 +161,6 @@ const childThread = {
   createdAt: "2026-08-31T00:00:10.000Z",
   updatedAt: "2026-08-31T00:01:00.000Z",
   archivedAt: null,
-  settledOverride: null,
-  settledAt: null,
   session: null,
   latestUserMessageAt: null,
   hasPendingApprovals: false,

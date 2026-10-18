@@ -218,28 +218,9 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
         },
       };
 
-      // Pinning is a promotion: it clears the parked states rather than
-      // silently outranking them. An explicit settle un-settles (reason
-      // "user", same override the un-settle button stamps), and a snooze's
-      // return ticket is spent — the thread is on top NOW, not on Tuesday.
+      // Pinning is a promotion: a snooze's return ticket is spent — the
+      // thread is on top NOW, not on Tuesday.
       const promotionEvents: Array<Omit<OrchestrationEvent, "sequence">> = [];
-
-      if (thread.settledOverride === "settled") {
-        promotionEvents.push({
-          ...(yield* withEventBase({
-            aggregateKind: "thread",
-            aggregateId: command.threadId,
-            occurredAt,
-            commandId: command.commandId,
-          })),
-          type: "thread.unsettled",
-          payload: {
-            threadId: command.threadId,
-            reason: "user",
-            updatedAt: occurredAt,
-          },
-        });
-      }
 
       if (thread.snoozedUntil != null) {
         promotionEvents.push({
@@ -268,7 +249,7 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
         threadId: command.threadId,
       });
 
-      // Idempotent by re-emission (see thread.settle): unpinning a thread
+      // Idempotent by re-emission (see thread.unsnooze): unpinning a thread
       // that is not pinned lands on the same null state without churning
       // updatedAt.
       const alreadyUnpinned = thread.pinnedAt == null;
@@ -306,7 +287,7 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
         });
       }
 
-      // Idempotent by re-emission (see thread.settle): a duplicate drop on
+      // Idempotent by re-emission (see thread.unsnooze): a duplicate drop on
       // the same slot keeps the existing updatedAt so it projects as a no-op.
       const keyUnchanged = thread.pinOrderKey === command.orderKey;
       const occurredAt = yield* nowIso;
@@ -560,30 +541,6 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
           type: "thread.activity-appended",
           payload: { threadId: command.threadId, activity },
         });
-      }
-
-      if (
-        command.settledOverride !== thread.settledOverride ||
-        command.settledAt !== thread.settledAt
-      ) {
-        if (command.settledOverride === "settled") {
-          const settledAt = command.settledAt ?? command.updatedAt;
-          events.push({
-            ...(yield* eventBase(settledAt)),
-            type: "thread.settled",
-            payload: { threadId: command.threadId, settledAt, updatedAt: command.updatedAt },
-          });
-        } else {
-          events.push({
-            ...(yield* eventBase(command.updatedAt)),
-            type: "thread.unsettled",
-            payload: {
-              threadId: command.threadId,
-              reason: command.settledOverride === "active" ? "user" : "activity",
-              updatedAt: command.updatedAt,
-            },
-          });
-        }
       }
 
       if (

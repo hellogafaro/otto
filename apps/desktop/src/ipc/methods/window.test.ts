@@ -7,9 +7,15 @@ import type * as Electron from "electron";
 
 import * as DesktopBackendManager from "../../backend/desktop-backend-manager.ts";
 import * as DesktopBackendPool from "../../backend/desktop-backend-pool.ts";
+import * as ElectronShell from "../../electron/electron-shell.ts";
 import * as ElectronWindow from "../../electron/electron-window.ts";
+import * as IpcChannels from "../channels.ts";
 import * as DesktopAppSettings from "../../settings/desktop-app-settings.ts";
-import { getLocalEnvironmentBootstraps, getWindowFullscreenState } from "./window.ts";
+import {
+  getLocalEnvironmentBootstraps,
+  getWindowFullscreenState,
+  showNotification,
+} from "./window.ts";
 
 const readyWslConfig: DesktopBackendManager.DesktopBackendStartConfig = {
   executablePath: "wsl.exe",
@@ -191,6 +197,51 @@ describe("getWindowFullscreenState", () => {
         Layer.mock(ElectronWindow.ElectronWindow)({
           currentMainOrFirst: Effect.succeed(Option.some(window)),
         }),
+      ),
+    );
+  });
+});
+
+describe("showNotification", () => {
+  it.effect("brings the window forward and reports the clicked notification to it", () => {
+    const events: string[] = [];
+    let click: (() => void) | undefined;
+
+    // SAFETY: the method only checks, reveals and messages the window.
+    const window = {
+      isDestroyed: () => false,
+      webContents: {
+        send: (channel: string, id: string) => {
+          events.push(`${channel} ${id}`);
+        },
+      },
+    } as Electron.BrowserWindow;
+
+    return Effect.gen(function* () {
+      yield* showNotification.handler({ id: "n-1", title: "Ana assigned you Fix login", body: "" });
+
+      assert.deepEqual(events, ["show Ana assigned you Fix login"]);
+      click?.();
+      assert.deepEqual(events, [
+        "show Ana assigned you Fix login",
+        "reveal",
+        `${IpcChannels.NOTIFICATION_CLICK_CHANNEL} n-1`,
+      ]);
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          Layer.mock(ElectronShell.ElectronShell)({
+            showNotification: (input) =>
+              Effect.sync(() => {
+                events.push(`show ${input.title}`);
+                click = input.onClick;
+              }),
+          }),
+          Layer.mock(ElectronWindow.ElectronWindow)({
+            currentMainOrFirst: Effect.succeed(Option.some(window)),
+            reveal: () => Effect.sync(() => events.push("reveal")),
+          }),
+        ),
       ),
     );
   });

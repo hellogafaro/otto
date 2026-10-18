@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { RoutineRunId, ThreadId } from "@otto/contracts";
+import { RoutineId, RoutineRunId, ThreadId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -63,6 +63,37 @@ it.layer(layer)("RoutineRepository.listThreadRuns", (it) => {
       assert.equal(second.runs.at(-1)?.id, RoutineRunId.make("paged-run-000"));
       assert.equal(second.nextCursor, null);
       assert.equal(new Set([...first.runs, ...second.runs].map((run) => run.id)).size, 151);
+    }),
+  );
+});
+
+it.layer(layer)("RoutineRepository.getLatestThreadRef", (it) => {
+  it.effect("returns the chat of the newest run that has one", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const repository = yield* RoutineRepository;
+
+      for (const [runId, threadRef, createdAt] of [
+        ["latest-run-1", "routine-chat-old", "2026-09-01T00:00:00.000Z"],
+        ["latest-run-2", "routine-chat-new", "2026-09-02T00:00:00.000Z"],
+        ["latest-run-3", null, "2026-09-03T00:00:00.000Z"],
+      ] as const) {
+        yield* sql`
+          INSERT INTO projection_routine_runs (
+            run_id, routine_id, procedure_version, trigger, status, thread_ref, created_at,
+            updated_at
+          ) VALUES (
+            ${runId}, 'latest-routine', 1, 'manual', 'completed', ${threadRef}, ${createdAt},
+            ${createdAt}
+          )
+        `;
+      }
+
+      assert.equal(
+        yield* repository.getLatestThreadRef(RoutineId.make("latest-routine")),
+        ThreadId.make("routine-chat-new"),
+      );
+      assert.isNull(yield* repository.getLatestThreadRef(RoutineId.make("no-runs")));
     }),
   );
 });

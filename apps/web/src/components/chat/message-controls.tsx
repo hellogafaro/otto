@@ -174,7 +174,7 @@ export function MessageControls(props: {
         </Tooltip>
       ) : null}
       {props.onReactionChange ? (
-        <Menu>
+        <Menu filterable={false}>
           <Tooltip>
             <TooltipTrigger
               render={

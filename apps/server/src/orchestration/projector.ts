@@ -95,8 +95,6 @@ export function projectEvent(
     case "thread.deleted":
     case "thread.archived":
     case "thread.unarchived":
-    case "thread.settled":
-    case "thread.unsettled":
     case "thread.snoozed":
     case "thread.unsnoozed":
     case "thread.pinned":

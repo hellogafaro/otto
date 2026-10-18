@@ -79,22 +79,6 @@ export const ThreadUnarchiveCommand = Schema.Struct({
   threadId: ThreadId,
 });
 
-export const ThreadSettleCommand = Schema.Struct({
-  type: Schema.Literal("thread.settle"),
-  commandId: CommandId,
-  threadId: ThreadId,
-});
-
-export const ThreadUnsettleCommand = Schema.Struct({
-  type: Schema.Literal("thread.unsettle"),
-  commandId: CommandId,
-  threadId: ThreadId,
-  // Commands only carry "user": activity un-settles are decided server-side
-  // (the decider emits thread.unsettled(reason: "activity") events directly,
-  // never through this command), so a client cannot forge the neutral reset.
-  reason: Schema.Literal("user"),
-});
-
 export const ThreadSnoozeCommand = Schema.Struct({
   type: Schema.Literal("thread.snooze"),
   commandId: CommandId,
@@ -324,12 +308,6 @@ export const ThreadSessionStopCommand = Schema.Struct({
   commandId: CommandId,
   threadId: ThreadId,
   createdAt: IsoDateTime,
-  // Settle-cleanup stops are conditional: the decider drops the stop if the
-  // thread was re-engaged (unsettled, session starting/running, or a queued
-  // turn start) between the settle and this command. Guarding in the decider
-  // closes the race a post-settle snapshot read cannot: commands are decided
-  // serially against the authoritative read model.
-  onlyIfSettled: Schema.optional(Schema.Boolean),
 });
 
 export const DelegationCancelCommand = Schema.Struct({

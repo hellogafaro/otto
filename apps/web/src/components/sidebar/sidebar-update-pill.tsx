@@ -1,4 +1,4 @@
-import { RiAlertLine, RiDownloadCloud2Line } from "@remixicon/react";
+import { RiAlertLine, RiDownloadCloud2Line, RiResetRightLine } from "@remixicon/react";
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -139,11 +139,14 @@ function SidebarUpdateControl() {
             variant="ghost-primary"
             size="icon"
             aria-label={tooltip}
+            aria-busy={isDownloading || undefined}
             aria-disabled={disabled || undefined}
             onClick={() => void handleAction()}
           >
             {isDownloading ? (
               <Spinner aria-hidden className="size-4" />
+            ) : action === "install" ? (
+              <RiResetRightLine aria-hidden className="size-4" />
             ) : (
               <RiDownloadCloud2Line aria-hidden className="size-4" />
             )}

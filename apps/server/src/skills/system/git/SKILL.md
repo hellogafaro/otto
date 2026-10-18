@@ -6,8 +6,9 @@ description: Use when working in a git repository on your computer, to branch, c
 Start
 
 - Run `git status --short --branch` and `git remote -v`. On GitHub, also read the github skill. On any other host, use plain git, and that host's own tool only if it is installed and the person asked for it.
+- Repositories linked in the project's resources are already cloned in your working folder under `repos/<owner>/<name>`; work in those checkouts.
 - Leave changes you did not make untouched unless the person asks you to include them.
-- Branch from a fresh base: `git fetch origin`, then `git switch -c otto/<your-name>/<topic> origin/<default-branch>`. Never commit to the default branch.
+- By default, branch from a fresh base: `git fetch origin`, then `git switch -c otto/<your-name>/<topic> origin/<default-branch>`. Work directly on the default branch only when the person explicitly authorized it.
 
 Commit
 
@@ -56,6 +57,6 @@ Review a change
 
 Limits
 
-- Never push to the default branch, never merge and never enable auto-merge, even when asked. Tell the person to merge.
+- Follow the shared authorization rule for merges, auto-merge and default-branch pushes. An explicit instruction for this task or an approved routine can authorize the whole workflow; do not ask again within that scope.
 - Never change git config, rewrite shared history or run a destructive command unless the person asks.
 - If the host refuses a push, say why and stop; do not try another route. No access: ask the person for write access. Protected branch: say so.

@@ -12,6 +12,7 @@ import {
   MAX_KEYBINDINGS_COUNT,
   ResolvedKeybindingsConfig,
   type ServerConfigIssue,
+  THREAD_JUMP_KEYBINDING_COMMANDS,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 import { fromJsonStringPretty, fromLenientJson } from "@otto/shared/schemaJson";
@@ -50,6 +51,11 @@ export const RETIRED_DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   // Replaced by the same shortcut without the retired terminal condition.
   { key: "mod+k", command: "commandPalette.toggle", when: "!terminalFocus" },
   { key: "mod+s", command: "composer.stash", when: "!terminalFocus" },
+  // Replaced by the same shortcut outside the desktop app, whose tabs own mod+1–9.
+  ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
+    key: `mod+${index + 1}`,
+    command,
+  })),
 ];
 
 export const RawKeybindingsEntries = fromLenientJson(Schema.Array(Schema.Unknown));

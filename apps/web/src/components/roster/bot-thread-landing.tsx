@@ -82,6 +82,8 @@ import { resolveRoutedBot } from "./roster-route-selection";
 import { ThreadRuntimeWarningBanner } from "./thread-runtime-warning-banner";
 import { ChatActionsMenu, useMarkChatVisited } from "../chat/chat-actions-menu";
 import { WatchComputerButton } from "./watch-computer-button";
+import { ArchivedChatBar } from "./archived-chat-bar";
+import { useChatShell } from "../../lib/archived-threads-state";
 
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
@@ -116,6 +118,7 @@ export function BotThreadLanding({
   } = useBotEngineAvailability(bot?.engine ?? null);
 
   const runtime = useBotThreadRuntime(botId, threadRef, stickyEngine);
+  const archived = useChatShell(threadRef).shell?.archivedAt != null;
   useMarkChatVisited(runtime.linkedThreadRef);
 
   // New chat opens the New chat dialog with this bot and this chat's project.
@@ -351,6 +354,7 @@ export function BotThreadLanding({
   );
 
   const waitingForApproval = approvalState.pending.length > 0;
+  const shortcutApprovalId = approvalState.pending[0]?.requestId ?? null;
 
   const transcriptRows = withInlineApprovals(timelineItems, approvalState.approvals, (item) =>
     Predicate.isTagged(item, "Message")
@@ -408,6 +412,7 @@ export function BotThreadLanding({
 
   const chatReply = {
     disabled:
+      archived ||
       runtime.sending ||
       runtime.latestTurn?.state === "running" ||
       runtime.pendingUserInputs.length > 0 ||
@@ -446,11 +451,13 @@ export function BotThreadLanding({
                   sandbox={bot.sandbox}
                   threadRef={runtime.linkedThreadRef}
                 />
-                <BotVoiceCallButton
-                  bot={bot}
-                  threadRef={threadRef}
-                  disabled={runtime.sending || runtime.latestTurn?.state === "running"}
-                />
+                {archived ? null : (
+                  <BotVoiceCallButton
+                    bot={bot}
+                    threadRef={threadRef}
+                    disabled={runtime.sending || runtime.latestTurn?.state === "running"}
+                  />
+                )}
                 {available ? (
                   <ChatActionsMenu threadRef={runtime.linkedThreadRef} newChat={newChat} />
                 ) : null}
@@ -503,6 +510,7 @@ export function BotThreadLanding({
                             : null
                         }
                         response={approvalState.responseFor(item.approval.requestId)}
+                        shortcuts={item.approval.requestId === shortcutApprovalId}
                         onRespond={approvalState.respond}
                       />
                     ) : Predicate.isTagged(item, "Receipt") ? (
@@ -631,6 +639,7 @@ export function BotThreadLanding({
                       onSubmit={() => {
                         void runtime.submitPendingUserInputAnswers();
                       }}
+                      shortcuts={shortcutApprovalId === null}
                     />
                   </div>
                 </div>
@@ -655,7 +664,9 @@ export function BotThreadLanding({
                   error={inlineError}
                   context={failureContext}
                   environmentId={environmentId}
-                  {...(runtime.canResume ? { onResume: () => void runtime.resume() } : {})}
+                  {...(runtime.canResume && !archived
+                    ? { onResume: () => void runtime.resume() }
+                    : {})}
                   resuming={runtime.resuming}
                 />
               ) : !working && runtime.turnFailure && messages.at(-1)?.role === "user" ? (
@@ -672,65 +683,72 @@ export function BotThreadLanding({
               ) : null}
             </BotConversationScrollArea>
             <ThreadRuntimeWarningBanner warning={runtimeWarning} />
-            {connectNeeded && subscriptionToConnect ? (
-              <ProviderConnectCard
-                id={engineNoticeId}
-                environmentId={environmentId}
-                provider={subscriptionToConnect}
-                botName={bot.name}
-                className="mt-2"
-              />
-            ) : null}
-            <BotPromptComposer
-              typeToFocus={!waitingForUserInput}
-              mentionScope={mentionScope}
-              commandCatalog={engineCatalog}
-              botName={bot.name}
-              draftKey={bot.id}
-              busy={working && !waitingForApproval}
-              pendingActionSlot={
-                memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
-                  <MemoryApprovalPrompt
-                    threadRef={runtime.linkedThreadRef}
-                    approvals={memoryApprovals}
+            {archived ? (
+              <ArchivedChatBar threadRef={threadRef} />
+            ) : (
+              <>
+                {connectNeeded && subscriptionToConnect ? (
+                  <ProviderConnectCard
+                    id={engineNoticeId}
+                    environmentId={environmentId}
+                    provider={subscriptionToConnect}
+                    botName={bot.name}
+                    className="mt-2"
                   />
-                ) : null
-              }
-              disabled={
-                runtime.respondingRequestIds.length > 0 ||
-                voiceCall.activeCall?.botId === bot.id ||
-                voiceCall.startingBotId === bot.id ||
-                sendBlocked ||
-                !runtime.botReady ||
-                runtime.project === null
-              }
-              replyPreview={replyTarget}
-              onCancelReply={() => setReplyTarget(null)}
-              sendBlockedDescriptionId={sendBlocked ? engineNoticeId : undefined}
-              onSubmit={async (prompt, files) => {
-                const sent = await runtime.send(buildReplyPrompt(replyTarget, prompt), files);
+                ) : null}
+                <BotPromptComposer
+                  focusOnEnter={!waitingForUserInput}
+                  mentionScope={mentionScope}
+                  commandCatalog={engineCatalog}
+                  botName={bot.name}
+                  draftKey={bot.id}
+                  busy={working && !waitingForApproval}
+                  pendingActionSlot={
+                    memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
+                      <MemoryApprovalPrompt
+                        threadRef={runtime.linkedThreadRef}
+                        approvals={memoryApprovals}
+                        shortcuts={shortcutApprovalId === null && !waitingForUserInput}
+                      />
+                    ) : null
+                  }
+                  disabled={
+                    runtime.respondingRequestIds.length > 0 ||
+                    voiceCall.activeCall?.botId === bot.id ||
+                    voiceCall.startingBotId === bot.id ||
+                    sendBlocked ||
+                    !runtime.botReady ||
+                    runtime.project === null
+                  }
+                  replyPreview={replyTarget}
+                  onCancelReply={() => setReplyTarget(null)}
+                  sendBlockedDescriptionId={sendBlocked ? engineNoticeId : undefined}
+                  onSubmit={async (prompt, files) => {
+                    const sent = await runtime.send(buildReplyPrompt(replyTarget, prompt), files);
 
-                if (sent) setReplyTarget(null);
+                    if (sent) setReplyTarget(null);
 
-                return sent;
-              }}
-            />
-            {connectNeeded ? null : sendBlocked && engineUnavailability ? (
-              <ProviderUnavailableLine
-                provider={engineUnavailability.provider}
-                id={engineNoticeId}
-                presentation={engineUnavailability}
-                environmentId={environmentId}
-              />
-            ) : sendBlocked ? null : !runtime.botReady ? (
-              <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
-                {t("Connecting bot…")}
-              </p>
-            ) : runtime.bootstrapped && runtime.project === null ? (
-              <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
-                {t("Your workspace is still loading. Try again in a moment.")}
-              </p>
-            ) : null}
+                    return sent;
+                  }}
+                />
+                {connectNeeded ? null : sendBlocked && engineUnavailability ? (
+                  <ProviderUnavailableLine
+                    provider={engineUnavailability.provider}
+                    id={engineNoticeId}
+                    presentation={engineUnavailability}
+                    environmentId={environmentId}
+                  />
+                ) : sendBlocked ? null : !runtime.botReady ? (
+                  <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
+                    {t("Connecting bot…")}
+                  </p>
+                ) : runtime.bootstrapped && runtime.project === null ? (
+                  <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
+                    {t("Your workspace is still loading. Try again in a moment.")}
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </SidebarInset>

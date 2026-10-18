@@ -19,7 +19,7 @@ describe("release-desktop-mac.sh", () => {
     expect(runRelease({})).toEqual({
       status: 1,
       stderr:
-        "release-desktop-mac: set GH_TOKEN to a token that can write releases in hellogafaro/otto.\n",
+        "Release stopped. Set GH_TOKEN to a token that can write releases in hellogafaro/otto.\n",
     });
   });
 
@@ -33,7 +33,7 @@ describe("release-desktop-mac.sh", () => {
     for (const version of ["1.2", "1.2.3-beta.1", "1.2.3-beta.12345.2.gabcdef123456"]) {
       expect(runRelease({ GH_TOKEN: "placeholder" }, ["--version", version])).toEqual({
         status: 1,
-        stderr: `release-desktop-mac: version ${version} is neither a stable X.Y.Z nor a beta X.Y.Z-beta.YYYYMMDD.N version.\n`,
+        stderr: `Release stopped. Version ${version} is neither stable (X.Y.Z) nor beta (X.Y.Z-beta.YYYYMMDD.N).\n`,
       });
     }
 
@@ -41,16 +41,16 @@ describe("release-desktop-mac.sh", () => {
       runRelease({ GH_TOKEN: "placeholder" }, ["--version", "1.2.4-beta.20261018.7"]).stderr,
     ).toContain("so the build can be notarized.");
     expect(runRelease({ GH_TOKEN: "placeholder" }, ["--version"]).stderr).toContain(
-      "--version needs a value.",
+      "The --version option needs a value.",
     );
     expect(runRelease({ GH_TOKEN: "placeholder" }, ["--beta"]).stderr).toContain(
-      "unknown argument --beta.",
+      "Unknown argument --beta.",
     );
   });
 
   it("refuses a partial App Store Connect API key", () => {
     expect(runRelease({ GH_TOKEN: "placeholder", APPLE_API_KEY_ID: "ABC123" }).stderr).toContain(
-      "set APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER together.",
+      "Set APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER together.",
     );
   });
 });

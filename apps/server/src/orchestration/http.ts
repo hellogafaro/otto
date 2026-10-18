@@ -161,6 +161,7 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
                       ? { beforeCursor: args.payload.beforeCursor }
                       : {}),
                   },
+              { includeArchived: true },
             )
             .pipe(
               Effect.catch((cause) =>

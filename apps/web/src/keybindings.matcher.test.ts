@@ -40,27 +40,6 @@ describe("isTerminalToggleShortcut", () => {
   });
 });
 
-describe("settle thread shortcut", () => {
-  it("resolves outside the terminal", () => {
-    assert.equal(
-      resolveShortcutCommand(event({ key: "s", metaKey: true, shiftKey: true }), DEFAULT_BINDINGS, {
-        platform: "MacIntel",
-        context: { terminalFocus: false },
-      }),
-      "thread.settle",
-    );
-  });
-
-  it("does not intercept the terminal", () => {
-    assert.isNull(
-      resolveShortcutCommand(event({ key: "s", ctrlKey: true, shiftKey: true }), DEFAULT_BINDINGS, {
-        platform: "Win32",
-        context: { terminalFocus: true },
-      }),
-    );
-  });
-});
-
 describe("split/new/close terminal shortcuts", () => {
   it("requires terminalFocus for default split/new/close bindings", () => {
     assert.isFalse(

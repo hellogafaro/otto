@@ -117,8 +117,6 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.deleted",
   "thread.archived",
   "thread.unarchived",
-  "thread.settled",
-  "thread.unsettled",
   "thread.snoozed",
   "thread.unsnoozed",
   "thread.pinned",
@@ -397,18 +395,6 @@ export const ThreadUnarchivedPayload = Schema.Struct({
   updatedAt: IsoDateTime,
 });
 
-export const ThreadSettledPayload = Schema.Struct({
-  threadId: ThreadId,
-  settledAt: IsoDateTime,
-  updatedAt: IsoDateTime,
-});
-
-export const ThreadUnsettledPayload = Schema.Struct({
-  threadId: ThreadId,
-  reason: Schema.Literals(["user", "activity"]),
-  updatedAt: IsoDateTime,
-});
-
 export const ThreadSnoozedPayload = Schema.Struct({
   threadId: ThreadId,
   snoozedUntil: IsoDateTime,
@@ -419,8 +405,7 @@ export const ThreadSnoozedPayload = Schema.Struct({
 export const ThreadUnsnoozedPayload = Schema.Struct({
   threadId: ThreadId,
   // user: explicit "wake now". activity: real work arrived (user message /
-  // session coming alive) and the decider cleared the snooze — mirrors
-  // thread.unsettled's activity resets. Timer wakes emit no event: clients
+  // session coming alive) and the decider cleared the snooze. Timer wakes emit no event: clients
   // derive them from snoozedUntil passing.
   reason: Schema.Literals(["user", "activity"]),
   updatedAt: IsoDateTime,

@@ -50,6 +50,7 @@ const seed = (
       assignees: fields.assignees ?? [],
       resources: [],
       dueDate: fields.dueDate ?? null,
+      repeat: null,
       status: fields.status,
       timeEntries: [],
       createdAt: fields.updatedAt,

@@ -14,6 +14,8 @@ import type { ProjectionTaskRepository } from "../persistence/services/projectio
 
 const encodeView = Schema.encodeSync(Schema.fromJsonString(TaskListView));
 
+const isTaskListError = Schema.is(TaskListError);
+
 /**
  * One page of the task list. Every workspace member reads every task, so a page needs no
  * per-row check; a cursor from another view or another server is refused.
@@ -47,8 +49,6 @@ export const listTasks = (
     };
   }).pipe(
     Effect.mapError((error) =>
-      Schema.is(TaskListError)(error)
-        ? error
-        : new TaskListError({ detail: "Tasks couldn't be loaded." }),
+      isTaskListError(error) ? error : new TaskListError({ detail: "Tasks couldn't be loaded." }),
     ),
   );

@@ -43,10 +43,9 @@ export interface Preferences {
   readonly projectGroupingEnabled?: boolean;
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
   // Retired keys (legacyThreadListEnabled, planModeEnabled, terminalFontSize,
-  // codeFontSize, codeWordBreak, collapsedProjectGroups) are dropped by
-  // sanitizing on the next load.
-  /** Undefined preserves the default expanded Settled shelf. */
-  readonly threadListV2SettledShelfExpanded?: boolean;
+  // codeFontSize, codeWordBreak, collapsedProjectGroups,
+  // threadListV2SettledShelfExpanded) are dropped by sanitizing on the next
+  // load.
   /** Undefined preserves the default collapsed Snoozed shelf. */
   readonly threadListV2SnoozedShelfExpanded?: boolean;
 }
@@ -101,7 +100,6 @@ const StoredPreferences = Schema.Struct({
   markdownFontSize: Schema.optional(Schema.Unknown),
   projectGroupingEnabled: Schema.optional(Schema.Unknown),
   projectGroupingMode: Schema.optional(Schema.Unknown),
-  threadListV2SettledShelfExpanded: Schema.optional(Schema.Unknown),
   threadListV2SnoozedShelfExpanded: Schema.optional(Schema.Unknown),
 });
 
@@ -162,10 +160,6 @@ function sanitizePreferences(parsed: typeof StoredPreferences.Type): Preferences
     parsed.projectGroupingMode === "separate"
   ) {
     preferences.projectGroupingMode = parsed.projectGroupingMode;
-  }
-
-  if (Predicate.isBoolean(parsed.threadListV2SettledShelfExpanded)) {
-    preferences.threadListV2SettledShelfExpanded = parsed.threadListV2SettledShelfExpanded;
   }
 
   if (Predicate.isBoolean(parsed.threadListV2SnoozedShelfExpanded)) {

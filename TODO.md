@@ -24,18 +24,22 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
   a workspace switcher; today it stores one server address and one session. Any Otto app works with
   any Otto server through a stable, versioned API.
 - **Watch drawer close button** sits 9px from the edge instead of 8px.
+- **Bots reply without Composio.** On a server without `COMPOSIO_API_KEY`, every bot turn fails with
+  "Set COMPOSIO_API_KEY on the server first": `resolveRuntimeMcpServer` should return no server
+  when the key is missing instead of failing.
+- **Project default model after skipped onboarding.** The General project keeps ChatGPT as its default
+  model when only another provider, such as the Custom API, is connected. Turns then fail with
+  "Provider instance 'codex' is disabled", even for a bot with its own model.
 
 ## Next
 
-- **Push notifications** on desktop and mobile, and a full Notifications page.
-- **Long messages** fold after a few lines, with a click to expand.
 - **Meeting recordings**: record a call, then transcribe and summarize it.
 - **Composio triggers**: let an event from a connected app start a bot or routine.
-- **Allow all** is missing on some tool approvals.
+- **Always allow per app.** An Always allow rule covers one kind of action per tool, so "Always
+  allow send" on Composio's combined tool allows sending through every connected app, Gmail and Slack
+  alike. Scope the rule to the app, for example Gmail send.
 - **gh on bot computers.** A bot said "The \`gh\` CLI isn't installed on my machine, so I use git and the
   GitHub API directly." Install \`gh\` on bot computers.
-- **New bots learn from their introduction.** After a new bot asks its first questions, it doesn't save
-  the answers to its own instructions.
 - **Recurring tasks.**
 - **Public file sharing**: share a file through a public link.
 - **Commands everywhere**: palette commands for every action, for speed.
@@ -44,11 +48,8 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **Relay architecture**: a proper relay between apps and servers.
 - **Filters on index tables** (Tasks, Projects, Routines, Library).
 - **More page actions**, for example Copy link and Copy ID on a task.
-- **"New single chat" in automations**: a run can start a fresh chat.
 - **Global search** in the command palette.
-- **Shortcut hints**: holding ⌘ shows each control's shortcut.
-- **Menus like Linear's**: every dropdown item shows a one-key shortcut, and typing filters the menu.
-- **Shortcuts for approvals**: approve, deny and Allow all from the keyboard, for every bot approval.
+- **Shortcuts for menu actions**: real shortcuts for chat, task, project and other actions, shown in their menus, for example Rename R, Pin P, Mark unread U, Snooze H, Archive E, Delete ⌘⌫, Copy link ⌘⇧, and Copy ID ⌘. (letters work when you aren't typing).
 
 ## Not verified yet
 

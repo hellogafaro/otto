@@ -155,6 +155,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           assignees_json,
           resources_json,
           due_date,
+          repeat,
           status,
           created_at,
           updated_at
@@ -168,6 +169,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           ${JSON.stringify(row.assignees)},
           ${JSON.stringify(row.resources)},
           ${row.dueDate},
+          ${row.repeat},
           ${row.status},
           ${row.createdAt},
           ${row.updatedAt}
@@ -181,6 +183,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           assignees_json = excluded.assignees_json,
           resources_json = excluded.resources_json,
           due_date = excluded.due_date,
+          repeat = excluded.repeat,
           status = excluded.status,
           updated_at = excluded.updated_at
       `,
@@ -200,6 +203,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           assignees_json AS assignees,
           resources_json AS resources,
           due_date AS "dueDate",
+          repeat,
           status,
           created_at AS "createdAt",
           updated_at AS "updatedAt"
@@ -308,6 +312,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
               assignees_json AS assignees,
               resources_json AS resources,
               due_date AS "dueDate",
+              repeat,
               status,
               created_at AS "createdAt",
               updated_at AS "updatedAt",

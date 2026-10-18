@@ -2,14 +2,17 @@ import {
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
-  RiHome5Line,
+  RiInbox2Line,
+  RiSearchLine,
   RiTimeLine,
   RiListCheck3,
   type RemixiconComponentType,
 } from "@remixicon/react";
+import type { KeybindingCommand } from "@otto/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 
+import { openCommandPalette } from "../../command-palette-bus";
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { useChangedSinceMount } from "../../hooks/use-changed-since-mount";
@@ -22,6 +25,7 @@ import BotRosterSidebar from "../roster/bot-roster-sidebar";
 import { resolveRosterListState } from "../roster/roster-route-selection";
 import { useRosterStore } from "../roster/roster-store";
 import { SettingsPanelNav } from "../settings/settings-sidebar-nav";
+import { ShortcutKbd } from "../shortcut-kbd";
 import { AppIcon } from "../ui/app-icon";
 import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -79,11 +83,14 @@ export function useRailOnly(): boolean {
   return !isPathUnder(pathname, "/settings") && noBots;
 }
 
-/** Home, Routines, Tasks, Projects and the Library own the whole main panel, so the panel steps aside. */
+/**
+ * Home, Notifications, Routines, Tasks, Projects and the Library own the whole main panel, so the
+ * panel steps aside.
+ */
 function isFullPage(pathname: string): boolean {
   if (pathname === "/") return true;
 
-  return ["/routines", "/tasks", "/projects", "/library"].some((base) =>
+  return ["/notifications", "/routines", "/tasks", "/projects", "/library"].some((base) =>
     isPathUnder(pathname, base),
   );
 }
@@ -99,6 +106,7 @@ export function ExperimentalSidebar() {
   // the panel, and leaving it goes back to the chat workspace.
   const onSettings = isPathUnder(pathname, "/settings");
   const onHome = pathname === "/";
+  const onNotifications = isPathUnder(pathname, "/notifications");
   const onRoutines = isPathUnder(pathname, "/routines");
   const onTasks = isPathUnder(pathname, "/tasks");
   const onProjects = isPathUnder(pathname, "/projects");
@@ -140,30 +148,61 @@ export function ExperimentalSidebar() {
         {/* The first icon centers on the panel title row. */}
         <div className={cn("h-topbar-spacer w-full shrink-0", isElectron && "drag-region")} />
         <div className="flex flex-col items-center gap-1">
-          {/* Otto: The Otto mark is the rail's first button, a ghost button like the rest, and a second way home. */}
-          <button
-            type="button"
-            aria-label="Otto"
-            onClick={() => {
-              if (!onHome) void navigate({ to: "/" });
-            }}
-            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
-          >
-            <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
-          </button>
+          {/* Otto: The Otto mark is the rail's first button and the way home, a ghost button like the rest. */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={t("Home")}
+                  aria-current={onHome || undefined}
+                  onClick={() => {
+                    if (!onHome) void navigate({ to: "/" });
+                  }}
+                  className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground outline-none transition-bg-color-shadow duration-(--duration-fast) ease-(--ease-smooth-out) select-none hover:bg-sidebar-wash motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring app-region-no-drag"
+                >
+                  <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
+                </button>
+              }
+            />
+            <TooltipPopup side="right">
+              <span className="flex items-center gap-2">
+                {t("Home")}
+                <ShortcutKbd command="navigation.home" variant="inline" />
+              </span>
+            </TooltipPopup>
+          </Tooltip>
           <RailButton
-            label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
-            icon={RiHome5Line}
-            active={onHome}
+            label={t("Search")}
+            icon={RiSearchLine}
+            shortcut="commandPalette.toggle"
+            onClick={openCommandPalette}
+          />
+          <RailButton
+            label={
+              unread > 0
+                ? t("Notifications, {count} unread", { count: unread })
+                : t("Notifications")
+            }
+            icon={RiInbox2Line}
+            shortcut="navigation.notifications"
+            active={onNotifications}
             badge={unread > 0}
             onClick={() => {
-              if (!onHome) void navigate({ to: "/" });
+              if (!onNotifications) void navigate({ to: "/notifications" });
             }}
           />
-          <RailButton label={t("Chats")} icon={RiChat1Line} active={!onPage} onClick={openChats} />
+          <RailButton
+            label={t("Chats")}
+            icon={RiChat1Line}
+            shortcut="navigation.chats"
+            active={!onPage}
+            onClick={openChats}
+          />
           <RailButton
             label={t("Routines")}
             icon={RiTimeLine}
+            shortcut="navigation.routines"
             active={onRoutines}
             onClick={() => {
               if (!onRoutines) void navigate({ to: "/routines" });
@@ -172,6 +211,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Tasks")}
             icon={RiListCheck3}
+            shortcut="navigation.tasks"
             active={onTasks}
             onClick={() => {
               if (!onTasks) void navigate({ to: "/tasks" });
@@ -180,6 +220,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Projects")}
             icon={RiBox3Line}
+            shortcut="navigation.projects"
             active={onProjects}
             onClick={() => {
               if (!onProjects) void navigate({ to: "/projects" });
@@ -188,6 +229,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Library")}
             icon={RiBookShelfLine}
+            shortcut="navigation.library"
             active={onLibrary}
             onClick={() => {
               if (!onLibrary) void navigate({ to: "/library" });
@@ -238,12 +280,14 @@ export function ExperimentalSidebar() {
 function RailButton({
   label,
   icon,
+  shortcut,
   active = false,
   badge = false,
   onClick,
 }: {
   label: string;
   icon: RemixiconComponentType;
+  shortcut: KeybindingCommand;
   active?: boolean;
   /** Otto: A dot for something new behind this place, such as unread notifications. */
   badge?: boolean;
@@ -275,7 +319,12 @@ function RailButton({
           </button>
         }
       />
-      <TooltipPopup side="right">{label}</TooltipPopup>
+      <TooltipPopup side="right">
+        <span className="flex items-center gap-2">
+          {label}
+          <ShortcutKbd command={shortcut} variant="inline" />
+        </span>
+      </TooltipPopup>
     </Tooltip>
   );
 }

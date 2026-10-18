@@ -483,8 +483,11 @@ export function createEvents(deps: {
         const proposal = isOttoProposal(event.toolName, toolInput);
 
         const policyAllows =
-          !oneUseApproval &&
-          deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) === "allow";
+          !proposal &&
+          (active.runtimeMode === "full-access" ||
+            (!oneUseApproval &&
+              deps.permissionPolicy(active.runtimeMode, ottoToolCategory(event.toolName)) ===
+                "allow"));
 
         // A person chose Always allow for this bot and this tool, for every kind of action in it.
         // The session's copy only shortlists the call; the bot's current rules decide, so a

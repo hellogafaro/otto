@@ -24,6 +24,7 @@ import { useLibraryData } from "../library/use-library";
 import { ActivitySection } from "./activity-section";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
 import { TaskDueDate } from "./task-due-date";
+import { TaskRepeatSelect } from "./task-repeat";
 import { WorkDetailPage, WorkResourcesSection } from "./work-detail";
 import { ProjectSelect } from "./work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "./work-pages";
@@ -67,7 +68,12 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
       type="task"
       back={back}
       actions={
-        <WorkMoreActions status={task.status} onStatusChange={(status) => update({ status })} />
+        <WorkMoreActions
+          path={`/tasks/${task.id}`}
+          id={task.id}
+          status={task.status}
+          onStatusChange={(status) => update({ status })}
+        />
       }
       title={task.title}
       onTitleSave={(title) => update({ title })}
@@ -132,6 +138,9 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
                 value={task.dueDate}
                 onChange={(dueDate) => update({ dueDate })}
               />
+            </DetailsRow>
+            <DetailsRow label={t("Repeat")}>
+              <TaskRepeatSelect value={task.repeat} onChange={(repeat) => update({ repeat })} />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
               <ProjectSelect

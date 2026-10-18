@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1689,
+  "directMessageCount": 1710,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -57,11 +57,13 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/home/home-page.tsx": [
       "greeting, { name: firstName })",
       "greeting);",
-      "NOTIFICATION_TEXT[notification.type], {",
     ],
     "apps/web/src/components/library/library-actions.tsx": [
       "'Delete the folder "{name}"?', { name: item.title })",
       "'Delete "{name}"? This can\\'t be undone.', { name: item.title }),",
+    ],
+    "apps/web/src/components/notifications/use-notifications.ts": [
+      "NOTIFICATION_TEXT[notification.type], {",
     ],
     "apps/web/src/components/onboarding/onboarding.tsx": [
       "definition.subscription)}",
@@ -210,6 +212,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Default image provider",
       "Read new replies aloud",
       "Quit shortcut",
+      "Notifications on this device",
       "Updates",
       "Keybindings",
       "Archived chats",
@@ -315,6 +318,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/composer-stash-badge.tsx",
     "apps/web/src/components/chat/composer-stash-menu.tsx",
     "apps/web/src/components/chat/dictation-controls.tsx",
+    "apps/web/src/components/chat/folded-message.tsx",
     "apps/web/src/components/chat/message-controls.tsx",
     "apps/web/src/components/chat/message-reactions.tsx",
     "apps/web/src/components/chat/model-list-row.tsx",
@@ -337,6 +341,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/command-palette.logic.ts",
     "apps/web/src/components/command-palette.tsx",
     "apps/web/src/components/confirm-dialog-host.tsx",
+    "apps/web/src/components/copy-menu-items.tsx",
     "apps/web/src/components/customize/customize-apps.tsx",
     "apps/web/src/components/customize/customize-detail.tsx",
     "apps/web/src/components/customize/customize-integrations.tsx",
@@ -361,9 +366,12 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/markdown/markdown-images.tsx",
     "apps/web/src/components/markdown/markdown-lists.tsx",
     "apps/web/src/components/markdown/markdown-table.tsx",
+    "apps/web/src/components/notifications/notifications-page.tsx",
+    "apps/web/src/components/notifications/use-notifications.ts",
     "apps/web/src/components/onboarding/onboarding.tsx",
     "apps/web/src/components/prompt-dialog.tsx",
     "apps/web/src/components/rich-text-editor.tsx",
+    "apps/web/src/components/roster/archived-chat-bar.tsx",
     "apps/web/src/components/roster/avatar-color-picker.tsx",
     "apps/web/src/components/roster/avatar-picker-dialog.tsx",
     "apps/web/src/components/roster/bot-activity-status.tsx",
@@ -474,6 +482,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/sidebar/sidebar-provider-update-pill.tsx",
     "apps/web/src/components/sidebar/sidebar-update-pill.tsx",
     "apps/web/src/components/ui/code-block.tsx",
+    "apps/web/src/components/ui/menu.tsx",
     "apps/web/src/components/ui/sidebar-rail.tsx",
     "apps/web/src/components/ui/sidebar.tsx",
     "apps/web/src/components/ui/sonner.tsx",
@@ -486,6 +495,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/work/project-page.tsx",
     "apps/web/src/components/work/task-due-date.tsx",
     "apps/web/src/components/work/task-page.tsx",
+    "apps/web/src/components/work/task-repeat.tsx",
     "apps/web/src/components/work/tasks-table.tsx",
     "apps/web/src/components/work/work-detail.tsx",
     "apps/web/src/components/work/work-dialogs.tsx",

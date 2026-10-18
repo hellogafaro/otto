@@ -1,6 +1,6 @@
 import { Predicate } from "effect";
 import type { EnvironmentThreadShell } from "@otto/client-runtime/state/shell";
-import { canSnooze } from "@otto/client-runtime/state/thread-settled";
+import { canSnooze } from "@otto/client-runtime/state/thread-snoozed";
 import * as Cause from "effect/Cause";
 import { useCallback, useRef } from "react";
 import { Alert } from "react-native";
@@ -25,10 +25,8 @@ import { environmentSupportsThreadCapability } from "./environment-thread-capabi
 type ThreadListActions = {
   readonly archiveThread: (thread: EnvironmentThreadShell) => void;
   readonly confirmDeleteThread: (thread: EnvironmentThreadShell) => void;
-  readonly settleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly snoozeThread: (thread: EnvironmentThreadShell, snoozedUntil: string) => Promise<boolean>;
   readonly unsnoozeThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
-  readonly unsettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly pinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly unpinThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
   readonly movePinnedThread: (
@@ -62,11 +60,6 @@ export function useThreadListActions(): ThreadListActions {
     (thread: EnvironmentThreadShell) => {
       void executeAction("archive", thread);
     },
-    [executeAction],
-  );
-
-  const settleThread = useCallback(
-    async (thread: EnvironmentThreadShell) => (await executeAction("settle", thread)) === true,
     [executeAction],
   );
 
@@ -180,11 +173,6 @@ export function useThreadListActions(): ThreadListActions {
       }
     },
     [unsnoozeMutation, t],
-  );
-
-  const unsettleThread = useCallback(
-    async (thread: EnvironmentThreadShell) => (await executeAction("unsettle", thread)) === true,
-    [executeAction],
   );
 
   const pinThread = useCallback(
@@ -431,10 +419,8 @@ export function useThreadListActions(): ThreadListActions {
   return {
     archiveThread,
     confirmDeleteThread,
-    settleThread,
     snoozeThread,
     unsnoozeThread,
-    unsettleThread,
     pinThread,
     unpinThread,
     movePinnedThread,

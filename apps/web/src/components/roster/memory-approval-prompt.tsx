@@ -11,6 +11,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { cn } from "../../lib/utils";
+import { useApprovalShortcuts } from "../chat/use-approval-shortcuts";
 import {
   BOT_COMPOSER_DOCKED_PANEL_CLASS_NAME,
   BOT_COMPOSER_SURFACE_CLASS_NAME,
@@ -21,12 +22,37 @@ import {
 export function MemoryApprovalPrompt({
   threadRef,
   approvals,
+  shortcuts = false,
 }: {
   readonly threadRef: ScopedThreadRef;
   readonly approvals: ReadonlyArray<MemoryApprovalRequest>;
+  /** Answers the approval shortcuts while no tool approval or question comes first. */
+  readonly shortcuts?: boolean;
+}) {
+  const approval = approvals[0];
+
+  return approval ? (
+    <MemoryApprovalCard
+      threadRef={threadRef}
+      approval={approval}
+      count={approvals.length}
+      shortcuts={shortcuts}
+    />
+  ) : null;
+}
+
+function MemoryApprovalCard({
+  threadRef,
+  approval,
+  count,
+  shortcuts,
+}: {
+  readonly threadRef: ScopedThreadRef;
+  readonly approval: MemoryApprovalRequest;
+  readonly count: number;
+  readonly shortcuts: boolean;
 }) {
   const { t } = useI18n();
-  const approval = approvals[0];
   const bots = useAtomValue(environmentBotsAtom(threadRef.environmentId));
   const decide = useAtomCommand(memoryEnvironment.decide, { reportFailure: false });
 
@@ -40,8 +66,6 @@ export function MemoryApprovalPrompt({
     readonly memoryId: string;
     readonly message: string;
   } | null>(null);
-
-  if (!approval) return null;
 
   const editing = draft?.memoryId === approval.memoryId ? draft : null;
   const error = failure?.memoryId === approval.memoryId ? failure.message : null;
@@ -92,6 +116,24 @@ export function MemoryApprovalPrompt({
     }
   };
 
+  const editedText = editing?.text.trim() ?? "";
+
+  const hint = useApprovalShortcuts(shortcuts, {
+    "approval.approve": () => {
+      if (responding) return;
+
+      if (!editing) void respond("approve");
+      else if (editedText.length > 0) void respond("approve", editedText);
+    },
+    ...(editing
+      ? {}
+      : {
+          "approval.deny": () => {
+            if (!responding) void respond("reject");
+          },
+        }),
+  });
+
   return (
     <section
       aria-label={t("Memory approval")}
@@ -104,9 +146,9 @@ export function MemoryApprovalPrompt({
           className="size-1.5 shrink-0 rounded-full bg-memory-approval-indicator"
         />
         <p className="text-sm font-semibold text-foreground">{heading}</p>
-        {approvals.length > 1 ? (
+        {count > 1 ? (
           <span className="ml-auto text-11px font-medium text-muted-foreground tabular-nums">
-            {t("1 of {count}", { count: approvals.length })}
+            {t("1 of {count}", { count })}
           </span>
         ) : null}
       </div>
@@ -154,10 +196,11 @@ export function MemoryApprovalPrompt({
             </Button>
             <Button
               size="xs"
-              disabled={responding || editing.text.trim().length === 0}
-              onClick={() => void respond("approve", editing.text.trim())}
+              disabled={responding || editedText.length === 0}
+              onClick={() => void respond("approve", editedText)}
             >
               {t("Approve edit")}
+              {hint("approval.approve")}
             </Button>
           </>
         ) : (
@@ -169,6 +212,7 @@ export function MemoryApprovalPrompt({
               onClick={() => void respond("reject")}
             >
               {t("Reject")}
+              {hint("approval.deny")}
             </Button>
             {approval.action === "delete" ? null : (
               <Button
@@ -182,6 +226,7 @@ export function MemoryApprovalPrompt({
             )}
             <Button size="xs" disabled={responding} onClick={() => void respond("approve")}>
               {t("Approve")}
+              {hint("approval.approve")}
             </Button>
           </>
         )}

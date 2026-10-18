@@ -1,7 +1,7 @@
 import {
   resolveSnoozePresets,
   type SnoozePresetId,
-} from "@otto/client-runtime/state/thread-settled";
+} from "@otto/client-runtime/state/thread-snoozed";
 import type { ScopedThreadRef } from "@otto/contracts";
 import { type ChatPaletteAction } from "../../chat-actions-registry";
 import { type ChatActions } from "../../hooks/use-chat-actions";
@@ -111,29 +111,6 @@ export function buildChatPaletteActions({
       searchTerms: ["unread"],
       run: () => actions.markUnread(threadRef),
     });
-  }
-
-  if (state.supports.settlement) {
-    if (state.isSettled) {
-      list.push({
-        id: "unsettle",
-        title: t("Un-settle chat"),
-        searchTerms: ["unsettle", "reopen"],
-        run: async () => {
-          await actions.unsettle(threadRef);
-        },
-      });
-    } else if (state.canSettle) {
-      list.push({
-        id: "settle",
-        title: t("Settle chat"),
-        searchTerms: ["settle", "done"],
-        shortcutCommand: "thread.settle",
-        run: async () => {
-          await actions.settle(threadRef);
-        },
-      });
-    }
   }
 
   if (state.supports.snooze) {
