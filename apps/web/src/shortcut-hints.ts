@@ -2,9 +2,6 @@ import { useSyncExternalStore } from "react";
 
 import { isMacPlatform } from "./lib/utils";
 
-/** Long enough that a quick chord such as ⌘C never flashes the hints. */
-export const SHORTCUT_HINTS_DELAY_MS = 400;
-
 const MODIFIER_KEYS = new Set(["Alt", "Control", "Meta", "Shift"]);
 
 const listeners = new Set<() => void>();
@@ -14,8 +11,6 @@ let visible = false;
 // A chord pressed while the modifier is down keeps the hints away until it is released.
 let chorded = false;
 
-let timer: ReturnType<typeof setTimeout> | undefined;
-
 function setVisible(next: boolean) {
   if (visible === next) return;
   visible = next;
@@ -23,15 +18,9 @@ function setVisible(next: boolean) {
   for (const listener of listeners) listener();
 }
 
-function hide() {
-  clearTimeout(timer);
-  timer = undefined;
-  setVisible(false);
-}
-
 function release() {
   chorded = false;
-  hide();
+  setVisible(false);
 }
 
 function hintModifier(): "Meta" | "Control" {
@@ -40,11 +29,7 @@ function hintModifier(): "Meta" | "Control" {
 
 function onKeyDown(event: KeyboardEvent) {
   if (event.key === hintModifier()) {
-    if (chorded || visible || timer !== undefined) return;
-    timer = setTimeout(() => {
-      timer = undefined;
-      setVisible(true);
-    }, SHORTCUT_HINTS_DELAY_MS);
+    if (!chorded) setVisible(true);
 
     return;
   }
@@ -52,7 +37,7 @@ function onKeyDown(event: KeyboardEvent) {
   if (MODIFIER_KEYS.has(event.key)) return;
 
   if (hintModifier() === "Meta" ? event.metaKey : event.ctrlKey) chorded = true;
-  hide();
+  setVisible(false);
 }
 
 function onKeyUp(event: KeyboardEvent) {
