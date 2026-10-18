@@ -182,7 +182,13 @@ const make = Effect.gen(function* () {
         routineId,
         botId,
         targetThreadId: threadId,
-        threadMode: input.threadMode ?? "target",
+        // Otto: A group chat has no single bot to post as, so its routines get their own chat.
+        threadMode:
+          thread.groupId == null
+            ? (input.threadMode ?? "target")
+            : input.threadMode === "per-run"
+              ? "per-run"
+              : "single",
         job: input.name,
         procedure: input.instructions,
         schedule: input.schedule,

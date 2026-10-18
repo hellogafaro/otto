@@ -99,6 +99,12 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
       item={item}
       back={back}
       currentPersonId={snapshot.currentPersonId ?? null}
+      originalChatAvailable={snapshot.threads.some(
+        (thread) =>
+          thread.id === routine.targetThreadId &&
+          thread.archivedAt === null &&
+          thread.botId === routine.botId,
+      )}
     />
   );
 }
@@ -109,9 +115,11 @@ function RoutineDetail({
   item,
   back,
   currentPersonId,
+  originalChatAvailable,
 }: {
   readonly environmentId: EnvironmentId;
   readonly currentPersonId: string | null;
+  readonly originalChatAvailable: boolean;
   readonly routine: Routine;
   readonly item: RoutineAdapterItem;
   readonly back: { readonly label: string; readonly onBack: () => void };
@@ -335,6 +343,7 @@ function RoutineDetail({
               <RoutineChatSelect
                 value={routine.threadMode}
                 onChange={(threadMode) => void save({ threadMode })}
+                originalChatAvailable={originalChatAvailable}
               />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
