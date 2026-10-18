@@ -20,7 +20,11 @@ import {
   type ProviderRuntimeEvent,
   ThreadId,
   OTTO_CREATE_ROUTINE_TOOL_NAME,
+  SecretName,
 } from "@otto/contracts";
+import * as Schema from "effect/Schema";
+
+const isSecretName = Schema.is(SecretName);
 
 import { ServerConfig } from "../../../config.ts";
 
@@ -655,6 +659,23 @@ export function createEvents(deps: {
             })
           : [];
 
+        const secrets = Array.isArray(suspendPayload.secrets)
+          ? suspendPayload.secrets.flatMap((entry) => {
+              const value = readSdkRecord(entry);
+
+              if (!value || !isSecretName(value.name)) return [];
+
+              return [
+                {
+                  name: value.name,
+                  ...(Predicate.isString(value.description) && value.description.trim()
+                    ? { description: value.description.trim() }
+                    : {}),
+                },
+              ];
+            })
+          : [];
+
         deps.publish({
           ...baseEvent(threadId, active, turn.turnId),
           requestId: RuntimeRequestId.make(event.toolCallId),
@@ -667,6 +688,7 @@ export function createEvents(deps: {
                 question,
                 options,
                 multiSelect: suspendPayload.selectionMode === "multi_select",
+                ...(secrets.length > 0 ? { secrets } : {}),
               },
             ],
           },

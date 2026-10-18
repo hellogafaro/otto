@@ -16,7 +16,10 @@ import {
 } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
+  RiBox3Line,
+  RiChat1Line,
   RiDeleteBinLine,
+  RiGlobalLine,
   RiMoreLine,
   RiPauseCircleLine,
   RiPencilLine,
@@ -51,7 +54,7 @@ import { Menu, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectStatus } from "../work/work.logic";
-import { WorkDetailPage } from "../work/work-detail";
+import { WorkDetailPage, useWorkPickers } from "../work/work-detail";
 import { ProjectSelect } from "../work/work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "../work/work-pages";
 import { RoutineChatSelect } from "./routine-chat-options";
@@ -148,6 +151,44 @@ const act = async (result: Promise<{ readonly _tag: string }>, failure: string) 
 
 const createdAt = () => new Date().toISOString();
 
+/** Delete under ⌘⌫, after a confirm; the routine's chat and past runs stay. */
+export function useRoutineDeleteAction(
+  environmentId: EnvironmentId,
+  routine: Pick<Routine, "id" | "job">,
+): PageAction {
+  const { t } = useI18n();
+  const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
+
+  return useMemo(
+    (): PageAction => ({
+      id: "delete",
+      title: t("Delete"),
+      icon: RiDeleteBinLine,
+      searchTerms: ["delete", "remove"],
+      shortcutCommand: "item.delete",
+      run: async () => {
+        const confirmed =
+          (await requestConfirmDialog(
+            t("Delete {name}?\nIt stops running. Its chat and past runs stay.", {
+              name: routine.job,
+            }),
+            { variant: "destructive", confirmLabel: t("Delete") },
+          )) ?? false;
+
+        if (!confirmed) return;
+        await act(
+          remove({
+            environmentId,
+            input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
+          }),
+          t("Routine couldn't be deleted"),
+        );
+      },
+    }),
+    [environmentId, remove, routine.id, routine.job, t],
+  );
+}
+
 function RoutineDetail({
   environmentId,
   routine,
@@ -171,11 +212,11 @@ function RoutineDetail({
   const pause = useAtomCommand(routineEnvironment.pause, { reportFailure: false });
   const enable = useAtomCommand(routineEnvironment.enable, { reportFailure: false });
   const run = useAtomCommand(routineEnvironment.run, { reportFailure: false });
-  const remove = useAtomCommand(routineEnvironment.delete, { reportFailure: false });
   const update = useAtomCommand(routineEnvironment.update, { reportFailure: false });
 
   const { projects } = useWorkData();
   const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
+  const { open: openPicker, props: picker } = useWorkPickers<"project" | "visibility">("routine");
 
   const waiting = item.latestRun?.status === "waiting-for-approval";
   const running = waiting || item.latestRun?.status === "running";
@@ -228,7 +269,8 @@ function RoutineDetail({
               id: "pause",
               title: t("Pause"),
               icon: RiPauseCircleLine,
-              searchTerms: ["pause", "stop", "disable"],
+              searchTerms: ["pause", "stop", "disable", "status"],
+              shortcutCommand: "property.status",
               run: () =>
                 act(
                   pause({
@@ -246,7 +288,8 @@ function RoutineDetail({
               id: "resume",
               title: t("Resume"),
               icon: RiPlayCircleLine,
-              searchTerms: ["resume", "enable", "start"],
+              searchTerms: ["resume", "enable", "start", "status"],
+              shortcutCommand: "property.status",
               run: () =>
                 act(
                   enable({
@@ -259,34 +302,10 @@ function RoutineDetail({
     [enable, environmentId, pause, routine.enabled, routine.id, routineState, t],
   );
 
-  const deleteRoutine = useMemo(
-    (): PageAction => ({
-      id: "delete",
-      title: t("Delete"),
-      icon: RiDeleteBinLine,
-      searchTerms: ["delete", "remove"],
-      shortcutCommand: "item.delete",
-      run: async () => {
-        const confirmed =
-          (await requestConfirmDialog(
-            t("Delete {name}?\nIt stops running. Its chat and past runs stay.", {
-              name: routine.job,
-            }),
-            { variant: "destructive", confirmLabel: t("Delete") },
-          )) ?? false;
+  const deleteRoutine = useRoutineDeleteAction(environmentId, routine);
 
-        if (!confirmed) return;
-        await act(
-          remove({
-            environmentId,
-            input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
-          }),
-          t("Routine couldn't be deleted"),
-        );
-      },
-    }),
-    [environmentId, remove, routine.id, routine.job, t],
-  );
+  const projectEditable = routine.threadMode !== "target";
+  const visibilityEditable = routine.createdBy != null && routine.createdBy === currentPersonId;
 
   const pageActions = useMemo(
     (): PageAction[] => [
@@ -299,11 +318,55 @@ function RoutineDetail({
       },
       runNow,
       ...(pauseOrResume ? [pauseOrResume] : []),
+      {
+        id: "open-chat",
+        title: t("Open chat"),
+        icon: RiChat1Line,
+        searchTerms: ["open chat", "bot"],
+        shortcutCommand: "property.bot",
+        run: () =>
+          void navigate({ to: "/chats/$threadId", params: { threadId: routine.targetThreadId } }),
+      },
+      ...(projectEditable
+        ? [
+            {
+              id: "project",
+              title: t("Project"),
+              icon: RiBox3Line,
+              searchTerms: ["project"],
+              shortcutCommand: "property.project",
+              run: () => openPicker("project"),
+            } satisfies PageAction,
+          ]
+        : []),
+      ...(visibilityEditable
+        ? [
+            {
+              id: "visibility",
+              title: t("Visibility"),
+              icon: RiGlobalLine,
+              searchTerms: ["visibility", "share", "private"],
+              shortcutCommand: "property.visibility",
+              run: () => openPicker("visibility"),
+            } satisfies PageAction,
+          ]
+        : []),
       copy.link,
       copy.id,
       deleteRoutine,
     ],
-    [copy, deleteRoutine, pauseOrResume, runNow, t],
+    [
+      copy,
+      deleteRoutine,
+      navigate,
+      openPicker,
+      pauseOrResume,
+      projectEditable,
+      routine.targetThreadId,
+      runNow,
+      t,
+      visibilityEditable,
+    ],
   );
 
   usePageActions(t("This routine"), pageActions);
@@ -442,11 +505,12 @@ function RoutineDetail({
               />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
-              {routine.threadMode !== "target" ? (
+              {projectEditable ? (
                 <ProjectSelect
                   variant="ghost"
                   value={routine.projectId}
                   onChange={(projectId) => void save({ projectId })}
+                  picker={picker("project")}
                   projects={projects.filter(
                     (project) =>
                       project.id === routine.projectId || projectStatus(project) !== "archived",
@@ -461,8 +525,9 @@ function RoutineDetail({
             <DetailsRow label={t("Visibility")}>
               <LibraryVisibilitySelect
                 value={routine.visibility}
-                editable={routine.createdBy != null && routine.createdBy === currentPersonId}
+                editable={visibilityEditable}
                 onChange={(visibility) => void save({ visibility })}
+                picker={picker("visibility")}
               />
             </DetailsRow>
             {routine.trigger?.type === "app" ? (

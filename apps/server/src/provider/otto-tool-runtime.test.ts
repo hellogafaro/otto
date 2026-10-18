@@ -63,6 +63,45 @@ describe("OttoToolRuntime", () => {
     ]);
   });
 
+  it("runs shell commands with the chat's secrets and hides their values from the result", async () => {
+    const runtime = createOttoToolRuntime({
+      secrets: async (threadId) => (threadId === "thread-1" ? { API_KEY: "sk_live_1234567" } : {}),
+    });
+
+    const computer = workspace("secrets-bot");
+    NodeFS.writeFileSync(`${workspaceRoot(computer)}/.env`, "API_KEY=sk_live_1234567\n");
+    runtime.registerSession("thread-1", {
+      runtimeMode: "full-access",
+      workspaceType: "local",
+      workspace: computer,
+    });
+
+    const shell = {
+      threadId: "thread-1",
+      toolId: "shell" as const,
+      toolCallId: "tool-shell-secret",
+      input: { command: 'echo "length=${#API_KEY} value=$API_KEY"' },
+      approvalMode: "require-grant" as const,
+    };
+
+    const read = {
+      threadId: "thread-1",
+      toolId: "read" as const,
+      toolCallId: "tool-read-secret",
+      input: { path: ".env" },
+      approvalMode: "require-grant" as const,
+    };
+
+    runtime.grantApproval(shell);
+    runtime.grantApproval(read);
+    const shellOutput = JSON.stringify(await runtime.execute(shell));
+    const readOutput = JSON.stringify(await runtime.execute(read));
+
+    expect(shellOutput).toContain("length=15 value=[secret API_KEY]");
+    expect(readOutput).toContain("API_KEY=[secret API_KEY]");
+    expect(shellOutput + readOutput).not.toContain("sk_live_1234567");
+  });
+
   it("rejects shell working directories outside the workspace", async () => {
     const runtime = createOttoToolRuntime();
     runtime.registerSession("thread-1", {

@@ -259,6 +259,60 @@ describe("OttoMastraHarness", () => {
     assert.deepEqual(deleted, [{ threadId: "thread-1", routineIds: ["routine-1", "routine-2"] }]);
   });
 
+  it("asks for missing secrets in a form and reports only their names", async () => {
+    const set = new Set(["REGION"]);
+    const suspended: unknown[] = [];
+    const requestContext = new RequestContext();
+    requestContext.setRaw("controller", { resourceId: "thread-1" });
+
+    const tools = await resolveOttoTools(requestContext, {
+      authStorage: new AuthStorage("/tmp/otto-unused-auth.json"),
+      getThreadTools: () => ({}),
+      toolRuntime: toolRuntimeFixture({ toolsForThread: () => [] }),
+      secretNames: async () => [...set],
+    });
+
+    const tool = probeTool(tools["secret_request"]);
+
+    const input = {
+      purpose: "Deploy the site",
+      secrets: [{ name: "API_KEY", description: "Vercel token" }, { name: "REGION" }],
+    };
+
+    assert.isFalse(tool.requireApproval);
+    await tool.execute?.(input, {
+      agent: { suspend: async (payload) => void suspended.push(payload) },
+    });
+    assert.deepEqual(suspended, [
+      {
+        question: "Deploy the site",
+        options: [
+          { label: "Save to project", description: "Every chat in this project gets them." },
+          { label: "This chat only", description: "Only this chat, until the server restarts." },
+          { label: "Cancel", description: "Don't save anything." },
+        ],
+        selectionMode: "single_select",
+        secrets: [{ name: "API_KEY", description: "Vercel token" }],
+      },
+    ]);
+
+    assert.deepEqual(await tool.execute?.(input, { agent: { resumeData: "Cancel" } }), {
+      status: "cancelled",
+    });
+
+    set.add("API_KEY");
+    assert.deepEqual(await tool.execute?.(input, { agent: { resumeData: "This chat only" } }), {
+      status: "saved",
+      scope: "chat",
+      set: ["API_KEY", "REGION"],
+      missing: [],
+    });
+    assert.deepEqual(await tool.execute?.(input, {}), {
+      status: "already-set",
+      set: ["API_KEY", "REGION"],
+    });
+  });
+
   it("asks before changing a routine and sends only the changed fields", async () => {
     const updated: unknown[] = [];
     const suspended: unknown[] = [];

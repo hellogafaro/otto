@@ -126,9 +126,15 @@ export function useBotThreadRuntime(
     respondingRequestIds,
     answerPendingUserInputWithPrompt,
     answerPendingUserInputWithText,
+    answerSecretRequest,
     selectPendingUserInputOption,
     submitPendingUserInputAnswers,
-  } = useThreadPendingUserInput({ linkedThreadRef, pendingUserInputs, onFailure: setError });
+  } = useThreadPendingUserInput({
+    linkedThreadRef,
+    projectId: activeProject?.id ?? null,
+    pendingUserInputs,
+    onFailure: setError,
+  });
 
   const [resuming, setResuming] = useState(false);
 
@@ -395,6 +401,7 @@ export function useBotThreadRuntime(
     resume,
     resuming,
     answerPendingUserInputWithText,
+    answerSecretRequest,
     selectPendingUserInputOption,
     submitPendingUserInputAnswers,
     send,

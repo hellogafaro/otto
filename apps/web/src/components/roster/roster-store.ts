@@ -194,6 +194,9 @@ interface RosterStore {
   /** A first message, such as a new chat's or a routine change, its chat sends once it can. */
   promptRequest: PromptRequest | null;
   requestPrompt: (request: PromptRequest | null) => void;
+  /** A group whose Add members dialog should open, asked by its M key; the editor takes it once. */
+  addMembersRequest: string | null;
+  requestAddMembers: (groupId: string | null) => void;
   replaceRoster: (input: {
     environmentId: string;
     bots: Bot[];
@@ -261,6 +264,7 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   selectedBotId: persisted?.selectedBotId ?? null,
   newChat: null,
   promptRequest: null,
+  addMembersRequest: null,
   pinnedItems: persisted?.pinnedItems ?? [],
   unassignedItems: persisted?.unassignedItems ?? [],
   environmentId: null,
@@ -374,6 +378,8 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   openNewChat: (preset) => set({ newChat: preset }),
 
   requestPrompt: (request) => set({ promptRequest: request }),
+
+  requestAddMembers: (groupId) => set({ addMembersRequest: groupId }),
 
   replaceRoster: (input) => {
     const switchingEnvironment = get().environmentId !== input.environmentId;

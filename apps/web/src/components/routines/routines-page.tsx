@@ -6,6 +6,7 @@ import {
 } from "@otto/client-runtime/routines";
 import {
   BotId,
+  type EnvironmentId,
   ROUTINE_LIST_SORTS,
   ROUTINE_STATUSES,
   type Routine,
@@ -31,6 +32,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { routineEnvironment } from "../../state/routines";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { useCopyPageActions } from "../copy-menu-items";
 import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "../list-toolbar";
 import { PromptDialog } from "../prompt-dialog";
 import { BotPicker } from "../roster/bot-picker";
@@ -42,6 +44,7 @@ import { StatusIcon } from "../status-icon";
 import { Button } from "../ui/button";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { SkeletonTableRows } from "../ui/skeleton";
+import { useRowHighlight } from "../use-row-highlight";
 import { ParticipantAvatar } from "../work/work-participants";
 import {
   NoMatches,
@@ -53,6 +56,7 @@ import {
 } from "../work/work-pages";
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
+import { useRoutineDeleteAction } from "./routine-page";
 import { ROUTINE_STATUS_ICON, routineStatus, useRoutineStatusLabel } from "./routine-status";
 import { encodeRoutineSearch } from "./routines.logic";
 
@@ -155,6 +159,14 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
 
   const setView = (next: RoutineListView) =>
     void navigate({ to: "/routines", search: encodeRoutineSearch(next), replace: true });
+
+  const openRoutine = useCallback(
+    (routine: Routine) =>
+      void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(routines, (routine) => routine.id, openRoutine);
 
   useCreateRequest("routine", Boolean(snapshot), openNewRoutine);
 
@@ -313,9 +325,8 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
                 columns={routineColumns({ i18n, bots, schedule })}
                 getRowKey={(routine) => routine.id}
                 getRowLabel={(routine) => `${routine.job}, ${statusLabel(routineStatus(routine))}`}
-                onRowClick={(routine) =>
-                  void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } })
-                }
+                onRowClick={openRoutine}
+                highlightedKey={highlighted?.id ?? null}
                 paging={{
                   hasMore: list.hasMore,
                   loading: list.status !== "ready",
@@ -341,9 +352,40 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
           </div>
         </WorkColumn>
       )}
+      {environmentId && highlighted ? (
+        <RoutineRowActions
+          key={highlighted.id}
+          environmentId={environmentId}
+          routine={highlighted}
+          pageActions={pageActions}
+        />
+      ) : null}
       <NewRoutineDialog open={creating} onOpenChange={setCreating} />
     </WorkPage>
   );
+}
+
+/** Otto: The held routine row's item keys, Copy link, Copy ID and Delete, beside New routine. */
+function RoutineRowActions({
+  environmentId,
+  routine,
+  pageActions,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly routine: Routine;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
+  const deleteRoutine = useRoutineDeleteAction(environmentId, routine);
+
+  const actions = useMemo(
+    () => [...pageActions, copy.link, copy.id, deleteRoutine],
+    [copy, deleteRoutine, pageActions],
+  );
+
+  usePageActions(routine.job, actions);
+
+  return null;
 }
 
 /**

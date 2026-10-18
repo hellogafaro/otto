@@ -14,6 +14,8 @@ export * from "./otto-usage.ts";
 
 export * from "./routines.ts";
 
+export * from "./secrets.ts";
+
 export * from "./auth.ts";
 
 export * from "./environment.ts";

@@ -25,6 +25,7 @@ import {
   QuestionnaireSubmit,
   QuestionnaireTitle,
 } from "../ui/questionnaire";
+import { SecretRequestCard, type SecretRequestAnswer } from "./secret-request-card";
 import { useApprovalShortcuts } from "./use-approval-shortcuts";
 
 interface PendingUserInputPanelProps {
@@ -38,6 +39,8 @@ interface PendingUserInputPanelProps {
   /** Answers the question on screen with text typed into the card's own-answer row. */
   onAnswerWithText: (text: string) => void;
   onSubmit?: () => void;
+  /** Answers a secret request; without it a secret request shows as an ordinary question. */
+  onAnswerSecrets?: (answer: SecretRequestAnswer | null) => Promise<boolean>;
   /** `docked` drops the card chrome when a host surface already frames the panel. */
   surface?: "card" | "docked";
   /** The approve shortcut moves on or sends while no tool approval comes first. */
@@ -59,6 +62,7 @@ export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserIn
   onSelectOption,
   onAnswerWithText,
   onSubmit,
+  onAnswerSecrets,
   surface = "card",
   shortcuts = false,
 }: PendingUserInputPanelProps) {
@@ -66,6 +70,19 @@ export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserIn
 
   // Once the answer is on its way the card goes at once, so it never sits beside the reply.
   if (!activePrompt || respondingRequestIds.includes(activePrompt.requestId)) return null;
+
+  const secretQuestion = activePrompt.questions[0];
+
+  if (secretQuestion?.secrets && onAnswerSecrets) {
+    return (
+      <SecretRequestCard
+        key={activePrompt.requestId}
+        question={secretQuestion}
+        surface={surface}
+        onAnswer={onAnswerSecrets}
+      />
+    );
+  }
 
   return (
     <PendingUserInputCard

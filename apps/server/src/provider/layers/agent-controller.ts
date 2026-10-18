@@ -120,6 +120,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       preparePreviewMcpSession,
       sessionResources,
       computerSetup,
+      secretEnvironment,
       authStorage,
       subscriptionAuth,
       botInbox,
@@ -203,6 +204,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       toolUsageStarts,
       runPromise,
       botUsageLedger,
+      secrets: secretEnvironment,
       get baseEvent() {
         return baseEvent;
       },
@@ -292,6 +294,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       runPromise,
       legacyProviderBridge,
       sessionResources,
+      secretEnvironment,
       orchestrationEngine,
       routineDispatcher,
       pendingRoutineRequests,
