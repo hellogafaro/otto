@@ -3,11 +3,13 @@ import {
   OrchestrationTask,
   type TaskListItem,
   type TaskListQuery,
+  type TaskId,
   type TaskListResult,
   type TaskTimeEntry,
 } from "@otto/contracts";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 
 import type { ProjectionRepositoryError } from "../errors.ts";
 
@@ -22,6 +24,10 @@ export interface ProjectionTaskRepositoryShape {
   readonly upsert: (row: ProjectionTask) => Effect.Effect<void, ProjectionRepositoryError>;
   /** Tasks with their timesheet entries, oldest entry first. */
   readonly listAll: () => Effect.Effect<ReadonlyArray<ProjectionTask>, ProjectionRepositoryError>;
+  /** One task with its timesheet entries, oldest entry first. */
+  readonly get: (
+    taskId: TaskId,
+  ) => Effect.Effect<Option.Option<ProjectionTask>, ProjectionRepositoryError>;
   /**
    * One page of tasks matching the query's filter in its order, strictly after `after`, with
    * one row more than the limit when another page follows, and the filter's status counts.

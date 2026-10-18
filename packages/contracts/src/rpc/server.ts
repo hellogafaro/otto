@@ -11,9 +11,12 @@ import {
 import {
   ProjectListError,
   ProjectListQuery,
+  OrchestrationTask,
+  TaskGetInput,
   TaskListError,
   TaskListQuery,
   TaskListResult,
+  TaskNotFoundError,
 } from "../orchestration/work.ts";
 import { ProjectListResult } from "../orchestration/roster.ts";
 import {
@@ -737,6 +740,12 @@ export const WsTasksListRpc = Rpc.make(WS_METHODS.tasksList, {
   payload: TaskListQuery,
   success: TaskListResult,
   error: Schema.Union([TaskListError, EnvironmentAuthorizationError]),
+});
+
+export const WsTasksGetRpc = Rpc.make(WS_METHODS.tasksGet, {
+  payload: TaskGetInput,
+  success: OrchestrationTask,
+  error: Schema.Union([TaskNotFoundError, EnvironmentAuthorizationError]),
 });
 
 export const WsProjectsListRpc = Rpc.make(WS_METHODS.projectsList, {

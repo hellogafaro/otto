@@ -1,8 +1,10 @@
-import { WS_METHODS } from "@otto/contracts";
+import { type TaskGetInput, type TaskListQuery, WS_METHODS } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
+import * as Effect from "effect/Effect";
 import { Atom } from "effect/unstable/reactivity";
 
 import type { EnvironmentRegistry } from "../connection/registry.ts";
+import { request } from "../rpc/client.ts";
 import {
   addTaskTime,
   createTask,
@@ -13,11 +15,16 @@ import {
   type RemoveTaskTimeInput,
   type UpdateTaskInput,
 } from "../operations/commands.ts";
-import {
-  createAtomCommandScheduler,
-  createEnvironmentCommand,
-  createEnvironmentRpcCommand,
-} from "./runtime.ts";
+import { createAtomCommandScheduler, createEnvironmentCommand } from "./runtime.ts";
+import { cacheTasks } from "./task-cache.ts";
+
+export {
+  recordTaskShellItem,
+  taskCacheAtom,
+  taskChangesAtom,
+  type CachedTask,
+  type TaskCache,
+} from "./task-cache.ts";
 
 export type {
   AddTaskTimeInput,
@@ -38,10 +45,23 @@ export function createTaskEnvironmentAtoms<R, E>(
   };
 
   return {
-    /** One page of the bounded task list; the Tasks page asks for each page as it scrolls. */
-    list: createEnvironmentRpcCommand(runtime, {
+    /** One page of the bounded task list; its rows fill the task cache. */
+    list: createEnvironmentCommand(runtime, {
       label: "environment-data:tasks:list",
-      tag: WS_METHODS.tasksList,
+      execute: (input: TaskListQuery, registry, environmentId) =>
+        request(WS_METHODS.tasksList, input).pipe(
+          Effect.tap((result) =>
+            Effect.sync(() => cacheTasks(registry, environmentId, result.tasks)),
+          ),
+        ),
+    }),
+    /** One task with its timesheet, into the task cache. */
+    get: createEnvironmentCommand(runtime, {
+      label: "environment-data:tasks:get",
+      execute: (input: TaskGetInput, registry, environmentId) =>
+        request(WS_METHODS.tasksGet, input).pipe(
+          Effect.tap((task) => Effect.sync(() => cacheTasks(registry, environmentId, [task]))),
+        ),
     }),
     create: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:task:create",

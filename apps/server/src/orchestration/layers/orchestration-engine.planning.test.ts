@@ -53,7 +53,7 @@ it("persists project planning fields and tasks through restart", async () => {
       resources: [{ type: "link", title: "Spec", url: "https://example.test/spec" }],
       status: "pending",
     });
-    expect(snapshot.tasks).toEqual([
+    expect((await system.readCommandReadModel()).tasks).toEqual([
       expect.objectContaining({
         id: "task-1",
         projectId,

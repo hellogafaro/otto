@@ -9,6 +9,7 @@ import {
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 
 import type { ServerSecretStore } from "../auth/server-secret-store.ts";
 import { ProjectionTaskRepositoryLive } from "../persistence/layers/projection-tasks.ts";
@@ -140,6 +141,57 @@ layer("listTasks", (it) => {
       } while (cursor);
 
       assert.deepStrictEqual(pages, [["c"], ["b"], ["a"], ["d"]]);
+    }),
+  );
+
+  it.effect("finds tasks by title, or by title and description, ignoring case", () =>
+    Effect.gen(function* () {
+      const tasks = yield* ProjectionTaskRepository;
+
+      yield* seed("launch-post", {
+        status: "pending",
+        updatedAt: "2026-10-06T00:00:00.000Z",
+        title: "Write the Launch post",
+      });
+      yield* seed("press", {
+        status: "pending",
+        updatedAt: "2026-10-07T00:00:00.000Z",
+        title: "Brief the press",
+      });
+      yield* tasks.upsert({
+        ...(yield* tasks.get(TaskId.make("press"))).pipe(Option.getOrThrow),
+        description: "Mention the launch date",
+      });
+      yield* seed("old-launch", {
+        status: "archived",
+        updatedAt: "2026-10-08T00:00:00.000Z",
+        title: "Plan the first launch",
+      });
+
+      assert.deepStrictEqual(ids(yield* list({ title: "LAUNCH", sort: "title" })), ["launch-post"]);
+      assert.deepStrictEqual(ids(yield* list({ search: "launch", sort: "title" })), [
+        "press",
+        "launch-post",
+      ]);
+      assert.deepStrictEqual(
+        ids(yield* list({ search: "launch", status: ["archived"], sort: "title" })),
+        ["old-launch"],
+      );
+      assert.deepStrictEqual(ids(yield* list({ title: "%" })), []);
+
+      const first = yield* list({ title: "launch", status: ["pending", "archived"], limit: 1 });
+      assert.isNotNull(first.nextCursor);
+
+      const otherTitle = yield* Effect.flip(
+        list({
+          title: "plan",
+          status: ["pending", "archived"],
+          limit: 1,
+          cursor: first.nextCursor!,
+        }),
+      );
+
+      assert.strictEqual(otherTitle._tag, "TaskListError");
     }),
   );
 

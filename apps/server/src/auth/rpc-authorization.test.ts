@@ -41,6 +41,13 @@ describe("RPC authorization scopes", () => {
     );
   });
 
+  it("reads one task with the same scope as the task list", () => {
+    expect(requiredScopeForRpcMethod(WS_METHODS.tasksGet)).toBe(AuthOrchestrationReadScope);
+    expect(requiredScopeForRpcMethod(WS_METHODS.tasksGet)).toBe(
+      requiredScopeForRpcMethod(WS_METHODS.tasksList),
+    );
+  });
+
   it("allows bot usage reads without granting orchestration changes", () => {
     expect(requiredScopeForRpcMethod(WS_METHODS.botUsage)).toBe(AuthOrchestrationReadScope);
   });

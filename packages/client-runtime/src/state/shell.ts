@@ -24,6 +24,7 @@ import { subscribeDynamic } from "../rpc/client.ts";
 import type { RpcSession } from "../rpc/session.ts";
 import { ShellSnapshotLoader } from "./shell-snapshot-http.ts";
 import { recordRoutineShellItem } from "./routine-cache.ts";
+import { recordTaskShellItem } from "./task-cache.ts";
 import { applyShellStreamEvent } from "./shell-reducer.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
@@ -176,6 +177,7 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
 
     if (Option.isSome(atoms) && nextSnapshot !== Option.getOrNull(current.snapshot)) {
       recordRoutineShellItem(atoms.value, environmentId, item);
+      recordTaskShellItem(atoms.value, environmentId, item);
     }
 
     const waiting = yield* Ref.get(awaitingCompletion);

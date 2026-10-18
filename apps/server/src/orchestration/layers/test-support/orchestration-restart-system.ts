@@ -116,6 +116,10 @@ export async function createRestartSystem() {
           return yield* query.getShellSnapshot();
         }),
       ),
+    readCommandReadModel: () =>
+      runtime.runPromise(
+        Effect.flatMap(ProjectionSnapshotQuery, (query) => query.getCommandReadModel()),
+      ),
     async restart() {
       await Effect.runPromise(Scope.close(scope, Exit.void));
       scope = await Effect.runPromise(Scope.make());

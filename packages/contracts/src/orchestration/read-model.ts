@@ -169,7 +169,6 @@ export const OrchestrationShellSnapshot = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
   mcpServers: Schema.optional(Schema.Array(McpServer)),
-  tasks: Schema.optional(Schema.Array(OrchestrationTask)),
   libraryFolders: Schema.optional(Schema.Array(LibraryFolder)),
   libraryFiles: Schema.optional(Schema.Array(LibraryFile)),
   threads: Schema.Array(OrchestrationThreadShell),
