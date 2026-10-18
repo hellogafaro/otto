@@ -25,6 +25,31 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
   any Otto server through a stable, versioned API.
 - **Watch drawer close button** sits 9px from the edge instead of 8px.
 
+## Next
+
+- **Push notifications** on desktop and mobile, and a full Notifications page.
+- **Long messages** fold after a few lines, with a click to expand.
+- **Meeting recordings**: record a call, then transcribe and summarize it.
+- **Composio triggers**: let an event from a connected app start a bot or routine.
+- **Allow all** is missing on some tool approvals.
+- **gh on bot computers.** A bot said "The \`gh\` CLI isn't installed on my machine, so I use git and the
+  GitHub API directly." Install \`gh\` on bot computers.
+- **New bots learn from their introduction.** After a new bot asks its first questions, it doesn't save
+  the answers to its own instructions.
+- **Recurring tasks.**
+- **Public file sharing**: share a file through a public link.
+- **Commands everywhere**: palette commands for every action, for speed.
+- **Better memory.**
+- **Email addresses for bots.**
+- **Relay architecture**: a proper relay between apps and servers.
+- **Filters on index tables** (Tasks, Projects, Routines, Library).
+- **More page actions**, for example Copy link and Copy ID on a task.
+- **"New single chat" in automations**: a run can start a fresh chat.
+- **Global search** in the command palette.
+- **Shortcut hints**: holding ⌘ shows each control's shortcut.
+- **Menus like Linear's**: every dropdown item shows a one-key shortcut, and typing filters the menu.
+- **Shortcuts for approvals**: approve, deny and Allow all from the keyboard, for every bot approval.
+
 ## Not verified yet
 
 - Dictation with a real microphone.

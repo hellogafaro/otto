@@ -159,7 +159,7 @@ it.layer(NodeServices.layer)("macOS signing plan", (it) => {
         ].join("\n"),
       );
 
-      yield* refreshUpdateManifestDmgEntry(dmgPath);
+      yield* refreshUpdateManifestDmgEntry(dmgPath, "latest");
 
       const manifest = parse(
         NodeFS.readFileSync(NodePath.join(directory, "latest-mac.yml"), "utf8"),

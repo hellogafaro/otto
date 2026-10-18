@@ -68,6 +68,7 @@ import {
   resolvePackageManagerUserAgent,
   resolveDesktopProductName,
   resolveMockUpdateServerUrl,
+  resolveDesktopUpdateChannel,
   DESKTOP_UPDATE_PUBLISH_CONFIG,
 } from "./lib/desktop-build/config.ts";
 
@@ -212,7 +213,7 @@ export { resolveDesktopRuntimeDependencies } from "./lib/desktop-build/workspace
 
 export { DESKTOP_UPDATE_PUBLISH_CONFIG } from "./lib/desktop-build/config.ts";
 
-export { DESKTOP_UPDATE_CHANNEL } from "./lib/desktop-build/config.ts";
+export { resolveDesktopUpdateChannel } from "./lib/desktop-build/config.ts";
 
 export { DESKTOP_WEB_ASSET_BRAND } from "./lib/desktop-build/assets.ts";
 
@@ -761,6 +762,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     yield* Effect.log("[desktop-artifact] Notarizing and stapling the DMG...");
     yield* notarizeAndStapleDmg({
       dmgPath: dmgArtifact,
+      updateChannel: resolveDesktopUpdateChannel(appVersion),
       notarization,
       verbose: options.verbose,
     });
