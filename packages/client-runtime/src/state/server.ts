@@ -378,6 +378,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.subscriptionAuthList,
       staleTimeMs: 5_000,
     }),
+    routineRuns: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:routine-runs",
+      tag: WS_METHODS.routinesListRuns,
+      staleTimeMs: 0,
+    }),
     routineThreadRuns: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:routine-thread-runs",
       tag: WS_METHODS.routinesListThreadRuns,

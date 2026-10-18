@@ -1,6 +1,8 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
+  AuthSessionId,
   BotId,
+  GroupId,
   IsoDateTime,
   type OrchestrationBot,
   type OrchestrationCommand,
@@ -109,6 +111,7 @@ describe("routineStatusesForBot", () => {
           }),
         ],
         botId,
+        [],
       ),
     ).toEqual([
       { id: "enabled", name: "Routine enabled", enabled: true, lifecycle: "enabled" },
@@ -116,11 +119,21 @@ describe("routineStatusesForBot", () => {
       { id: "blocked", name: "Routine blocked", enabled: false, lifecycle: "blocked" },
     ]);
   });
+
+  it("leaves out a private routine someone in the chat cannot see", () => {
+    const owner = AuthSessionId.make("person-owner");
+    const other = AuthSessionId.make("person-other");
+    const routines = [routine("private", { createdBy: owner, visibility: "user" })];
+
+    expect(routineStatusesForBot(routines, botId, [owner])).toHaveLength(1);
+    expect(routineStatusesForBot(routines, botId, [owner, other])).toEqual([]);
+  });
 });
 
 function deleteHarness(input: {
   readonly routines: ReadonlyArray<Routine>;
   readonly respondingBotId?: BotId | null;
+  readonly groupId?: GroupId;
   readonly runtimeMode?: OrchestrationThread["runtimeMode"];
 }) {
   const commands: Array<OrchestrationCommand> = [];
@@ -128,8 +141,8 @@ function deleteHarness(input: {
   const thread: OrchestrationThread = {
     id: ThreadId.make("thread-1"),
     projectId: ProjectId.make("project-1"),
-    botId,
-    groupId: null,
+    botId: input.groupId === undefined ? botId : null,
+    groupId: input.groupId ?? null,
     respondingBotId: input.respondingBotId ?? null,
     title: "Routine thread",
     modelSelection: {
@@ -326,6 +339,31 @@ describe("RoutineDraftDispatcher.createApprovedForThread", () => {
         sequence: 2,
         status: "enabled",
       });
+    }).pipe(Effect.provide(test.layer));
+  });
+
+  it.effect("gives a routine set up in a group chat its own chat", () => {
+    const test = deleteHarness({
+      routines: [],
+      respondingBotId: botId,
+      groupId: GroupId.make("group-1"),
+    });
+
+    return Effect.gen(function* () {
+      const dispatcher = yield* RoutineDraftDispatcher;
+
+      yield* dispatcher.createApprovedForThread(ThreadId.make("thread-1"), "Europe/Madrid", {
+        name: "Daily hello",
+        instructions: "Say hi.",
+        schedule: { kind: "daily", time: "09:00" },
+        threadMode: "target",
+      });
+
+      const created = test.commands[0];
+
+      expect(created?.type === "routine.create-approved" ? created.threadMode : null).toBe(
+        "single",
+      );
     }).pipe(Effect.provide(test.layer));
   });
 });

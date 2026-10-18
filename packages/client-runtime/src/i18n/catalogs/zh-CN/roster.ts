@@ -109,8 +109,6 @@ export const rosterCatalog = {
   "Could not start routine": "无法启动例行任务",
   Scheduled: "定时",
   "Loading bot…": "正在加载机器人…",
-  "Paused. Fix the cause in Bot inbox, then resume it.":
-    "已暂停。请在机器人收件箱中解决问题，然后恢复运行。",
   "Fix this in Plugins on the desktop or web app.": "请在桌面端或网页版的插件中修复此问题。",
   Routines: "例行任务",
   "Send this reply to {channel}?": "将此回复发送到 {channel}？",
@@ -181,6 +179,9 @@ export const rosterCatalog = {
   "Share with project": "与项目共享",
   "Stable details this bot has learned about you.": "此机器人了解到的关于你的稳定信息。",
   "Not scheduled": "未安排",
+  "Edit schedule": "编辑计划",
+  Days: "日期",
+  "Time zone": "时区",
   Skills: "技能",
   "Draft. Approve its procedure to schedule it.": "草稿。批准任务内容后才会按计划运行。",
   "Loading routines": "正在加载例行任务",

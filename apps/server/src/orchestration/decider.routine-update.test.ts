@@ -96,7 +96,10 @@ const setup = Effect.gen(function* () {
 type RoutineUpdate = Extract<OrchestrationCommand, { readonly type: "routine.update" }>;
 
 const routineUpdate = (
-  fields: Pick<RoutineUpdate, "job" | "threadMode" | "projectId" | "visibility" | "by">,
+  fields: Pick<
+    RoutineUpdate,
+    "job" | "threadMode" | "projectId" | "visibility" | "by" | "schedule" | "timezone"
+  >,
 ): RoutineUpdate => ({
   type: "routine.update",
   commandId: CommandId.make("command-routine-update"),
@@ -193,6 +196,43 @@ it.layer(NodeServices.layer)("routine.update decider", (it) => {
       }).pipe(Effect.flip);
 
       expect(String(other)).toContain("Only the person who set up this routine");
+    }),
+  );
+
+  it.effect("moves the next run to the new schedule and timezone", () =>
+    Effect.gen(function* () {
+      const readModel = yield* setup;
+
+      const enabled = {
+        ...readModel,
+        routines: (readModel.routines ?? []).map((routine) => ({
+          ...routine,
+          enabled: true,
+          lifecycle: "enabled" as const,
+          nextRunAt: "2026-09-01T13:00:00.000Z",
+        })),
+      };
+
+      const event = yield* update(enabled, {
+        schedule: { kind: "weekdays", time: "07:30" },
+        timezone: "Europe/Madrid",
+      });
+
+      expect(event?.payload).toMatchObject({
+        routine: {
+          schedule: { kind: "weekdays", time: "07:30" },
+          timezone: "Europe/Madrid",
+          nextRunAt: "2026-09-01T05:30:00.000Z",
+          procedureVersion: 1,
+          approvalVersion: 1,
+        },
+      });
+
+      const off = yield* update(readModel, { schedule: { kind: "daily", time: "07:30" } });
+
+      expect(off?.payload).toMatchObject({
+        routine: { schedule: { kind: "daily", time: "07:30" }, nextRunAt: null },
+      });
     }),
   );
 });

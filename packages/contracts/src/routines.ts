@@ -347,7 +347,7 @@ export const RoutineRunCommand = Schema.Struct({
 });
 
 /**
- * Otto: A person's direct edit of a routine's title and where it runs. `regenerateTitle`
+ * Otto: A person's direct edit of a routine's title, when and where it runs. `regenerateTitle`
  * asks the server for a new title from the instructions instead of `job`.
  */
 export const RoutineUpdateCommand = Schema.Struct({
@@ -357,6 +357,8 @@ export const RoutineUpdateCommand = Schema.Struct({
   regenerateTitle: Schema.optional(Schema.Literal(true)),
   threadMode: Schema.optional(RoutineThreadMode),
   projectId: Schema.optional(ProjectId),
+  schedule: Schema.optional(RoutineSchedule),
+  timezone: Schema.optional(RoutineTimeZone),
   /** Only the routine's creator changes who sees it. */
   visibility: Schema.optional(Visibility),
   /** Set by the server to the signed-in person. */

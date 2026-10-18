@@ -219,6 +219,12 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             Effect.catch(() => failEnvironmentInvalidRequest("invalid_command")),
           );
 
+          // Otto: Starting a run needs the routine scheduler, which only the app's live
+          // connection reaches; recorded here it would stay queued forever.
+          if (decodedCommand.type === "routine.run") {
+            return yield* failEnvironmentInvalidRequest("invalid_command");
+          }
+
           const needsPeople =
             decodedCommand.type === "group.create" ||
             decodedCommand.type === "group.leave" ||
