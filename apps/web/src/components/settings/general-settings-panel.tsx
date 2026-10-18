@@ -18,6 +18,7 @@ import { useI18n } from "../../i18n";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/use-settings";
 import { ensureLocalApi } from "../../local-api";
 import { useDesktopUpdateState } from "../../state/desktop-update";
+import { useNotificationPermission } from "../notifications/notification-permission";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { toast } from "sonner";
@@ -238,6 +239,41 @@ function UpdateChannelSetting() {
   );
 }
 
+/**
+ * Otto: Whether this device shows Otto's notifications while Otto is in the background. The
+ * desktop app always does; a browser does once allowed, and Turn on asks it again.
+ */
+function DeviceNotificationsSetting() {
+  const { t } = useI18n();
+  const { permission, request } = useNotificationPermission();
+
+  const description = {
+    granted: t("Otto shows a notification when something needs you while it is in the background."),
+    default: t("Allow Otto to notify you when something needs you while it is in the background."),
+    denied: t("Your browser blocks Otto's notifications. Allow them in its site settings."),
+    unsupported: t("This browser can't show notifications."),
+  }[permission];
+
+  return (
+    <SettingsRow
+      {...searchableSetting("device-notifications", t)}
+      description={description}
+      control={
+        {
+          default: (
+            <Button size="sm" variant="outline" onClick={() => void request()}>
+              {t("Turn on")}
+            </Button>
+          ),
+          granted: <span className="text-13px text-muted-foreground">{t("On")}</span>,
+          denied: <span className="text-13px text-muted-foreground">{t("Blocked")}</span>,
+          unsupported: null,
+        }[permission]
+      }
+    />
+  );
+}
+
 export function GeneralSettingsPanel() {
   const { t } = useI18n();
   const settings = usePrimarySettings();
@@ -337,6 +373,10 @@ export function GeneralSettingsPanel() {
             }
           />
         ) : null}
+      </SettingsSection>
+
+      <SettingsSection title={t("Notifications")}>
+        <DeviceNotificationsSetting />
       </SettingsSection>
 
       <SettingsSection title={t("About")}>

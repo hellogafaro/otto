@@ -146,12 +146,15 @@ export const workCatalog = {
   "Hear when something needs you": "Hear when something needs you",
   "When someone gives you a task, mentions you or answers you, it shows up here.":
     "When someone gives you a task, mentions you or answers you, it shows up here.",
-  "Turn on notifications": "Turn on notifications",
-  "Get notified on this device": "Get notified on this device",
-  "See new notifications while Otto is in the background.":
-    "See new notifications while Otto is in the background.",
-  "Notifications are blocked. Allow them for Otto in your browser's site settings.":
-    "Notifications are blocked. Allow them for Otto in your browser's site settings.",
+  "Notifications on this device": "Notifications on this device",
+  "Otto shows a notification when something needs you while it is in the background.":
+    "Otto shows a notification when something needs you while it is in the background.",
+  "Allow Otto to notify you when something needs you while it is in the background.":
+    "Allow Otto to notify you when something needs you while it is in the background.",
+  "Your browser blocks Otto's notifications. Allow them in its site settings.":
+    "Your browser blocks Otto's notifications. Allow them in its site settings.",
+  "This browser can't show notifications.": "This browser can't show notifications.",
+  "Turn on": "Turn on",
   "You're all caught up": "You're all caught up",
   Earlier: "Earlier",
 } as const;

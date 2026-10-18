@@ -146,11 +146,15 @@ export const workCatalog = {
   "Hear when something needs you": "有事需要你时及时知道",
   "When someone gives you a task, mentions you or answers you, it shows up here.":
     "有人给你分配任务、提到你或回复你时，会显示在这里。",
-  "Turn on notifications": "开启通知",
-  "Get notified on this device": "在此设备上接收通知",
-  "See new notifications while Otto is in the background.": "Otto 在后台时也能看到新通知。",
-  "Notifications are blocked. Allow them for Otto in your browser's site settings.":
-    "通知已被阻止。请在浏览器的网站设置中允许 Otto 发送通知。",
+  "Notifications on this device": "此设备上的通知",
+  "Otto shows a notification when something needs you while it is in the background.":
+    "Otto 在后台时，有事需要你会显示通知。",
+  "Allow Otto to notify you when something needs you while it is in the background.":
+    "允许 Otto 在后台时，有事需要你就通知你。",
+  "Your browser blocks Otto's notifications. Allow them in its site settings.":
+    "浏览器阻止了 Otto 的通知。请在其网站设置中允许。",
+  "This browser can't show notifications.": "此浏览器无法显示通知。",
+  "Turn on": "开启",
   "You're all caught up": "已全部处理完毕",
   Earlier: "更早",
 } as const;

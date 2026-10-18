@@ -1,40 +1,36 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { arrivedNotifications } from "./notification-alerts.logic";
+import { readNotificationPermission } from "./notification-permission";
 import { useNotifications } from "./use-notifications";
-
-type NotificationPermissionState = NotificationPermission | "unsupported";
-
-const readPermission = (): NotificationPermissionState => {
-  if (window.desktopBridge?.showNotification) return "granted";
-
-  return "Notification" in window ? window.Notification.permission : "unsupported";
-};
-
-/** Whether Otto may notify on this device: always in the desktop app, once allowed in a browser. */
-export function useNotificationPermission() {
-  const [permission, setPermission] = useState(readPermission);
-
-  return {
-    permission,
-    request: async () => {
-      setPermission(await window.Notification.requestPermission());
-    },
-  };
-}
 
 const inBackground = () => document.visibilityState === "hidden" || !document.hasFocus();
 
 /**
  * Otto: A notification that arrives while Otto is in the background also shows as an OS
- * notification: native in the desktop app, the browser's once the person allows it. Clicking it
- * brings Otto forward and opens what it is about.
+ * notification: native in the desktop app, the browser's once the person allows it. A browser
+ * that has not been asked yet is asked when Otto opens, or on the person's first click where the
+ * browser only asks after one. Clicking a notification brings Otto forward and opens what it is
+ * about.
  */
 export function NotificationAlerts() {
   const notifications = useNotifications();
   const latest = useRef(notifications);
   const known = useRef<ReadonlySet<string> | null>(null);
   latest.current = notifications;
+
+  useEffect(() => {
+    if (readNotificationPermission() !== "default") return;
+
+    const ask = () => {
+      if (readNotificationPermission() === "default") void window.Notification.requestPermission();
+    };
+
+    ask();
+    window.addEventListener("pointerdown", ask, { once: true });
+
+    return () => window.removeEventListener("pointerdown", ask);
+  }, []);
 
   useEffect(
     () =>
@@ -63,7 +59,7 @@ export function NotificationAlerts() {
         continue;
       }
 
-      if (readPermission() !== "granted") return;
+      if (readNotificationPermission() !== "granted") return;
 
       const alert = new window.Notification(text, {
         body: notification.excerpt,
