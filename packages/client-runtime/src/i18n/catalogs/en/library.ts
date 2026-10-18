@@ -77,4 +77,6 @@ export const libraryCatalog = {
     "The link shares the file as it is now. Later edits stay in Otto until you update the link.",
   "This link doesn't exist or was removed.": "This link doesn't exist or was removed.",
   "Update link": "Update link",
+  "{count} types": "{count} types",
+  "The Library couldn't be loaded.": "The Library couldn't be loaded.",
 } as const;

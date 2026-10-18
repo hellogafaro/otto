@@ -154,8 +154,11 @@ export function desktopTabPathname(href: string): string {
  */
 export function useDesktopTabTitle(title: string | null | undefined): void {
   useEffect(() => {
-    if (!isElectron || !title) return;
-    const pathname = desktopTabPathname(window.location.hash.slice(1) || "/");
+    if (!title) return;
+
+    const pathname = isElectron
+      ? desktopTabPathname(window.location.hash.slice(1) || "/")
+      : window.location.pathname;
 
     if (useDesktopTabs.getState().titles[pathname] === title) return;
     useDesktopTabs.setState(({ titles }) => ({ titles: { ...titles, [pathname]: title } }));

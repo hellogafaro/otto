@@ -64,15 +64,15 @@ line="$(grep -E "^[a-fA-F0-9]{64}[[:space:]]+\*?${dmg}\$" "$tmp/SHA256SUMS")" ||
 
 echo "Installing..."
 hdiutil attach "$tmp/$dmg" -nobrowse -readonly -mountpoint "$mnt"
-app="/Applications/Otto (Alpha).app"
-source_app="$mnt/Otto (Alpha).app"
-prepared_app="$tmp/Otto (Alpha).app"
+app="/Applications/Otto.app"
+source_app="$mnt/Otto.app"
+prepared_app="$tmp/Otto.app"
 ditto "$source_app" "$prepared_app"
 identifier="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$prepared_app/Contents/Info.plist")"
 [ "$identifier" = studio.hellogafaro.otto ]
 install_id="$(uuidgen)"
-new_app="/Applications/.Otto (Alpha).app.installing.$install_id"
-old_app="/Applications/.Otto (Alpha).app.backup.$install_id"
+new_app="/Applications/.Otto.app.installing.$install_id"
+old_app="/Applications/.Otto.app.backup.$install_id"
 osascript - "$prepared_app" "$new_app" "$old_app" "$app" <<'APPLESCRIPT'
 on run argv
   set preparedApp to quoted form of item 1 of argv

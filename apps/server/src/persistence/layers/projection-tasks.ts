@@ -1,9 +1,13 @@
 import {
   OrchestrationTask,
   TaskAssignees,
+  type TaskListQuery,
+  type TaskListSort,
   TaskTimeEntry,
+  WORK_STATUS_ORDER,
   WorkParticipant,
   WorkResources,
+  WorkStatus,
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -13,6 +17,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
 import { toPersistenceSqlError } from "../errors.ts";
+import { type ListSortSql, listPageSql, participantKeySql } from "../list-sql.ts";
 import {
   ProjectionTask,
   ProjectionTaskRepository,
@@ -26,6 +31,101 @@ const ProjectionTaskDbRow = OrchestrationTask.mapFields(Struct.omit(["timeEntrie
     resources: Schema.fromJsonString(WorkResources),
   }),
 );
+
+const TaskListDbRow = ProjectionTaskDbRow.mapFields(
+  Struct.assign({
+    sortKey: Schema.fromJsonString(Schema.Array(Schema.Union([Schema.String, Schema.Number]))),
+  }),
+);
+
+const TaskStatusCountRow = Schema.Struct({ status: WorkStatus, count: Schema.Int });
+
+const STATUS_RANK = `CASE status ${WORK_STATUS_ORDER.map(
+  (status, rank) => `WHEN '${status}' THEN ${rank}`,
+).join(" ")} END`;
+
+/** Each sort's natural order and its keys; the task id breaks ties so every row has a place. */
+const TASK_SORTS: Record<TaskListSort, ListSortSql> = {
+  status: {
+    natural: "asc",
+    keys: [
+      { sql: STATUS_RANK, direction: "asc" },
+      { sql: "updated_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  due: {
+    natural: "asc",
+    keys: [
+      { sql: "due_date IS NULL", direction: "asc", fixed: true },
+      { sql: "COALESCE(due_date, '')", direction: "asc" },
+      { sql: "task_id", direction: "asc" },
+    ],
+  },
+  updated: {
+    natural: "desc",
+    keys: [
+      { sql: "updated_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  created: {
+    natural: "desc",
+    keys: [
+      { sql: "created_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  title: {
+    natural: "asc",
+    keys: [
+      { sql: "lower(title)", direction: "asc" },
+      { sql: "task_id", direction: "asc" },
+    ],
+  },
+};
+
+/** The filter as SQL conditions and their parameters; no status means everything but archived. */
+function taskFilterSql(query: TaskListQuery) {
+  const conditions: string[] = [];
+  const params: Array<string | number> = [];
+
+  if (query.project !== undefined) {
+    conditions.push("project_id = ?");
+    params.push(query.project);
+  }
+
+  if (query.owner !== undefined) {
+    conditions.push(`owner_json IS NOT NULL AND ${participantKeySql("owner_json")} = ?`);
+    params.push(query.owner);
+  }
+
+  if (query.assignee !== undefined) {
+    conditions.push(
+      `EXISTS (SELECT 1 FROM json_each(assignees_json) AS assignee WHERE ${participantKeySql("assignee.value")} = ?)`,
+    );
+    params.push(query.assignee);
+  }
+
+  if (query.status !== undefined && query.status.length > 0) {
+    conditions.push(`status IN (${query.status.map(() => "?").join(", ")})`);
+    params.push(...query.status);
+  } else {
+    conditions.push("status <> 'archived'");
+  }
+
+  if (query.dueFrom !== undefined) {
+    conditions.push("due_date >= ?");
+    params.push(query.dueFrom);
+  }
+
+  if (query.dueTo !== undefined) {
+    conditions.push("due_date <= ?");
+    params.push(query.dueTo);
+  }
+
+  return { conditions, params };
+}
 
 const makeProjectionTaskRepository = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -153,6 +253,69 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.listAll:query")),
     );
 
+  const list: ProjectionTaskRepositoryShape["list"] = ({ query, limit, after }) => {
+    const page = listPageSql(TASK_SORTS[query.sort ?? "status"], query.order, after);
+    const filter = taskFilterSql(query);
+
+    const conditions = page.after
+      ? [...filter.conditions, page.after.condition]
+      : filter.conditions;
+
+    const params = page.after ? [...filter.params, ...page.after.params] : filter.params;
+
+    const rows = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: TaskListDbRow,
+      execute: () =>
+        sql.unsafe(
+          `
+            SELECT
+              task_id AS id,
+              project_id AS "projectId",
+              title,
+              description,
+              owner_json AS owner,
+              assignees_json AS assignees,
+              resources_json AS resources,
+              due_date AS "dueDate",
+              repeat,
+              status,
+              created_at AS "createdAt",
+              updated_at AS "updatedAt",
+              ${page.sortKey} AS "sortKey"
+            FROM projection_tasks
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY ${page.orderBy}
+            LIMIT ?
+          `,
+          [...params, limit + 1],
+        ),
+    });
+
+    const counts = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: TaskStatusCountRow,
+      execute: () =>
+        sql.unsafe(
+          `
+            SELECT status, COUNT(*) AS count
+            FROM projection_tasks
+            WHERE ${filter.conditions.join(" AND ")}
+            GROUP BY status
+          `,
+          filter.params,
+        ),
+    });
+
+    return Effect.all([rows(), counts()]).pipe(
+      Effect.map(([taskRows, statusCounts]) => ({
+        rows: taskRows.map(({ sortKey, ...task }) => ({ task, key: sortKey })),
+        statusCounts,
+      })),
+      Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.list:query")),
+    );
+  };
+
   const insertTimeEntry: ProjectionTaskRepositoryShape["insertTimeEntry"] = (entry) =>
     insertEntryRow(entry).pipe(
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.insertTimeEntry:query")),
@@ -166,6 +329,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
   return {
     upsert,
     listAll,
+    list,
     insertTimeEntry,
     deleteTimeEntry,
   } satisfies ProjectionTaskRepositoryShape;

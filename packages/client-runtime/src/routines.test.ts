@@ -20,7 +20,10 @@ import {
   botRoutinesView,
   routineApprovalSummary,
   routineLifecycleAction,
+  routineFrequencyLabel,
+  routineScheduleLabel,
   routineStateNote,
+  routineTimeLabel,
   runStatusTone,
   toRoutinePanelItem,
 } from "./routines.ts";
@@ -120,11 +123,52 @@ describe("toRoutinePanelItem", () => {
       time: "09:00",
       timezone: "America/New_York",
       weekday: 5,
+      weekdays: [5],
     });
     expect(item.runHistory.map((entry) => entry.id)).toEqual(["run-new", "run-old"]);
     expect(item.latestRun).toMatchObject({ id: "run-new", error: "Provider timed out" });
     expect(item.runHistory[1]?.startedAt).toBe("2026-09-19T09:00:00.000Z");
     expect(item.delegateToBotId).toBeNull();
+  });
+
+  it("names every day a weekly routine runs on", () => {
+    const item = toRoutinePanelItem(
+      {
+        ...routine,
+        schedule: { kind: "weekly", weekdays: ["monday", "wednesday"], time: "07:30" },
+      },
+      [],
+      [],
+      [],
+    );
+
+    expect(routineScheduleLabel(item.schedule)).toBe(
+      "Monday, Wednesday at 07:30 (America/New_York)",
+    );
+  });
+
+  it("names monthly, quarterly and yearly routines and hourly times in words", () => {
+    const schedule = (value: Routine["schedule"]) =>
+      toRoutinePanelItem({ ...routine, schedule: value }, [], [], []).schedule;
+
+    expect(routineFrequencyLabel(schedule({ kind: "monthly", day: 15, time: "09:00" }))).toBe(
+      "Monthly on day 15",
+    );
+    expect(routineFrequencyLabel(schedule({ kind: "quarterly", day: 1, time: "09:00" }))).toBe(
+      "Quarterly on day 1",
+    );
+    expect(
+      routineFrequencyLabel(schedule({ kind: "yearly", month: 3, day: 15, time: "09:00" })),
+    ).toBe("Yearly on Mar 15");
+    expect(routineTimeLabel(schedule({ kind: "hourly", everyHours: 1, time: "09:00" }))).toBe(
+      "On the hour",
+    );
+    expect(routineTimeLabel(schedule({ kind: "hourly", everyHours: 1, time: "09:15" }))).toBe(
+      "15 min past",
+    );
+    expect(routineTimeLabel(schedule({ kind: "hourly", everyHours: 4, time: "10:00" }))).toBe(
+      "From 02:00",
+    );
   });
 
   it("carries the bot a routine hands its work to", () => {
@@ -182,13 +226,24 @@ describe("routineStateNote", () => {
     expect(routineStateNote(item)).toBe(null);
   });
 
-  it("tells a user-paused routine apart from one Otto stopped", () => {
+  it("says how to resume a paused routine, including one an older Otto stopped", () => {
     expect(routineStateNote({ ...item, paused: true })).toBe("Paused until you resume it.");
 
-    const blocked = toRoutinePanelItem({ ...routine, lifecycle: "blocked" }, [], [], []);
+    const blocked = toRoutinePanelItem(
+      { ...routine, enabled: false, lifecycle: "blocked" },
+      [],
+      [],
+      [],
+    );
 
-    expect(blocked.pausedByOtto).toBe(true);
-    expect(routineStateNote(blocked)).toBe("Paused. Fix the cause in Bot inbox, then resume it.");
+    expect(routineStateNote(blocked)).toBe("Paused until you resume it.");
+  });
+
+  it("keeps a routine whose last run failed on its schedule", () => {
+    const failed = toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], [], []);
+
+    expect(failed.paused).toBe(false);
+    expect(routineStateNote(failed)).toBeNull();
   });
 
   it("names the way back for a routine that is off or still a draft", () => {
@@ -285,7 +340,8 @@ describe("routine run timestamps", () => {
 
 describe("hourlyScheduleText", () => {
   it("names an hourly schedule by its earliest run of the day", () => {
-    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at :15");
+    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at 15 min past");
+    expect(hourlyScheduleText(1, "09:00")).toBe("Every hour on the hour");
     expect(hourlyScheduleText(3, "09:30")).toBe("Every 3 hours from 00:30");
     expect(hourlyScheduleText(4, "10:00")).toBe("Every 4 hours from 02:00");
   });

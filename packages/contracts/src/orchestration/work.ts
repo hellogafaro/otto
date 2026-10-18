@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
+import * as Struct from "effect/Struct";
 import {
   AuthSessionId,
   BotId,
@@ -11,6 +12,7 @@ import {
   TrimmedNonEmptyString,
   TrimmedString,
 } from "../base-schemas.ts";
+import { ListCursor, ListLimit, ListOrder } from "./lists.ts";
 
 /** One lifecycle shared by projects and tasks; archived hides an item from lists. */
 export const WorkStatus = Schema.Literals([
@@ -25,6 +27,16 @@ export const WorkStatus = Schema.Literals([
 export type WorkStatus = typeof WorkStatus.Type;
 
 export const WORK_STATUSES = WorkStatus.literals;
+
+/** Linear's order: what is moving first, then what is waiting, then what is done. */
+export const WORK_STATUS_ORDER: readonly WorkStatus[] = [
+  "in_progress",
+  "pending",
+  "backlog",
+  "completed",
+  "cancelled",
+  "archived",
+];
 
 /** A person uses the same identity as group person members; a bot is a workspace bot. */
 export const WorkParticipant = Schema.Union([
@@ -100,7 +112,14 @@ export const TaskDueDate = TrimmedNonEmptyString.check(Schema.isPattern(/^\d{4}-
 export type TaskDueDate = typeof TaskDueDate.Type;
 
 /** How a task repeats; completing it creates the next one with the next due date. */
-export const TaskRepeat = Schema.Literals(["daily", "weekdays", "weekly", "monthly"]);
+export const TaskRepeat = Schema.Literals([
+  "daily",
+  "weekdays",
+  "weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+]);
 
 export type TaskRepeat = typeof TaskRepeat.Type;
 
@@ -288,12 +307,95 @@ export const TaskListFilter = Schema.Struct({
 
 export type TaskListFilter = typeof TaskListFilter.Type;
 
+/**
+ * How the task list is ordered: by status (moving work first, newest change first within it),
+ * due date (undated last), last change, creation or title. Each has a natural order that
+ * `order` may reverse.
+ */
+export const TASK_LIST_SORTS = ["status", "due", "updated", "created", "title"] as const;
+
+export const TaskListSort = Schema.Literals(TASK_LIST_SORTS);
+
+export type TaskListSort = typeof TaskListSort.Type;
+
+/** The filter and order the Tasks page keeps in its URL. */
+export const TaskListView = Schema.Struct({
+  ...TaskListFilter.fields,
+  sort: Schema.optional(TaskListSort),
+  order: Schema.optional(ListOrder),
+});
+
+export type TaskListView = typeof TaskListView.Type;
+
+export const TaskListQuery = Schema.Struct({
+  ...TaskListView.fields,
+  limit: Schema.optional(ListLimit),
+  cursor: Schema.optional(ListCursor),
+});
+
+export type TaskListQuery = typeof TaskListQuery.Type;
+
+/** A task as lists show it, without its timesheet. */
+export const TaskListItem = OrchestrationTask.mapFields(Struct.omit(["timeEntries"]));
+
+export type TaskListItem = typeof TaskListItem.Type;
+
+export const TaskListResult = Schema.Struct({
+  tasks: Schema.Array(TaskListItem),
+  nextCursor: Schema.NullOr(ListCursor),
+  /** How many tasks match the filter in each status, across every page. */
+  statusCounts: Schema.Array(Schema.Struct({ status: WorkStatus, count: Schema.Int })),
+});
+
+export type TaskListResult = typeof TaskListResult.Type;
+
+export class TaskListError extends Schema.TaggedErrorClass<TaskListError>()("TaskListError", {
+  detail: Schema.String,
+}) {
+  override get message(): string {
+    return this.detail;
+  }
+}
+
 export const ProjectListFilter = Schema.Struct({
   owner: Schema.optional(WorkParticipantKey),
   status: Schema.optional(WorkStatusList),
 });
 
 export type ProjectListFilter = typeof ProjectListFilter.Type;
+
+/** How the project list is ordered: by last change, creation or title. */
+export const PROJECT_LIST_SORTS = ["updated", "created", "title"] as const;
+
+export const ProjectListSort = Schema.Literals(PROJECT_LIST_SORTS);
+
+export type ProjectListSort = typeof ProjectListSort.Type;
+
+/** The filter and order the Projects page keeps in its URL. */
+export const ProjectListView = Schema.Struct({
+  ...ProjectListFilter.fields,
+  sort: Schema.optional(ProjectListSort),
+  order: Schema.optional(ListOrder),
+});
+
+export type ProjectListView = typeof ProjectListView.Type;
+
+export const ProjectListQuery = Schema.Struct({
+  ...ProjectListView.fields,
+  limit: Schema.optional(ListLimit),
+  cursor: Schema.optional(ListCursor),
+});
+
+export type ProjectListQuery = typeof ProjectListQuery.Type;
+
+export class ProjectListError extends Schema.TaggedErrorClass<ProjectListError>()(
+  "ProjectListError",
+  { detail: Schema.String },
+) {
+  override get message(): string {
+    return this.detail;
+  }
+}
 
 function matchesStatuses(status: WorkStatus, statuses: ReadonlyArray<WorkStatus> | undefined) {
   return statuses === undefined || statuses.length === 0
@@ -327,22 +429,4 @@ export function matchesTaskFilter(task: OrchestrationTask, filter: TaskListFilte
   }
 
   return matchesStatuses(task.status, filter.status);
-}
-
-/** Projects saved before planning fields existed count as in progress and unowned. */
-export function matchesProjectFilter(
-  project: {
-    readonly owner?: WorkParticipant | null | undefined;
-    readonly status?: WorkStatus | undefined;
-  },
-  filter: ProjectListFilter,
-): boolean {
-  if (
-    filter.owner !== undefined &&
-    (project.owner == null || workParticipantKey(project.owner) !== filter.owner)
-  ) {
-    return false;
-  }
-
-  return matchesStatuses(project.status ?? "in_progress", filter.status);
 }

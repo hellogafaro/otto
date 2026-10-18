@@ -4,6 +4,8 @@ import {
   LibraryFileShare,
   LibraryFolder,
   LibraryFolderId,
+  type LibraryListSort,
+  type LibraryListType,
   GroupId,
   ProjectId,
   ThreadId,
@@ -20,6 +22,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
 import { toPersistenceSqlError } from "../errors.ts";
+import { listPageSql, type ListSortSql, participantKeySql } from "../list-sql.ts";
 import {
   ProjectionLibraryRepository,
   type ProjectionLibraryRepositoryShape,
@@ -43,6 +46,84 @@ const FileDbRow = LibraryFile.mapFields(
     updatedBy: ParticipantJson,
   }),
 );
+
+const SortKeyJson = Schema.fromJsonString(
+  Schema.Array(Schema.Union([Schema.String, Schema.Number])),
+);
+
+const LibraryListDbRow = Schema.Union([
+  FolderDbRow.mapFields(Struct.assign({ type: Schema.Literal("folder"), sortKey: SortKeyJson })),
+  FileDbRow.mapFields(Struct.assign({ sortKey: SortKeyJson })),
+]);
+
+/** Folders first in either order, then each sort's key; the id breaks ties. */
+const LIBRARY_SORTS: Record<LibraryListSort, ListSortSql> = {
+  updated: {
+    natural: "desc",
+    keys: [
+      { sql: "rank", direction: "asc", fixed: true },
+      { sql: "updated_at", direction: "desc" },
+      { sql: "id", direction: "desc" },
+    ],
+  },
+  created: {
+    natural: "desc",
+    keys: [
+      { sql: "rank", direction: "asc", fixed: true },
+      { sql: "created_at", direction: "desc" },
+      { sql: "id", direction: "desc" },
+    ],
+  },
+  title: {
+    natural: "asc",
+    keys: [
+      { sql: "rank", direction: "asc", fixed: true },
+      { sql: "lower(title)", direction: "asc" },
+      { sql: "id", direction: "asc" },
+    ],
+  },
+};
+
+/** The stored types each list type covers; Files are PDFs and everything else. */
+const LIST_TYPE_SQL: Record<LibraryListType, ReadonlyArray<string>> = {
+  folder: ["folder"],
+  document: ["document"],
+  image: ["image"],
+  file: ["pdf", "file"],
+};
+
+const VIEWER = "(SELECT person_id FROM viewer)";
+
+/** Whether the viewer is the person a participant JSON column names. */
+const isViewerSql = (json: string) =>
+  `(json_extract(${json}, '$.kind') = 'person' AND json_extract(${json}, '$.personId') = ${VIEWER})`;
+
+const groupPeopleSql = (members: string, extra = "") =>
+  `SELECT 1 FROM json_each(${members}) AS member WHERE json_extract(member.value, '$.kind') = 'person'${extra}`;
+
+/**
+ * Otto: Whether the viewer sees a folder on its own, exactly as `canSeeLibraryItem` checks each
+ * node: a `user` folder is its creator's, and a chat's folder follows that chat's people, or
+ * only its creator once the chat or its group is gone.
+ */
+const folderSeenSql = (folder: string) => `
+  (${folder}.visibility <> 'user' OR ${isViewerSql(`${folder}.created_by_json`)})
+  AND (${folder}.thread_id IS NULL OR COALESCE((
+    SELECT CASE
+      WHEN thread.deleted_at IS NOT NULL THEN ${isViewerSql(`${folder}.created_by_json`)}
+      WHEN thread.group_id IS NULL THEN
+        thread.visibility <> 'user' OR thread.created_by IS NULL OR thread.created_by = ${VIEWER}
+      ELSE COALESCE((
+        SELECT NOT EXISTS (${groupPeopleSql("chat_group.members_json")})
+          OR EXISTS (${groupPeopleSql("chat_group.members_json", ` AND json_extract(member.value, '$.personId') = ${VIEWER}`)})
+        FROM projection_groups AS chat_group
+        WHERE chat_group.group_id = thread.group_id
+      ), ${isViewerSql(`${folder}.created_by_json`)})
+    END
+    FROM projection_threads AS thread
+    WHERE thread.thread_id = ${folder}.thread_id
+  ), ${isViewerSql(`${folder}.created_by_json`)}))
+`;
 
 const makeProjectionLibraryRepository = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -174,7 +255,140 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
       `,
   });
 
+  const list: ProjectionLibraryRepositoryShape["list"] = ({ query, personId, limit, after }) => {
+    const keyset = listPageSql(LIBRARY_SORTS[query.sort ?? "updated"], query.order, after);
+    const conditions: string[] = [];
+    const params: Array<string | number> = [];
+
+    if (!query.everywhere && query.folder === undefined) conditions.push("parent_id IS NULL");
+
+    if (!query.everywhere && query.folder !== undefined) {
+      conditions.push("parent_id = ?");
+      params.push(query.folder);
+    }
+
+    if (query.type !== undefined && query.type.length > 0) {
+      const types = query.type.flatMap((type) => LIST_TYPE_SQL[type]);
+      conditions.push(`type IN (${types.map(() => "?").join(", ")})`);
+      params.push(...types);
+    }
+
+    if (query.creator !== undefined) {
+      conditions.push(`${participantKeySql("created_by_json")} = ?`);
+      params.push(query.creator);
+    }
+
+    if (keyset.after) {
+      conditions.push(keyset.after.condition);
+      params.push(...keyset.after.params);
+    }
+
+    const rows = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: LibraryListDbRow,
+      execute: () =>
+        sql.unsafe(
+          `
+            WITH RECURSIVE
+              viewer AS (SELECT ? AS person_id),
+              visible_folders(folder_id) AS (
+                SELECT folder.folder_id
+                FROM projection_library_folders AS folder
+                WHERE (
+                    folder.parent_id IS NULL
+                    OR NOT EXISTS (
+                      SELECT 1 FROM projection_library_folders AS parent
+                      WHERE parent.folder_id = folder.parent_id
+                    )
+                  )
+                  AND ${folderSeenSql("folder")}
+                UNION
+                SELECT folder.folder_id
+                FROM projection_library_folders AS folder
+                JOIN visible_folders AS parent ON parent.folder_id = folder.parent_id
+                WHERE ${folderSeenSql("folder")}
+              ),
+              items AS (
+                SELECT
+                  0 AS rank, 'folder' AS type, folder_id AS id, parent_id, thread_id, project_id,
+                  title, NULL AS extension, NULL AS size_bytes, visibility, NULL AS share_json,
+                  created_by_json, created_at, updated_by_json, updated_at
+                FROM projection_library_folders
+                WHERE folder_id IN (SELECT folder_id FROM visible_folders)
+                UNION ALL
+                SELECT
+                  1, type, file_id, folder_id, NULL, NULL, title, extension, size_bytes,
+                  visibility, share_json, created_by_json, created_at, updated_by_json, updated_at
+                FROM projection_library_files AS file
+                WHERE (file.visibility <> 'user' OR ${isViewerSql("file.created_by_json")})
+                  AND (
+                    file.folder_id IS NULL
+                    OR file.folder_id IN (SELECT folder_id FROM visible_folders)
+                    OR NOT EXISTS (
+                      SELECT 1 FROM projection_library_folders AS parent
+                      WHERE parent.folder_id = file.folder_id
+                    )
+                  )
+              )
+            SELECT
+              type,
+              id,
+              parent_id AS "parentId",
+              parent_id AS "folderId",
+              thread_id AS "threadId",
+              project_id AS "projectId",
+              title,
+              extension,
+              size_bytes AS "sizeBytes",
+              visibility,
+              share_json AS "share",
+              created_by_json AS "createdBy",
+              created_at AS "createdAt",
+              updated_by_json AS "updatedBy",
+              updated_at AS "updatedAt",
+              ${keyset.sortKey} AS "sortKey"
+            FROM items
+            ${conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""}
+            ORDER BY ${keyset.orderBy}
+            LIMIT ?
+          `,
+          [personId, ...params, limit + 1],
+        ),
+    });
+
+    return rows().pipe(
+      Effect.map((listRows) =>
+        listRows.map(({ sortKey, ...row }) => {
+          if (row.type === "folder") {
+            const { type: _, threadId, projectId, ...folder } = row;
+
+            return {
+              key: sortKey,
+              item: {
+                kind: "folder" as const,
+                folder: {
+                  ...folder,
+                  ...(threadId === null ? {} : { threadId }),
+                  ...(projectId === null ? {} : { projectId }),
+                },
+              },
+            };
+          }
+
+          const { share, ...file } = row;
+
+          return {
+            key: sortKey,
+            item: { kind: "file" as const, file: share === null ? file : { ...file, share } },
+          };
+        }),
+      ),
+      Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.list:query")),
+    );
+  };
+
   return {
+    list,
     listChatThreads: () =>
       listChatThreadRows().pipe(
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.listChatThreads:query")),

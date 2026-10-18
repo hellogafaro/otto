@@ -33,6 +33,7 @@ import {
 import { GroupMemberStack } from "./group-member-stack";
 import { PersonAvatar } from "./person-avatar";
 import { groupBotMembers, groupContainsBot, groupPersonMembers } from "./roster.logic";
+import { useRosterStore } from "./roster-store";
 import type { Bot, Group } from "./types";
 
 /**
@@ -156,6 +157,17 @@ export function GroupEditor({
   const { addable, add } = useGroupInvites(environmentId, group, bots);
 
   useEffect(() => setName(group.name), [group.name]);
+
+  const addMembersRequest = useRosterStore((state) => state.addMembersRequest);
+
+  // The details panel can hold two editors at once (the docked panel and the sheet), so the
+  // first to see the request takes it and the other leaves it.
+  useEffect(() => {
+    if (useRosterStore.getState().addMembersRequest !== group.id) return;
+    useRosterStore.getState().requestAddMembers(null);
+    setToAdd([]);
+    setAdding(true);
+  }, [addMembersRequest, group.id]);
 
   const run = async (action: () => Promise<{ readonly _tag: string }>, failure: string) => {
     setBusy(true);

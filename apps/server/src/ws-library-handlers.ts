@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import { issueLibraryFileUrl } from "./assets/asset-access.ts";
+import { listLibrary } from "./library/library-list.ts";
 import {
   createSkill,
   issueLibraryUploadUrl,
@@ -16,15 +17,25 @@ import {
 } from "./library/library-store.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
-/** Library requests act as the signed-in person; the decider checks what they may change. */
+/**
+ * Library requests act as the signed-in person: the list shows only what they see, and the
+ * decider checks what they may change.
+ */
 export const createWsLibraryHandlers = ({
   currentSession,
   currentPersonId,
   loadEnvironmentPeople,
+  projectionLibrary,
+  secretStore,
   observeRpcEffect,
 }: Pick<
   WsConnection,
-  "currentSession" | "currentPersonId" | "loadEnvironmentPeople" | "observeRpcEffect"
+  | "currentSession"
+  | "currentPersonId"
+  | "loadEnvironmentPeople"
+  | "projectionLibrary"
+  | "secretStore"
+  | "observeRpcEffect"
 >) => {
   const viewer = { kind: "person" as const, personId: currentPersonId };
 
@@ -38,6 +49,13 @@ export const createWsLibraryHandlers = ({
   );
 
   return {
+    [WS_METHODS.libraryList]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.libraryList,
+        listLibrary(input, currentPersonId, { projectionLibrary, secretStore }),
+        { "rpc.aggregate": "library" },
+      ),
+
     [WS_METHODS.libraryCreateUploadUrl]: (input) =>
       observeRpcEffect(
         WS_METHODS.libraryCreateUploadUrl,
@@ -136,6 +154,7 @@ export const createWsLibraryHandlers = ({
       ),
   } satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
+    | typeof WS_METHODS.libraryList
     | typeof WS_METHODS.libraryCreateUploadUrl
     | typeof WS_METHODS.libraryCreateDocument
     | typeof WS_METHODS.libraryCreateSkill

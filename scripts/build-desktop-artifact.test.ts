@@ -63,7 +63,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
   });
 
   it("uses the Otto product name", () => {
-    assert.equal(resolveDesktopProductName(), "Otto (Alpha)");
+    assert.equal(resolveDesktopProductName(), "Otto");
   });
 
   it("uses the Otto package identity for Electron safe storage", () => {

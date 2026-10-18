@@ -20,11 +20,15 @@ export const WS_METHODS = {
   activityCommentAdd: "activity.commentAdd",
   activityCommentRemove: "activity.commentRemove",
 
+  // Task methods
+  tasksList: "tasks.list",
+
   // Notification methods
   notificationsList: "notifications.list",
   notificationsMarkRead: "notifications.markRead",
 
   // Library methods
+  libraryList: "library.list",
   libraryCreateUploadUrl: "library.createUploadUrl",
   libraryCreateDocument: "library.createDocument",
   libraryCreateSkill: "library.createSkill",
@@ -122,6 +126,7 @@ export const WS_METHODS = {
   memoryDelete: "memory.delete",
   memoryDecide: "memory.decide",
   botUsage: "bot.usage",
+  routinesList: "routines.list",
   routinesListRuns: "routines.listRuns",
   routinesListThreadRuns: "routines.listThreadRuns",
 

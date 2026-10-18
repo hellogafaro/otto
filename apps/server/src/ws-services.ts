@@ -52,6 +52,8 @@ import { OrchestrationCommandReceiptRepository } from "./persistence/services/or
 import * as ProjectionBots from "./persistence/services/projection-bots.ts";
 import * as ProjectionGroups from "./persistence/services/projection-groups.ts";
 import { ProjectionLibraryRepository } from "./persistence/services/projection-library.ts";
+import { ProjectionProjectRepository } from "./persistence/services/projection-projects.ts";
+import { ProjectionTaskRepository } from "./persistence/services/projection-tasks.ts";
 import { ProjectionThreadMessageRepository } from "./persistence/services/projection-thread-messages.ts";
 import { Memories } from "./memory/memories.ts";
 import {
@@ -123,6 +125,10 @@ export const createWsServices = (
     const projectionLibrary = yield* ProjectionLibraryRepository;
 
     const projectionThreadMessages = yield* ProjectionThreadMessageRepository;
+
+    const projectionTasks = yield* ProjectionTaskRepository;
+
+    const projectionProjects = yield* ProjectionProjectRepository;
 
     const activityStore = yield* ActivityStore;
 
@@ -689,6 +695,8 @@ export const createWsServices = (
       projectionGroups,
       projectionLibrary,
       projectionThreadMessages,
+      projectionTasks,
+      projectionProjects,
       activityStore,
       notificationStore,
       routineRepository,

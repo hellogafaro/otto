@@ -71,6 +71,8 @@ const harness = (
     readonly dispatched?: RoutineDispatchResult;
     readonly signals?: Queue.Queue<string>;
     readonly delegation?: OttoDelegationRecord;
+    /** Runs inside each provider turn dispatch, after it is logged. */
+    readonly duringDispatch?: Effect.Effect<void>;
   } = {},
 ) => {
   const claims = new Map<string, RoutineClaim>();
@@ -91,6 +93,7 @@ const harness = (
 
   const repository = RoutineRepository.of({
     listAll: Effect.succeed([value]),
+    list: () => Effect.succeed({ rows: [], statusCounts: [] }),
     listEnabled: Effect.succeed([value]),
     getById: () => Effect.succeed(value),
     listRuns: () =>
@@ -178,11 +181,10 @@ const harness = (
     resolveFailureIncident: (routineId) =>
       Effect.sync(() => events.push(`incident-resolved:${routineId}`)),
     dispatchTurn: () =>
-      Effect.sync(() => {
-        events.push("turn");
-
-        return options.dispatched ?? { threadRef: ThreadId.make("thread-1") };
-      }),
+      Effect.sync(() => events.push("turn")).pipe(
+        Effect.andThen(options.duringDispatch ?? Effect.void),
+        Effect.as(options.dispatched ?? { threadRef: ThreadId.make("thread-1") }),
+      ),
   } satisfies RoutineRuntimeAdapterShape);
 
   const layer = RoutineRuntimeLive.pipe(

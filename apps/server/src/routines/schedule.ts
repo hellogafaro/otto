@@ -17,17 +17,33 @@ const parseTime = (time: string): readonly [hour: number, minute: number] => {
   return [Number(time.slice(0, 2)), Number(time.slice(3, 5))];
 };
 
-const matchesDay = (schedule: RoutineSchedule, weekDay: number) => {
+// Otto: A month shorter than the routine's day runs it on its last day.
+const isMonthDay = (scheduleDay: number, day: DateTime.Zoned) =>
+  DateTime.toParts(day).day ===
+  Math.min(scheduleDay, DateTime.toParts(DateTime.endOf(day, "month")).day);
+
+const matchesDay = (schedule: RoutineSchedule, day: DateTime.Zoned) => {
+  const parts = DateTime.toParts(day);
+
   switch (schedule.kind) {
     case "hourly":
     case "daily":
       return true;
     case "weekdays":
-      return weekDay >= 1 && weekDay <= 5;
+      return parts.weekDay >= 1 && parts.weekDay <= 5;
     case "weekly":
-      return schedule.weekdays.includes(weekdays[weekDay]!);
+      return schedule.weekdays.includes(weekdays[parts.weekDay]!);
+    case "monthly":
+      return isMonthDay(schedule.day, day);
+    case "quarterly":
+      return parts.month % 3 === 1 && isMonthDay(schedule.day, day);
+    case "yearly":
+      return parts.month === schedule.month && isMonthDay(schedule.day, day);
   }
 };
+
+/** Days to look through for the next or latest run: a yearly routine runs once a year. */
+const SEARCH_DAYS = 366;
 
 const weekdays: ReadonlyArray<RoutineWeekday> = [
   "sunday",
@@ -80,10 +96,10 @@ export const latestScheduledFor = (
     throw new RoutineScheduleError({ detail: `Invalid routine timezone: ${timezone}` });
   }
 
-  for (let daysBack = 0; daysBack <= 7; daysBack += 1) {
+  for (let daysBack = 0; daysBack <= SEARCH_DAYS; daysBack += 1) {
     const day = DateTime.subtract(now.value, { days: daysBack });
 
-    if (!matchesDay(schedule, DateTime.toParts(day).weekDay)) continue;
+    if (!matchesDay(schedule, day)) continue;
 
     const candidate = candidatesForDay(day, schedule, timezone).findLast(
       (slot) => DateTime.toEpochMillis(slot) <= nowEpochMillis,
@@ -106,10 +122,10 @@ export const nextScheduledFor = (
     throw new RoutineScheduleError({ detail: `Invalid routine timezone: ${timezone}` });
   }
 
-  for (let daysAhead = 0; daysAhead <= 7; daysAhead += 1) {
+  for (let daysAhead = 0; daysAhead <= SEARCH_DAYS; daysAhead += 1) {
     const day = DateTime.add(after.value, { days: daysAhead });
 
-    if (!matchesDay(schedule, DateTime.toParts(day).weekDay)) continue;
+    if (!matchesDay(schedule, day)) continue;
 
     const candidate = candidatesForDay(day, schedule, timezone).find(
       (slot) => DateTime.toEpochMillis(slot) > afterEpochMillis,

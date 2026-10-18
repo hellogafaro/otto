@@ -4,8 +4,9 @@ import { Outlet, createRootRoute, redirect, useLocation } from "@tanstack/react-
 import { getOrganizationAccountState } from "@otto/client-runtime/authorization";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { APP_BASE_NAME, APP_DISPLAY_NAME, APP_STAGE_LABEL } from "../branding";
-import { resolveServerBackedAppDisplayName } from "../branding.logic";
+import { APP_DISPLAY_NAME } from "../branding";
+import { resolvePageLabel, resolveWindowTitle } from "../window-title";
+import { useDesktopTabs } from "../desktop-tabs-store";
 import { AppSidebarLayout } from "../components/app-sidebar-layout";
 import { CommandPalette } from "../components/command-palette";
 import { ConfirmDialogHost } from "../components/confirm-dialog-host";
@@ -159,14 +160,14 @@ function FontAppearanceSync() {
 }
 
 function DocumentTitleSync() {
-  const primaryServerVersion =
-    useAtomValue(primaryServerConfigAtom)?.environment.serverVersion ?? null;
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const pageTitle = useDesktopTabs((state) => state.titles[pathname]);
+  const { t } = useI18n();
 
-  const title = resolveServerBackedAppDisplayName({
-    baseName: APP_BASE_NAME,
-    fallbackDisplayName: APP_DISPLAY_NAME,
-    fallbackStageLabel: APP_STAGE_LABEL,
-    primaryServerVersion,
+  const title = resolveWindowTitle({
+    pageTitle,
+    pageLabel: t(resolvePageLabel(pathname)),
+    appName: APP_DISPLAY_NAME,
   });
 
   useEffect(() => {

@@ -50,9 +50,12 @@ function useModeLabel() {
 export function RoutineChatSelect({
   value,
   onChange,
+  originalChatAvailable,
 }: {
   readonly value: RoutineThreadMode;
   readonly onChange: (mode: RoutineThreadMode) => void;
+  /** False when the routine's chat is a group chat or gone, so it cannot post there. */
+  readonly originalChatAvailable: boolean;
 }) {
   const { t } = useI18n();
   const label = useModeLabel();
@@ -76,7 +79,12 @@ export function RoutineChatSelect({
       </SelectTrigger>
       <SelectPopup alignItemWithTrigger={false}>
         {MODES.map((mode) => (
-          <SelectItem key={mode} hideIndicator value={mode}>
+          <SelectItem
+            key={mode}
+            hideIndicator
+            value={mode}
+            disabled={mode === "target" && !originalChatAvailable}
+          >
             <span className="flex items-center gap-2">
               <ModeIcon mode={mode} />
               {label(mode)}

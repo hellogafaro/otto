@@ -49,6 +49,15 @@ const makeRun = (routine: Routine, claim: RoutineClaim): RoutineRun => {
   return { ...base, trigger: claim.trigger, scheduledFor: claim.scheduledFor };
 };
 
+// Otto: Only a scheduled run moves the schedule on; a manual run keeps the slot it may have
+// delayed, so that slot still runs.
+const nextRunAfter = (routine: Routine, run: RoutineRun, completedAt: string) =>
+  !routine.enabled
+    ? null
+    : run.scheduledFor === null
+      ? routine.nextRunAt
+      : nextScheduledFor(routine.schedule, routine.timezone, Date.parse(completedAt));
+
 const makeRunId = (routineId: string, scheduledFor: string) =>
   RoutineRunId.make(`routine:${routineId}:${scheduledFor}`);
 
@@ -68,7 +77,7 @@ const make = Effect.gen(function* () {
     yield* repository.markBlocked(run.id, failure.reason, completedAt);
   });
 
-  const execute = Effect.fn("RoutineRuntime.execute")(function* (
+  const startRun = Effect.fn("RoutineRuntime.execute")(function* (
     routine: Routine,
     claim: RoutineClaim,
   ) {
@@ -113,6 +122,16 @@ const make = Effect.gen(function* () {
 
     return { ...run, status: "running" as const, ...dispatched };
   });
+
+  // Otto: Runs this server is starting right now. Recovery restarts only claims left behind
+  // by an earlier server, so a Run now in progress is never dispatched a second time.
+  const starting = new Set<string>();
+
+  const execute = (routine: Routine, claim: RoutineClaim) =>
+    Effect.sync(() => starting.add(claim.runId)).pipe(
+      Effect.andThen(startRun(routine, claim)),
+      Effect.ensuring(Effect.sync(() => starting.delete(claim.runId))),
+    );
 
   const claimAndExecute = Effect.fn("RoutineRuntime.claimAndExecute")(function* (
     routine: Routine,
@@ -211,11 +230,12 @@ const make = Effect.gen(function* () {
     const completedAt = phase.completedAt;
 
     if (Predicate.isTagged(phase, "Completed")) {
-      const nextRunAt = routine.enabled
-        ? nextScheduledFor(routine.schedule, routine.timezone, Date.parse(completedAt))
-        : null;
-
-      yield* adapter.recordCompleted(run, nextRunAt, phase.result.summary, completedAt);
+      yield* adapter.recordCompleted(
+        run,
+        nextRunAfter(routine, run, completedAt),
+        phase.result.summary,
+        completedAt,
+      );
       yield* repository.markSettled(run.id, "completed", completedAt);
 
       return true;
@@ -296,11 +316,12 @@ const make = Effect.gen(function* () {
       (event.type === "thread.turn-diff-completed" && event.payload.status === "ready") ||
       (event.type === "thread.session-set" && event.payload.session.status === "ready")
     ) {
-      const nextRunAt = routine.enabled
-        ? nextScheduledFor(routine.schedule, routine.timezone, Date.parse(completedAt))
-        : null;
-
-      yield* adapter.recordCompleted(run, nextRunAt, "Routine completed.", completedAt);
+      yield* adapter.recordCompleted(
+        run,
+        nextRunAfter(routine, run, completedAt),
+        "Routine completed.",
+        completedAt,
+      );
       yield* repository.markSettled(run.id, "completed", completedAt);
 
       return;
@@ -327,6 +348,7 @@ const make = Effect.gen(function* () {
     }
 
     for (const claim of yield* repository.listRecoverable) {
+      if (starting.has(claim.runId)) continue;
       const routine = yield* repository.getById(claim.routineId);
 
       if (routine === null || routine.lifecycle === "deleted") {
@@ -391,11 +413,12 @@ const make = Effect.gen(function* () {
           const completedAt = claim.terminalAt ?? DateTime.formatIso(yield* DateTime.now);
 
           if (claim.terminalState === "completed") {
-            const nextRunAt = routine.enabled
-              ? nextScheduledFor(routine.schedule, routine.timezone, Date.parse(completedAt))
-              : null;
-
-            yield* adapter.recordCompleted(run, nextRunAt, "Routine completed.", completedAt);
+            yield* adapter.recordCompleted(
+              run,
+              nextRunAfter(routine, run, completedAt),
+              "Routine completed.",
+              completedAt,
+            );
             yield* repository.markSettled(run.id, "completed", completedAt);
           } else {
             const failure = {

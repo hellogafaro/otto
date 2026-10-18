@@ -1,20 +1,39 @@
 import {
   type RoutineAdapterSchedule,
   routineFrequencyLabel,
+  routineTimeLabel,
   toRoutinePanelItem,
 } from "@otto/client-runtime/routines";
-import { BotId, type Routine, type RoutineThreadMode, type Visibility } from "@otto/contracts";
+import {
+  BotId,
+  type EnvironmentId,
+  ROUTINE_LIST_SORTS,
+  ROUTINE_STATUSES,
+  type Routine,
+  type RoutineListResult,
+  type RoutineListSort,
+  RoutineListView,
+  type RoutineThreadMode,
+  type Visibility,
+} from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { RiAddLine, RiTimeLine } from "@remixicon/react";
+import { RiAddLine, RiProgress4Line, RiRobot3Line, RiTimeLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
+import * as Schema from "effect/Schema";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { useCreateRequest } from "../../create-request-store";
+import { useListPages } from "../../hooks/use-list-pages";
 import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { routineEnvironment } from "../../state/routines";
 import { environmentSnapshotAtom } from "../../state/shell";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { useCopyPageActions } from "../copy-menu-items";
+import { type ListFilter, ListFilterBar, ListFilterMenu, ListSortMenu } from "../list-toolbar";
 import { PromptDialog } from "../prompt-dialog";
 import { BotPicker } from "../roster/bot-picker";
 import { useStartChat } from "../roster/chat-navigation";
@@ -25,11 +44,21 @@ import { StatusIcon } from "../status-icon";
 import { Button } from "../ui/button";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { SkeletonTableRows } from "../ui/skeleton";
+import { useRowHighlight } from "../use-row-highlight";
 import { ParticipantAvatar } from "../work/work-participants";
-import { WorkColumn, WorkEmpty, WorkHeaderAction, WorkPage } from "../work/work-pages";
+import {
+  NoMatches,
+  WorkColumn,
+  WorkEmpty,
+  WorkHeaderAction,
+  WorkPage,
+  withField,
+} from "../work/work-pages";
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
-import { ROUTINE_STATUS_ICON, routineStatus, type RoutineStatus } from "./routine-status";
+import { useRoutineDeleteAction } from "./routine-page";
+import { ROUTINE_STATUS_ICON, routineStatus, useRoutineStatusLabel } from "./routine-status";
+import { encodeRoutineSearch } from "./routines.logic";
 
 function routineColumns({
   i18n,
@@ -57,12 +86,11 @@ function routineColumns({
       type: "chips",
       cell: (routine) => {
         const routineSchedule = schedule(routine);
-        const { frequency, time } = routineSchedule;
 
         return (
           <>
             <DataTableChip>{routineFrequencyLabel(routineSchedule, i18n)}</DataTableChip>
-            <DataTableChip>{frequency === "hourly" ? `:${time.slice(3, 5)}` : time}</DataTableChip>
+            <DataTableChip>{routineTimeLabel(routineSchedule, i18n)}</DataTableChip>
           </>
         );
       },
@@ -70,14 +98,28 @@ function routineColumns({
   ];
 }
 
+/** Each sort's natural order, the one a fresh list uses. */
+const ROUTINE_SORT_ORDER: Record<RoutineListSort, "asc" | "desc"> = {
+  status: "asc",
+  next: "asc",
+  updated: "desc",
+  created: "desc",
+  title: "asc",
+};
+
+const encodeRoutineView = Schema.encodeSync(Schema.fromJsonString(RoutineListView));
+
+const nextRoutineCursor = (page: RoutineListResult) => page.nextCursor;
+
 /**
- * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Paused, Failed),
+ * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Draft, Paused, Failed),
  * each row the job with its bot's avatar after it, then two chips, how often and at what time; a row opens the
- * routine's page.
+ * routine's page. It is a bounded server list like Tasks: Filter (status, bot) and Sort live in the URL,
+ * the server answers 100 routines a page, and the table loads the next page near the end.
  * New routine is a conversation: the prompt opens a fresh chat with the chosen bot, which sets
  * the routine up there for the user to approve.
  */
-export function RoutinesPage() {
+export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
   const i18n = useI18n();
   const { t } = i18n;
   const navigate = useNavigate();
@@ -85,9 +127,41 @@ export function RoutinesPage() {
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
   const bots = useRosterStore((state) => state.bots);
+  const liveBots = useLiveBots();
+  const listRoutines = useAtomCommand(routineEnvironment.list, { reportFailure: false });
   const [creating, setCreating] = useState(false);
-  const routines = (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
   const openNewRoutine = useCallback(() => setCreating(true), []);
+  const sort = view.sort ?? "status";
+
+  const list = useListPages({
+    view: `${environmentId}:${encodeRoutineView(view)}`,
+    revision: snapshot?.routines,
+    getNextCursor: nextRoutineCursor,
+    fetchPage: async (cursor) => {
+      if (!environmentId) return null;
+
+      const result = await listRoutines({
+        environmentId,
+        input: cursor === undefined ? view : { ...view, cursor },
+      });
+
+      return AsyncResult.isSuccess(result) ? result.value : null;
+    },
+  });
+
+  const routines = list.pages.flatMap((page) => page.routines);
+  const filtered = Object.keys(view).some((key) => key !== "sort" && key !== "order");
+
+  const setView = (next: RoutineListView) =>
+    void navigate({ to: "/routines", search: encodeRoutineSearch(next), replace: true });
+
+  const openRoutine = useCallback(
+    (routine: Routine) =>
+      void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } }),
+    [navigate],
+  );
+
+  const highlighted = useRowHighlight(routines, (routine) => routine.id, openRoutine);
 
   useCreateRequest("routine", Boolean(snapshot), openNewRoutine);
 
@@ -107,11 +181,7 @@ export function RoutinesPage() {
 
   usePageActions(t("Routines"), pageActions);
 
-  const statusLabel: Record<RoutineStatus, string> = {
-    active: t("Active"),
-    paused: t("Paused"),
-    failed: t("Failed"),
-  };
+  const statusLabel = useRoutineStatusLabel();
 
   const schedule = (routine: Routine) =>
     toRoutinePanelItem(
@@ -121,23 +191,100 @@ export function RoutinesPage() {
       snapshot?.mcpServers ?? [],
     ).schedule;
 
+  const filters: ListFilter[] = [
+    {
+      id: "status",
+      label: t("Status"),
+      icon: <RiProgress4Line aria-hidden />,
+      multiple: true,
+      options: ROUTINE_STATUSES.map((status) => ({
+        value: status,
+        label: statusLabel(status),
+        icon: <StatusIcon status={ROUTINE_STATUS_ICON[status]} />,
+      })),
+      selected: view.status ?? [],
+      ...((view.status?.length ?? 0) > 1
+        ? { selectedLabel: t("{count} statuses", { count: view.status?.length ?? 0 }) }
+        : {}),
+      onChange: (selected) =>
+        setView(
+          withField(
+            view,
+            "status",
+            selected.length > 0
+              ? ROUTINE_STATUSES.filter((status) => selected.includes(status))
+              : undefined,
+          ),
+        ),
+    },
+    {
+      id: "bot",
+      label: t("Bot"),
+      icon: <RiRobot3Line aria-hidden />,
+      multiple: false,
+      options: liveBots.map((bot) => ({
+        value: bot.id,
+        label: bot.name,
+        icon: (
+          <ParticipantAvatar
+            participant={{ kind: "bot", botId: BotId.make(bot.id) }}
+            bots={bots}
+            className="size-4"
+          />
+        ),
+      })),
+      selected: view.bot ? [view.bot] : [],
+      ...(view.bot !== undefined
+        ? { selectedLabel: bots.find((bot) => bot.id === view.bot)?.name ?? view.bot }
+        : {}),
+      onChange: ([bot]) =>
+        setView(withField(view, "bot", bot === undefined ? undefined : BotId.make(bot))),
+    },
+  ];
+
+  const sortLabels: Record<RoutineListSort, string> = {
+    status: t("Status"),
+    next: t("Next run"),
+    updated: t("Last updated"),
+    created: t("Created"),
+    title: t("Title"),
+  };
+
   return (
     <WorkPage
       actions={
-        routines.length > 0 ? (
-          <WorkHeaderAction
-            label={t("New routine")}
-            icon={RiAddLine}
-            onClick={() => setCreating(true)}
-          />
+        routines.length > 0 || filtered ? (
+          <>
+            <ListFilterMenu filters={filters} />
+            <ListSortMenu
+              sort={{
+                options: ROUTINE_LIST_SORTS.map((value) => ({ value, label: sortLabels[value] })),
+                value: sort,
+                order: view.order ?? ROUTINE_SORT_ORDER[sort],
+                onChange: (nextSort, order) =>
+                  setView(
+                    withField(
+                      withField(view, "sort", nextSort === "status" ? undefined : nextSort),
+                      "order",
+                      order === ROUTINE_SORT_ORDER[nextSort] ? undefined : order,
+                    ),
+                  ),
+              }}
+            />
+            <WorkHeaderAction
+              label={t("New routine")}
+              icon={RiAddLine}
+              onClick={() => setCreating(true)}
+            />
+          </>
         ) : null
       }
     >
-      {!snapshot ? (
+      {!snapshot || (list.status === "loading" && routines.length === 0) ? (
         <WorkColumn title={t("Routines")}>
           <SkeletonTableRows label={t("Loading routines…")} />
         </WorkColumn>
-      ) : routines.length === 0 ? (
+      ) : !filtered && list.status !== "error" && routines.length === 0 ? (
         <WorkEmpty
           icon={<RiTimeLine />}
           title={t("Put recurring work on autopilot")}
@@ -153,28 +300,87 @@ export function RoutinesPage() {
         />
       ) : (
         <WorkColumn title={t("Routines")}>
-          <DataTable
-            rows={routines}
-            columns={routineColumns({ i18n, bots, schedule })}
-            getRowKey={(routine) => routine.id}
-            getRowLabel={(routine) => `${routine.job}, ${statusLabel[routineStatus(routine)]}`}
-            onRowClick={(routine) =>
-              void navigate({ to: "/routines/$routineId", params: { routineId: routine.id } })
-            }
-            groupBy={{
-              groups: (["active", "paused", "failed"] as const).map((status) => ({
-                id: status,
-                label: statusLabel[status],
-                icon: <StatusIcon status={ROUTINE_STATUS_ICON[status]} />,
-              })),
-              getGroupId: routineStatus,
-            }}
-          />
+          <div className="flex flex-col gap-3">
+            <ListFilterBar
+              filters={filters}
+              onClear={() =>
+                setView({
+                  ...(view.sort === undefined ? {} : { sort: view.sort }),
+                  ...(view.order === undefined ? {} : { order: view.order }),
+                })
+              }
+            />
+            {list.status === "error" && routines.length === 0 ? (
+              <p className="text-13px text-muted-foreground">{t("Routines couldn't be loaded.")}</p>
+            ) : routines.length === 0 ? (
+              <NoMatches to="/routines" />
+            ) : (
+              <DataTable
+                rows={routines}
+                columns={routineColumns({ i18n, bots, schedule })}
+                getRowKey={(routine) => routine.id}
+                getRowLabel={(routine) => `${routine.job}, ${statusLabel(routineStatus(routine))}`}
+                onRowClick={openRoutine}
+                highlightedKey={highlighted?.id ?? null}
+                paging={{
+                  hasMore: list.hasMore,
+                  loading: list.status !== "ready",
+                  onLoadMore: list.loadMore,
+                }}
+                {...(sort === "status"
+                  ? {
+                      groupBy: {
+                        groups: ROUTINE_STATUSES.map((status) => ({
+                          id: status,
+                          label: statusLabel(status),
+                          icon: <StatusIcon status={ROUTINE_STATUS_ICON[status]} />,
+                        })),
+                        getGroupId: routineStatus,
+                        getGroupCount: (status: string) =>
+                          list.pages.at(-1)?.statusCounts.find((entry) => entry.status === status)
+                            ?.count ?? 0,
+                      },
+                    }
+                  : {})}
+              />
+            )}
+          </div>
         </WorkColumn>
       )}
+      {environmentId && highlighted ? (
+        <RoutineRowActions
+          key={highlighted.id}
+          environmentId={environmentId}
+          routine={highlighted}
+          pageActions={pageActions}
+        />
+      ) : null}
       <NewRoutineDialog open={creating} onOpenChange={setCreating} />
     </WorkPage>
   );
+}
+
+/** Otto: The held routine row's item keys, Copy link, Copy ID and Delete, beside New routine. */
+function RoutineRowActions({
+  environmentId,
+  routine,
+  pageActions,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly routine: Routine;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
+  const deleteRoutine = useRoutineDeleteAction(environmentId, routine);
+
+  const actions = useMemo(
+    () => [...pageActions, copy.link, copy.id, deleteRoutine],
+    [copy, deleteRoutine, pageActions],
+  );
+
+  usePageActions(routine.job, actions);
+
+  return null;
 }
 
 /**

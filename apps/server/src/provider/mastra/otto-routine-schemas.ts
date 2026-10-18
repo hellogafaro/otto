@@ -4,6 +4,8 @@ import { z } from "zod";
 
 export const routineTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
 
+const routineMonthDay = z.number().int().min(1).max(31);
+
 export const OTTO_DELETE_ROUTINES_TOOL_NAME = "routine_delete";
 
 export const OTTO_UPDATE_ROUTINE_TOOL_NAME = "routine_update";
@@ -31,6 +33,14 @@ export const routineToolInputSchema = z.object({
           z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]),
         )
         .min(1),
+      time: routineTime,
+    }),
+    z.object({ kind: z.literal("monthly"), day: routineMonthDay, time: routineTime }),
+    z.object({ kind: z.literal("quarterly"), day: routineMonthDay, time: routineTime }),
+    z.object({
+      kind: z.literal("yearly"),
+      month: z.number().int().min(1).max(12),
+      day: routineMonthDay,
       time: routineTime,
     }),
   ]),

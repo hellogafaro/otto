@@ -2,6 +2,8 @@ export { CorrelationId } from "./orchestration/identities.ts";
 
 export { ORCHESTRATION_WS_METHODS } from "./orchestration/methods.ts";
 
+export * from "./orchestration/lists.ts";
+
 export * from "./orchestration/work.ts";
 
 export * from "./orchestration/library.ts";
@@ -50,6 +52,8 @@ export {
   ProjectScript,
   ProjectFaviconPath,
   OrchestrationProject,
+  ProjectListItem,
+  ProjectListResult,
   BotAvatar,
   BotEngine,
   BotSandbox,

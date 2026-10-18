@@ -9,6 +9,14 @@ import {
   ActivityRequestError,
 } from "../orchestration/activity.ts";
 import {
+  ProjectListError,
+  ProjectListQuery,
+  TaskListError,
+  TaskListQuery,
+  TaskListResult,
+} from "../orchestration/work.ts";
+import { ProjectListResult } from "../orchestration/roster.ts";
+import {
   NotificationListResult,
   NotificationMarkReadInput,
   NotificationRequestError,
@@ -23,6 +31,9 @@ import {
   LibraryCreateUploadUrlInput,
   LibraryCreateUploadUrlResult,
   LibraryFileInput,
+  LibraryListError,
+  LibraryListQuery,
+  LibraryListResult,
   LibraryReadDocumentResult,
   LibraryRequestError,
   LibrarySaveDocumentInput,
@@ -177,6 +188,9 @@ import {
   VoiceCancelResult,
 } from "../voice-call.ts";
 import {
+  RoutineListError,
+  RoutineListQuery,
+  RoutineListResult,
   RoutineListRunsInput,
   RoutineListRunsResult,
   RoutineListThreadRunsResult,
@@ -660,6 +674,12 @@ export const WsBotUsageRpc = Rpc.make(WS_METHODS.botUsage, {
   error: Schema.Union([OttoBotUsageReadError, EnvironmentAuthorizationError]),
 });
 
+export const WsRoutinesListRpc = Rpc.make(WS_METHODS.routinesList, {
+  payload: RoutineListQuery,
+  success: RoutineListResult,
+  error: Schema.Union([RoutineListError, EnvironmentAuthorizationError]),
+});
+
 export const WsRoutinesListRunsRpc = Rpc.make(WS_METHODS.routinesListRuns, {
   payload: RoutineListRunsInput,
   success: RoutineListRunsResult,
@@ -705,6 +725,18 @@ export const WsAttachmentsDeleteRpc = Rpc.make(WS_METHODS.attachmentsDelete, {
 
 const activityError = Schema.Union([ActivityRequestError, EnvironmentAuthorizationError]);
 
+export const WsTasksListRpc = Rpc.make(WS_METHODS.tasksList, {
+  payload: TaskListQuery,
+  success: TaskListResult,
+  error: Schema.Union([TaskListError, EnvironmentAuthorizationError]),
+});
+
+export const WsProjectsListRpc = Rpc.make(WS_METHODS.projectsList, {
+  payload: ProjectListQuery,
+  success: ProjectListResult,
+  error: Schema.Union([ProjectListError, EnvironmentAuthorizationError]),
+});
+
 export const WsActivityListRpc = Rpc.make(WS_METHODS.activityList, {
   payload: ActivityEntity,
   success: ActivityListResult,
@@ -738,6 +770,12 @@ export const WsNotificationsMarkReadRpc = Rpc.make(WS_METHODS.notificationsMarkR
 });
 
 const libraryError = Schema.Union([LibraryRequestError, EnvironmentAuthorizationError]);
+
+export const WsLibraryListRpc = Rpc.make(WS_METHODS.libraryList, {
+  payload: LibraryListQuery,
+  success: LibraryListResult,
+  error: Schema.Union([LibraryListError, EnvironmentAuthorizationError]),
+});
 
 export const WsLibraryCreateUploadUrlRpc = Rpc.make(WS_METHODS.libraryCreateUploadUrl, {
   payload: LibraryCreateUploadUrlInput,

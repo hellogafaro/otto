@@ -162,11 +162,11 @@ describe("DesktopEnvironment", () => {
       const alpha = yield* makeEnvironment();
 
       assert.equal(development.displayName, "Otto (Dev)");
-      assert.equal(alpha.displayName, "Otto (Alpha)");
+      assert.equal(alpha.displayName, "Otto");
       assert.deepEqual(alpha.branding, {
         baseName: "Otto",
         stageLabel: "Alpha",
-        displayName: "Otto (Alpha)",
+        displayName: "Otto",
         isPackaged: false,
       });
       assert.equal(alpha.userDataDirName, "otto");

@@ -41,6 +41,39 @@ it("runs an hourly routine every interval, lined up with its time", () => {
   );
 });
 
+it("runs monthly, quarterly and yearly routines, on the last day of a shorter month", () => {
+  const after = Date.parse("2026-10-18T12:00:00.000Z");
+
+  assert.equal(
+    nextScheduledFor({ kind: "monthly", day: 31, time: "09:00" }, "Europe/Madrid", after),
+    "2026-10-31T08:00:00.000Z",
+  );
+  assert.equal(
+    nextScheduledFor(
+      { kind: "monthly", day: 31, time: "09:00" },
+      "Europe/Madrid",
+      Date.parse("2026-11-01T00:00:00.000Z"),
+    ),
+    "2026-11-30T08:00:00.000Z",
+  );
+  assert.equal(
+    nextScheduledFor({ kind: "quarterly", day: 1, time: "09:00" }, "Europe/Madrid", after),
+    "2027-01-01T08:00:00.000Z",
+  );
+  assert.equal(
+    nextScheduledFor({ kind: "yearly", month: 2, day: 29, time: "09:00" }, "Europe/Madrid", after),
+    "2027-02-28T08:00:00.000Z",
+  );
+  assert.equal(
+    latestScheduledFor(
+      { kind: "yearly", month: 3, day: 15, time: "09:00" },
+      "Europe/Madrid",
+      after,
+    ),
+    "2026-03-15T08:00:00.000Z",
+  );
+});
+
 it("runs an every-hour routine at the next minute mark", () => {
   assert.equal(
     nextScheduledFor(

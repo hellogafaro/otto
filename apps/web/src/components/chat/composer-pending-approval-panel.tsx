@@ -165,7 +165,26 @@ function routineScheduleText(
     return t("Every {days} at {time}", { days: dayList, time });
   }
 
-  return null;
+  const day = Predicate.isNumber(record.day) ? record.day : null;
+
+  if (day === null) return null;
+
+  const yearlyDate = Predicate.isNumber(record.month)
+    ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "UTC" }).format(
+        Date.UTC(2024, record.month - 1, day),
+      )
+    : null;
+
+  const schedulePart =
+    record.kind === "monthly"
+      ? t("Monthly on day {count}", { count: day })
+      : record.kind === "quarterly"
+        ? t("Quarterly on day {count}", { count: day })
+        : record.kind === "yearly" && yearlyDate !== null
+          ? t("Yearly on {date}", { date: yearlyDate })
+          : null;
+
+  return schedulePart === null ? null : t("{schedule} at {time}", { schedule: schedulePart, time });
 }
 
 const decodeRoutineArgs = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Json));

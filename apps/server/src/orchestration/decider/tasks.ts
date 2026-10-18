@@ -80,6 +80,15 @@ export function taskChanges(before: OrchestrationTask, after: OrchestrationTask)
   };
 }
 
+const REPEAT_STEP: Record<TaskRepeat, { readonly days: number } | { readonly months: number }> = {
+  daily: { days: 1 },
+  weekdays: { days: 1 },
+  weekly: { days: 7 },
+  monthly: { months: 1 },
+  quarterly: { months: 3 },
+  yearly: { months: 12 },
+};
+
 /**
  * The next due day of a repeating task: the first occurrence after `today`, counted from its
  * due date (or from today when it has none), so finishing late never schedules a past day.
@@ -90,11 +99,12 @@ export function nextTaskDueDate(
   today: TaskDueDate,
 ): TaskDueDate {
   const anchor = DateTime.makeUnsafe(`${dueDate ?? today}T00:00:00Z`);
+  const unit = REPEAT_STEP[repeat];
 
   for (let step = 1; ; step += 1) {
     const next = DateTime.add(
       anchor,
-      repeat === "monthly" ? { months: step } : { days: (repeat === "weekly" ? 7 : 1) * step },
+      "days" in unit ? { days: unit.days * step } : { months: unit.months * step },
     );
 
     const weekDay = DateTime.getPartUtc(next, "weekDay");

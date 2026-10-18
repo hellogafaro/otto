@@ -5,12 +5,20 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
+import { listProjects } from "./project/project-list.ts";
+import { listTasks } from "./tasks/task-list.ts";
 import type { WsConnection } from "./ws-connection.ts";
 
-/** Timelines are read by anyone who can read the workspace; comments act as the signed-in person. */
+/**
+ * Project and task lists and timelines are read by anyone who can read the workspace; comments
+ * act as the signed-in person.
+ */
 export const createWsActivityHandlers = ({
   activityStore,
   notificationStore,
+  projectionTasks,
+  projectionProjects,
+  secretStore,
   currentPersonId,
   dispatchFromClient,
   observeRpcEffect,
@@ -18,11 +26,26 @@ export const createWsActivityHandlers = ({
   WsConnection,
   | "activityStore"
   | "notificationStore"
+  | "projectionTasks"
+  | "projectionProjects"
+  | "secretStore"
   | "currentPersonId"
   | "dispatchFromClient"
   | "observeRpcEffect"
 >) =>
   ({
+    [WS_METHODS.projectsList]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.projectsList,
+        listProjects(input, { projectionProjects, secretStore }),
+        { "rpc.aggregate": "projects" },
+      ),
+
+    [WS_METHODS.tasksList]: (input) =>
+      observeRpcEffect(WS_METHODS.tasksList, listTasks(input, { projectionTasks, secretStore }), {
+        "rpc.aggregate": "tasks",
+      }),
+
     [WS_METHODS.activityList]: (input) =>
       observeRpcEffect(WS_METHODS.activityList, activityStore.list(input), {
         "rpc.aggregate": "activity",
@@ -72,6 +95,8 @@ export const createWsActivityHandlers = ({
       ),
   }) satisfies Pick<
     RpcGroup.HandlersFrom<RpcGroup.Rpcs<typeof WsRpcGroup>>,
+    | typeof WS_METHODS.projectsList
+    | typeof WS_METHODS.tasksList
     | typeof WS_METHODS.activityList
     | typeof WS_METHODS.activityCommentAdd
     | typeof WS_METHODS.activityCommentRemove
