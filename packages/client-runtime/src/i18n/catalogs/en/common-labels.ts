@@ -443,6 +443,7 @@ export const commonLabelsCatalog = {
   Publishes: "Publishes",
   "Changes permissions": "Changes permissions",
   "Show less": "Show less",
+  "Show more": "Show more",
   "This link is incomplete": "This link is incomplete",
   Address: "Address",
   "Get a new link": "Get a new link",
