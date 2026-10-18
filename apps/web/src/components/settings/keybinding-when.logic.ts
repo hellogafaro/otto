@@ -25,6 +25,7 @@ function wrapWhenExpression(node: KeybindingWhenNode): string {
 const WHEN_VARIABLE_PHRASES = {
   previewFocus: "the preview is focused",
   modelPickerOpen: "the model picker is open",
+  approvalPending: "a bot is waiting for your answer",
 } satisfies Readonly<Record<string, string>>;
 
 /**

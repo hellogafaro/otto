@@ -9,6 +9,7 @@ import {
   type ModelPickerJumpKeybindingCommand,
   type ThreadJumpKeybindingCommand,
 } from "@otto/contracts";
+import { recordLookup } from "./components/record-lookup";
 import { isMacPlatform } from "./lib/utils";
 
 export interface ShortcutEventLike {
@@ -245,6 +246,10 @@ function formatShortcutKeyLabel(key: string): string {
   return key.slice(0, 1).toUpperCase() + key.slice(1);
 }
 
+const MAC_KEY_GLYPHS = { enter: "\u21b5", backspace: "\u232b" } satisfies Readonly<
+  Record<string, string>
+>;
+
 export function formatShortcutLabel(
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
@@ -257,7 +262,7 @@ export function formatShortcutLabel(
   const showShift = shortcut.shiftKey;
 
   if (useMetaForMod) {
-    return `${showCtrl ? "\u2303" : ""}${showAlt ? "\u2325" : ""}${showShift ? "\u21e7" : ""}${showMeta ? "\u2318" : ""}${keyLabel}`;
+    return `${showCtrl ? "\u2303" : ""}${showAlt ? "\u2325" : ""}${showShift ? "\u21e7" : ""}${showMeta ? "\u2318" : ""}${recordLookup(MAC_KEY_GLYPHS, shortcut.key) ?? keyLabel}`;
   }
 
   const parts: string[] = [];

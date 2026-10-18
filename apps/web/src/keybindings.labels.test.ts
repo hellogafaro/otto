@@ -1,4 +1,5 @@
 import { assert, describe, it } from "vite-plus/test";
+import { DEFAULT_RESOLVED_KEYBINDINGS } from "@otto/shared/keybindings";
 import { formatShortcutLabel, shortcutLabelForCommand } from "./keybindings";
 import {
   compile,
@@ -31,6 +32,33 @@ describe("shortcutLabelForCommand", () => {
         context: { terminalFocus: false },
       }),
       "Ctrl+Shift+\\",
+    );
+  });
+
+  it("labels the approval shortcuts only while a bot waits, with Mac key glyphs", () => {
+    const waiting = { platform: "MacIntel", context: { approvalPending: true } };
+
+    assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "approval.approve", waiting),
+      "⌘↵",
+    );
+    assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "approval.allowAll", waiting),
+      "⇧⌘↵",
+    );
+    assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "approval.deny", waiting),
+      "⇧⌘⌫",
+    );
+    assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "approval.deny", {
+        platform: "Linux",
+        context: { approvalPending: true },
+      }),
+      "Ctrl+Shift+Backspace",
+    );
+    assert.isNull(
+      shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "approval.approve", "MacIntel"),
     );
   });
 

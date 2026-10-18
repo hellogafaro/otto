@@ -56,6 +56,14 @@ export const MODEL_PICKER_KEYBINDING_COMMANDS = [
 
 export type ModelPickerKeybindingCommand = (typeof MODEL_PICKER_KEYBINDING_COMMANDS)[number];
 
+export const APPROVAL_KEYBINDING_COMMANDS = [
+  "approval.approve",
+  "approval.deny",
+  "approval.allowAll",
+] as const;
+
+export type ApprovalKeybindingCommand = (typeof APPROVAL_KEYBINDING_COMMANDS)[number];
+
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
   "terminal.toggle",
@@ -82,6 +90,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "editor.openFavorite",
   ...MODEL_PICKER_KEYBINDING_COMMANDS,
   ...THREAD_KEYBINDING_COMMANDS,
+  ...APPROVAL_KEYBINDING_COMMANDS,
 ] as const;
 
 export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([

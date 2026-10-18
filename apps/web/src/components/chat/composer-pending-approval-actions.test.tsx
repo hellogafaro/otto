@@ -1,6 +1,6 @@
 import { OTTO_CREATE_ROUTINE_TOOL_NAME, ApprovalRequestId } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ComposerPendingApprovalActions } from "./composer-pending-approval-actions";
 
@@ -23,6 +23,39 @@ describe("ComposerPendingApprovalActions", () => {
     expect(markup).toContain("bg-(--primary-button-background)");
     expect(markup).toContain("text-muted-foreground");
     expect(markup).not.toContain("bg-foreground text-background");
+  });
+
+  it("shows each approval shortcut beside the choice it picks, only on the front request", () => {
+    const actions = (shortcuts: boolean) =>
+      renderToStaticMarkup(
+        <ComposerPendingApprovalActions
+          requestId={ApprovalRequestId.make("approval-shortcuts")}
+          requestKind="command"
+          isResponding={false}
+          options={[
+            { decision: "decline", label: "Decline" },
+            { decision: "acceptAlways", label: "Always allow" },
+            { decision: "accept", label: "Approve" },
+          ]}
+          shortcuts={shortcuts}
+          onRespondToApproval={async () => undefined}
+        />,
+      );
+
+    vi.stubGlobal("navigator", { platform: "Linux" });
+    const front = actions(true);
+    vi.unstubAllGlobals();
+
+    const hints = [...front.matchAll(/truncate">([^<]+)<\/span><kbd[^>]*>([^<]+)</g)].map(
+      ([, label, keys]) => [label, keys],
+    );
+
+    expect(hints).toEqual([
+      ["Never", "Ctrl+Shift+Backspace"],
+      ["Always allow", "Ctrl+Shift+Enter"],
+      ["Allow once", "Ctrl+Enter"],
+    ]);
+    expect(actions(false)).not.toContain("<kbd");
   });
 
   it("shows only the approval choices advertised by an MCP server", () => {

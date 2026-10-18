@@ -6,7 +6,7 @@ function Kbd({
   className,
   variant,
   ...props
-}: React.ComponentProps<"kbd"> & { variant?: "shortcut" | "jump" }) {
+}: React.ComponentProps<"kbd"> & { variant?: "shortcut" | "jump" | "inline" }) {
   return (
     <kbd
       className={cn(
@@ -14,6 +14,8 @@ function Kbd({
         variant === "shortcut" &&
           "h-5.5 min-w-5.5 rounded-[5px] border border-border/80 bg-background px-1.5 text-[11px] text-foreground shadow-xs/5",
         variant === "jump" && "rounded-sm px-1.5 text-10px",
+        // Otto: A shortcut inside a button reads as its quieter trailing text, in any button color.
+        variant === "inline" && "h-auto min-w-0 bg-transparent px-0 text-current opacity-64",
         className,
       )}
       data-slot="kbd"

@@ -23,6 +23,9 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+alt+b", command: "rightPanel.toggle" },
   { key: "mod+k", command: "commandPalette.toggle" },
   { key: "mod+s", command: "composer.stash" },
+  { key: "mod+enter", command: "approval.approve", when: "approvalPending" },
+  { key: "mod+shift+enter", command: "approval.allowAll", when: "approvalPending" },
+  { key: "mod+shift+backspace", command: "approval.deny", when: "approvalPending" },
   ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `mod+${index + 1}`,
     command,

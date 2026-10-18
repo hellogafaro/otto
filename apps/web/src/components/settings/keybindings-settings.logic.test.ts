@@ -123,8 +123,8 @@ describe("KeybindingsSettings.logic", () => {
 
     expect(groups.map((group) => group.id)).toEqual(["general", "chats", "composer", "layout"]);
     const chats = groups.find((group) => group.id === "chats");
-    expect(chats?.rowCount).toBe(9);
-    expect(chats?.items).toEqual([
+    expect(chats?.rowCount).toBe(12);
+    expect(chats?.items[0]).toEqual(
       expect.objectContaining({
         type: "series",
         series: expect.objectContaining({
@@ -134,6 +134,16 @@ describe("KeybindingsSettings.logic", () => {
           when: "",
         }),
       }),
+    );
+    expect(
+      chats?.items.map((item) =>
+        item.type === "row" ? [commandLabel(item.row.command), item.row.key] : null,
+      ),
+    ).toEqual([
+      null,
+      ["Approve", "mod+enter"],
+      ["Allow all", "mod+shift+enter"],
+      ["Deny", "mod+shift+backspace"],
     ]);
     const composer = groups.find((group) => group.id === "composer");
     expect(composer?.items.map((item) => item.type)).toEqual(["row", "series"]);
@@ -151,7 +161,7 @@ describe("KeybindingsSettings.logic", () => {
       groups.flatMap((group) =>
         group.items.flatMap((item) => (item.type === "row" ? [item.row.when] : [])),
       ),
-    ).toEqual(["", "", "", ""]);
+    ).toEqual(["", "approvalPending", "approvalPending", "approvalPending", "", "", ""]);
   });
 
   it("drops the range shortcut when a series step was customized", () => {
