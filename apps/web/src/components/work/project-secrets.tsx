@@ -12,6 +12,7 @@ import {
   RiEyeOffLine,
   RiFileCopyLine,
   RiKey2Line,
+  RiMoreLine,
   RiPencilLine,
 } from "@remixicon/react";
 import * as Predicate from "effect/Predicate";
@@ -37,6 +38,8 @@ import {
 } from "../ui/dialog";
 import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Input } from "../ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Spinner } from "../ui/spinner";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -181,29 +184,6 @@ export function ProjectSecrets({
   );
 }
 
-function IconAction({
-  label,
-  onClick,
-  children,
-}: {
-  readonly label: string;
-  readonly onClick: () => void;
-  readonly children: React.ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button size="icon-sm" variant="ghost-muted" aria-label={label} onClick={onClick}>
-            {children}
-          </Button>
-        }
-      />
-      <TooltipPopup side="bottom">{label}</TooltipPopup>
-    </Tooltip>
-  );
-}
-
 function SecretRow({
   environmentId,
   projectId,
@@ -241,30 +221,78 @@ function SecretRow({
     toast.success(t("Copied {name}", { name: secret.name }));
   };
 
+  const revealLabel = value === null ? t("Reveal") : t("Hide");
+
   return (
-    <li className="flex items-center gap-3 px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <li className="flex items-center gap-3 px-3 py-2.5">
+      <div className="w-52 min-w-0 shrink-0">
         <p className="truncate font-mono text-sm">{secret.name}</p>
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {value ??
-            t("Updated {date}", { date: updatedAtFormatter.format(new Date(secret.updatedAt)) })}
+        <p className="truncate text-xs text-muted-foreground">
+          {t("Updated {date}", { date: updatedAtFormatter.format(new Date(secret.updatedAt)) })}
         </p>
       </div>
-      <IconAction
-        label={value === null ? t("Reveal") : t("Hide")}
-        onClick={() => void (value === null ? read().then(setValue) : setValue(null))}
-      >
-        {value === null ? <RiEyeLine aria-hidden /> : <RiEyeOffLine aria-hidden />}
-      </IconAction>
-      <IconAction label={t("Copy value")} onClick={() => void copy()}>
-        <RiFileCopyLine aria-hidden />
-      </IconAction>
-      <IconAction label={t("Replace value")} onClick={onEdit}>
-        <RiPencilLine aria-hidden />
-      </IconAction>
-      <IconAction label={t("Delete")} onClick={onRemove}>
-        <RiDeleteBinLine aria-hidden />
-      </IconAction>
+      <InputGroup className="flex-1">
+        <InputGroupInput
+          readOnly
+          size="sm"
+          type={value === null ? "password" : "text"}
+          aria-label={t("Value of {name}", { name: secret.name })}
+          variant="mono"
+          value={value ?? "••••••••••••••••"}
+          onFocus={(event) => event.currentTarget.select()}
+        />
+        <InputGroupAddon align="inline-end">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={revealLabel}
+                  onClick={() => void (value === null ? read().then(setValue) : setValue(null))}
+                >
+                  {value === null ? <RiEyeLine aria-hidden /> : <RiEyeOffLine aria-hidden />}
+                </Button>
+              }
+            />
+            <TooltipPopup side="bottom">{revealLabel}</TooltipPopup>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={t("Copy value")}
+                  onClick={() => void copy()}
+                >
+                  <RiFileCopyLine aria-hidden />
+                </Button>
+              }
+            />
+            <TooltipPopup side="bottom">{t("Copy value")}</TooltipPopup>
+          </Tooltip>
+        </InputGroupAddon>
+      </InputGroup>
+      <Menu>
+        <MenuTrigger
+          render={
+            <Button size="icon-sm" variant="ghost-muted" aria-label={t("More actions")}>
+              <RiMoreLine aria-hidden className="size-4" />
+            </Button>
+          }
+        />
+        <MenuPopup align="end">
+          <MenuItem onClick={onEdit}>
+            <RiPencilLine aria-hidden />
+            {t("Replace value")}
+          </MenuItem>
+          <MenuItem variant="destructive" onClick={onRemove}>
+            <RiDeleteBinLine aria-hidden />
+            {t("Delete")}
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
     </li>
   );
 }

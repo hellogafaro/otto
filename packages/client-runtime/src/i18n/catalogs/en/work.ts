@@ -189,6 +189,7 @@ export const workCatalog = {
   Reveal: "Reveal",
   Hide: "Hide",
   "Copy value": "Copy value",
+  "Value of {name}": "Value of {name}",
   "Replace value": "Replace value",
   "{name} couldn't be saved": "{name} couldn't be saved",
   "Replace {name}": "Replace {name}",

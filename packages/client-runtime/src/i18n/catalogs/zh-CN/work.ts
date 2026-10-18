@@ -189,6 +189,7 @@ export const workCatalog = {
   Reveal: "显示",
   Hide: "隐藏",
   "Copy value": "复制值",
+  "Value of {name}": "{name} 的值",
   "Replace value": "替换值",
   "{name} couldn't be saved": "无法保存 {name}",
   "Replace {name}": "替换 {name}",
