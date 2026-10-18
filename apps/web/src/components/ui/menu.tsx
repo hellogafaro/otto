@@ -8,6 +8,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { createContext, use } from "react";
 import type * as React from "react";
 
+import { Kbd } from "~/components/ui/kbd";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 
@@ -56,12 +57,32 @@ function activateItemByKey(event: React.KeyboardEvent<HTMLInputElement>) {
   if (item && !item.hasAttribute("data-disabled")) item.click();
 }
 
+// Otto: Rows are numbered 1–9 then 0 in the shared Kbd; later rows get no key.
+function numberMenuKeys(list: HTMLDivElement | null) {
+  if (!list) return;
+
+  const number = () =>
+    list.querySelectorAll("[data-slot=menu-key]").forEach((key, index) => {
+      const label = index < 10 ? String((index + 1) % 10) : "";
+
+      if (key.textContent !== label) key.textContent = label;
+      key.toggleAttribute("hidden", index >= 10);
+    });
+
+  const observer = new MutationObserver(number);
+
+  number();
+  observer.observe(list, { childList: true, subtree: true });
+
+  return () => observer.disconnect();
+}
+
 function MenuKey({ className }: { className?: string }) {
   return (
-    <kbd
+    <Kbd
       aria-hidden
       className={cn(
-        "ms-auto shrink-0 font-medium font-sans text-secondary-label text-xs [counter-increment:menu-key] before:content-[counter(menu-key,menu-key)] group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
+        "ms-auto shrink-0 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
         className,
       )}
       data-slot="menu-key"
@@ -135,7 +156,10 @@ function MenuPopup({
                 {t("No results")}
               </MenuPrimitive.Empty>
               {/* Otto: While filtering, only matching items show, without headers or separators. */}
-              <MenuPrimitive.List className="max-h-(--available-height) w-full overflow-y-auto p-1 [counter-reset:menu-key] group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:[&>:not([role^=menuitem],[role=group])]:hidden">
+              <MenuPrimitive.List
+                ref={numberMenuKeys}
+                className="max-h-(--available-height) w-full overflow-y-auto p-1 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:[&>:not([role^=menuitem],[role=group])]:hidden"
+              >
                 {children}
               </MenuPrimitive.List>
             </>
@@ -285,16 +309,7 @@ function MenuSeparator({ className, ...props }: MenuPrimitive.Separator.Props) {
 }
 
 function MenuShortcut({ className, ...props }: React.ComponentProps<"kbd">) {
-  return (
-    <kbd
-      className={cn(
-        "ms-auto font-medium font-sans text-secondary-label text-xs tracking-widest",
-        className,
-      )}
-      data-slot="menu-shortcut"
-      {...props}
-    />
-  );
+  return <Kbd className={cn("ms-auto", className)} data-slot="menu-shortcut" {...props} />;
 }
 
 function MenuSub(props: MenuPrimitive.SubmenuRoot.Props) {
