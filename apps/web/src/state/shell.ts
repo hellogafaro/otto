@@ -8,7 +8,6 @@ import {
   createEnvironmentSnapshotAtom,
   createShellEnvironmentAtoms,
 } from "@otto/client-runtime/state/shell";
-import { applyTaskShellItem } from "@otto/client-runtime/state/tasks";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 
@@ -19,11 +18,7 @@ import { connectionAtomRuntime } from "../connection/runtime";
 
 export const shellEnvironment = createShellEnvironmentAtoms(connectionAtomRuntime);
 
-export const environmentShell = createEnvironmentShellAtoms(connectionAtomRuntime, {
-  onItem: (registry, environmentId, item) => {
-    applyTaskShellItem(registry, environmentId, item);
-  },
-});
+export const environmentShell = createEnvironmentShellAtoms(connectionAtomRuntime);
 
 export const environmentSnapshotAtom = createEnvironmentSnapshotAtom(environmentShell.stateAtom);
 

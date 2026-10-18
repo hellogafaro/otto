@@ -30,6 +30,7 @@ const seed = (
     readonly bot?: string;
     readonly job?: string;
     readonly nextRunAt?: string;
+    readonly lastRunAt?: string;
     readonly createdBy?: AuthSessionId;
     readonly visibility?: "user" | "organization";
     readonly deletedAt?: string;
@@ -42,12 +43,13 @@ const seed = (
       INSERT INTO projection_routines (
         routine_id, bot_id, target_thread_id, project_id, job, procedure, procedure_version,
         approval_version, schedule_json, timezone, sandbox, approval_policy, enabled, lifecycle,
-        next_run_at, created_by, visibility, created_at, updated_at, deleted_at
+        next_run_at, last_run_at, created_by, visibility, created_at, updated_at, deleted_at
       ) VALUES (
         ${id}, ${fields.bot ?? "nova"}, 'thread-1', 'project-1', ${fields.job ?? id},
         'Write a note', 2, ${fields.approved === false ? 1 : 2}, '{"kind":"daily","time":"09:00"}',
         'UTC', 'local', 'approval-required', ${fields.enabled === false ? 0 : 1},
-        ${fields.lifecycle ?? "enabled"}, ${fields.nextRunAt ?? null}, ${fields.createdBy ?? null},
+        ${fields.lifecycle ?? "enabled"}, ${fields.nextRunAt ?? null}, ${fields.lastRunAt ?? null},
+        ${fields.createdBy ?? null},
         ${fields.visibility ?? "organization"}, ${fields.updatedAt}, ${fields.updatedAt},
         ${fields.deletedAt ?? null}
       )
@@ -190,6 +192,64 @@ layer("listRoutines", (it) => {
       );
 
       assert.strictEqual(forged._tag, "RoutineListError");
+    }),
+  );
+
+  it.effect("finds by title and by when a routine runs, only among what the viewer sees", () =>
+    Effect.gen(function* () {
+      const updatedAt = "2026-10-09T00:00:00.000Z";
+      yield* seed("standup", {
+        updatedAt,
+        job: "Send Standup notes",
+        nextRunAt: "2026-10-18T20:00:00.000Z",
+      });
+      yield* seed("standup-private", {
+        updatedAt,
+        job: "Standup for Grace",
+        createdBy: grace,
+        visibility: "user",
+        nextRunAt: "2026-10-18T07:00:00.000Z",
+      });
+      yield* seed("ran-today", {
+        updatedAt,
+        job: "Inbox sweep",
+        nextRunAt: "2026-10-19T08:00:00.000Z",
+        lastRunAt: "2026-10-18T08:00:00.000Z",
+      });
+      yield* seed("tomorrow", {
+        updatedAt,
+        job: "Morning standup",
+        nextRunAt: "2026-10-19T00:00:00.000Z",
+      });
+
+      assert.deepStrictEqual(ids(yield* list({ search: "standup", sort: "title" })), [
+        "tomorrow",
+        "standup",
+      ]);
+      assert.deepStrictEqual(ids(yield* list({ search: "standup", sort: "title" }, grace)), [
+        "tomorrow",
+        "standup",
+        "standup-private",
+      ]);
+
+      const today = { runFrom: "2026-10-18T00:00:00.000Z", runTo: "2026-10-19T00:00:00.000Z" };
+      assert.deepStrictEqual(ids(yield* list({ ...today, sort: "next" })), [
+        "standup",
+        "ran-today",
+      ]);
+      assert.deepStrictEqual(ids(yield* list({ ...today, sort: "next" }, grace)), [
+        "standup-private",
+        "standup",
+        "ran-today",
+      ]);
+
+      const first = yield* list({ ...today, sort: "next", limit: 1 });
+
+      const otherDay = yield* Effect.flip(
+        list({ runFrom: today.runTo, sort: "next", limit: 1, cursor: first.nextCursor! }),
+      );
+
+      assert.strictEqual(otherDay._tag, "RoutineListError");
     }),
   );
 });

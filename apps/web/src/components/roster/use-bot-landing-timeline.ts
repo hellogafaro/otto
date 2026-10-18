@@ -6,18 +6,21 @@ import type {
   RoutineRunId,
   ScopedThreadRef,
 } from "@otto/contracts";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { RegistryContext, useAtomValue } from "@effect/atom-react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { useEnvironmentQuery } from "../../state/query";
+import { routineCacheAtom, withRoutines } from "../../state/routines";
 import { serverEnvironment } from "../../state/server";
 import type { BotConversationEntry } from "./bot-conversation-presentation";
 import { deriveRoutineReceipts, mergeRoutineRunHistory } from "./routine-receipts";
 
 /**
  * Merges a bot chat's messages, routine run notes, and delegations into one ordered
- * timeline. Routine run history pages in older notes on request and refreshes when the
- * snapshot shows a run for this chat changed.
+ * timeline. The chat's routines come with its run history and land in the routine cache, which
+ * live events keep current; history pages in older notes on request and refreshes when an event
+ * changes a run for this chat.
  */
 export function useBotLandingTimeline(input: {
   readonly threadRef: ScopedThreadRef | null;
@@ -37,6 +40,10 @@ export function useBotLandingTimeline(input: {
   );
 
   const threadId = threadRef?.threadId ?? null;
+  const environmentId = threadRef?.environmentId ?? null;
+  const registry = useContext(RegistryContext);
+  // SAFETY: the empty environment ID is an inactive sentinel; its cache stays empty.
+  const cache = useAtomValue(routineCacheAtom(environmentId ?? ("" as never)));
 
   const [routineHistory, setRoutineHistory] = useState<{
     threadId: string | null;
@@ -72,6 +79,14 @@ export function useBotLandingTimeline(input: {
       nextCursor: null,
     });
   }, [threadId]);
+  useEffect(() => {
+    const page = routineRunHistory.data;
+
+    if (!page || !environmentId) return;
+    registry.update(routineCacheAtom(environmentId), (current) =>
+      withRoutines(current, page.routines, page.receiptSources),
+    );
+  }, [environmentId, registry, routineRunHistory.data]);
   useEffect(() => {
     const page = routineRunHistory.data;
 
@@ -113,28 +128,25 @@ export function useBotLandingTimeline(input: {
       ? (routineRunHistory.data?.nextCursor ?? null)
       : currentHistory.nextCursor;
 
-  const routineRunRevision = useMemo(() => {
-    const threadId = threadRef?.threadId;
+  const threadRoutines = useMemo(
+    () =>
+      [...cache.routines.values(), ...cache.receiptSources.values()].filter(
+        (routine) => routine.targetThreadId === threadId,
+      ),
+    [cache.routines, cache.receiptSources, threadId],
+  );
 
+  const routineRunRevision = useMemo(() => {
     if (!threadId) return null;
 
-    const routineIds = [...(snapshot?.routines ?? []), ...(snapshot?.routineReceiptSources ?? [])]
-      .flatMap((routine) => (routine.targetThreadId === threadId ? [routine.id] : []))
-      .toSorted();
+    const relevantIds = new Set(threadRoutines.map((routine) => routine.id));
 
-    const relevantIds = new Set(routineIds);
-
-    const runs = (snapshot?.routineRuns ?? [])
+    const runs = [...cache.runs.values()]
       .flatMap((run) => (relevantIds.has(run.routineId) ? [[run.id, run.updatedAt] as const] : []))
       .toSorted(([left], [right]) => left.localeCompare(right));
 
-    return JSON.stringify([routineIds, runs]);
-  }, [
-    threadRef?.threadId,
-    snapshot?.routines,
-    snapshot?.routineReceiptSources,
-    snapshot?.routineRuns,
-  ]);
+    return JSON.stringify(runs);
+  }, [threadId, threadRoutines, cache.runs]);
 
   const observedRoutineRevision = useRef<{
     threadId: string | null;
@@ -156,19 +168,12 @@ export function useBotLandingTimeline(input: {
       threadRef
         ? deriveRoutineReceipts(
             threadRef.threadId,
-            [...(snapshot?.routines ?? []), ...(snapshot?.routineReceiptSources ?? [])],
-            mergeRoutineRunHistory(currentHistory.runs, snapshot?.routineRuns ?? []),
+            threadRoutines,
+            mergeRoutineRunHistory(currentHistory.runs, [...cache.runs.values()]),
             { t },
           )
         : [],
-    [
-      threadRef,
-      snapshot?.routines,
-      snapshot?.routineReceiptSources,
-      snapshot?.routineRuns,
-      currentHistory.runs,
-      t,
-    ],
+    [threadRef, threadRoutines, cache.runs, currentHistory.runs, t],
   );
 
   const { delegations, waitingOnChildren } = useMemo(

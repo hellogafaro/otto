@@ -9,10 +9,13 @@ import {
   RiTimeLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
-import { environmentSnapshotAtom } from "../../state/shell";
+import { useListPages } from "../../hooks/use-list-pages";
+import { routineChangesAtom, routineEnvironment } from "../../state/routines";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { useTaskPages } from "../../state/tasks";
 import { useThreadShells } from "../../state/entities";
 import { formatRelativeTimeLabel, localDateKey } from "../../timestamp-format";
@@ -62,6 +65,8 @@ function Meta({ children }: { readonly children: string }) {
   );
 }
 
+const firstPageOnly = () => null;
+
 /**
  * Otto: Home, where a person lands: a greeting, then four cards like Skills and Integrations,
  * each with its count and its own empty state. Today holds their open tasks due today or
@@ -73,7 +78,8 @@ export function HomePage() {
   const navigate = useNavigate();
   const { environmentId, loaded, projects, participants, currentPersonId } = useWorkData();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
-  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
+  const routineChanges = useAtomValue(routineChangesAtom(environmentId ?? ("" as never)));
+  const listRoutines = useAtomCommand(routineEnvironment.list, { reportFailure: false });
   const shells = useThreadShells();
   const lastVisited = useUiStateStore((state) => state.threadLastVisitedAtById);
   const [now] = useState(() => new Date());
@@ -102,7 +108,26 @@ export function HomePage() {
     ? tasksDue([...new Map(mine.map((task) => [task.id, task])).values()], currentPersonId, today)
     : [];
 
-  const routines = routinesToday(snapshot?.routines ?? [], today);
+  // Otto: Routines asks the server for the routines that run, or ran, today: the first page.
+  const routineList = useListPages({
+    view: `${environmentId}:${today}`,
+    revision: routineChanges,
+    getNextCursor: firstPageOnly,
+    fetchPage: async () => {
+      if (!environmentId) return null;
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+      const result = await listRoutines({
+        environmentId,
+        input: { runFrom: start.toISOString(), runTo: end.toISOString(), sort: "next" },
+      });
+
+      return AsyncResult.isSuccess(result) ? result.value : null;
+    },
+  });
+
+  const routines = routinesToday(routineList.pages[0]?.routines ?? [], today);
 
   const chatState = (shell: (typeof shells)[number]): ChatState | null => {
     if (shell.hasPendingApprovals || shell.hasPendingUserInput) return "needs";
@@ -157,7 +182,9 @@ export function HomePage() {
             })}
           </p>
         </div>
-        {!loaded || (currentPersonId !== null && tasksLoading) ? (
+        {!loaded ||
+        (currentPersonId !== null && tasksLoading) ||
+        (routineList.status === "loading" && routineList.pages.length === 0) ? (
           <SkeletonTableRows label={t("Loading…")} />
         ) : (
           <div className="flex flex-col gap-10">

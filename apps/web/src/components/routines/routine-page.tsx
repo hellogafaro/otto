@@ -28,7 +28,8 @@ import {
   RiTimeLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { AsyncResult } from "effect/unstable/reactivity";
+import { useEffect, useMemo, useState } from "react";
 
 import { requestConfirmDialog } from "../../confirm-dialog";
 import { useI18n } from "../../i18n";
@@ -37,7 +38,7 @@ import { randomUUID } from "../../lib/utils";
 import { hasTag } from "../../lib/tagged-union";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
-import { routineEnvironment } from "../../state/routines";
+import { routineCacheAtom, routineChangesAtom, routineEnvironment } from "../../state/routines";
 import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -78,10 +79,34 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
   const environmentId = usePrimaryEnvironmentId();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
+  // SAFETY: the empty environment ID is an inactive sentinel, like the snapshot's above.
+  const cache = useAtomValue(routineCacheAtom(environmentId ?? ("" as never)));
+  // SAFETY: the same inactive sentinel; its counter stays at zero.
+  const routineChanges = useAtomValue(routineChangesAtom(environmentId ?? ("" as never)));
+  const getRoutine = useAtomCommand(routineEnvironment.get, { reportFailure: false });
+  const [missingId, setMissingId] = useState<RoutineId | null>(null);
+  const cached = cache.routines.get(routineId);
+  const routine = cached?.lifecycle === "deleted" ? undefined : cached;
+  const uncached = cached === undefined;
 
-  const routine = snapshot?.routines?.find(
-    (candidate) => candidate.id === routineId && candidate.lifecycle !== "deleted",
-  );
+  // Otto: The routine comes from the cache, filled by lists and live events; on a miss it is
+  // read from the server once the live snapshot has arrived, and a routine the server won't
+  // show reads as not found.
+  const connected = routineChanges > 0;
+  useEffect(() => {
+    if (environmentId === null || !connected || !uncached) return;
+    let current = true;
+
+    void getRoutine({ environmentId, input: { routineId } }).then((result) => {
+      if (current && !(AsyncResult.isSuccess(result) && result.value !== null)) {
+        setMissingId(routineId);
+      }
+    });
+
+    return () => {
+      current = false;
+    };
+  }, [connected, environmentId, getRoutine, routineId, uncached]);
 
   const history = useEnvironmentQuery(
     environmentId === null
@@ -89,7 +114,9 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
       : serverEnvironment.routineRuns({ environmentId, input: { routineId } }),
   );
 
-  if (!snapshot) return <WorkPage back={back}>{null}</WorkPage>;
+  if (!snapshot || (!routine && environmentId !== null && missingId !== routineId && uncached)) {
+    return <WorkPage back={back}>{null}</WorkPage>;
+  }
 
   if (!routine || environmentId === null) {
     return (
@@ -103,10 +130,10 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
     );
   }
 
-  // Otto: The snapshot carries each routine's newest runs live; older ones come from the
+  // Otto: The routine cache carries the runs the stream sent live; the rest come from the
   // routine's full history. A running run whose chat waits on someone's approval or answer
   // shows as waiting for approval, not as running.
-  const liveRuns = snapshot.routineRuns ?? [];
+  const liveRuns = [...cache.runs.values()].filter((run) => run.routineId === routine.id);
 
   const waitingChats = new Set(
     snapshot.threads
@@ -124,7 +151,6 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
         ? { ...run, status: "waiting-for-approval" as const }
         : run,
     ),
-    snapshot.skillAssignments ?? [],
     snapshot.mcpServers ?? [],
   );
 

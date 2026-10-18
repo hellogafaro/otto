@@ -99,6 +99,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.memoryDelete]: AuthOrchestrationOperateScope,
   [WS_METHODS.memoryDecide]: AuthOrchestrationOperateScope,
   [WS_METHODS.botUsage]: AuthOrchestrationReadScope,
+  [WS_METHODS.routinesGet]: AuthOrchestrationReadScope,
   [WS_METHODS.routinesList]: AuthOrchestrationReadScope,
   [WS_METHODS.routinesListRuns]: AuthOrchestrationReadScope,
   [WS_METHODS.routinesListThreadRuns]: AuthOrchestrationReadScope,

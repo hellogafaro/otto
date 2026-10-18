@@ -346,6 +346,10 @@ export const RoutineRun = Schema.Union([
 
 export type RoutineRun = typeof RoutineRun.Type;
 
+export const RoutineGetInput = Schema.Struct({ routineId: RoutineId });
+
+export type RoutineGetInput = typeof RoutineGetInput.Type;
+
 export const RoutineListRunsInput = Schema.Struct({ routineId: RoutineId });
 
 export type RoutineListRunsInput = typeof RoutineListRunsInput.Type;
@@ -359,9 +363,17 @@ export const RoutineListThreadRunsInput = Schema.Struct({
   beforeRunId: Schema.optional(RoutineRunId),
 });
 
+export type RoutineListThreadRunsInput = typeof RoutineListThreadRunsInput.Type;
+
+/**
+ * One page of the runs posted for a chat's routines, newest first, with the routines that post
+ * there: the live ones the viewer may see, and the deleted ones by their receipt fields.
+ */
 export const RoutineListThreadRunsResult = Schema.Struct({
   runs: Schema.Array(RoutineRun),
   nextCursor: Schema.NullOr(RoutineRunId),
+  routines: Schema.Array(Routine),
+  receiptSources: Schema.Array(RoutineReceiptSource),
 });
 
 export type RoutineListThreadRunsResult = typeof RoutineListThreadRunsResult.Type;
@@ -410,10 +422,17 @@ export const RoutineListSort = Schema.Literals(ROUTINE_LIST_SORTS);
 
 export type RoutineListSort = typeof RoutineListSort.Type;
 
-/** The filter and order the Routines page keeps in its URL; no status means every routine. */
+/**
+ * The filter and order the Routines page keeps in its URL; no status means every routine.
+ * `search` keeps routines whose title holds it. `runFrom` and `runTo` keep routines whose next or
+ * last run falls at or after the one and before the other, as Home asks for today's.
+ */
 export const RoutineListView = Schema.Struct({
   status: Schema.optional(RoutineStatusList),
   bot: Schema.optional(BotId),
+  search: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(200))),
+  runFrom: Schema.optional(IsoDateTime),
+  runTo: Schema.optional(IsoDateTime),
   sort: Schema.optional(RoutineListSort),
   order: Schema.optional(ListOrder),
 });

@@ -118,6 +118,7 @@ const harness = (
         })) as never,
       ),
     listThreadRuns: () => Effect.succeed({ runs: [], nextCursor: null }),
+    listThreadRoutines: () => Effect.succeed([]),
     listAllRuns: Effect.sync(() => dispatchedRuns),
     getLatestThreadRef: () => Effect.succeed(null),
     getActiveRunByThreadRef: () => Effect.succeed(null),

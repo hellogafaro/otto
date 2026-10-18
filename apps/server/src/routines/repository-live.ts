@@ -246,6 +246,24 @@ function routineFilterSql(query: RoutineListView, viewer: string) {
     params.push(query.bot);
   }
 
+  if (query.search !== undefined) {
+    conditions.push("instr(lower(job), ?) > 0");
+    params.push(query.search.toLowerCase());
+  }
+
+  if (query.runFrom !== undefined || query.runTo !== undefined) {
+    const bounds = [
+      ...(query.runFrom === undefined ? [] : [{ sql: ">= ?", value: query.runFrom }]),
+      ...(query.runTo === undefined ? [] : [{ sql: "< ?", value: query.runTo }]),
+    ];
+
+    const within = (column: string) =>
+      bounds.map((bound) => `${column} ${bound.sql}`).join(" AND ");
+
+    conditions.push(`((${within("next_run_at")}) OR (${within("last_run_at")}))`);
+    params.push(...bounds.map((bound) => bound.value), ...bounds.map((bound) => bound.value));
+  }
+
   return { conditions, params };
 }
 
@@ -381,7 +399,11 @@ const make = Effect.gen(function* () {
       Effect.mapError(toPersistenceSqlError("RoutineRepository.listRuns")),
     );
 
-  const listThreadRuns: RoutineRepositoryShape["listThreadRuns"] = (threadId, beforeRunId) =>
+  const listThreadRuns: RoutineRepositoryShape["listThreadRuns"] = (
+    threadId,
+    viewer,
+    beforeRunId,
+  ) =>
     sql<typeof RoutineRunRow.Encoded>`
       SELECT run.run_id AS id, run.routine_id AS "routineId",
         run.procedure_version AS "procedureVersion", run.trigger,
@@ -392,6 +414,8 @@ const make = Effect.gen(function* () {
       FROM projection_routine_runs AS run
       JOIN projection_routines AS routine ON routine.routine_id = run.routine_id
       WHERE routine.target_thread_id = ${threadId}
+        AND (routine.deleted_at IS NOT NULL OR routine.visibility <> 'user'
+          OR routine.created_by IS NULL OR routine.created_by = ${viewer})
         AND (${beforeRunId ?? null} IS NULL OR
           (run.created_at, run.run_id) < (
             SELECT previous.created_at, previous.run_id
@@ -407,6 +431,35 @@ const make = Effect.gen(function* () {
         return { runs, nextCursor: rows.length > 100 ? (runs[99]?.id ?? null) : null };
       }),
       Effect.mapError(toPersistenceSqlError("RoutineRepository.listThreadRuns")),
+    );
+
+  const listThreadRoutines: RoutineRepositoryShape["listThreadRoutines"] = (threadId) =>
+    sql<typeof RoutineRow.Encoded>`
+      SELECT routine_id AS id, bot_id AS "botId", target_thread_id AS "targetThreadId", thread_mode AS "threadMode",
+        project_id AS "projectId", job,
+        procedure, procedure_version AS "procedureVersion",
+        approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
+        skill_assignment_ids_json AS "skillAssignmentIds",
+        connector_dependencies_json AS "connectorDependencies", sandbox,
+        approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
+        created_by AS "createdBy", visibility,
+        enabled, lifecycle,
+        next_run_at AS "nextRunAt", last_run_at AS "lastRunAt",
+        latest_result_json AS "latestResult", latest_failure_json AS "latestFailure",
+        created_at AS "createdAt", updated_at AS "updatedAt", deleted_at AS "deletedAt"
+      FROM projection_routines
+      WHERE target_thread_id = ${threadId}
+      ORDER BY created_at, routine_id
+      LIMIT 100
+    `.pipe(
+      Effect.map((rows) =>
+        rows.map((row) => {
+          const decoded = decodeRoutine(row);
+
+          return { ...decoded, enabled: decoded.enabled === 1 };
+        }),
+      ),
+      Effect.mapError(toPersistenceSqlError("RoutineRepository.listThreadRoutines")),
     );
 
   const listAllRuns: RoutineRepositoryShape["listAllRuns"] = sql<typeof RoutineRunRow.Encoded>`
@@ -557,6 +610,7 @@ const make = Effect.gen(function* () {
     getById,
     listRuns,
     listThreadRuns,
+    listThreadRoutines,
     listAllRuns,
     getLatestThreadRef,
     getActiveRunByThreadRef,

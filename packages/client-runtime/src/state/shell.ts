@@ -12,7 +12,7 @@ import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
-import { AsyncResult, Atom, type AtomRegistry } from "effect/unstable/reactivity";
+import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity";
 
 import { EnvironmentRegistry } from "../connection/registry.ts";
 import { connectionProjectionPhase } from "../connection/model.ts";
@@ -23,6 +23,8 @@ import { EnvironmentCacheStore } from "../platform/persistence.ts";
 import { subscribeDynamic } from "../rpc/client.ts";
 import type { RpcSession } from "../rpc/session.ts";
 import { ShellSnapshotLoader } from "./shell-snapshot-http.ts";
+import { recordRoutineShellItem } from "./routine-cache.ts";
+import { recordTaskShellItem } from "./task-cache.ts";
 import { applyShellStreamEvent } from "./shell-reducer.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
 import { followStreamInEnvironment } from "./runtime.ts";
@@ -49,13 +51,12 @@ function shellStatusForSnapshot(
 
 const SHELL_SYNCHRONIZATION_ERROR_MESSAGE = "Could not synchronize environment data.";
 
-export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")(function* (
-  onItem?: (item: OrchestrationShellStreamItem) => void,
-) {
+export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")(function* () {
   const supervisor = yield* EnvironmentSupervisor;
   const cache = yield* EnvironmentCacheStore;
   const snapshotLoader = yield* ShellSnapshotLoader;
   const wakeups = yield* Effect.serviceOption(ConnectionWakeups.ConnectionWakeups);
+  const atoms = yield* Effect.serviceOption(AtomRegistry.AtomRegistry);
   const environmentId = supervisor.target.environmentId;
 
   const cachedSnapshot = yield* cache.loadShell(environmentId).pipe(
@@ -174,7 +175,11 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
       return;
     }
 
-    if (nextSnapshot !== Option.getOrNull(current.snapshot)) onItem?.(item);
+    if (Option.isSome(atoms) && nextSnapshot !== Option.getOrNull(current.snapshot)) {
+      recordRoutineShellItem(atoms.value, environmentId, item);
+      recordTaskShellItem(atoms.value, environmentId, item);
+    }
+
     const waiting = yield* Ref.get(awaitingCompletion);
     yield* SubscriptionRef.set(state, {
       snapshot: Option.some(nextSnapshot),
@@ -291,13 +296,10 @@ export const makeEnvironmentShellState = Effect.fn("EnvironmentShellState.make")
   return state;
 });
 
-export function shellStateChanges(
-  environmentId: EnvironmentId,
-  onItem?: (item: OrchestrationShellStreamItem) => void,
-) {
+export function shellStateChanges(environmentId: EnvironmentId) {
   return followStreamInEnvironment(
     environmentId,
-    Stream.unwrap(makeEnvironmentShellState(onItem).pipe(Effect.map(SubscriptionRef.changes))),
+    Stream.unwrap(makeEnvironmentShellState().pipe(Effect.map(SubscriptionRef.changes))),
   );
 }
 
@@ -436,26 +438,11 @@ export function createEnvironmentShellAtoms<R, E>(
     EnvironmentRegistry | EnvironmentCacheStore | ShellSnapshotLoader | R,
     E
   >,
-  options?: {
-    /**
-     * Otto: Sees every snapshot and event the shell applies, so a domain cache the snapshot no
-     * longer carries stays current.
-     */
-    readonly onItem?: (
-      registry: AtomRegistry.AtomRegistry,
-      environmentId: EnvironmentId,
-      item: OrchestrationShellStreamItem,
-    ) => void;
-  },
 ) {
   const stateAtom = Atom.family((environmentId: EnvironmentId) =>
-    runtime.atom(
-      (get) =>
-        shellStateChanges(environmentId, (item) =>
-          options?.onItem?.(get.registry, environmentId, item),
-        ),
-      { initialValue: EMPTY_SHELL_STATE },
-    ),
+    runtime.atom(shellStateChanges(environmentId), {
+      initialValue: EMPTY_SHELL_STATE,
+    }),
   );
 
   const stateValueAtom = Atom.family((environmentId: EnvironmentId) =>

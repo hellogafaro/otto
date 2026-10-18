@@ -75,6 +75,7 @@ import { WorkStatusIcon } from "./work/work-status";
 import { projectStatus } from "./work/work.logic";
 import { StatusIcon } from "./status-icon";
 import { ROUTINE_STATUS_ICON, routineStatus } from "./routines/routine-status";
+import { useRoutineSearch } from "./routines/use-routine-search";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
@@ -541,6 +542,7 @@ function useWorkspaceSearchGroups(query: string, tab: CommandPaletteTab): Comman
   );
 
   const botNames = new Map(bots.map((bot) => [bot.id, bot.name]));
+  const routines = useRoutineSearch(query);
 
   const folderTitles = new Map(
     (snapshot?.libraryFolders ?? []).map((folder) => [folder.id, folder.title]),
@@ -619,20 +621,20 @@ function useWorkspaceSearchGroups(query: string, tab: CommandPaletteTab): Comman
     {
       value: "routines",
       label: t("Routines"),
-      items: newestFirst(
-        (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted"),
-      ).map((routine) => ({
-        value: `routine:${routine.id}`,
-        searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
-        title: routine.job,
-        ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
-        icon: (
-          <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
-        ),
-        run: async () => {
-          await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
-        },
-      })),
+      items: newestFirst(routines.filter((routine) => routine.lifecycle !== "deleted")).map(
+        (routine) => ({
+          value: `routine:${routine.id}`,
+          searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
+          title: routine.job,
+          ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
+          icon: (
+            <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
+          ),
+          run: async () => {
+            await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
+          },
+        }),
+      ),
     },
     {
       value: "library",
