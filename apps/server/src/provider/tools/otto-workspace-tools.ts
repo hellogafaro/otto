@@ -28,6 +28,8 @@ export const BACKEND_NAMES: Record<
     | "library_create"
     | "library_read"
     | "library_update"
+    | "library_share"
+    | "library_unshare"
     | "skill_read"
     | "skill_create"
     | "skill_update"

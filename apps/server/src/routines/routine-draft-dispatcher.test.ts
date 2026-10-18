@@ -134,6 +134,7 @@ function deleteHarness(input: {
   readonly routines: ReadonlyArray<Routine>;
   readonly respondingBotId?: BotId | null;
   readonly groupId?: GroupId;
+  readonly runtimeMode?: OrchestrationThread["runtimeMode"];
 }) {
   const commands: Array<OrchestrationCommand> = [];
 
@@ -148,7 +149,7 @@ function deleteHarness(input: {
       instanceId: ProviderInstanceId.make("codex"),
       model: "gpt-5.6-sol",
     },
-    runtimeMode: "approval-required",
+    runtimeMode: input.runtimeMode ?? "approval-required",
     interactionMode: "default",
     branch: null,
     worktreePath: null,
@@ -285,6 +286,33 @@ describe("RoutineDraftDispatcher.deleteForThread", () => {
 });
 
 describe("RoutineDraftDispatcher.createApprovedForThread", () => {
+  for (const runtimeMode of [
+    "approval-required",
+    "auto-accept-edits",
+    "auto",
+    "full-access",
+  ] as const) {
+    it.effect(`saves the approved instructions and ${runtimeMode} for future runs`, () => {
+      const test = deleteHarness({ routines: [], runtimeMode });
+      const instructions = "Fix bugs in owner/repo and merge after checks pass. Do not deploy.";
+
+      return Effect.gen(function* () {
+        const dispatcher = yield* RoutineDraftDispatcher;
+        yield* dispatcher.createApprovedForThread(ThreadId.make("thread-1"), "Europe/Madrid", {
+          name: "Fix bugs",
+          instructions,
+          schedule: { kind: "daily", time: "09:00" },
+        });
+        expect(test.commands[0]).toMatchObject({
+          type: "routine.create-approved",
+          procedure: instructions,
+          approvalPolicy: runtimeMode,
+        });
+        expect(test.commands[1]).toMatchObject({ type: "routine.enable" });
+      }).pipe(Effect.provide(test.layer));
+    });
+  }
+
   it.effect("starts the approved routine on its schedule", () => {
     const test = deleteHarness({ routines: [] });
 

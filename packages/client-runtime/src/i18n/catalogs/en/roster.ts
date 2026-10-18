@@ -417,4 +417,6 @@ export const rosterCatalog = {
   "Refunds only": "Refunds only",
   "Account changes only": "Account changes only",
   you: "you",
+  "Sharing a file": "Sharing a file",
+  "Removing a public link": "Removing a public link",
 } as const;

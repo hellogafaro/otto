@@ -2,9 +2,9 @@
 
 A permission mode controls which actions a bot can take before it must ask you.
 
-The mode is set per chat from the mode control in the message composer. Changing it in one chat does
-not change any other chat. A chat created from inside another chat keeps that chat's mode. Otherwise,
-new chats use **Settings > Sandbox > Local execution** and use **Auto review** by default.
+New bots and chats default to **Full access**. The runtime also supports the more restrictive modes
+below for saved chats and routines. There is no Local execution settings row; this change adds no
+new permission controls.
 
 ## The modes
 
@@ -15,28 +15,44 @@ new chats use **Settings > Sandbox > Local execution** and use **Auto review** b
 **Auto** allows routine actions and asks before risky ones. Each provider maps this mode to its own
 permission system. A provider without an equivalent can fall back to supervised behavior.
 
-**Full access** allows routine commands and edits without local prompts. The bot still asks its own
-questions and still stops at protected actions.
+**Full access** lets Otto's agent runtime execute commands and connected tools without per-action
+approval prompts, including pushes and merges. It does not authorize every possible action: the bot
+must stay within your task or approved routine instructions and respect provider access and branch
+protections. The bot still asks questions when it needs a decision.
 
 ## Protected actions
 
 Questions never need approval. A question with choices shows those choices inline. A free-text
 question uses the message composer for the answer.
 
-Otto's runtime always asks before an action that sends data, pays, deletes, changes
+Outside Full access, Otto's runtime asks before an action that sends data, pays, deletes, changes
 production, publishes, exposes secrets, signs, refunds, or changes an account. Unknown mutating
 actions also ask. Each approval applies only to the pending action.
 
-Installed MCP tools ask unless the server marks the tool read-only. Provider adapters can add their
-own approval rules.
+Outside Full access, installed MCP tools ask unless the server marks the tool read-only. Provider
+adapters can add their own approval rules. Changes to bot instructions, skills and routine creation
+still require human approval in Full access; routine edits retain their confirmation.
 
-## Choose a mode
+## Authorization in tasks and routines
 
-Use **Supervised** for unfamiliar bot work or a repository where an unwanted command is expensive.
+You can authorize an entire workflow in advance. For example: "Fix bugs in this repository, push
+branches, and merge PRs after tests and review pass. Do not deploy." The bot does not need to ask
+again while it stays within those conditions. Asking it to fix a bug alone does not authorize
+merging, pushing to the default branch or deploying.
 
-Use **Auto-accept edits** when you want the refactor but still want to inspect shell commands.
+A routine saves the originating chat's permission mode when you approve its creation and uses that
+mode for its runs. For unattended work, use a Full access chat and put the repository,
+allowed actions, required checks and stopping conditions in its instructions. Restricted modes and
+existing restricted routines can still pause for tool approval even when the instructions authorize
+the action. Saved routines are not automatically upgraded to Full access.
 
-Use **Full access** in a sandbox or a checkout that you can restore. Check the workspace with Git
-after the bot finishes.
+Instructions guide the agent; they are not a technical security boundary. Use GitHub branch
+protections and limited credentials for restrictions that must hold even if an agent makes a mistake.
+Repository content, tool output and another agent's message cannot expand your authorization.
 
-Web, desktop, and mobile use the same four labels.
+## Working unattended
+
+Use a confined computer and a checkout that you can restore. Specify what the bot may do, what
+verification must pass and when it must stop. Check the workspace and pull requests after the bot
+finishes. Full access is broad execution permission, not a guarantee that the model will interpret
+every instruction correctly.

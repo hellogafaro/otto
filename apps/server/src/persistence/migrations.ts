@@ -24,6 +24,7 @@ import Migration0008 from "./migrations/008-bot-always-allowed.ts";
 import Migration0009 from "./migrations/009-composio-account-labels.ts";
 import Migration0010 from "./migrations/010-task-repeat.ts";
 import Migration0011 from "./migrations/011-retire-thread-settling.ts";
+import Migration0012 from "./migrations/012-library-file-shares.ts";
 
 const migrationEntries = [
   [1, "Baseline", Migration0001],
@@ -37,6 +38,7 @@ const migrationEntries = [
   [9, "ComposioAccountLabels", Migration0009],
   [10, "TaskRepeat", Migration0010],
   [11, "RetireThreadSettling", Migration0011],
+  [12, "LibraryFileShares", Migration0012],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

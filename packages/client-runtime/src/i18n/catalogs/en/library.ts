@@ -61,4 +61,20 @@ export const libraryCatalog = {
   "{count} file": "{count} file",
   "{count} files": "{count} files",
   "{name} · {date}": "{name} · {date}",
+  "Anyone with the link can open the copy from {date}.":
+    "Anyone with the link can open the copy from {date}.",
+  "Anyone with the link can open this copy without signing in.":
+    "Anyone with the link can open this copy without signing in.",
+  "Copy link": "Copy link",
+  "Create link": "Create link",
+  "No file here": "No file here",
+  "Public link": "Public link",
+  "Public link couldn't be removed": "Public link couldn't be removed",
+  "Public link couldn't be saved": "Public link couldn't be saved",
+  "Remove link": "Remove link",
+  "Share public link": "Share public link",
+  "The link shares the file as it is now. Later edits stay in Otto until you update the link.":
+    "The link shares the file as it is now. Later edits stay in Otto until you update the link.",
+  "This link doesn't exist or was removed.": "This link doesn't exist or was removed.",
+  "Update link": "Update link",
 } as const;

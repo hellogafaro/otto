@@ -25,6 +25,7 @@ import { Route as LibraryIndexRouteImport } from './routes/library.index'
 import { Route as TasksTaskIdRouteImport } from './routes/tasks.$taskId'
 import { Route as SettingsSectionRouteImport } from './routes/settings.$section'
 import { Route as SettingsSplatRouteImport } from './routes/settings.$'
+import { Route as SShareIdRouteImport } from './routes/s.$shareId'
 import { Route as RoutinesRoutineIdRouteImport } from './routes/routines.$routineId'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as LibraryFileIdRouteImport } from './routes/library.$fileId'
@@ -125,6 +126,11 @@ const SettingsSplatRoute = SettingsSplatRouteImport.update({
   id: '/$',
   path: '/$',
   getParentRoute: () => SettingsRoute,
+} as any)
+const SShareIdRoute = SShareIdRouteImport.update({
+  id: '/s/$shareId',
+  path: '/s/$shareId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const RoutinesRoutineIdRoute = RoutinesRoutineIdRouteImport.update({
   id: '/routines/$routineId',
@@ -250,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/routines/$routineId': typeof RoutinesRoutineIdRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
@@ -288,6 +295,7 @@ export interface FileRoutesByTo {
   '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/routines/$routineId': typeof RoutinesRoutineIdRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
@@ -328,6 +336,7 @@ export interface FileRoutesById {
   '/library/$fileId': typeof LibraryFileIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/routines/$routineId': typeof RoutinesRoutineIdRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/settings/$': typeof SettingsSplatRoute
   '/settings/$section': typeof SettingsSectionRoute
   '/tasks/$taskId': typeof TasksTaskIdRoute
@@ -368,6 +377,7 @@ export interface FileRouteTypes {
     | '/library/$fileId'
     | '/projects/$projectId'
     | '/routines/$routineId'
+    | '/s/$shareId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
@@ -406,6 +416,7 @@ export interface FileRouteTypes {
     | '/library/$fileId'
     | '/projects/$projectId'
     | '/routines/$routineId'
+    | '/s/$shareId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
@@ -445,6 +456,7 @@ export interface FileRouteTypes {
     | '/library/$fileId'
     | '/projects/$projectId'
     | '/routines/$routineId'
+    | '/s/$shareId'
     | '/settings/$'
     | '/settings/$section'
     | '/tasks/$taskId'
@@ -485,6 +497,7 @@ export interface RootRouteChildren {
   LibraryFileIdRoute: typeof LibraryFileIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   RoutinesRoutineIdRoute: typeof RoutinesRoutineIdRoute
+  SShareIdRoute: typeof SShareIdRoute
   TasksTaskIdRoute: typeof TasksTaskIdRoute
   LibraryIndexRoute: typeof LibraryIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -609,6 +622,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/$'
       preLoaderRoute: typeof SettingsSplatRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/s/$shareId': {
+      id: '/s/$shareId'
+      path: '/s/$shareId'
+      fullPath: '/s/$shareId'
+      preLoaderRoute: typeof SShareIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/routines/$routineId': {
       id: '/routines/$routineId'
@@ -822,6 +842,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryFileIdRoute: LibraryFileIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   RoutinesRoutineIdRoute: RoutinesRoutineIdRoute,
+  SShareIdRoute: SShareIdRoute,
   TasksTaskIdRoute: TasksTaskIdRoute,
   LibraryIndexRoute: LibraryIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,

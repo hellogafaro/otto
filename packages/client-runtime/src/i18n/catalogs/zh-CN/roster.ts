@@ -403,4 +403,6 @@ export const rosterCatalog = {
   "Refunds only": "仅限退款",
   "Account changes only": "仅限账户更改",
   you: "你",
+  "Sharing a file": "正在分享文件",
+  "Removing a public link": "正在移除公开链接",
 } as const;

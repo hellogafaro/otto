@@ -179,6 +179,8 @@ export function createSessionCatalogHandlers(
               read: (request) => deps.runPromise(libraryTools.read(libraryCaller, request)),
               updateDocument: (request) =>
                 deps.runPromise(libraryTools.updateDocument(libraryCaller, request)),
+              share: (request) => deps.runPromise(libraryTools.share(libraryCaller, request)),
+              unshare: (request) => deps.runPromise(libraryTools.unshare(libraryCaller, request)),
               readSkillFile: (request) =>
                 deps.runPromise(libraryTools.readSkillFile(libraryCaller, request)),
               proposeSkill: (request, responder) =>

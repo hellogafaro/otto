@@ -284,7 +284,7 @@ describe("AgentControllerLive", () => {
           providerInstanceId: codexInstanceId,
           cwd: process.cwd(),
           modelSelection: codexSelection,
-          runtimeMode: "full-access",
+          runtimeMode: "auto",
         });
         const events: ProviderRuntimeEvent[] = [];
 

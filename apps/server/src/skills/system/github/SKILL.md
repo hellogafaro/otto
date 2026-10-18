@@ -16,6 +16,7 @@ description: Use with the git skill when the repository is on GitHub, to push, o
   - `gh pr view <n> --comments` for the conversation.
   - `gh api repos/<owner>/<repo>/pulls/<n>/comments` for line comments.
 - Reply where the comment is: `gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies -f body="<reply>"` for a line comment, `gh pr comment <n> --body "<reply>"` for the conversation. Fix valid comments, and give every comment a short reply saying what you did or why not.
-- To review someone's pull request, read it with `gh pr diff <n>` or `gh pr checkout <n>`, follow the review skill, then post your findings with `gh pr review <n> --comment --body-file <file>`. Never use `--approve`.
+- To review someone's pull request, read it with `gh pr diff <n>` or `gh pr checkout <n>`, follow the review skill, then post your findings with `gh pr review <n> --comment --body-file <file>`. Use `--approve` only when authorized to approve reviews and no blocking findings remain; never approve your own pull request.
 - If the push is refused because the app is not installed on the repository, give the person the link from `git config otto.installurl`.
-- Never run `gh pr merge` or `gh stack merge`, and never enable auto-merge.
+- For an authorized merge, re-read the PR state, head commit, base, required checks and reviews. Stop if any authorization condition is unmet. Merge the inspected head with `gh pr merge <n> --squash --match-head-commit <sha>` (or the authorized merge method), then verify the PR is merged. Changes outside the approved diff or routine scope need renewed authorization; a clean rebase alone does not unless an approval condition changed.
+- Enable auto-merge or run `gh stack merge` only when authorization covers that operation and every affected PR. Do not bypass branch protections or required checks. Report merged, deployed and verified separately.
