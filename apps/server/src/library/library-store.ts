@@ -5,6 +5,8 @@ import {
   AuthSessionId,
   GENERAL_PROJECT_ID,
   canEditLibraryItem,
+  librarySharePath,
+  LibraryShareId,
   canSeeLibraryItem,
   CommandId,
   LIBRARY_CHATS_FOLDER_ID,
@@ -57,7 +59,7 @@ import { OrchestrationEngineService } from "../orchestration/services/orchestrat
 import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
 import { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
 import { ProjectionLibraryRepository } from "../persistence/services/projection-library.ts";
-import { libraryDirectory, libraryFilePath } from "./library-paths.ts";
+import { libraryDirectory, libraryFilePath, librarySharedCopyPath } from "./library-paths.ts";
 
 export const LIBRARY_UPLOAD_ROUTE_PREFIX = "/api/library/upload";
 
@@ -693,3 +695,126 @@ export const storeLibraryUpload = (claims: LibraryUploadClaims, bytes: Uint8Arra
         },
       })
     : fail(`The upload was ${bytes.byteLength} bytes, expected ${claims.sizeBytes}.`);
+
+/** A public link's full URL, on the server's public address. */
+const libraryShareUrl = Effect.fn("Library.shareUrl")(function* (shareId: LibraryShareId) {
+  const config = yield* ServerConfig.ServerConfig;
+  const origin = config.publicOrigin ?? config.devUrl?.origin;
+
+  if (origin === undefined) {
+    return yield* fail("Public links need this server's public address (OTTO_PUBLIC_URL).");
+  }
+
+  return `${origin.replace(/\/$/, "")}${librarySharePath(shareId)}`;
+});
+
+/** A file its creator may share: the same check as editing it. */
+const requireShareableFile = Effect.fn("Library.requireShareableFile")(function* (
+  fileId: string,
+  by: WorkParticipant,
+) {
+  const state = yield* loadLibraryState;
+  const file = yield* requireVisibleFile(state, fileId, viewerOf(by));
+
+  if (!canEditLibraryItem(file, state.folders, viewerOf(by))) {
+    return yield* fail("Only the file's creator can change its public link.");
+  }
+
+  return file;
+});
+
+/**
+ * Publishes a copy of the file as it is now at a public link and returns the link. Sharing a
+ * file again refreshes that copy and keeps the link.
+ */
+export const shareLibraryFile = Effect.fn("Library.shareLibraryFile")(function* (input: {
+  readonly fileId: string;
+  readonly by: WorkParticipant;
+}) {
+  const file = yield* requireShareableFile(input.fileId, input.by);
+
+  const shareId =
+    file.share?.id ?? LibraryShareId.make(NodeCrypto.randomBytes(16).toString("base64url"));
+
+  const url = yield* libraryShareUrl(shareId);
+  const config = yield* ServerConfig.ServerConfig;
+  const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const sourcePath = libraryFilePath(path, config.attachmentsDir, file.id);
+  const copyPath = librarySharedCopyPath(path, config.attachmentsDir, file.id);
+
+  if (sourcePath === null || copyPath === null) return yield* fail("That Library file is missing.");
+
+  const partPath = `${copyPath}.${NodeCrypto.randomUUID()}.part`;
+
+  yield* fileSystem.makeDirectory(path.dirname(copyPath), { recursive: true }).pipe(
+    Effect.andThen(fileSystem.copyFile(sourcePath, partPath)),
+    Effect.mapError(() => new LibraryRequestError({ detail: "The file couldn't be shared." })),
+  );
+
+  yield* dispatchLibrary({
+    type: "library.file.update",
+    commandId: newCommandId(),
+    fileId: file.id,
+    share: { id: shareId, sharedBy: input.by, sharedAt: yield* nowIso },
+    by: input.by,
+  }).pipe(Effect.tapError(() => fileSystem.remove(partPath, { force: true }).pipe(Effect.ignore)));
+
+  yield* fileSystem
+    .rename(partPath, copyPath)
+    .pipe(
+      Effect.mapError(() => new LibraryRequestError({ detail: "The file couldn't be shared." })),
+    );
+
+  return { url };
+});
+
+/** Removes a file's public link and deletes the copy it served. */
+export const unshareLibraryFile = Effect.fn("Library.unshareLibraryFile")(function* (input: {
+  readonly fileId: string;
+  readonly by: WorkParticipant;
+}) {
+  const file = yield* requireShareableFile(input.fileId, input.by);
+
+  if (file.share === undefined) return;
+
+  yield* dispatchLibrary({
+    type: "library.file.update",
+    commandId: newCommandId(),
+    fileId: file.id,
+    share: null,
+    by: input.by,
+  });
+
+  const config = yield* ServerConfig.ServerConfig;
+  const copyPath = librarySharedCopyPath(yield* Path.Path, config.attachmentsDir, file.id);
+
+  if (copyPath !== null) {
+    yield* (yield* FileSystem.FileSystem).remove(copyPath, { force: true }).pipe(Effect.ignore);
+  }
+});
+
+/** The file behind a public link and its frozen copy, or null once the link is gone. */
+export const findSharedFile = Effect.fn("Library.findSharedFile")(function* (shareId: string) {
+  const files = yield* (yield* ProjectionLibraryRepository)
+    .listFiles()
+    .pipe(Effect.orElseSucceed((): ReadonlyArray<LibraryFile> => []));
+
+  const file = files.find((candidate) => candidate.share?.id === shareId);
+
+  if (file?.share === undefined) return null;
+
+  const config = yield* ServerConfig.ServerConfig;
+  const path = yield* Path.Path;
+  const copyPath = librarySharedCopyPath(path, config.attachmentsDir, file.id);
+
+  if (copyPath === null) return null;
+
+  const info = yield* (yield* FileSystem.FileSystem)
+    .stat(copyPath)
+    .pipe(Effect.orElseSucceed(() => null));
+
+  return info?.type === "File"
+    ? { file, share: file.share, path: copyPath, sizeBytes: Number(info.size) }
+    : null;
+});

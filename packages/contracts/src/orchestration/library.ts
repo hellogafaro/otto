@@ -27,6 +27,28 @@ export const LibraryFileId = TrimmedNonEmptyString.check(Schema.isMaxLength(100)
 
 export type LibraryFileId = typeof LibraryFileId.Type;
 
+/** A public link's id: 128 random bits, so the link itself is what grants access. */
+export const LibraryShareId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{22}$/)).pipe(
+  Schema.brand("LibraryShareId"),
+);
+
+export type LibraryShareId = typeof LibraryShareId.Type;
+
+/** A file's public link, which serves the copy frozen at `sharedAt` to anyone who has it. */
+export const LibraryFileShare = Schema.Struct({
+  id: LibraryShareId,
+  sharedBy: WorkParticipant,
+  sharedAt: IsoDateTime,
+});
+
+export type LibraryFileShare = typeof LibraryFileShare.Type;
+
+/** Where the web app opens a public link. */
+export const librarySharePath = (shareId: LibraryShareId) => `/s/${shareId}`;
+
+/** The unauthenticated routes behind a public link: its details, then `/content` for its bytes. */
+export const LIBRARY_SHARED_ROUTE_PREFIX = "/api/library/shared";
+
 /** `user` is private to the creator; `organization` is everyone who can see its folder. */
 export const LibraryVisibility = Visibility;
 
@@ -128,6 +150,7 @@ export const LibraryFile = Schema.Struct({
   extension: LibraryExtension,
   sizeBytes: LibrarySizeBytes,
   visibility: LibraryVisibility,
+  share: Schema.optional(LibraryFileShare),
   createdBy: WorkParticipant,
   createdAt: IsoDateTime,
   updatedBy: WorkParticipant,
@@ -186,6 +209,7 @@ export const LibraryFileCreateCommand = Schema.Struct({
 /**
  * Renames, moves or changes visibility. `sizeBytes` marks new document contents and is only
  * honored from the server, which checks `expectedUpdatedAt` against the file it saved over.
+ * `share` is also server-only: a new public link or frozen copy, or `null` to remove it.
  */
 export const LibraryFileUpdateCommand = Schema.Struct({
   type: Schema.Literal("library.file.update"),
@@ -195,6 +219,7 @@ export const LibraryFileUpdateCommand = Schema.Struct({
   title: Schema.optional(LibraryTitle),
   visibility: Schema.optional(LibraryVisibility),
   sizeBytes: Schema.optional(LibrarySizeBytes),
+  share: Schema.optional(Schema.NullOr(LibraryFileShare)),
   expectedUpdatedAt: Schema.optional(IsoDateTime),
   by: Schema.optional(WorkParticipant),
 });
@@ -675,6 +700,23 @@ export const LibraryCreateFileUrlInput = Schema.Struct({
   fileId: LibraryFileId,
   download: Schema.optional(Schema.Boolean),
 });
+
+export const LibraryShareFileResult = Schema.Struct({
+  url: TrimmedNonEmptyString.check(Schema.isMaxLength(4096)),
+});
+
+/** What a public link shows before its bytes: no ids, folders or anything else private. */
+export const LibrarySharedFile = Schema.Struct({
+  title: LibraryTitle,
+  extension: LibraryExtension,
+  type: LibraryFileType,
+  sizeBytes: LibrarySizeBytes,
+  sharedBy: Schema.String,
+  workspace: Schema.NullOr(Schema.String),
+  sharedAt: IsoDateTime,
+});
+
+export type LibrarySharedFile = typeof LibrarySharedFile.Type;
 
 export const LibraryCreateFileUrlResult = Schema.Struct({
   relativeUrl: TrimmedNonEmptyString.check(Schema.isMaxLength(4096)),

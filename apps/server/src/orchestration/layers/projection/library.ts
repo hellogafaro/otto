@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { libraryFilePath } from "../../../library/library-paths.ts";
+import { libraryFilePath, librarySharedCopyPath } from "../../../library/library-paths.ts";
 import { type ProjectionDependencies, type ProjectorDefinition } from "./definitions.ts";
 
 export function createLibrary({
@@ -31,14 +31,13 @@ export function createLibrary({
         case "library.file-deleted": {
           yield* projectionLibraryRepository.deleteFile(event.payload.fileId);
 
-          const bytesPath = libraryFilePath(
-            path,
-            serverConfig.attachmentsDir,
-            event.payload.fileId,
-          );
-
-          if (bytesPath !== null) {
-            yield* fileSystem.remove(bytesPath, { force: true }).pipe(Effect.ignore);
+          for (const bytesPath of [
+            libraryFilePath(path, serverConfig.attachmentsDir, event.payload.fileId),
+            librarySharedCopyPath(path, serverConfig.attachmentsDir, event.payload.fileId),
+          ]) {
+            if (bytesPath !== null) {
+              yield* fileSystem.remove(bytesPath, { force: true }).pipe(Effect.ignore);
+            }
           }
 
           return;
