@@ -43,7 +43,7 @@ import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
 import { RoutineDraftDispatcher } from "../../../routines/routine-draft-dispatcher.ts";
 import { Memories } from "../../../memory/memories.ts";
 import { GitHubAccounts } from "../../../github/github-accounts.ts";
-import { createBotGitHubLogins } from "../../bot-github-login.ts";
+import { createBotComputerSetup } from "../../bot-computer-setup.ts";
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
 
 export const createControllerState = Effect.fn("createControllerState")(function* (
@@ -163,19 +163,40 @@ export const createControllerState = Effect.fn("createControllerState")(function
 
   const github = yield* Effect.serviceOption(GitHubAccounts);
 
-  const githubLogins = createBotGitHubLogins({
+  const computerSetup = createBotComputerSetup({
     turnLogin: (personId) =>
       Option.match(github, {
         onNone: () => Promise.resolve(undefined),
         onSome: (accounts) =>
           runPromise(accounts.turnLogin(personId).pipe(Effect.map(Option.getOrUndefined))),
       }),
+    projectLinks: (threadId) =>
+      Option.match(projectionSnapshotQuery, {
+        onNone: () => Promise.resolve([]),
+        onSome: (query) =>
+          runPromise(
+            query.getThreadRuntimeContext(ThreadId.make(threadId)).pipe(
+              Effect.flatMap(
+                Option.match({
+                  onNone: () => Effect.succeedNone,
+                  onSome: (thread) => query.getProjectShellById(thread.projectId),
+                }),
+              ),
+              Effect.map(
+                (project) =>
+                  Option.getOrUndefined(project)?.resources?.flatMap((resource) =>
+                    resource.type === "link" ? [resource.url] : [],
+                  ) ?? [],
+              ),
+            ),
+          ),
+      }),
     computer: (threadId) => sessionResources.computer(threadId),
   });
 
   return {
     sessionResources,
-    githubLogins,
+    computerSetup,
     authStorage,
     subscriptionAuth,
     botInbox,
