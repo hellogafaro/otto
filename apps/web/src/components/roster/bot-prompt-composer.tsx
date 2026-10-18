@@ -2,7 +2,7 @@ import {
   RiArrowUpLine,
   RiAtLine,
   RiCornerDownRightLine,
-  RiAttachment2,
+  RiAttachmentLine,
   RiAddLine,
   RiCloseLine,
 } from "@remixicon/react";
@@ -37,6 +37,7 @@ import { BotComposerModelControl } from "./bot-composer-model-control";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { useRosterStore } from "./roster-store";
 import { attachmentLightboxFile, downloadAttachment } from "./bot-message-attachments";
+import { fileDropHandlers } from "../chat/workspace-file-drop";
 import { BotPromptAttachments } from "./bot-prompt-attachments";
 import {
   appendBotMention,
@@ -211,6 +212,9 @@ export function BotPromptComposer({
   const [dismissedMentionStart, setDismissedMentionStart] = useState<number | null>(null);
   const [dismissedCommandStart, setDismissedCommandStart] = useState<number | null>(null);
   const [activeMentionOptionId, setActiveMentionOptionId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const dropHandlers = readOnly ? {} : fileDropHandlers({ setDragActive: setDragging, addFiles });
 
   const expanded = attachments.length > 0 || replyPreview != null || isBotPromptExpanded(draft);
 
@@ -466,12 +470,14 @@ export function BotPromptComposer({
           <div
             data-testid="bot-prompt-composer"
             data-expanded={expanded || undefined}
+            {...dropHandlers}
             className={cn(
               "relative flex min-h-10 flex-col overflow-hidden rounded-xl border shadow-composer-float transition-composer-shape duration-200 ease-out",
               quietSurface
                 ? BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME
                 : BOT_COMPOSER_SURFACE_CLASS_NAME,
               pendingActionSlot ? "rounded-t-md border-t-transparent" : undefined,
+              dragging && "ring-2 ring-ring ring-inset",
             )}
           >
             {/* One line, always the same height, so starting a reply never resizes the box. */}
@@ -637,7 +643,7 @@ export function BotPromptComposer({
                         />
                       }
                     >
-                      <RiAddLine />
+                      <RiAttachmentLine />
                     </TooltipTrigger>
                     <TooltipPopup side="top">{t("Attach file")}</TooltipPopup>
                   </Tooltip>
@@ -657,7 +663,7 @@ export function BotPromptComposer({
                     </MenuTrigger>
                     <MenuPopup align="start" side="top" sideOffset={8}>
                       <MenuItem onClick={() => fileInputRef.current?.click()}>
-                        <RiAttachment2 />
+                        <RiAttachmentLine />
                         {t("Attach file")}
                       </MenuItem>
                       {mentionBots.map((bot) => {

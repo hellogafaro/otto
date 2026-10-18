@@ -25,7 +25,7 @@ function movedWithinDropTarget(event: WorkspaceFileDragEvent): boolean {
   return event.relatedTarget !== null && event.currentTarget.contains(event.relatedTarget as Node);
 }
 
-export function makeWorkspaceFileDropHandlers(host: WorkspaceFileDropHost) {
+export function fileDropHandlers(host: WorkspaceFileDropHost) {
   return {
     onDragEnter(event: WorkspaceFileDragEvent) {
       if (!isFileDrag(event)) return;

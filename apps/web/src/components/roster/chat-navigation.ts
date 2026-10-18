@@ -54,6 +54,8 @@ export interface CreateChatOptions {
 export interface StartChatOptions extends CreateChatOptions {
   /** The first message, sent by the chat once it opens. */
   readonly prompt?: string;
+  /** Files sent with the first message. */
+  readonly files?: readonly File[];
   /** Sends the first message without showing it, as a new bot's introduction does. */
   readonly hidden?: boolean;
   readonly replace?: boolean;
@@ -136,7 +138,9 @@ export function useStartChat() {
       // A shown first message names the chat; a hidden one leaves the placeholder.
       const title =
         options.title ??
-        (options.prompt && !options.hidden ? threadTitle(options.prompt, []) : undefined);
+        (options.prompt && !options.hidden
+          ? threadTitle(options.prompt, options.files ?? [])
+          : undefined);
 
       const threadId = await createChat(owner, {
         ...(options.projectId ? { projectId: options.projectId } : {}),
@@ -150,6 +154,7 @@ export function useStartChat() {
         useRosterStore.getState().requestPrompt({
           threadId,
           text: options.prompt,
+          ...(options.files?.length ? { files: options.files } : {}),
           ...(options.hidden ? { hidden: true } : {}),
         });
       }

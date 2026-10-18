@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "@effect/vitest";
 import {
-  makeWorkspaceFileDropHandlers,
+  fileDropHandlers,
   type WorkspaceFileDragEvent,
   type WorkspaceFileDropHost,
 } from "./workspace-file-drop";
@@ -36,12 +36,12 @@ function makeHost() {
   return { host, setDragActive, addFiles };
 }
 
-describe("makeWorkspaceFileDropHandlers", () => {
+describe("fileDropHandlers", () => {
   it("activates the target for an external file drag", () => {
     const { host, setDragActive } = makeHost();
     const { event, preventDefault } = makeDragEvent();
 
-    makeWorkspaceFileDropHandlers(host).onDragEnter(event);
+    fileDropHandlers(host).onDragEnter(event);
 
     expect(preventDefault).toHaveBeenCalledOnce();
     expect(setDragActive).toHaveBeenCalledWith(true);
@@ -51,7 +51,7 @@ describe("makeWorkspaceFileDropHandlers", () => {
     const { host, setDragActive } = makeHost();
     const { event, preventDefault } = makeDragEvent({ types: ["text/plain"] });
 
-    makeWorkspaceFileDropHandlers(host).onDragOver(event);
+    fileDropHandlers(host).onDragOver(event);
 
     expect(preventDefault).not.toHaveBeenCalled();
     expect(setDragActive).not.toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe("makeWorkspaceFileDropHandlers", () => {
     const { host, setDragActive } = makeHost();
     const { event } = makeDragEvent({ movedWithinTarget: true });
 
-    const handlers = makeWorkspaceFileDropHandlers(host);
+    const handlers = fileDropHandlers(host);
     handlers.onDragEnter(event);
     handlers.onDragLeave(event);
 
@@ -73,7 +73,7 @@ describe("makeWorkspaceFileDropHandlers", () => {
     const { host, setDragActive, addFiles } = makeHost();
     const { event } = makeDragEvent({ files: [file] });
 
-    makeWorkspaceFileDropHandlers(host).onDrop(event);
+    fileDropHandlers(host).onDrop(event);
 
     expect(setDragActive).toHaveBeenCalledWith(false);
     expect(addFiles).toHaveBeenCalledWith([file]);

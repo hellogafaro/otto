@@ -32,6 +32,8 @@ export interface NewChatPreset {
 export interface PromptRequest {
   readonly threadId: string;
   readonly text: string;
+  /** Files sent with it; held in memory only, never persisted. */
+  readonly files?: readonly File[];
   /** Sent without showing it, as a new bot's introduction is. */
   readonly hidden?: boolean;
 }

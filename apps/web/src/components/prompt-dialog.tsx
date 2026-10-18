@@ -1,10 +1,23 @@
 import { composerActionIsDictation } from "@otto/client-runtime/dictation";
-import { RiArrowUpLine } from "@remixicon/react";
+import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS } from "@otto/contracts";
+import { RiArrowUpLine, RiAttachmentLine } from "@remixicon/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { useI18n } from "../i18n";
 import { useEnvironmentComposerDictation } from "../lib/use-environment-composer-dictation";
+import { cn } from "../lib/utils";
+import { ComposerControl, ComposerControlIcon } from "./chat/composer-control";
 import { DictationControls } from "./chat/dictation-controls";
+import { fileDropHandlers } from "./chat/workspace-file-drop";
+import { FileLightbox } from "./library/file-lightbox";
+import { attachmentLightboxFile, downloadAttachment } from "./roster/bot-message-attachments";
+import { resolveBotFileAttachment } from "./roster/bot-file-attachment";
+import {
+  BotPromptAttachments,
+  createBotPromptAttachments,
+  releaseBotPromptAttachments,
+  type BotPromptAttachment,
+} from "./roster/bot-prompt-attachments";
 import { Button } from "./ui/button";
 import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "./ui/dialog";
 import { Kbd } from "./ui/kbd";
@@ -33,7 +46,9 @@ interface PromptDialogProps {
   readonly canSubmit?: boolean;
   /** Otto: Sends with an empty prompt too, when the prompt is an optional description. */
   readonly promptOptional?: boolean;
-  readonly onSubmit: (prompt: string) => void;
+  /** Otto: Takes files too, picked, pasted or dropped, sent with the prompt. */
+  readonly attachable?: boolean;
+  readonly onSubmit: (prompt: string, files: readonly File[]) => void;
 }
 
 /**
@@ -41,7 +56,8 @@ interface PromptDialogProps {
  * prompt, the caller's pickers at the bottom left and, at the right, the
  * microphone while the prompt is empty or the send button once it has text,
  * as in chat. Enter sends, Shift+Enter adds a line, and a footer shows the
- * Enter and Esc hints. Each opening starts with an empty prompt.
+ * Enter and Esc hints. Each opening starts with an empty prompt. An attachable
+ * dialog also takes as many files as a chat message, shown above the prompt.
  */
 export function PromptDialog({ open, onOpenChange, ...body }: PromptDialogProps) {
   return (
@@ -61,12 +77,15 @@ function PromptDialogBody({
   submitLabel,
   canSubmit = true,
   promptOptional = false,
+  attachable = false,
   onSubmit,
 }: Omit<PromptDialogProps, "open" | "onOpenChange">) {
   const { t } = useI18n();
   const draftId = useId();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
+  const files = usePromptFiles();
   const ready = canSubmit && (promptOptional || prompt.trim().length > 0);
 
   const dictation = useEnvironmentComposerDictation({
@@ -103,13 +122,36 @@ function PromptDialogBody({
     status: dictation.status,
   });
 
+  const addFiles = (picked: Iterable<File>) => {
+    const all = Array.from(picked);
+    const supported = all.filter((file) => resolveBotFileAttachment(file) !== null);
+
+    if (supported.length < all.length) toast.error(t("Some files can't be attached"));
+
+    if (!files.add(supported)) {
+      toast.error(
+        t("You can attach up to {count} files", { count: PROVIDER_SEND_TURN_MAX_ATTACHMENTS }),
+      );
+    }
+  };
+
+  const dropHandlers = attachable
+    ? fileDropHandlers({ setDragActive: files.setDragging, addFiles })
+    : {};
+
   return (
     <form
-      className="flex flex-col"
+      className={cn("flex flex-col", files.dragging && "ring-2 ring-ring ring-inset")}
+      {...dropHandlers}
       onSubmit={(event) => {
         event.preventDefault();
 
-        if (ready) onSubmit(prompt.trim());
+        if (ready) {
+          onSubmit(
+            prompt.trim(),
+            files.items.map((item) => item.file),
+          );
+        }
       }}
     >
       <DialogHeader>
@@ -136,6 +178,14 @@ function PromptDialogBody({
           <DialogTitle>{title}</DialogTitle>
         )}
       </DialogHeader>
+      <BotPromptAttachments
+        attachments={files.items}
+        failedIds={files.failedIds}
+        className="px-5 pb-2"
+        onExpand={files.setExpandedId}
+        onPreviewError={files.markFailed}
+        onRemove={files.remove}
+      />
       <textarea
         ref={inputRef}
         autoFocus={!titleInput?.autoFocus}
@@ -145,6 +195,11 @@ function PromptDialogBody({
         rows={5}
         className="min-h-32 w-full resize-none bg-transparent px-5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
         onChange={(event) => setPrompt(event.currentTarget.value)}
+        onPaste={(event) => {
+          if (attachable && event.clipboardData.files.length > 0) {
+            addFiles(event.clipboardData.files);
+          }
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
@@ -154,7 +209,18 @@ function PromptDialogBody({
       />
       {/* Otto: Controls keep their full labels and wrap onto another line instead of cropping. */}
       <div className="flex items-end justify-between gap-2 px-3 pb-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">{pickers}</div>
+        <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">
+          {attachable ? (
+            <ComposerControl
+              size="icon-sm"
+              aria-label={t("Attach file")}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ComposerControlIcon icon={RiAttachmentLine} />
+            </ComposerControl>
+          ) : null}
+          {pickers}
+        </div>
         {showDictation ? (
           <div className="size-7 shrink-0">
             <DictationControls
@@ -185,6 +251,79 @@ function PromptDialogBody({
           {t("Close")}
         </span>
       </div>
+      {attachable ? (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            aria-label={t("Attach files")}
+            multiple
+            className="sr-only"
+            onChange={(event) => {
+              if (event.currentTarget.files) addFiles(event.currentTarget.files);
+              event.currentTarget.value = "";
+            }}
+          />
+          <FileLightbox
+            file={
+              files.expanded
+                ? attachmentLightboxFile(
+                    { name: files.expanded.file.name, mimeType: files.expanded.file.type },
+                    files.expanded.previewUrl,
+                  )
+                : null
+            }
+            hasSiblings={false}
+            onDownload={() => {
+              if (files.expanded) {
+                downloadAttachment(files.expanded.previewUrl, files.expanded.file.name);
+              }
+            }}
+            onClose={() => files.setExpandedId(null)}
+          />
+        </>
+      ) : null}
     </form>
   );
+}
+
+/**
+ * Otto: The dialog's staged files, each with an object URL for its chip and preview, all
+ * released when the dialog closes. Going past a message's file limit adds none of them.
+ */
+function usePromptFiles() {
+  const [items, setItems] = useState<BotPromptAttachment[]>([]);
+  const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const itemsRef = useRef<BotPromptAttachment[]>([]);
+
+  useEffect(() => () => releaseBotPromptAttachments(itemsRef.current), []);
+
+  const replace = (next: BotPromptAttachment[]) => {
+    itemsRef.current = next;
+    setItems(next);
+  };
+
+  return {
+    items,
+    failedIds,
+    dragging,
+    setDragging,
+    expanded: items.find((item) => item.id === expandedId),
+    setExpandedId,
+    markFailed: (id: string) => setFailedIds((current) => new Set(current).add(id)),
+    add: (files: readonly File[]): boolean => {
+      if (itemsRef.current.length + files.length > PROVIDER_SEND_TURN_MAX_ATTACHMENTS) return false;
+      replace([...itemsRef.current, ...createBotPromptAttachments(files)]);
+
+      return true;
+    },
+    remove: (id: string) => {
+      releaseBotPromptAttachments(itemsRef.current.filter((item) => item.id === id));
+      replace(itemsRef.current.filter((item) => item.id !== id));
+
+      if (expandedId === id) setExpandedId(null);
+    },
+  };
 }

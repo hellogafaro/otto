@@ -140,6 +140,8 @@ export const chatCatalog = {
   "Add to prompt": "Add to prompt",
   "Attach file": "Attach file",
   "Attach files": "Attach files",
+  "You can attach up to {count} files": "You can attach up to {count} files",
+  "Some files can't be attached": "Some files can't be attached",
   "{name} is working": "{name} is working",
   "Working for {duration}": "Working for {duration}",
   "Preview browser": "Preview browser",
