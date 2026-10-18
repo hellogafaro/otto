@@ -1,11 +1,12 @@
 import { RoutineWeekday, type RoutineHourInterval, type RoutineSchedule } from "@otto/contracts";
 import { ROUTINE_HOUR_INTERVALS } from "@otto/client-runtime/routines";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
+import { useAutosave } from "../../hooks/use-autosave";
 import { useI18n } from "../../i18n";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Popover, PopoverClose, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
 
@@ -29,8 +30,9 @@ const timeZones = (current: string) => {
 
 /**
  * Otto: A routine's Schedule row on its page: the schedule as text that opens a popover to
- * change how often it runs, at what time, on which days and in which time zone. Saving moves
- * the next run to the new schedule; the routine's approval stays.
+ * change how often it runs, at what time, on which days and in which time zone. Each change
+ * saves itself like the rest of the app, 800ms after the last one and at once when the popover
+ * closes; saving moves the next run to the new schedule and the routine's approval stays.
  */
 export function RoutineScheduleEdit({
   schedule,
@@ -87,6 +89,20 @@ export function RoutineScheduleEdit({
   })();
 
   const valid = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time) && weekdays.length > 0;
+  const saved = useRef(JSON.stringify({ schedule, timezone }));
+
+  const autosave = useAutosave(() => {
+    const key = JSON.stringify({ schedule: next, timezone: zone });
+
+    if (!valid || key === saved.current) return;
+    saved.current = key;
+    onSave({ schedule: next, timezone: zone });
+  });
+
+  const edit = (change: () => void) => {
+    change();
+    autosave.schedule();
+  };
 
   return (
     <Popover
@@ -97,6 +113,9 @@ export function RoutineScheduleEdit({
           setTime(schedule.time);
           setWeekdays(schedule.kind === "weekly" ? schedule.weekdays : ["monday"]);
           setZone(timezone);
+          saved.current = JSON.stringify({ schedule, timezone });
+        } else {
+          autosave.flush();
         }
 
         setOpen(nextOpen);
@@ -115,25 +134,14 @@ export function RoutineScheduleEdit({
         <span className="truncate">{label}</span>
       </PopoverTrigger>
       <PopoverPopup side="bottom" align="end" className="w-72">
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-
-            if (!valid) return;
-            setOpen(false);
-
-            if (JSON.stringify(next) === JSON.stringify(schedule) && zone === timezone) return;
-            onSave({ schedule: next, timezone: zone });
-          }}
-        >
+        <div className="flex flex-col gap-3">
           <ScheduleField label={t("Repeat")}>
             <Select
               value={repeat}
               onValueChange={(value) => {
                 const picked = REPEATS.find((option) => option === value);
 
-                if (picked) setRepeat(picked);
+                if (picked) edit(() => setRepeat(picked));
               }}
             >
               <SelectTrigger size="sm" aria-label={t("Repeat")}>
@@ -157,7 +165,9 @@ export function RoutineScheduleEdit({
                 className="w-full *:flex-1"
                 value={[...weekdays]}
                 onValueChange={(value) =>
-                  setWeekdays(RoutineWeekday.literals.filter((day) => value.includes(day)))
+                  edit(() =>
+                    setWeekdays(RoutineWeekday.literals.filter((day) => value.includes(day))),
+                  )
                 }
               >
                 {RoutineWeekday.literals.map((day, index) => (
@@ -175,11 +185,11 @@ export function RoutineScheduleEdit({
               type="time"
               aria-label={t("Time")}
               value={time}
-              onChange={(event) => setTime(event.target.value)}
+              onChange={(event) => edit(() => setTime(event.target.value))}
             />
           </ScheduleField>
           <ScheduleField label={t("Time zone")}>
-            <Select value={zone} onValueChange={(value) => value && setZone(value)}>
+            <Select value={zone} onValueChange={(value) => value && edit(() => setZone(value))}>
               <SelectTrigger size="sm" aria-label={t("Time zone")}>
                 <SelectValue>{zone}</SelectValue>
               </SelectTrigger>
@@ -192,15 +202,7 @@ export function RoutineScheduleEdit({
               </SelectPopup>
             </Select>
           </ScheduleField>
-          <div className="flex justify-end gap-2 pt-1">
-            <PopoverClose render={<Button type="button" size="sm" variant="ghost" />}>
-              {t("Cancel")}
-            </PopoverClose>
-            <Button type="submit" size="sm" disabled={!valid}>
-              {t("Save")}
-            </Button>
-          </div>
-        </form>
+        </div>
       </PopoverPopup>
     </Popover>
   );

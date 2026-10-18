@@ -314,7 +314,8 @@ describe("routine run timestamps", () => {
 
 describe("hourlyScheduleText", () => {
   it("names an hourly schedule by its earliest run of the day", () => {
-    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at :15");
+    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at 15 min past");
+    expect(hourlyScheduleText(1, "09:00")).toBe("Every hour on the hour");
     expect(hourlyScheduleText(3, "09:30")).toBe("Every 3 hours from 00:30");
     expect(hourlyScheduleText(4, "10:00")).toBe("Every 4 hours from 02:00");
   });

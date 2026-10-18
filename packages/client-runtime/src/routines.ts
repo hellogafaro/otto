@@ -274,15 +274,40 @@ export function hourlyScheduleText(
   time: string,
   t: RoutineTranslator["t"] = englishTranslator.t,
 ): string {
-  const minute = time.slice(3, 5);
+  if (everyHours > 1) {
+    return t("Every {count} hours from {time}", {
+      count: everyHours,
+      time: firstHourlyTime(everyHours, time),
+    });
+  }
 
-  if (everyHours <= 1) return t("Every hour at :{minute}", { minute });
-  const firstHour = String(Number(time.slice(0, 2)) % everyHours).padStart(2, "0");
+  const minute = Number(time.slice(3, 5));
 
-  return t("Every {count} hours from {time}", {
-    count: everyHours,
-    time: `${firstHour}:${minute}`,
-  });
+  return minute === 0
+    ? t("Every hour on the hour")
+    : t("Every hour at {count} min past", { count: minute });
+}
+
+const firstHourlyTime = (everyHours: number, time: string) =>
+  `${String(Number(time.slice(0, 2)) % everyHours).padStart(2, "0")}:${time.slice(3, 5)}`;
+
+/**
+ * When a routine runs, without how often: the time of day, or for an hourly one where in the
+ * hour (On the hour, 15 min past) or, every few hours, its first run of the day (From 02:00).
+ */
+export function routineTimeLabel(
+  schedule: RoutineAdapterSchedule,
+  i18n: RoutineTranslator = englishTranslator,
+) {
+  if (schedule.frequency !== "hourly") return schedule.time;
+  const everyHours = schedule.everyHours ?? 1;
+
+  if (everyHours > 1)
+    return i18n.t("From {time}", { time: firstHourlyTime(everyHours, schedule.time) });
+
+  const minute = Number(schedule.time.slice(3, 5));
+
+  return minute === 0 ? i18n.t("On the hour") : i18n.t("{count} min past", { count: minute });
 }
 
 /** How often a routine runs, without its time or timezone: Daily, Weekdays, Monday, Hourly. */

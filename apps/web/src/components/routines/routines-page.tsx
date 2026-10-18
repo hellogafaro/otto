@@ -1,6 +1,7 @@
 import {
   type RoutineAdapterSchedule,
   routineFrequencyLabel,
+  routineTimeLabel,
   toRoutinePanelItem,
 } from "@otto/client-runtime/routines";
 import {
@@ -81,12 +82,11 @@ function routineColumns({
       type: "chips",
       cell: (routine) => {
         const routineSchedule = schedule(routine);
-        const { frequency, time } = routineSchedule;
 
         return (
           <>
             <DataTableChip>{routineFrequencyLabel(routineSchedule, i18n)}</DataTableChip>
-            <DataTableChip>{frequency === "hourly" ? `:${time.slice(3, 5)}` : time}</DataTableChip>
+            <DataTableChip>{routineTimeLabel(routineSchedule, i18n)}</DataTableChip>
           </>
         );
       },
