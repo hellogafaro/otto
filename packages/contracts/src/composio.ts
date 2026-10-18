@@ -88,10 +88,20 @@ export const ComposioTool = Schema.Struct({
 
 export type ComposioTool = typeof ComposioTool.Type;
 
-/** One app from Composio's catalog with the tools it gives bots. */
+/** An event in the app that can start a routine, such as a new email. */
+export const ComposioTriggerType = Schema.Struct({
+  slug: TrimmedNonEmptyString,
+  name: TrimmedNonEmptyString,
+  description: Schema.optional(Schema.String),
+});
+
+export type ComposioTriggerType = typeof ComposioTriggerType.Type;
+
+/** One app from Composio's catalog with the tools it gives bots and the events it reports. */
 export const ComposioToolkitDetail = Schema.Struct({
   toolkit: ComposioToolkit,
   tools: Schema.Array(ComposioTool),
+  triggers: Schema.Array(ComposioTriggerType).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
 });
 
 export type ComposioToolkitDetail = typeof ComposioToolkitDetail.Type;

@@ -16,6 +16,8 @@ import {
   RoutineFailureKind,
   RoutineRun,
   RoutineHourInterval,
+  RoutineRunTrigger,
+  RoutineTrigger,
   ROUTINE_STATUSES,
   type RoutineListSort,
   type RoutineListView,
@@ -76,6 +78,7 @@ const RoutineRow = Schema.Struct({
     ]),
   ),
   timezone: Schema.String,
+  trigger: Schema.fromJsonString(RoutineTrigger),
   skillAssignmentIds: Schema.fromJsonString(Schema.Array(SkillAssignmentId)),
   connectorDependencies: Schema.fromJsonString(Schema.Array(McpServerId)),
   sandbox: RoutineSandbox,
@@ -111,7 +114,7 @@ const RoutineRunRow = Schema.Struct({
   id: RoutineRunId,
   routineId: RoutineId,
   procedureVersion: Schema.Number,
-  trigger: Schema.Literals(["dry-run", "manual", "scheduled", "missed"]),
+  trigger: RoutineRunTrigger,
   scheduledFor: Schema.NullOr(Schema.String),
   status: Schema.Literals([
     "queued",
@@ -145,6 +148,14 @@ const SkillAssignmentRow = Schema.Struct({
 });
 
 const decodeRoutine = Schema.decodeUnknownSync(RoutineRow);
+
+const RoutineAppEventJson = Schema.fromJsonString(
+  Schema.Struct({ id: Schema.String, data: Schema.Unknown }),
+);
+
+const encodeEvent = Schema.encodeSync(RoutineAppEventJson);
+
+const decodeEvent = Schema.decodeUnknownSync(RoutineAppEventJson);
 
 const decodeRun = flow(
   Schema.decodeUnknownSync(RoutineRunRow),
@@ -248,6 +259,7 @@ const make = Effect.gen(function* () {
             project_id AS "projectId", job,
             procedure, procedure_version AS "procedureVersion",
             approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
+            COALESCE(trigger_json, '{"type":"schedule"}') AS trigger,
             skill_assignment_ids_json AS "skillAssignmentIds",
             connector_dependencies_json AS "connectorDependencies", sandbox,
             approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
@@ -263,6 +275,7 @@ const make = Effect.gen(function* () {
             project_id AS "projectId", job,
             procedure, procedure_version AS "procedureVersion",
             approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
+            COALESCE(trigger_json, '{"type":"schedule"}') AS trigger,
             skill_assignment_ids_json AS "skillAssignmentIds",
             connector_dependencies_json AS "connectorDependencies", sandbox,
             approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
@@ -297,6 +310,7 @@ const make = Effect.gen(function* () {
           project_id AS "projectId", job,
           procedure, procedure_version AS "procedureVersion",
           approval_version AS "approvalVersion", schedule_json AS schedule, timezone,
+            COALESCE(trigger_json, '{"type":"schedule"}') AS trigger,
           skill_assignment_ids_json AS "skillAssignmentIds",
           connector_dependencies_json AS "connectorDependencies", sandbox,
           approval_policy AS "approvalPolicy", delegate_to_bot_id AS "delegateToBotId",
@@ -470,10 +484,11 @@ const make = Effect.gen(function* () {
   const claim: RoutineRepositoryShape["claim"] = (input) =>
     sql<{ readonly runId: string }>`
       INSERT INTO routine_run_claims (
-        run_id, routine_id, trigger, scheduled_for, status, claimed_at, updated_at
+        run_id, routine_id, trigger, scheduled_for, status, claimed_at, updated_at, event_json
       ) VALUES (
         ${input.runId}, ${input.routineId}, ${input.trigger}, ${input.scheduledFor},
-        'claimed', ${input.claimedAt}, ${input.claimedAt}
+        'claimed', ${input.claimedAt}, ${input.claimedAt},
+        ${input.event == null ? null : encodeEvent(input.event)}
       )
       ON CONFLICT DO NOTHING
       RETURNING run_id AS "runId"
@@ -507,12 +522,14 @@ const make = Effect.gen(function* () {
       WHERE run_id = ${runId}
     `.pipe(Effect.asVoid, Effect.mapError(toPersistenceSqlError("RoutineRepository.markSettled")));
 
-  const listRecoverable: RoutineRepositoryShape["listRecoverable"] = sql<RoutineClaim>`
+  const listRecoverable: RoutineRepositoryShape["listRecoverable"] = sql<
+    RoutineClaim & { readonly eventJson: string | null }
+  >`
     SELECT run_id AS "runId", routine_id AS "routineId", trigger,
       scheduled_for AS "scheduledFor", claimed_at AS "claimedAt", claims.status,
       claims.thread_id AS "threadRef", turns.state AS "terminalState",
       turns.completed_at AS "terminalAt", sessions.status AS "sessionState",
-      sessions.updated_at AS "sessionUpdatedAt"
+      sessions.updated_at AS "sessionUpdatedAt", claims.event_json AS "eventJson"
     FROM routine_run_claims AS claims
     LEFT JOIN projection_turns AS turns ON turns.row_id = (
       SELECT MAX(candidate.row_id) FROM projection_turns AS candidate
@@ -523,7 +540,15 @@ const make = Effect.gen(function* () {
     LEFT JOIN projection_thread_sessions AS sessions ON sessions.thread_id = claims.thread_id
     WHERE claims.status IN ('claimed', 'dispatched')
     ORDER BY claimed_at, run_id
-  `.pipe(Effect.mapError(toPersistenceSqlError("RoutineRepository.listRecoverable")));
+  `.pipe(
+    Effect.map((rows) =>
+      rows.map((row) => ({
+        ...row,
+        event: row.eventJson === null ? null : decodeEvent(row.eventJson),
+      })),
+    ),
+    Effect.mapError(toPersistenceSqlError("RoutineRepository.listRecoverable")),
+  );
 
   return {
     listAll,

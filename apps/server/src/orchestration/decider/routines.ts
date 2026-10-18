@@ -4,6 +4,7 @@ import {
   type OrchestrationCommand,
   type OrchestrationReadModel,
   type Routine,
+  type RoutineAppTrigger,
 } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
@@ -13,6 +14,12 @@ import { canSeeThread } from "../group-visibility.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import { nextScheduledFor } from "../../routines/schedule.ts";
 import { withEventBase, type DecideOrchestrationCommandResult } from "./event-base.ts";
+
+const sameAppEvent = (left: RoutineAppTrigger, right: RoutineAppTrigger) =>
+  left.app === right.app &&
+  left.event === right.event &&
+  left.connectionId === right.connectionId &&
+  JSON.stringify(left.config) === JSON.stringify(right.config);
 
 export const decideRoutines = Effect.fn("decideRoutines")(function* ({
   command,
@@ -29,6 +36,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         | "routine.enable"
         | "routine.pause"
         | "routine.update"
+        | "routine.trigger.bind"
         | "routine.run"
         | "routine.run.scheduled"
         | "routine.run.start"
@@ -103,6 +111,15 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
       return yield* refuse("A routine's helper bot cannot be changed here.");
     }
 
+    // Otto: An app event and the account it watches are set up through the bot, which checks
+    // the person may use that account.
+    if (
+      draft.trigger?.type === "app" &&
+      (existing?.trigger?.type !== "app" || !sameAppEvent(draft.trigger, existing.trigger))
+    ) {
+      return yield* refuse("A routine's app event cannot be changed here.");
+    }
+
     if (
       existing !== undefined &&
       draft.visibility !== existing.visibility &&
@@ -134,6 +151,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         procedure: command.procedure,
         schedule: command.schedule,
         timezone: command.timezone,
+        ...(command.trigger !== undefined ? { trigger: command.trigger } : {}),
         skillAssignmentIds: command.skillAssignmentIds,
         connectorDependencies: command.connectorDependencies,
         projectId: command.projectId,
@@ -194,6 +212,17 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
 
       if (actor !== undefined) yield* requireClientDraft(command, existing, actor.personId);
 
+      // Otto: A redraft that keeps the same app event keeps the app's trigger; any other
+      // trigger starts without one, and the server makes it once the draft is approved.
+      const trigger =
+        command.trigger?.type === "app" &&
+        existing?.trigger?.type === "app" &&
+        sameAppEvent(command.trigger, existing.trigger)
+          ? { ...command.trigger, triggerId: existing.trigger.triggerId }
+          : command.trigger?.type === "app"
+            ? { ...command.trigger, triggerId: null }
+            : command.trigger;
+
       const routine = {
         id: command.routineId,
         botId: command.botId,
@@ -203,6 +232,7 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         procedure: command.procedure,
         schedule: command.schedule,
         timezone: command.timezone,
+        ...(trigger !== undefined ? { trigger } : {}),
         skillAssignmentIds: command.skillAssignmentIds,
         connectorDependencies: command.connectorDependencies,
         projectId: command.projectId,
@@ -293,11 +323,10 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         ...existing,
         enabled: true,
         lifecycle: "enabled" as const,
-        nextRunAt: nextScheduledFor(
-          existing.schedule,
-          existing.timezone,
-          Date.parse(command.createdAt),
-        ),
+        nextRunAt:
+          existing.trigger?.type === "app"
+            ? null
+            : nextScheduledFor(existing.schedule, existing.timezone, Date.parse(command.createdAt)),
         latestFailure: null,
         updatedAt: command.createdAt,
       };
@@ -414,10 +443,43 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         schedule,
         timezone,
         nextRunAt:
-          existing.enabled && (command.schedule !== undefined || command.timezone !== undefined)
+          existing.enabled &&
+          existing.trigger?.type !== "app" &&
+          (command.schedule !== undefined || command.timezone !== undefined)
             ? nextScheduledFor(schedule, timezone, Date.parse(command.createdAt))
             : existing.nextRunAt,
         visibility: command.visibility ?? existing.visibility,
+        updatedAt: command.createdAt,
+      };
+
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "routine",
+          aggregateId: command.routineId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "routine.updated",
+        payload: { routine },
+      };
+    }
+
+    case "routine.trigger.bind": {
+      const existing = (readModel.routines ?? []).find(
+        (routine) => routine.id === command.routineId,
+      );
+
+      if (
+        existing === undefined ||
+        existing.lifecycle === "deleted" ||
+        existing.trigger?.type !== "app"
+      ) {
+        return yield* refuse(`Routine '${command.routineId}' has no app event.`);
+      }
+
+      const routine = {
+        ...existing,
+        trigger: { ...existing.trigger, triggerId: command.triggerId },
         updatedAt: command.createdAt,
       };
 
@@ -483,12 +545,8 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
       };
 
       const run =
-        command.type === "routine.run.scheduled"
-          ? {
-              ...runBase,
-              trigger: command.trigger,
-              scheduledFor: command.scheduledFor,
-            }
+        command.type === "routine.run.scheduled" && command.trigger !== "app"
+          ? { ...runBase, trigger: command.trigger, scheduledFor: command.scheduledFor }
           : { ...runBase, trigger: command.trigger, scheduledFor: null };
 
       const routine = {

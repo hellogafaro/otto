@@ -12,6 +12,7 @@ import {
   TrimmedNonEmptyString,
   TrimmedString,
 } from "../base-schemas.ts";
+import { RoutineId, RoutineRunTrigger } from "../routines.ts";
 import { ListCursor, ListLimit, ListOrder } from "./lists.ts";
 
 /** One lifecycle shared by projects and tasks; archived hides an item from lists. */
@@ -69,6 +70,20 @@ export const TaskWake = Schema.Struct({
 });
 
 export type TaskWake = typeof TaskWake.Type;
+
+/**
+ * A routine run that wakes its bot: the routine, what started the run (and the app event, for
+ * an app trigger) and the text the bot reads, its instructions with any event data.
+ */
+export const RoutineWake = Schema.Struct({
+  routineId: RoutineId,
+  title: TrimmedNonEmptyString,
+  trigger: RoutineRunTrigger,
+  event: Schema.optional(TrimmedNonEmptyString),
+  text: Schema.String,
+});
+
+export type RoutineWake = typeof RoutineWake.Type;
 
 /** The signed-in person answering an approval; the server sets it, never the client. */
 export const ApprovalResponder = Schema.Struct({

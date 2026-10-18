@@ -103,7 +103,7 @@ const make = Effect.gen(function* () {
       return { ...run, status: "completed" as const, completedAt, summary: "Dry run passed." };
     }
 
-    const dispatched = yield* adapter.dispatchTurn(routine, run);
+    const dispatched = yield* adapter.dispatchTurn(routine, run, claim.event ?? null);
 
     if ("failure" in dispatched) {
       yield* block(routine, run, dispatched.failure);
@@ -198,6 +198,35 @@ const make = Effect.gen(function* () {
       if (!(yield* repository.claim(claim))) return null;
 
       return yield* execute(routine, claim);
+    });
+
+  const runEvent: RoutineRuntimeShape["runEvent"] = (routineId, event) =>
+    Effect.gen(function* () {
+      const routine = yield* repository.getById(routineId);
+
+      if (
+        routine === null ||
+        routine.lifecycle === "deleted" ||
+        !routine.enabled ||
+        routine.trigger?.type !== "app"
+      )
+        return;
+
+      const claim = {
+        runId: RoutineRunId.make(`routine:${routine.id}:app:${event.id}`),
+        routineId: routine.id,
+        trigger: "app",
+        scheduledFor: null,
+        claimedAt: DateTime.formatIso(yield* DateTime.now),
+        event,
+      } satisfies RoutineClaim;
+
+      if (!(yield* repository.claim(claim))) return;
+
+      // Otto: A run its chat is too busy for stays claimed, and recovery starts it once the
+      // chat is free.
+      if (yield* adapter.isTargetBusy(routine)) return;
+      yield* execute(routine, claim);
     });
 
   // Scheduled bot work settles its run from the delegation's terminal phase.
@@ -465,7 +494,17 @@ const make = Effect.gen(function* () {
         continue;
       }
 
-      if (claim.status === "dispatched") continue;
+      // Otto: An app event waiting for its chat does not run once its routine is paused.
+      if (claim.status === "claimed" && claim.trigger === "app" && !routine.enabled) {
+        yield* repository.markSettled(
+          claim.runId,
+          "canceled",
+          DateTime.formatIso(yield* DateTime.now),
+        );
+        continue;
+      }
+
+      if (claim.status === "dispatched" || (yield* adapter.isTargetBusy(routine))) continue;
       yield* execute(routine, claim);
     }
   }).pipe(
@@ -494,7 +533,7 @@ const make = Effect.gen(function* () {
     );
   });
 
-  return { runDue, canRunNow, runNow, recover, start } satisfies RoutineRuntimeShape;
+  return { runDue, canRunNow, runNow, runEvent, recover, start } satisfies RoutineRuntimeShape;
 });
 
 export const RoutineRuntimeLive = Layer.effect(RoutineRuntime, make);

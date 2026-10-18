@@ -9,7 +9,14 @@ import type {
   RoutineSkillAssignment,
   ThreadId,
 } from "@otto/contracts";
-import type { Routine, RoutineId, RoutineRun, RoutineRunId, RoutineRunTrigger } from "./types.ts";
+import type {
+  Routine,
+  RoutineAppEvent,
+  RoutineId,
+  RoutineRun,
+  RoutineRunId,
+  RoutineRunTrigger,
+} from "./types.ts";
 
 interface RoutineClaimBase {
   readonly runId: RoutineRunId;
@@ -28,12 +35,14 @@ interface RoutineClaimBase {
     | "stopped"
     | null;
   readonly sessionUpdatedAt?: string | null;
+  /** The app event an `app` run starts with. */
+  readonly event?: RoutineAppEvent | null;
 }
 
 export type RoutineClaim = RoutineClaimBase &
   (
     | {
-        readonly trigger: Extract<RoutineRunTrigger, "dry-run" | "manual">;
+        readonly trigger: Extract<RoutineRunTrigger, "dry-run" | "manual" | "app">;
         readonly scheduledFor: null;
       }
     | {

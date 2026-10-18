@@ -8,6 +8,7 @@ import type {
 import {
   RiAddLine,
   RiDeleteBinLine,
+  RiFlashlightLine,
   RiPuzzleLine,
   RiSearchLine,
   RiToolsLine,
@@ -425,7 +426,7 @@ function AppBody({
 
   if (!detail.data)
     return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 4]} />;
-  const { toolkit, tools } = detail.data;
+  const { toolkit, tools, triggers } = detail.data;
 
   const connections = (composio.status.data?.connections ?? []).filter(
     (connection) => connection.toolkitSlug === slug,
@@ -476,6 +477,24 @@ function AppBody({
           />
         ))}
       </CustomizeGroup>
+      <CustomizeGroup
+        title={t("Triggers")}
+        count={triggers.length}
+        empty={
+          triggers.length === 0
+            ? { icon: <RiFlashlightLine />, description: t("No triggers") }
+            : null
+        }
+      >
+        {triggers.map((trigger) => (
+          <CustomizeItem
+            key={trigger.slug}
+            icon={<RiFlashlightLine aria-hidden className="size-4" />}
+            name={trigger.name}
+            description={trigger.description}
+          />
+        ))}
+      </CustomizeGroup>
       {connecting ? (
         <ConnectDialog
           environmentId={environmentId}
@@ -493,7 +512,7 @@ function AppBody({
  * the 22px name and the app's description, then its Accounts card (count, an outline Connect
  * button, one row per account managed in place: label or signed-in account, status pill, owner
  * select and a trash glyph; there is no account page or dialog), then the
- * tools it gives bots, each in a card row. Connect opens a small dialog: one label field (required,
+ * tools it gives bots and the triggers (app events) that can start a routine, each in a card row. Connect opens a small dialog: one label field (required,
  * unique among the person's own accounts for the app) with the owner select to its right.
  */
 export function CustomizeAppPage({
