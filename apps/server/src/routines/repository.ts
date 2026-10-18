@@ -50,6 +50,7 @@ export interface RoutineRepositoryShape {
     { readonly runs: ReadonlyArray<RoutineRun>; readonly nextCursor: RoutineRunId | null },
     PersistenceSqlError
   >;
+  /** Each routine's 5 newest runs and every run still open. */
   readonly listAllRuns: Effect.Effect<ReadonlyArray<RoutineRun>, PersistenceSqlError>;
   /** The chat of the routine's newest run that has one. */
   readonly getLatestThreadRef: (

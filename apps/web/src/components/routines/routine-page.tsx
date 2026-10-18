@@ -31,7 +31,9 @@ import { useI18n } from "../../i18n";
 import { randomUUID } from "../../lib/utils";
 import { hasTag } from "../../lib/tagged-union";
 import { usePrimaryEnvironmentId } from "../../state/environments";
+import { useEnvironmentQuery } from "../../state/query";
 import { routineEnvironment } from "../../state/routines";
+import { serverEnvironment } from "../../state/server";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { CopyMenuItems } from "../copy-menu-items";
@@ -71,6 +73,12 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
     (candidate) => candidate.id === routineId && candidate.lifecycle !== "deleted",
   );
 
+  const history = useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : serverEnvironment.routineRuns({ environmentId, input: { routineId } }),
+  );
+
   if (!snapshot) return <WorkPage back={back}>{null}</WorkPage>;
 
   if (!routine || environmentId === null) {
@@ -85,9 +93,16 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
     );
   }
 
+  // Otto: The snapshot carries each routine's newest runs live; older ones come from the
+  // routine's full history.
+  const liveRuns = snapshot.routineRuns ?? [];
+
   const item = toRoutinePanelItem(
     routine,
-    snapshot.routineRuns ?? [],
+    [
+      ...liveRuns,
+      ...(history.data?.runs ?? []).filter((run) => !liveRuns.some((live) => live.id === run.id)),
+    ],
     snapshot.skillAssignments ?? [],
     snapshot.mcpServers ?? [],
   );
