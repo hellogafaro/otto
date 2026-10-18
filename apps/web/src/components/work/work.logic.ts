@@ -101,10 +101,11 @@ export function hashSeed(seed: string): number {
 }
 
 /**
- * Otto: A generated cover is a quiet gray card with an even ordered-dither dot texture, so it
- * reads as texture rather than colour and photo covers stand out. Dark themes get a gray a step
- * lighter than the page; light themes a step darker. Each project's id picks one of a few dot
- * densities, so the grid varies a little while every cover stays the same everywhere.
+ * Otto: A generated cover is a quiet gray card with a dithered dot texture, so it reads as
+ * texture rather than colour and photo covers stand out. Dark themes get a gray a step lighter
+ * than the page; light themes a step darker. Each project's id picks one of a few scatter
+ * patterns at about the same density, so covers differ in how the dots sit, not how dark they
+ * are, and every cover stays the same everywhere.
  */
 export const GRAY_COVER_TONES = {
   dark: { base: [0x26, 0x26, 0x26], dots: [0x38, 0x38, 0x38] },
@@ -112,14 +113,64 @@ export const GRAY_COVER_TONES = {
 } as const;
 
 /**
- * Dots per 8x8 Bayer tile. Each of these lands on a regular lattice of single dots, from a
- * sparse scatter to a fine grid, so no cover shows lines or a fade.
+ * grid: an ordered Bayer lattice. scatter: dots dropped at random. jitter: one dot somewhere
+ * in each small square. cluster: small 2x2 dots, one somewhere in each larger square.
  */
-export const GRAY_COVER_DENSITIES = [2, 4, 8, 16] as const;
+export const GRAY_COVER_PATTERNS = ["grid", "scatter", "jitter", "cluster"] as const;
 
-/** How many dots per 8x8 tile a project's cover uses, drawn from its id. */
-export function grayCoverDots(seed: string) {
-  return GRAY_COVER_DENSITIES[hashSeed(seed) % GRAY_COVER_DENSITIES.length]!;
+export type GrayCoverPattern = (typeof GRAY_COVER_PATTERNS)[number];
+
+/** About one cell in eight is a dot, whatever the pattern: 8 of 64 for grid, 12% for scatter. */
+const GRID_DOTS_PER_TILE = 8;
+
+const SCATTER_CHANCE = 0.12;
+
+/** jitter puts one dot in each 3x3 square; cluster one 2x2 dot in each 6x6 square. */
+const JITTER_SQUARE = 3;
+
+const CLUSTER_SQUARE = 6;
+
+/** The scatter pattern a project's cover uses, drawn from its id. */
+export function grayCoverPattern(seed: string): GrayCoverPattern {
+  return GRAY_COVER_PATTERNS[hashSeed(seed) % GRAY_COVER_PATTERNS.length]!;
+}
+
+/** A stable pseudo-random number for one spot on one project's cover. */
+function spotHash(seed: number, x: number, y: number) {
+  let hash = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1) ^ seed;
+  hash = Math.imul(hash ^ (hash >>> 15), 0x85ebca6b);
+  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+
+  return (hash ^ (hash >>> 16)) >>> 0;
+}
+
+/** Whether the cell at x, y is a dot in this pattern. */
+function isDot(pattern: GrayCoverPattern, seed: number, x: number, y: number) {
+  switch (pattern) {
+    case "grid":
+      return GRID_DOTS_PER_TILE / 64 > bayerThreshold(x, y);
+
+    case "scatter":
+      return spotHash(seed, x, y) / 0x1_0000_0000 < SCATTER_CHANCE;
+
+    case "jitter": {
+      const spot = spotHash(seed, Math.floor(x / JITTER_SQUARE), Math.floor(y / JITTER_SQUARE));
+      const area = JITTER_SQUARE * JITTER_SQUARE;
+
+      return spot % area === (y % JITTER_SQUARE) * JITTER_SQUARE + (x % JITTER_SQUARE);
+    }
+
+    case "cluster": {
+      const spot = spotHash(seed, Math.floor(x / CLUSTER_SQUARE), Math.floor(y / CLUSTER_SQUARE));
+      // The 2x2 dot's top-left corner, kept inside its square.
+      const left = spot % (CLUSTER_SQUARE - 1);
+      const top = Math.floor(spot / CLUSTER_SQUARE) % (CLUSTER_SQUARE - 1);
+      const dx = (x % CLUSTER_SQUARE) - left;
+      const dy = (y % CLUSTER_SQUARE) - top;
+
+      return dx >= 0 && dx < 2 && dy >= 0 && dy < 2;
+    }
+  }
 }
 
 /** The generated cover's RGBA pixels, already dithered: each cell is the base tone or a dot. */
@@ -130,12 +181,13 @@ export function grayCover(
   appearance: "light" | "dark",
 ) {
   const { base, dots } = GRAY_COVER_TONES[appearance];
-  const density = grayCoverDots(seed) / 64;
+  const pattern = grayCoverPattern(seed);
+  const spotSeed = hashSeed(`${seed}:spots`);
   const pixels = new Uint8ClampedArray(width * height * 4);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const tone = density > bayerThreshold(x, y) ? dots : base;
+      const tone = isDot(pattern, spotSeed, x, y) ? dots : base;
       const offset = (y * width + x) * 4;
 
       pixels[offset] = tone[0];
