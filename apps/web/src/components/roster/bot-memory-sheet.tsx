@@ -1,158 +1,134 @@
-import { RiAddLine, RiBrainLine, RiMore2Line } from "@remixicon/react";
-import { useAtomValue } from "@effect/atom-react";
+import { RiAddLine, RiArrowRightSLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
 import {
-  type BotId,
   type EnvironmentId,
+  GENERAL_PROJECT_ID,
   type Memory,
-  type MemorySection,
+  type MemoryOwner,
+  ProjectId,
   MEMORY_TEXT_MAX_CHARS,
 } from "@otto/contracts";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { BotSideSheet, BotSideSheetEmpty, BotSideSheetSection } from "./bot-side-sheet";
+import { BotSideSheet } from "./bot-side-sheet";
 
 import { usePrimarySettings } from "~/hooks/use-settings";
 import { useI18n } from "../../i18n";
-import { environmentBotsAtom, environmentPeopleAtom } from "../../state/bots";
+import { useProjects } from "../../state/entities";
 import { memoryEnvironment } from "../../state/memory";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { Badge } from "../ui/badge";
+import { CardCountRow } from "../customize/customize-group";
+import { SettingsSection } from "../settings/settings-layout";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "../ui/dialog";
+import { Field, FieldLabel } from "../ui/field";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Skeleton, SkeletonRegion } from "../ui/skeleton";
 import { Textarea } from "../ui/textarea";
+
+const OWNERS: ReadonlyArray<MemoryOwner> = ["you", "team"];
+
+/** The Applies to value for a line true in every project. */
+const ALL_PROJECTS = "all";
 
 /** The server's own error text, shown as received, or null when it sent none. */
 export function memoryErrorMessage(cause: unknown) {
   return cause instanceof Error ? cause.message : null;
 }
 
-/** A scope at 90% of its cap is close enough to full to say so. */
-export const isAlmostFull = (section: Pick<MemorySection, "used" | "cap">) =>
-  section.used >= section.cap * 0.9;
-
-/** "Juno · Launch plan · Oct 16": who wrote an entry, in which chat, and when. */
-export function memoryEntryMeta(
-  memory: Pick<Memory, "botId" | "personId" | "threadTitle" | "updatedAt">,
-  names: {
-    readonly currentPersonId: string | null;
-    readonly bots: ReadonlyMap<string, string>;
-    readonly people: ReadonlyMap<string, string>;
-  },
-  i18n: Pick<ReturnType<typeof useI18n>, "t" | "formatDate">,
+/** "Lora Boutique · Oct 2026 · Weekly report": where a line applies, when it was last confirmed and the chat it came from. */
+export function memoryMeta(
+  memory: Pick<Memory, "projectId" | "projectTitle" | "confirmedAt" | "threadTitle">,
+  labels: { readonly allProjects: string; readonly deletedProject: string },
+  formatDate: ReturnType<typeof useI18n>["formatDate"],
 ) {
-  const writer = memory.botId
-    ? names.bots.get(memory.botId)
-    : memory.personId === names.currentPersonId
-      ? i18n.t("You")
-      : memory.personId
-        ? names.people.get(memory.personId)
-        : undefined;
-
   return [
-    writer,
+    memory.projectId === null ? labels.allProjects : (memory.projectTitle ?? labels.deletedProject),
+    formatDate(new Date(memory.confirmedAt), { month: "short", year: "numeric" }),
     memory.threadTitle,
-    i18n.formatDate(new Date(memory.updatedAt), { month: "short", day: "numeric" }),
   ]
     .filter(Boolean)
     .join(" · ");
 }
 
-function MemoryDraft({
-  initial,
-  label,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  readonly initial: string;
-  readonly label: string;
-  readonly busy: boolean;
-  readonly onCancel: () => void;
-  readonly onSave: (text: string) => void;
-}) {
-  const { t } = useI18n();
-  const [text, setText] = useState(initial);
-  const trimmed = text.trim();
+/** What the open dialog edits: a new line in Yours or Team, or an existing line. */
+type Editing =
+  | { readonly owner: MemoryOwner; readonly memory: null }
+  | { readonly owner: MemoryOwner; readonly memory: Memory };
 
-  return (
-    <div className="space-y-2">
-      <Textarea
-        aria-label={label}
-        autoFocus
-        size="sm"
-        maxLength={MEMORY_TEXT_MAX_CHARS}
-        value={text}
-        disabled={busy}
-        onChange={(event) => setText(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
-          event.preventDefault();
-          event.stopPropagation();
-          onCancel();
-        }}
-      />
-      <div className="flex justify-end gap-1.5">
-        <Button size="xs" variant="ghost" disabled={busy} onClick={onCancel}>
-          {t("Cancel")}
-        </Button>
-        <Button
-          size="xs"
-          disabled={busy || trimmed.length === 0 || trimmed === initial.trim()}
-          onClick={() => onSave(trimmed)}
-        >
-          {t("Save")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Otto: what bots remember, yours and the team's, opened from a chat's details or Settings. It
+ * keeps itself up to date; people only fix or add a line, in a dialog, and delete one after a
+ * confirmation. A new line applies to the chat's project, or to every project outside one.
+ */
 export function BotMemorySheet({
   open,
   onOpenChange,
   environmentId,
-  botId,
-  botName,
+  projectId,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly environmentId: EnvironmentId;
-  readonly botId: BotId;
-  readonly botName: string;
+  /** The project of the chat it was opened from, or null outside one. */
+  readonly projectId: ProjectId | null;
 }) {
-  const i18n = useI18n();
-  const { t } = i18n;
+  const { t, plural, formatDate } = useI18n();
   const writable = usePrimarySettings((settings) => settings.memory.enabled);
-  const bots = useAtomValue(environmentBotsAtom(environmentId));
-  const people = useAtomValue(environmentPeopleAtom(environmentId));
+
+  const projects = useProjects().filter(
+    (project) => project.environmentId === environmentId && project.id !== GENERAL_PROJECT_ID,
+  );
 
   const query = useEnvironmentQuery(
-    open ? memoryEnvironment.list({ environmentId, input: { botId } }) : null,
+    open ? memoryEnvironment.list({ environmentId, input: {} }) : null,
   );
 
   const create = useAtomCommand(memoryEnvironment.create, { reportFailure: false });
   const update = useAtomCommand(memoryEnvironment.update, { reportFailure: false });
   const remove = useAtomCommand(memoryEnvironment.remove, { reportFailure: false });
-  const decide = useAtomCommand(memoryEnvironment.decide, { reportFailure: false });
-
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [text, setText] = useState("");
+  const [appliesTo, setAppliesTo] = useState<string>(ALL_PROJECTS);
+  const [deleting, setDeleting] = useState<Memory | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [adding, setAdding] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const names = {
-    currentPersonId: people.current?.id ?? null,
-    bots: new Map(bots.map((bot) => [String(bot.id), bot.name])),
-    people: new Map(people.directory.map((person) => [person.personId, person.displayName])),
-  };
+  const owners = {
+    you: {
+      title: t("Yours"),
+      description: t("Learned in your private chats with bots, and used only there."),
+    },
+    team: {
+      title: t("Team"),
+      description: t("Learned in chats everyone can read, and used in every chat."),
+    },
+  } satisfies Record<MemoryOwner, { title: string; description: string }>;
 
-  /** Runs one change; a failure keeps the draft open and shows the server's reason. */
+  const labels = { allProjects: t("All projects"), deletedProject: t("Deleted project") };
+
+  /** Runs one change; a failure keeps the dialog open and shows the server's reason. */
   const run = async (
     change: () => Promise<Parameters<typeof squashAtomCommandFailure>[0] | { _tag: "Success" }>,
     failureToast: string,
@@ -162,161 +138,79 @@ export function BotMemorySheet({
     const result = await change();
     setBusy(false);
 
-    if (Predicate.isTagged(result, "Failure")) {
-      setError(memoryErrorMessage(squashAtomCommandFailure(result)) ?? t("Memory request failed."));
-      toast.error(failureToast);
+    if (!Predicate.isTagged(result, "Failure")) return true;
+    setError(memoryErrorMessage(squashAtomCommandFailure(result)) ?? t("Memory request failed."));
+    toast.error(failureToast);
 
-      return false;
-    }
-
-    return true;
+    return false;
   };
 
-  const sectionKey = (section: MemorySection) => `${section.scope}:${section.scopeId}`;
-
-  const sectionCopy = (section: MemorySection) => {
-    switch (section.scope) {
-      case "person":
-        return { title: t("About you"), description: t("Used only in your private chats.") };
-      case "bot":
-        return {
-          title: botName,
-          description: t("Its role and how it works. Used in every chat."),
-        };
-      case "group":
-        return {
-          title: section.title,
-          description: t("Shared with everyone in this group chat."),
-        };
-      case "project":
-        return {
-          title: section.title,
-          description: t("Shared with every bot in this project."),
-        };
-      case "workspace":
-        return { title: t("Workspace"), description: t("Shared with every bot in the workspace.") };
-    }
+  const openEditor = (next: Editing) => {
+    setError(null);
+    setText(next.memory?.text ?? "");
+    setAppliesTo((next.memory ? next.memory.projectId : projectId) ?? ALL_PROJECTS);
+    setEditing(next);
   };
 
-  const sections = query.data?.sections ?? [];
-  const empty = sections.every((section) => section.memories.length === 0) && adding === null;
+  const trimmed = text.trim();
+  const appliesToProjectId = appliesTo === ALL_PROJECTS ? null : ProjectId.make(appliesTo);
 
-  const entry = (section: MemorySection, memory: Memory) => {
-    const meta = memoryEntryMeta(memory, names, i18n);
+  const save = () => {
+    if (!editing) return;
 
-    if (editing === memory.id) {
-      return (
-        <MemoryDraft
-          key={memory.id}
-          initial={memory.text}
-          label={t("Edit memory")}
-          busy={busy}
-          onCancel={() => setEditing(null)}
-          onSave={(text) =>
-            void run(
-              () => update({ environmentId, input: { id: memory.id, text } }),
-              t("Memory couldn't be saved"),
-            ).then((saved) => saved && setEditing(null))
-          }
-        />
-      );
-    }
-
-    const replaced = section.memories.find((candidate) => candidate.id === memory.replacesId);
-
-    return (
-      <li key={memory.id} className="group/memory flex items-start gap-2 py-1.5">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-13px whitespace-pre-wrap text-foreground">
-            {memory.status === "pending" && memory.text === ""
-              ? t("Delete: {text}", { text: replaced?.text ?? "" })
-              : memory.text}
-          </p>
-          <p className="text-xs text-muted-foreground">{meta}</p>
-          {memory.status === "pending" ? (
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <Badge variant="warning">{t("Waiting for approval")}</Badge>
-              {writable ? (
-                <>
-                  <Button
-                    size="xs"
-                    variant="ghost-muted"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          decide({ environmentId, input: { id: memory.id, decision: "reject" } }),
-                        t("Memory couldn't be saved"),
-                      )
-                    }
-                  >
-                    {t("Reject")}
-                  </Button>
-                  <Button
-                    size="xs"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          decide({ environmentId, input: { id: memory.id, decision: "approve" } }),
-                        t("Memory couldn't be saved"),
-                      )
-                    }
-                  >
-                    {t("Approve")}
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        {writable && memory.status === "active" ? (
-          <Menu onOpenChange={(menuOpen) => !menuOpen && setConfirmDelete(null)}>
-            <MenuTrigger
-              render={
-                <Button size="icon-sm" variant="ghost-muted" aria-label={t("Memory actions")} />
-              }
-            >
-              <RiMore2Line />
-            </MenuTrigger>
-            <MenuPopup align="end">
-              <MenuItem onClick={() => setEditing(memory.id)}>{t("Edit")}</MenuItem>
-              <MenuItem
-                variant="destructive"
-                closeOnClick={confirmDelete === memory.id}
-                onClick={() => {
-                  if (confirmDelete !== memory.id) return setConfirmDelete(memory.id);
-
-                  void run(
-                    () => remove({ environmentId, input: { id: memory.id } }),
-                    t("Memory couldn't be deleted"),
-                  ).then((deleted) => deleted && toast.success(t("Memory has been deleted")));
-                }}
-              >
-                {confirmDelete === memory.id ? t("Confirm delete") : t("Delete")}
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
-        ) : null}
-      </li>
-    );
+    void run(
+      () =>
+        editing.memory
+          ? update({
+              environmentId,
+              input: { id: editing.memory.id, projectId: appliesToProjectId, text: trimmed },
+            })
+          : create({
+              environmentId,
+              input: { owner: editing.owner, projectId: appliesToProjectId, text: trimmed },
+            }),
+      t("Memory couldn't be saved"),
+    ).then((saved) => saved && setEditing(null));
   };
+
+  const confirmDelete = (memory: Memory) =>
+    void run(
+      () => remove({ environmentId, input: { id: memory.id } }),
+      t("Memory couldn't be deleted"),
+    ).then((deleted) => {
+      if (!deleted) return;
+      setDeleting(null);
+      setEditing(null);
+      toast.success(t("Memory has been deleted"));
+    });
+
+  const memories = query.data?.memories ?? [];
+
+  const projectLabel = (value: string) =>
+    value === ALL_PROJECTS
+      ? labels.allProjects
+      : (projects.find((project) => project.id === value)?.title ?? labels.deletedProject);
+
+  const unchanged =
+    editing?.memory != null &&
+    trimmed === editing.memory.text &&
+    appliesToProjectId === editing.memory.projectId;
 
   return (
     <BotSideSheet
       open={open}
       onOpenChange={onOpenChange}
       title={t("Memory")}
-      description={t("What {bot} remembers. Only you see what it remembers about you.", {
-        bot: botName,
-      })}
+      description={t(
+        "What bots remember. They learn from chats on their own and forget what stops coming up.",
+      )}
     >
-      {(error ?? query.error) ? (
+      {query.error ? (
         <div
           role="alert"
           className="rounded-lg bg-destructive/8 p-3 text-sm text-destructive-foreground"
         >
-          {error ?? query.error}
+          {query.error}
         </div>
       ) : null}
       {!writable ? (
@@ -327,113 +221,186 @@ export function BotMemorySheet({
       {query.isPending && !query.data ? (
         <SkeletonRegion label={t("Loading memory…")}>
           <div className="space-y-6">
-            {[t("About you"), botName].map((title) => (
-              <BotSideSheetSection key={title} title={title}>
+            {OWNERS.map((owner) => (
+              <SettingsSection key={owner} title={owners[owner].title}>
                 {[0, 1].map((row) => (
-                  <div key={row} className="space-y-1.5 py-1.5">
+                  <div key={row} data-settings-row="" className="space-y-1.5 px-4 py-3">
                     <Skeleton className={row === 0 ? "h-3 w-3/4" : "h-3 w-1/2"} />
                     <Skeleton className="h-2.5 w-1/3" />
                   </div>
                 ))}
-              </BotSideSheetSection>
+              </SettingsSection>
             ))}
           </div>
         </SkeletonRegion>
       ) : null}
-      {query.data && empty ? (
-        <BotSideSheetEmpty
-          icon={RiBrainLine}
-          title={t("No memories yet")}
-          description={t("{bot} saves what it learns here. You can change or delete anything.", {
-            bot: botName,
-          })}
-          action={
-            writable ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const person = sections.find((section) => section.scope === "person");
-
-                  if (person) setAdding(sectionKey(person));
-                }}
-              >
-                {t("Add memory")}
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : null}
-      {query.data && !empty ? (
+      {query.data ? (
         <>
-          {sections
-            .filter(
-              (section) =>
-                section.memories.length > 0 ||
-                section.scope === "person" ||
-                section.scope === "bot",
-            )
-            .map((section) => {
-              const copy = sectionCopy(section);
-              const key = sectionKey(section);
+          {OWNERS.map((owner) => {
+            const lines = memories.filter((memory) => memory.owner === owner);
 
-              return (
-                <BotSideSheetSection
-                  key={key}
-                  title={
-                    <span className="flex items-center gap-1.5">
-                      {copy.title}
-                      <span className="text-muted-foreground tabular-nums">
-                        {i18n.formatNumber(section.memories.length)}
-                      </span>
-                      {isAlmostFull(section) ? (
-                        <Badge variant="warning">{t("Almost full")}</Badge>
-                      ) : null}
-                    </span>
-                  }
-                  description={copy.description}
+            return (
+              <SettingsSection
+                key={owner}
+                title={owners[owner].title}
+                description={owners[owner].description}
+              >
+                <CardCountRow
+                  label={plural(lines.length, { one: "{count} memory", other: "{count} memories" })}
                   action={
                     writable ? (
                       <Button
                         size="icon-sm"
                         variant="ghost-muted"
-                        aria-label={t("Add to {name}", { name: copy.title })}
-                        disabled={busy}
-                        onClick={() => setAdding(key)}
+                        aria-label={t("Add to {name}", { name: owners[owner].title })}
+                        onClick={() => openEditor({ owner, memory: null })}
                       >
-                        <RiAddLine />
+                        <RiAddLine aria-hidden className="size-4" />
                       </Button>
-                    ) : undefined
+                    ) : null
                   }
-                >
-                  {section.memories.length > 0 ? (
-                    <ul>{section.memories.map((memory) => entry(section, memory))}</ul>
-                  ) : null}
-                  {adding === key ? (
-                    <MemoryDraft
-                      initial=""
-                      label={t("New memory")}
-                      busy={busy}
-                      onCancel={() => setAdding(null)}
-                      onSave={(text) =>
-                        void run(
-                          () =>
-                            create({
-                              environmentId,
-                              input: { scope: section.scope, scopeId: section.scopeId, text },
-                            }),
-                          t("Memory couldn't be saved"),
-                        ).then((saved) => saved && setAdding(null))
-                      }
-                    />
-                  ) : null}
-                </BotSideSheetSection>
-              );
-            })}
+                />
+                {lines.map((memory) => (
+                  <div key={memory.id} data-settings-row="">
+                    <button
+                      type="button"
+                      disabled={!writable}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none enabled:hover:bg-foreground/3.5 focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => openEditor({ owner, memory })}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-13px font-medium text-foreground">
+                          {memory.text}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {memoryMeta(memory, labels, formatDate)}
+                        </span>
+                      </span>
+                      {writable ? (
+                        <RiArrowRightSLine
+                          aria-hidden
+                          className="size-4 shrink-0 text-muted-foreground"
+                        />
+                      ) : null}
+                    </button>
+                  </div>
+                ))}
+              </SettingsSection>
+            );
+          })}
           <p className="text-xs text-muted-foreground">
-            {t("Deleting a memory does not remove it from past chats.")}
+            {t("Bots also search past chats when they need a detail.")}
           </p>
         </>
       ) : null}
+      <Dialog open={editing !== null} onOpenChange={(next) => !next && setEditing(null)}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>{editing?.memory ? t("Edit memory") : t("Add memory")}</DialogTitle>
+            <DialogDescription>
+              {editing
+                ? [
+                    owners[editing.owner].title,
+                    editing.memory
+                      ? formatDate(new Date(editing.memory.confirmedAt), {
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "",
+                    editing.memory?.threadTitle,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="contents"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            <DialogPanel className="space-y-4">
+              <Textarea
+                autoFocus
+                aria-label={t("Memory")}
+                maxLength={MEMORY_TEXT_MAX_CHARS}
+                value={text}
+                disabled={busy}
+                onChange={(event) => setText(event.currentTarget.value)}
+              />
+              <Field>
+                <FieldLabel>{t("Applies to")}</FieldLabel>
+                <Select
+                  value={appliesTo}
+                  disabled={busy}
+                  onValueChange={(value) => value && setAppliesTo(value)}
+                >
+                  <SelectTrigger className="w-full" aria-label={t("Applies to")}>
+                    <SelectValue>{projectLabel(appliesTo)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    <SelectItem value={ALL_PROJECTS}>{labels.allProjects}</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </Field>
+              {error ? (
+                <p role="alert" className="text-sm text-destructive-foreground">
+                  {error}
+                </p>
+              ) : null}
+            </DialogPanel>
+            <DialogFooter className="sm:justify-between">
+              {editing?.memory ? (
+                <Button
+                  type="button"
+                  variant="ghost-destructive"
+                  disabled={busy}
+                  onClick={() => setDeleting(editing.memory)}
+                >
+                  {t("Delete")}
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-1.5">
+                <DialogClose render={<Button type="button" variant="ghost" />}>
+                  {t("Cancel")}
+                </DialogClose>
+                <Button type="submit" disabled={busy || trimmed.length === 0 || unchanged}>
+                  {t("Save")}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogPopup>
+      </Dialog>
+      <AlertDialog open={deleting !== null} onOpenChange={(next) => !next && setDeleting(null)}>
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("Delete memory?")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("Bots will forget this. They can learn it again if it comes up.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="ghost" />}>{t("Cancel")}</AlertDialogClose>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() => deleting && confirmDelete(deleting)}
+            >
+              {t("Delete")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </BotSideSheet>
   );
 }

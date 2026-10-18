@@ -70,7 +70,7 @@ vi.mock("@effect/atom-react", async () => {
     RegistryContext: createContext({ update: () => {} }),
     useAtomValue: (atom: string) =>
       Match.value(atom).pipe(
-        Match.when("people", () => ({ current: null, host: null })),
+        Match.when("people", () => ({ current: null, host: null, directory: [] })),
         Match.when("snapshot", () => mocks.snapshot),
         Match.when("routine-cache", () => mocks.routineCache),
         Match.when("bots", () => []),
@@ -87,7 +87,7 @@ vi.mock("../../state/routines", () => ({
 vi.mock("../../state/bots", () => ({
   environmentPeopleAtom: () => "people",
   environmentBotsAtom: () => "bots",
-  botEnvironment: { update: null },
+  botEnvironment: { update: null, groups: { assignMember: null, assignPerson: null } },
 }));
 
 vi.mock("../../state/environments", () => ({

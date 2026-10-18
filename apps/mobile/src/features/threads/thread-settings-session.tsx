@@ -5,7 +5,6 @@ import type {
   ProviderOptionDescriptor,
   ProviderOptionSelection,
   RuntimeMode,
-  ThreadId,
 } from "@otto/contracts";
 import { getProviderOptionDescriptors } from "@otto/shared/model";
 import * as Haptics from "expo-haptics";
@@ -20,7 +19,6 @@ import {
 export type ThreadSettingsSubmenuPage =
   | { readonly kind: "descriptor"; readonly id: string }
   | { readonly kind: "runtime" }
-  | { readonly kind: "memory" }
   | { readonly kind: "routines" };
 
 export type ThreadSettingsSessionProps = {
@@ -31,10 +29,6 @@ export type ThreadSettingsSessionProps = {
   readonly onUpdateOptionSelections: (selections: ReadonlyArray<ProviderOptionSelection>) => void;
   readonly runtimeMode: RuntimeMode;
   readonly onUpdateRuntimeMode: (mode: RuntimeMode) => void;
-  readonly memoryThreadRef?: {
-    readonly environmentId: EnvironmentId;
-    readonly threadId: ThreadId;
-  };
   readonly routinesRef?: {
     readonly environmentId: EnvironmentId;
     readonly botId: string;
@@ -115,7 +109,6 @@ export type ThreadSettingsSessionValue = {
   readonly setSearchQuery: (query: string) => void;
   readonly setShowLegacy: (showLegacy: boolean) => void;
   readonly toggleProvider: (providerKey: string) => void;
-  readonly memoryThreadRef: ThreadSettingsSessionProps["memoryThreadRef"];
   readonly routinesRef: ThreadSettingsSessionProps["routinesRef"];
   readonly onDeleteBot: ThreadSettingsSessionProps["onDeleteBot"];
   /** False when the shown model's provider can neither hand off work nor receive it. */
@@ -258,7 +251,6 @@ export function ThreadSettingsSessionProvider(
       setSearchQuery,
       setShowLegacy: setShowLegacyToggle,
       toggleProvider,
-      memoryThreadRef: props.memoryThreadRef,
       routinesRef: props.routinesRef,
       onDeleteBot: props.onDeleteBot,
       canDelegate,
@@ -278,7 +270,6 @@ export function ThreadSettingsSessionProvider(
       props.onUpdateRuntimeMode,
       props.providerGroups,
       props.runtimeMode,
-      props.memoryThreadRef,
       props.routinesRef,
       props.onDeleteBot,
       searchQuery,

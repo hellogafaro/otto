@@ -22,8 +22,12 @@ import { resolveAttachmentPath } from "../attachment-store.ts";
 import { getCodexServiceTierOptionValue } from "../codex-model-options.ts";
 import type { ProviderInstance } from "../provider/provider-driver.ts";
 import { SubscriptionAuthService } from "../subscription-auth/service.ts";
-import type { TextGeneration } from "./text-generation.ts";
-import { buildBranchNamePrompt, buildThreadTitlePrompt } from "./text-generation-prompts.ts";
+import type { TextGeneration, TextGenerationOperation } from "./text-generation.ts";
+import {
+  buildBranchNamePrompt,
+  buildMemoryReviewPrompt,
+  buildThreadTitlePrompt,
+} from "./text-generation-prompts.ts";
 import { sanitizeThreadTitle } from "./text-generation-utils.ts";
 import {
   getClaudeModelCapabilities,
@@ -60,7 +64,7 @@ export const makeHarnessTextGeneration = Effect.fn("makeHarnessTextGeneration")(
   );
 
   const generate = <Output>(
-    operation: "generateBranchName" | "generateThreadTitle",
+    operation: TextGenerationOperation,
     modelSelection: ModelSelection,
     prompt: string,
     outputSchema: Schema.Codec<Output>,
@@ -267,6 +271,11 @@ export const makeHarnessTextGeneration = Effect.fn("makeHarnessTextGeneration")(
         outputSchema,
         request.attachments,
       ).pipe(Effect.map((result) => ({ title: sanitizeThreadTitle(result.title) })));
+    },
+    generateMemoryReview: (request) => {
+      const { prompt, outputSchema } = buildMemoryReviewPrompt(request);
+
+      return generate("generateMemoryReview", request.modelSelection, prompt, outputSchema);
     },
   } satisfies TextGeneration["Service"];
 });

@@ -19,7 +19,11 @@ import { extractJsonObject } from "@otto/shared/schemaJson";
 import * as ServerConfig from "../config.ts";
 import { subscriptionRuntimeEnvironment } from "../subscription-auth/runtime.ts";
 import { resolveAttachmentPath } from "../attachment-store.ts";
-import { buildBranchNamePrompt, buildThreadTitlePrompt } from "./text-generation-prompts.ts";
+import {
+  buildBranchNamePrompt,
+  buildMemoryReviewPrompt,
+  buildThreadTitlePrompt,
+} from "./text-generation-prompts.ts";
 import * as TextGeneration from "./text-generation.ts";
 import { sanitizeThreadTitle } from "./text-generation-utils.ts";
 import * as OpenCodeRuntime from "../provider/opencode-runtime.ts";
@@ -122,7 +126,7 @@ export const makeOpenCodeTextGeneration = Effect.fn("makeOpenCodeTextGeneration"
 
   const acquireSharedServer = (input: {
     readonly binaryPath: string;
-    readonly operation: "generateBranchName" | "generateThreadTitle";
+    readonly operation: TextGeneration.TextGenerationOperation;
   }) =>
     sharedServerMutex.withPermit(
       Effect.gen(function* () {
@@ -463,9 +467,24 @@ export const makeOpenCodeTextGeneration = Effect.fn("makeOpenCodeTextGeneration"
       };
     });
 
+  const generateMemoryReview: TextGeneration.TextGeneration["Service"]["generateMemoryReview"] =
+    Effect.fn("OpenCodeTextGeneration.generateMemoryReview")(function* (input) {
+      const { prompt, outputSchema } = buildMemoryReviewPrompt(input);
+
+      return yield* runOpenCodeJson({
+        operation: "generateMemoryReview",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+        attachments: undefined,
+      });
+    });
+
   return {
     generateBranchName,
     generateThreadTitle,
+    generateMemoryReview,
   } satisfies TextGeneration.TextGeneration["Service"];
 });
 

@@ -1,13 +1,10 @@
 import { OttoToolInputSchemas, decodeOttoToolInput } from "@otto/contracts";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
-import { MemoryUpdateToolInput } from "../../memory/memory-update-tool.ts";
-import type { OttoRuntimeToolId } from "./otto-tool-types.ts";
-
-const decodeMemoryInput = Schema.decodeUnknownSync(MemoryUpdateToolInput);
+import type { OttoToolId } from "@otto/contracts";
 
 export function normalizeOttoToolInput<Input>(
-  toolId: Exclude<OttoRuntimeToolId, "memory_update">,
+  toolId: OttoToolId,
   input: Input,
   omitUnknownNulls = false,
 ) {
@@ -29,12 +26,10 @@ export function normalizeOttoToolInput<Input>(
 }
 
 export function decodeOttoRuntimeToolInput<Input>(
-  toolId: OttoRuntimeToolId,
+  toolId: OttoToolId,
   input: Input,
   options?: { readonly approvalGrant: boolean },
 ) {
-  if (toolId === "memory_update")
-    return { toolId, input: decodeMemoryInput(input, { onExcessProperty: "error" }) };
   const normalized = normalizeOttoToolInput(toolId, input, options?.approvalGrant);
 
   switch (toolId) {

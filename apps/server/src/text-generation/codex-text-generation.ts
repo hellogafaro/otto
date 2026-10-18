@@ -25,7 +25,11 @@ import {
   resolveCodexLaunchArgs,
 } from "../provider/layers/codex-launch-args.ts";
 import * as TextGeneration from "./text-generation.ts";
-import { buildBranchNamePrompt, buildThreadTitlePrompt } from "./text-generation-prompts.ts";
+import {
+  buildBranchNamePrompt,
+  buildMemoryReviewPrompt,
+  buildThreadTitlePrompt,
+} from "./text-generation-prompts.ts";
 import {
   normalizeCliError,
   sanitizeThreadTitle,
@@ -96,7 +100,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
     fileSystem.remove(filePath).pipe(Effect.catch(() => Effect.void));
 
   const encodeJsonForOperation = (
-    operation: "generateBranchName" | "generateThreadTitle",
+    operation: TextGeneration.TextGenerationOperation,
     value: ReturnType<typeof toJsonSchemaObject>,
   ): Effect.Effect<string, TextGenerationError> =>
     encodeJsonString(value).pipe(
@@ -111,7 +115,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
     );
 
   const materializeImageAttachments = Effect.fn("materializeImageAttachments")(function* (
-    _operation: "generateBranchName" | "generateThreadTitle",
+    _operation: TextGeneration.TextGenerationOperation,
     attachments: TextGeneration.BranchNameGenerationInput["attachments"],
   ): Effect.fn.Return<MaterializedImageAttachments, TextGenerationError> {
     if (!attachments || attachments.length === 0) {
@@ -155,7 +159,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
     cleanupPaths = [],
     modelSelection,
   }: {
-    operation: "generateBranchName" | "generateThreadTitle";
+    operation: TextGeneration.TextGenerationOperation;
     cwd: string;
     prompt: string;
     outputSchemaJson: S;
@@ -355,9 +359,23 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
       } satisfies TextGeneration.ThreadTitleGenerationResult;
     });
 
+  const generateMemoryReview: TextGeneration.TextGeneration["Service"]["generateMemoryReview"] =
+    Effect.fn("CodexTextGeneration.generateMemoryReview")(function* (input) {
+      const { prompt, outputSchema } = buildMemoryReviewPrompt(input);
+
+      return yield* runCodexJson({
+        operation: "generateMemoryReview",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+    });
+
   return {
     generateBranchName,
     generateThreadTitle,
+    generateMemoryReview,
   } satisfies TextGeneration.TextGeneration["Service"];
 });
 

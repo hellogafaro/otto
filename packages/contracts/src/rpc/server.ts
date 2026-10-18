@@ -50,41 +50,12 @@ import { OttoBotUsageInput, OttoBotUsageReadError, OttoBotUsageSnapshot } from "
 import {
   Memory,
   MemoryCreateInput,
-  MemoryDecideInput,
   MemoryDeleteInput,
   MemoryError,
   MemoryListInput,
   MemoryListResult,
   MemoryUpdateInput,
 } from "../memory.ts";
-import {
-  OttoMemoryOperationError,
-  OttoMemoryFactsListInput,
-  OttoMemoryFactsListResult,
-  OttoMemoryMutateInput,
-  OttoMemoryMutationResult,
-} from "../otto-memory/facts.ts";
-import {
-  OttoMemoryArchiveV2,
-  OttoMemoryExportInput,
-  OttoMemoryImportPreviewInput,
-  OttoMemoryImportPreview,
-  OttoMemoryImportApplyInput,
-  OttoMemoryImportApplyResult,
-  OttoMarkdownMemoryArchiveV3,
-  OttoMarkdownMemoryExportInput,
-  OttoMarkdownMemoryImportApplyInput,
-  OttoMarkdownMemoryImportApplyResult,
-  OttoMarkdownMemoryImportPreview,
-  OttoMarkdownMemoryImportPreviewInput,
-} from "../otto-memory/transfer.ts";
-import {
-  OttoMemoryDocumentsInspectInput,
-  OttoMemoryDocumentsSnapshot,
-  OttoMemoryDocumentReplaceInput,
-  OttoMemoryDocument,
-  OttoMemoryObservationsClearInput,
-} from "../otto-memory/documents.ts";
 import { ExternalLauncherError, LaunchEditorInput } from "../editor.ts";
 import {
   AuthAccessStreamError,
@@ -581,71 +552,6 @@ export const WsServerGetBackgroundPolicyRpc = Rpc.make(WS_METHODS.serverGetBackg
   error: EnvironmentAuthorizationError,
 });
 
-export const WsMemoryExportRpc = Rpc.make(WS_METHODS.memoryExport, {
-  payload: OttoMarkdownMemoryExportInput,
-  success: OttoMarkdownMemoryArchiveV3,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryImportPreviewRpc = Rpc.make(WS_METHODS.memoryImportPreview, {
-  payload: OttoMarkdownMemoryImportPreviewInput,
-  success: OttoMarkdownMemoryImportPreview,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryImportApplyRpc = Rpc.make(WS_METHODS.memoryImportApply, {
-  payload: OttoMarkdownMemoryImportApplyInput,
-  success: OttoMarkdownMemoryImportApplyResult,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryArchiveExportRpc = Rpc.make(WS_METHODS.memoryArchiveExport, {
-  payload: OttoMemoryExportInput,
-  success: OttoMemoryArchiveV2,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryArchivePreviewImportRpc = Rpc.make(WS_METHODS.memoryArchivePreviewImport, {
-  payload: OttoMemoryImportPreviewInput,
-  success: OttoMemoryImportPreview,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryArchiveApplyImportRpc = Rpc.make(WS_METHODS.memoryArchiveApplyImport, {
-  payload: OttoMemoryImportApplyInput,
-  success: OttoMemoryImportApplyResult,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryFactsListRpc = Rpc.make(WS_METHODS.memoryFactsList, {
-  payload: OttoMemoryFactsListInput,
-  success: OttoMemoryFactsListResult,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryFactMutateRpc = Rpc.make(WS_METHODS.memoryFactMutate, {
-  payload: OttoMemoryMutateInput,
-  success: OttoMemoryMutationResult,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryDocumentsInspectRpc = Rpc.make(WS_METHODS.memoryDocumentsInspect, {
-  payload: OttoMemoryDocumentsInspectInput,
-  success: OttoMemoryDocumentsSnapshot,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryDocumentReplaceRpc = Rpc.make(WS_METHODS.memoryDocumentReplace, {
-  payload: OttoMemoryDocumentReplaceInput,
-  success: OttoMemoryDocument,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
-export const WsMemoryObservationsClearRpc = Rpc.make(WS_METHODS.memoryObservationsClear, {
-  payload: OttoMemoryObservationsClearInput,
-  error: Schema.Union([OttoMemoryOperationError, EnvironmentAuthorizationError]),
-});
-
 const MemoryRpcError = Schema.Union([MemoryError, EnvironmentAuthorizationError]);
 
 export const WsMemoryListRpc = Rpc.make(WS_METHODS.memoryList, {
@@ -668,11 +574,6 @@ export const WsMemoryUpdateRpc = Rpc.make(WS_METHODS.memoryUpdate, {
 
 export const WsMemoryDeleteRpc = Rpc.make(WS_METHODS.memoryDelete, {
   payload: MemoryDeleteInput,
-  error: MemoryRpcError,
-});
-
-export const WsMemoryDecideRpc = Rpc.make(WS_METHODS.memoryDecide, {
-  payload: MemoryDecideInput,
   error: MemoryRpcError,
 });
 

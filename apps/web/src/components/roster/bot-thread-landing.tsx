@@ -1,5 +1,4 @@
 import { Predicate } from "effect";
-import { pendingMemoryApprovals } from "@otto/client-runtime/durable-memory";
 import { useAtomValue } from "@effect/atom-react";
 import { presentThreadError } from "@otto/client-runtime/errors";
 import { BotId, type EnvironmentId, type ScopedThreadRef, type TurnId } from "@otto/contracts";
@@ -20,7 +19,6 @@ import { Spinner } from "../ui/spinner";
 import { WorkspaceHeaderTitle, WorkspacePageHeader } from "../workspace-page-header";
 import { BotActivityStatus, useActivitySubjectName } from "./bot-activity-status";
 import { deriveBotActivity } from "./bot-activity-status.logic";
-import { MemoryApprovalPrompt } from "./memory-approval-prompt";
 import { BotInboxAlerts } from "./bot-inbox-alerts";
 import { ChatReplyContext } from "../markdown/generative/chat-reply-context";
 import { BotAvatarView } from "./bot-avatar-view";
@@ -190,7 +188,6 @@ export function BotThreadLanding({
 
   const approvalState = useRosterApprovals(runtime.linkedThreadRef);
   const activities = useThreadActivities(runtime.linkedThreadRef);
-  const memoryApprovals = useMemo(() => pendingMemoryApprovals(activities), [activities]);
   const stepMeters = useMemo(() => buildBotStepMeters(activities), [activities]);
 
   const botActivity = useMemo(
@@ -706,15 +703,6 @@ export function BotThreadLanding({
                   botName={bot.name}
                   draftKey={bot.id}
                   busy={working && !waitingForApproval}
-                  pendingActionSlot={
-                    memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
-                      <MemoryApprovalPrompt
-                        threadRef={runtime.linkedThreadRef}
-                        approvals={memoryApprovals}
-                        shortcuts={shortcutApprovalId === null && !waitingForUserInput}
-                      />
-                    ) : null
-                  }
                   disabled={
                     runtime.respondingRequestIds.length > 0 ||
                     voiceCall.activeCall?.botId === bot.id ||

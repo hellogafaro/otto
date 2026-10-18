@@ -171,7 +171,7 @@ export function ThreadSettingsOptionsItem(props: {
         })}
         <Animated.View layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}>
           <DisclosureRow
-            isLast={!session.memoryThreadRef && !session.routinesRef}
+            isLast={!session.routinesRef}
             label={t("Runtime")}
             value={
               RUNTIME_MODE_CHOICES.find((choice) => choice.mode === session.runtimeMode)?.label
@@ -179,16 +179,6 @@ export function ThreadSettingsOptionsItem(props: {
             onPress={() => props.onOpenSubmenu({ kind: "runtime" })}
           />
         </Animated.View>
-        {session.memoryThreadRef ? (
-          <Animated.View layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}>
-            <DisclosureRow
-              isLast={!session.routinesRef}
-              label={t("Memory")}
-              value={t("Markdown and observations")}
-              onPress={() => props.onOpenSubmenu({ kind: "memory" })}
-            />
-          </Animated.View>
-        ) : null}
         {session.routinesRef ? (
           <Animated.View layout={THREAD_SETTINGS_OPTIONS_LAYOUT_TRANSITION}>
             <DisclosureRow

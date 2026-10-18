@@ -1,5 +1,4 @@
 import * as Match from "effect/Match";
-import * as Predicate from "effect/Predicate";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -7,7 +6,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import {
-  OttoMemoryOperationError,
   type AuthAccessStreamEvent,
   AuthSessionId,
   ClientSurface,
@@ -49,17 +47,6 @@ export const subscriptionProviderForDriver = (driver: string): SubscriptionProvi
 export const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
 export const CONFIG_DISCOVERY_TIMEOUT = Duration.seconds(5);
-
-export const memoryOperationError = (operation: string, cause: unknown) =>
-  new OttoMemoryOperationError({
-    operation,
-    detail:
-      cause instanceof Error
-        ? cause.message
-        : Predicate.isString(cause)
-          ? cause
-          : "The memory operation failed.",
-  });
 
 export const resolveDiscoveryForConfig = <A, E, R>(
   discovery: Effect.Effect<A, E, R>,

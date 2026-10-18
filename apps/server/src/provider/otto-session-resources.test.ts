@@ -125,20 +125,20 @@ describe("OttoSessionResources", () => {
   });
 
   it("exposes the authenticated Otto MCP tools without a plugin connection", async () => {
-    const memoryUpdate = { execute: vi.fn(async () => ({ saved: true })) };
+    const lookup = { execute: vi.fn(async () => ({ saved: true })) };
 
     const manager = {
       init: vi.fn(async () => undefined),
       disconnect: vi.fn(async () => undefined),
       getTools: vi.fn(() => ({
-        otto_memory_update: memoryUpdate,
+        otto_lookup: lookup,
       })),
       getServerStatuses: vi.fn(() => [
         {
           name: "otto",
           connected: true,
           toolCount: 1,
-          toolNames: ["otto_memory_update"],
+          toolNames: ["otto_lookup"],
         },
       ]),
     };
@@ -180,7 +180,7 @@ describe("OttoSessionResources", () => {
       },
     });
     expect(resources.getConnectorTools("preview-thread")).toEqual({
-      memory_update: memoryUpdate,
+      lookup,
     });
 
     await resources.shutdown();

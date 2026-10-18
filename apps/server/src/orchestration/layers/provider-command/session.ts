@@ -5,8 +5,6 @@ import {
   GENERAL_PROJECT_ID,
   type ModelSelection,
   isGroupBotMember,
-  isGroupPersonMember,
-  type OrchestrationThreadShell,
   ProviderDriverKind,
   ThreadId,
   type ProviderSession,
@@ -20,7 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import { resolveThreadWorkspaceCwd } from "../../../checkpointing/utils.ts";
-import type { MemoryChat } from "../../../memory/memories.ts";
+import { chatMemory } from "../../../memory/memories.ts";
 import { taskChatId } from "../../../tasks/task-work-reactor.ts";
 import { ProviderAdapterRequestError } from "../../../provider/errors.ts";
 import {
@@ -164,56 +162,6 @@ export function createSession({
       return true;
     },
   );
-
-  /**
-   * What the answering bot may remember in this chat. Person memory renders only when one
-   * person can read the chat: a private DM's creator, or the only person in a group.
-   */
-  const resolveMemoryChat = Effect.fn("resolveMemoryChat")(function* (
-    thread: OrchestrationThreadShell,
-  ) {
-    const botId = resolveControllerBotId(thread);
-
-    if (botId === null) return undefined;
-
-    const group =
-      thread.groupId == null
-        ? undefined
-        : projectionSnapshotQuery.getGroupById
-          ? Option.getOrUndefined(yield* projectionSnapshotQuery.getGroupById(thread.groupId))
-          : (yield* projectionSnapshotQuery.getCommandReadModel()).groups.find(
-              (candidate) => candidate.id === thread.groupId,
-            );
-
-    const groupPeople = group?.members.filter(isGroupPersonMember) ?? [];
-    const project = yield* resolveProject(thread.projectId);
-
-    const people = Option.isSome(accounts)
-      ? yield* accounts.value.listPeople().pipe(Effect.orElseSucceed(() => []))
-      : [];
-
-    const audiencePersonId: AuthSessionId | null =
-      thread.parentThreadId != null
-        ? null
-        : thread.groupId == null
-          ? thread.visibility === "user"
-            ? (thread.createdBy ?? null)
-            : null
-          : groupPeople.length === 1
-            ? groupPeople[0]!.personId
-            : null;
-
-    return {
-      threadId: thread.id,
-      botId,
-      groupId: thread.groupId ?? null,
-      groupName: group?.name ?? "",
-      projectId: project && project.id !== GENERAL_PROJECT_ID ? project.id : null,
-      projectTitle: project?.title ?? "",
-      audiencePersonId,
-      people: people.map((person) => ({ id: person.userId, name: person.displayName })),
-    } satisfies MemoryChat;
-  });
 
   const ensureSessionForThread = Effect.fn("ensureSessionForThread")(function* (
     threadId: ThreadId,
@@ -705,7 +653,13 @@ export function createSession({
     );
 
     const normalizedAttachments = input.attachments ?? [];
-    const memoryChat = yield* resolveMemoryChat(thread);
+
+    const group =
+      thread.groupId != null && projectionSnapshotQuery.getGroupById
+        ? Option.getOrUndefined(yield* projectionSnapshotQuery.getGroupById(thread.groupId))
+        : undefined;
+
+    const memory = chatMemory(thread, group);
     const botId = thread.botId;
 
     // Otto: a task wake acts for the task's owner; with no person, whoever started the chat
@@ -765,8 +719,7 @@ export function createSession({
       interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
       ...(input.hiddenWake !== undefined ? { hiddenWake: input.hiddenWake } : {}),
       ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
-      ...(memoryChat ? { memoryChat } : {}),
-      authorPersonId: input.authorPersonId ?? null,
+      ...(memory ? { memory } : {}),
       askerPersonId,
     };
   });

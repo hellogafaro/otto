@@ -22,7 +22,11 @@ import { resolveSpawnCommand } from "@otto/shared/shell";
 
 import { TextGenerationError } from "@otto/contracts";
 import * as TextGeneration from "./text-generation.ts";
-import { buildBranchNamePrompt, buildThreadTitlePrompt } from "./text-generation-prompts.ts";
+import {
+  buildBranchNamePrompt,
+  buildMemoryReviewPrompt,
+  buildThreadTitlePrompt,
+} from "./text-generation-prompts.ts";
 import {
   normalizeCliError,
   sanitizeThreadTitle,
@@ -91,7 +95,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     );
 
   const encodeJsonForOperation = (
-    operation: "generateBranchName" | "generateThreadTitle",
+    operation: TextGeneration.TextGenerationOperation,
     value:
       | ReturnType<typeof toJsonSchemaObject>
       | {
@@ -123,7 +127,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     outputSchemaJson,
     modelSelection,
   }: {
-    operation: "generateBranchName" | "generateThreadTitle";
+    operation: TextGeneration.TextGenerationOperation;
     cwd: string;
     prompt: string;
     outputSchemaJson: S;
@@ -179,9 +183,9 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           )
         : claudeEnvironment;
 
-      // Titles need only the supplied prompt, not configuration from the checkout.
+      // Titles and memory reviews need only the supplied prompt, not configuration from the checkout.
       const workingDirectory =
-        operation === "generateThreadTitle"
+        operation !== "generateBranchName"
           ? yield* fileSystem
               .makeTempDirectoryScoped({ prefix: "otto-claude-title-" })
               .pipe(
@@ -354,9 +358,23 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
       };
     });
 
+  const generateMemoryReview: TextGeneration.TextGeneration["Service"]["generateMemoryReview"] =
+    Effect.fn("ClaudeTextGeneration.generateMemoryReview")(function* (input) {
+      const { prompt, outputSchema } = buildMemoryReviewPrompt(input);
+
+      return yield* runClaudeJson({
+        operation: "generateMemoryReview",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+    });
+
   return {
     generateBranchName,
     generateThreadTitle,
+    generateMemoryReview,
   } satisfies TextGeneration.TextGeneration["Service"];
 });
 

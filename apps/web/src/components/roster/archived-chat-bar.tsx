@@ -5,15 +5,24 @@ import { useState } from "react";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { useCanArchiveChat } from "../chat/use-can-archive-chat";
 import { Button } from "../ui/button";
 import { CONVERSATION_MEASURE_CLASS_NAME } from "./bot-conversation-presentation";
 
 /**
  * Otto: An archived chat stays readable; this bar takes the composer's place, at its width, and
- * Unarchive brings the composer back.
+ * Unarchive brings the composer back. In a group chat only whoever started it, or an admin, can
+ * unarchive it; everyone else sees the line alone.
  */
-export function ArchivedChatBar({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
+export function ArchivedChatBar({
+  threadRef,
+  groupId = null,
+}: {
+  readonly threadRef: ScopedThreadRef;
+  readonly groupId?: string | null;
+}) {
   const { t } = useI18n();
+  const mayUnarchive = useCanArchiveChat(threadRef, groupId);
   const actions = useChatActions();
   const [unarchiving, setUnarchiving] = useState(false);
 
@@ -41,16 +50,18 @@ export function ArchivedChatBar({ threadRef }: { readonly threadRef: ScopedThrea
         <p className="min-w-0 flex-1 text-sm text-muted-foreground">
           {t("This chat is archived.")}
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={unarchiving}
-          onClick={() => void unarchive()}
-        >
-          <RiInboxUnarchiveLine className="size-3.5" />
-          {t("Unarchive")}
-        </Button>
+        {mayUnarchive ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={unarchiving}
+            onClick={() => void unarchive()}
+          >
+            <RiInboxUnarchiveLine className="size-3.5" />
+            {t("Unarchive")}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

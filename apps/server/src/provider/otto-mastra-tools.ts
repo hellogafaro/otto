@@ -1,24 +1,19 @@
 import * as Predicate from "effect/Predicate";
 import type { ToolsInput } from "@mastra/core/agent";
 import { type Tool, createTool } from "@mastra/core/tools";
-import { OttoToolInputSchemas } from "@otto/contracts";
+import { OttoToolInputSchemas, type OttoToolId } from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
 
-import {
-  isMemoryToolId,
-  type OttoRuntimeToolId,
-  type OttoToolRuntime,
-} from "./otto-tool-runtime.ts";
-import { MemoryUpdateToolInput } from "../memory/memory-update-tool.ts";
+import { type OttoToolRuntime } from "./otto-tool-runtime.ts";
 import type { OttoToolExecution } from "./tools/otto-tool-types.ts";
 import { deferredToolOptions, type OttoToolSearch } from "./mastra/otto-tool-search.ts";
 import { capToolOutput } from "./tool-output.ts";
 
-function inputSchema(toolId: OttoRuntimeToolId) {
-  return isMemoryToolId(toolId) ? MemoryUpdateToolInput : OttoToolInputSchemas[toolId];
+function inputSchema(toolId: OttoToolId) {
+  return OttoToolInputSchemas[toolId];
 }
 
 type JsonSchemaNode = JSONSchema.JSONSchema;

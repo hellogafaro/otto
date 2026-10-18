@@ -171,14 +171,13 @@ describe("roster in Simplified Chinese", () => {
         open
         onOpenChange={() => {}}
         environmentId={EnvironmentId.make("environment-zh")}
-        botId={BotId.make("bot-zh")}
-        botName="Ada"
+        projectId={null}
       />,
     );
 
     expect(markup).toContain("记忆");
-    expect(markup).toContain("Ada 记住的内容。只有你能看到它记住的关于你的内容。");
-    expect(markup).not.toContain("What Ada remembers");
+    expect(markup).toContain("机器人记住的内容。它们会从聊天中自行学习，并忘记不再提起的内容。");
+    expect(markup).not.toContain("What bots remember");
   });
 
   it("translates the new bot dialog", () => {

@@ -26,7 +26,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { BotInboxService } from "../../../bot-inbox/service.ts";
-import type { MemoryToolHandler } from "../../../memory/memory-update-tool.ts";
 
 import { ProjectionSnapshotQuery } from "../../../orchestration/services/projection-snapshot-query.ts";
 import type { ProjectionThreadMessageRepository } from "../../../persistence/services/projection-thread-messages.ts";
@@ -86,7 +85,6 @@ export interface SessionLifecycleDependencies {
     never
   >;
   readonly memoryEnabled: () => Effect.Effect<boolean>;
-  readonly memoryHandlers: (threadId: string) => { memory_update: MemoryToolHandler } | undefined;
   readonly delegationFor: (input: {
     readonly threadId: ThreadId;
     readonly botId: BotId;
@@ -104,7 +102,6 @@ export interface SessionLifecycleDependencies {
   readonly preparePreviewMcpSession: (
     threadId: ThreadId,
     providerInstanceId: ProviderInstanceId,
-    memoryHandler?: MemoryToolHandler,
   ) => Effect.Effect<void, never, never>;
   readonly clearPreviewMcpSession: (threadId: ThreadId) => Effect.Effect<void, never, never>;
   readonly subscriptionAuth: SubscriptionAuthService;

@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1775,
+  "directMessageCount": 1722,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -14,34 +14,11 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "providerConnectionLabel(status)) : t("Status unavailable")}",
     ],
     "apps/mobile/src/features/settings/SettingsProviderHealthRouteScreen.tsx": [
-      "describeDurableFactFailure(squashAtomCommandFailure(result)).message);",
       "option.label)}",
-    ],
-    "apps/mobile/src/features/settings/SettingsRouteScreen.tsx": [
-      "description) : \`\${t(description)} \${t(MEMORY_SETTING_DISABLED_HINT)}\`;",
-      "description)} \${t(MEMORY_SETTING_DISABLED_HINT)}\`;",
-      "MEMORY_SETTING_DISABLED_HINT)}\`;",
-      "SHARED_PROJECT_MEMORY_SETTING.label)}",
     ],
     "apps/mobile/src/features/settings/appearance/sections/ThemeAppearanceSection.tsx": [
       "title)}",
       "title)}</Text>",
-    ],
-    "apps/mobile/src/features/threads/DurableFactsCard.tsx": [
-      "DURABLE_MEMORY_APPROVAL_LABELS[fact.approvalState]),",
-      "DURABLE_MEMORY_DELETION_LABELS[fact.deletionState]),",
-      "option.label)}",
-      "SIMPLE_ACTION_LABELS[action])}",
-      "option.label)}",
-      "DURABLE_MEMORY_SCOPE_LABELS[fact.scope])} · {factStatus(fact, i18n)}",
-      "readOnlyReason)}</Text>",
-    ],
-    "apps/mobile/src/features/threads/ThreadMemoryScreen.tsx": [
-      "factFailure.message), factFailure.detail].filter(Boolean).join(" ")",
-      "DURABLE_FACT_DELETE_CONFIRM.title),",
-      "DURABLE_FACT_DELETE_CONFIRM.message),",
-      "DURABLE_FACT_DELETE_CONFIRM.cancel), style: "cancel" },",
-      "DURABLE_FACT_DELETE_CONFIRM.confirm),",
     ],
     "apps/mobile/src/features/threads/ThreadRoutinesScreen.tsx": [
       "status.label)}",
@@ -139,12 +116,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "resolvePageLabel(pathname)),",
     ],
     "packages/client-runtime/src/bot-inbox.ts": [
-      "MEMORY_APPROVAL_ACTIONS[approval.scope]),",
       "botInboxKindLabel(item.kind)),",
-    ],
-    "packages/client-runtime/src/durable-memory.ts": [
-      "label)\`.",
-      "MEMORY_APPROVAL_HEADINGS[scope]);",
     ],
     "packages/client-runtime/src/provider-access-guide.ts": [
       "copy.connect);",
@@ -268,7 +240,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/mobile/src/features/settings/appearance/sections/ThemeAppearanceSection.tsx",
     "apps/mobile/src/features/sharing/IncomingShareProvider.tsx",
     "apps/mobile/src/features/threads/ComputerDesktopNotice.tsx",
-    "apps/mobile/src/features/threads/DurableFactsCard.tsx",
     "apps/mobile/src/features/threads/NewTaskContextPickerScreens.tsx",
     "apps/mobile/src/features/threads/NewTaskDraftScreen.tsx",
     "apps/mobile/src/features/threads/NewTaskRouteScreen.tsx",
@@ -280,7 +251,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/mobile/src/features/threads/ThreadDelegationFeedCard.tsx",
     "apps/mobile/src/features/threads/ThreadDetailScreen.tsx",
     "apps/mobile/src/features/threads/ThreadFeed.tsx",
-    "apps/mobile/src/features/threads/ThreadMemoryScreen.tsx",
     "apps/mobile/src/features/threads/ThreadNavigationSidebar.tsx",
     "apps/mobile/src/features/threads/ThreadRouteScreen.tsx",
     "apps/mobile/src/features/threads/ThreadRoutinesScreen.tsx",
@@ -421,7 +391,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/roster/group-editor.tsx",
     "apps/web/src/components/roster/group-thread-landing.tsx",
     "apps/web/src/components/roster/inline-approval.tsx",
-    "apps/web/src/components/roster/memory-approval-prompt.tsx",
     "apps/web/src/components/roster/new-bot-dialog.tsx",
     "apps/web/src/components/roster/new-chat-dialog.tsx",
     "apps/web/src/components/roster/project-composer-control.tsx",
@@ -518,7 +487,6 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/routes/__root.tsx",
     "packages/client-runtime/src/bot-inbox.ts",
     "packages/client-runtime/src/channel-presentation.ts",
-    "packages/client-runtime/src/durable-memory.ts",
     "packages/client-runtime/src/errors/thread-error-presentation.ts",
     "packages/client-runtime/src/image-generation.ts",
     "packages/client-runtime/src/provider-access-guide.ts",

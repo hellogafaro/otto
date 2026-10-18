@@ -38,7 +38,8 @@ function humanizeInstanceId(instanceId: ProviderInstanceId): string {
   return words.join(" ");
 }
 
-function driverKindLabel(driverKind: ProviderDriverKind): string {
+/** A driver's own name, such as Claude or Codex. */
+export function driverKindLabel(driverKind: ProviderDriverKind): string {
   return PROVIDER_DISPLAY_NAMES[driverKind] ?? formatProviderDriverKindLabel(driverKind);
 }
 

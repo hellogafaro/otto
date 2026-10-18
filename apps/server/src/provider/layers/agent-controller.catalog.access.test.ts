@@ -112,24 +112,10 @@ describe("AgentControllerLive", () => {
         web: { url: "https://web.example/mcp" },
       });
 
-      const toolIds = mastra.harnessOptions[0]?.toolRuntime
-        .toolsForThread(String(codexThreadId))
-        .map((tool) => tool.id);
-
-      expect(toolIds).not.toContain("memory_update");
       yield* controller.sendTurn({
         threadId: codexThreadId,
         input: "Do the delegated task.",
-        memoryChat: {
-          threadId: codexThreadId,
-          botId: BotId.make("delegated-bot"),
-          groupId: null,
-          groupName: "",
-          projectId: null,
-          projectTitle: "",
-          audiencePersonId: null,
-          people: [],
-        },
+        memory: { read: ["team"], learn: undefined, projectId: null },
       });
       expect(mastra.session.sendMessage).toHaveBeenCalled();
       expect(render).not.toHaveBeenCalled();

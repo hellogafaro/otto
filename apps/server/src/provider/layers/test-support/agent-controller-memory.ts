@@ -4,7 +4,7 @@ import { vi } from "vite-plus/test";
 import type { McpCapability } from "../../../mcp/mcp-invocation-context.ts";
 import { BotUsageLedger, type BotUsageLedgerShape } from "../../../usage/bot-usage-ledger.ts";
 
-export function makeMemoryOnlyCredentialOptions() {
+export function makeCredentialRecorder() {
   const requests: Array<{
     readonly threadId: ThreadId;
     readonly providerInstanceId: ProviderInstanceId;
@@ -19,7 +19,7 @@ export function makeMemoryOnlyCredentialOptions() {
     issueMcpCredential: (request: (typeof requests)[number]) => {
       requests.push(request);
 
-      if (!request.capabilities?.has("memory")) return Effect.as(Effect.void, undefined);
+      if (!request.capabilities?.size) return Effect.as(Effect.void, undefined);
 
       return Effect.succeed({
         config: {
@@ -28,7 +28,7 @@ export function makeMemoryOnlyCredentialOptions() {
           providerSessionId: `session-${String(request.threadId)}`,
           providerInstanceId: request.providerInstanceId,
           endpoint: "http://127.0.0.1:1/mcp",
-          authorizationHeader: "Bearer test-memory-only",
+          authorizationHeader: "Bearer test-credential",
         },
       });
     },

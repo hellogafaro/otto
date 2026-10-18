@@ -68,7 +68,7 @@ vi.mock("@effect/atom-react", () => ({
     atom === mocks.snapshotAtom
       ? mocks.snapshot
       : atom === mocks.peopleAtom
-        ? { current: null, host: null }
+        ? { current: null, host: null, directory: [] }
         : atom === mocks.routineCacheAtom
           ? { routines: new Map(), runs: new Map(), receiptSources: new Map() }
           : [],
@@ -102,7 +102,11 @@ vi.mock("../../provider-instances", () => ({
 }));
 
 vi.mock("../../state/bots", () => ({
-  botEnvironment: { update: Symbol("update"), channels: { send: Symbol("send") } },
+  botEnvironment: {
+    update: Symbol("update"),
+    channels: { send: Symbol("send") },
+    groups: { assignMember: Symbol("assignMember"), assignPerson: Symbol("assignPerson") },
+  },
   environmentPeopleAtom: () => mocks.peopleAtom,
   environmentBotsAtom: () => Symbol("bots"),
 }));

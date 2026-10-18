@@ -631,6 +631,74 @@ it.layer(NodeServices.layer)("group people", (it) => {
     }),
   );
 
+  it.effect("leaves archiving a group chat to whoever started it or an admin", () =>
+    Effect.gen(function* () {
+      const archive = (
+        type: "thread.archive" | "thread.unarchive",
+        actorId: AuthSessionId,
+        createdBy: AuthSessionId | null,
+        admin = false,
+      ) =>
+        Effect.result(
+          decideOrchestrationCommand({
+            command: {
+              type,
+              commandId: CommandId.make(`cmd-${type}-${actorId}`),
+              threadId: ThreadId.make("thread-group"),
+            },
+            readModel: makeReadModel({
+              bots: [makeBot({ id: BOSS_ID })],
+              groups: people.groups,
+              threads: [
+                {
+                  ...makeGroupThread(),
+                  createdBy,
+                  archivedAt: type === "thread.unarchive" ? NOW : null,
+                },
+              ],
+            }),
+            actor: { personId: actorId, canManageGroups: admin },
+          }),
+        );
+
+      expect(
+        tags(
+          yield* archive("thread.archive", BEN, BEN),
+          yield* archive("thread.archive", ANA, BEN),
+          yield* archive("thread.archive", ANA, null),
+          yield* archive("thread.archive", BEN, null),
+          yield* archive("thread.archive", BEN, ANA, true),
+          yield* archive("thread.unarchive", BEN, BEN),
+          yield* archive("thread.unarchive", ANA, BEN),
+        ),
+      ).toEqual(["Success", "Failure", "Success", "Failure", "Success", "Success", "Failure"]);
+    }),
+  );
+
+  it.effect("lets any member, not only the group's first person, add a bot", () =>
+    Effect.gen(function* () {
+      const assign = (actorId: AuthSessionId) =>
+        Effect.result(
+          decideOrchestrationCommand({
+            command: {
+              type: "group.member.assign",
+              commandId: CommandId.make(`cmd-assign-bot-${actorId}`),
+              groupId: GROUP_ID,
+              botId: SPECIALIST_ID,
+              role: "specialist",
+            },
+            readModel: makeReadModel({
+              bots: [makeBot({ id: BOSS_ID }), makeBot({ id: SPECIALIST_ID })],
+              groups: people.groups,
+            }),
+            actor: { personId: actorId, canManageGroups: false },
+          }),
+        );
+
+      expect(tags(yield* assign(BEN), yield* assign(CY))).toEqual(["Success", "Failure"]);
+    }),
+  );
+
   it.effect("lets the group's first person or an admin remove others, and anyone leave", () =>
     Effect.gen(function* () {
       const unassign = (personId: AuthSessionId, actorId: AuthSessionId, admin = false) =>

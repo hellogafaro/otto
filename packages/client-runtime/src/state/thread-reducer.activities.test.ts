@@ -1,14 +1,6 @@
 import { assert, describe, expect, it } from "vite-plus/test";
-import {
-  MEMORY_APPROVAL_REQUESTED_ACTIVITY,
-  MEMORY_APPROVAL_RESOLVED_ACTIVITY,
-  BotId,
-  EventId,
-  ThreadId,
-  TurnId,
-} from "@otto/contracts";
+import { EventId, ThreadId, TurnId } from "@otto/contracts";
 import type { OrchestrationThread } from "@otto/contracts";
-import { pendingMemoryApprovals } from "../durable-memory.ts";
 import { applyThreadDetailEvent } from "./thread-reducer.ts";
 import { baseEventFields, baseThread } from "./thread-reducer.test-support.ts";
 
@@ -42,60 +34,6 @@ describe("applyThreadDetailEvent", () => {
         expect(result.thread.activities).toHaveLength(1);
         expect(result.thread.activities[0]?.kind).toBe("file-edit");
       }
-    });
-
-    it("opens a memory approval card on request and clears it on decision", () => {
-      const request = {
-        memoryId: "m_deploys",
-        scope: "project" as const,
-        action: "add" as const,
-        text: "Deploys happen on Fridays.",
-        previousText: null,
-        title: "Otto",
-        authorBotId: BotId.make("bot-1"),
-      };
-
-      const append = (
-        thread: OrchestrationThread,
-        sequence: number,
-        kind: string,
-        payload: OrchestrationThread["activities"][number]["payload"],
-      ) => {
-        const result = applyThreadDetailEvent(thread, {
-          ...baseEventFields,
-          sequence,
-          occurredAt: "2026-04-01T11:00:00.000Z",
-          aggregateKind: "thread",
-          aggregateId: ThreadId.make("thread-1"),
-          type: "thread.activity-appended",
-          payload: {
-            threadId: ThreadId.make("thread-1"),
-            activity: {
-              id: EventId.make(`activity-${sequence}`),
-              tone: sequence === 20 ? "approval" : "info",
-              kind,
-              summary: kind,
-              payload,
-              turnId: null,
-              createdAt: "2026-04-01T11:00:00.000Z",
-            },
-          },
-        });
-
-        assert(result.kind === "updated");
-
-        return result.thread;
-      };
-
-      const requested = append(baseThread, 20, MEMORY_APPROVAL_REQUESTED_ACTIVITY, request);
-      expect(pendingMemoryApprovals(requested.activities)).toEqual([request]);
-
-      const resolved = append(requested, 21, MEMORY_APPROVAL_RESOLVED_ACTIVITY, {
-        memoryId: request.memoryId,
-        status: "approved",
-      });
-
-      expect(pendingMemoryApprovals(resolved.activities)).toEqual([]);
     });
 
     it("appends in-order live activities without dropping earlier rows", () => {

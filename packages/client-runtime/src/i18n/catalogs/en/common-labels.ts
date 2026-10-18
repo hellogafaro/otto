@@ -306,7 +306,6 @@ export const commonLabelsCatalog = {
   "Nothing open": "Nothing open",
   "Could not load the inbox": "Could not load the inbox",
   "Loading inbox": "Loading inbox",
-  "Approve edit": "Approve edit",
   "Timestamp format": "Timestamp format",
   Shared: "Shared",
   Separate: "Separate",

@@ -11,20 +11,14 @@ import {
   type OttoToolWorkspaceType,
   type RuntimeMode,
 } from "@otto/contracts";
-import {
-  type MemoryToolHandler,
-  type MemoryUpdateToolId,
-} from "../../memory/memory-update-tool.ts";
 import type { OttoCatalogBackendOptions, OttoCatalogToolHandler } from "./otto-catalog-types.ts";
 import type { OttoBotStateRuntime } from "../otto-bot-state-runtime.ts";
 
 /** Native and plugin tools use the SDK result contract until tool-specific processing. */
 export type OttoToolResult = Awaited<ReturnType<NonNullable<Tool["execute"]>>>;
 
-export type OttoRuntimeToolId = OttoToolId | MemoryUpdateToolId;
-
 export interface OttoRuntimeToolDefinition {
-  readonly id: OttoRuntimeToolId;
+  readonly id: OttoToolId;
   readonly description: string;
 }
 
@@ -40,7 +34,6 @@ export interface OttoToolSession {
   readonly workspace?: Workspace;
   /** Path-only environment this turn's shell commands get, such as the asker's GitHub login folder. */
   readonly commandEnvironment?: Readonly<Record<string, string>>;
-  readonly memoryHandlers?: Record<MemoryUpdateToolId, MemoryToolHandler>;
   readonly delegation?: {
     readonly depth: number;
     readonly activeDelegations: number;
@@ -92,7 +85,7 @@ export interface OttoToolRuntimeOptions {
 
 export interface OttoToolExecution {
   readonly threadId: string;
-  readonly toolId: OttoRuntimeToolId;
+  readonly toolId: OttoToolId;
   readonly toolCallId: string;
   readonly input: unknown;
   readonly approvalMode: "require-grant";
@@ -109,7 +102,7 @@ export interface OttoToolRuntime {
   readonly toolsForThread: (threadId: string) => ReadonlyArray<OttoRuntimeToolDefinition>;
   readonly requiresApproval: (
     threadId: string,
-    toolId: OttoRuntimeToolId,
+    toolId: OttoToolId,
     input: OttoToolExecution["input"],
   ) => Promise<boolean>;
   /** A one-use grant for this exact call, naming the person who approved it when one did. */

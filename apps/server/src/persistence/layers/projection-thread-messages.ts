@@ -335,12 +335,12 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
           ${
             terms.length === 0
               ? sql``
-              : sql`AND ${sql.or(
-                  terms.map(
-                    (term) =>
-                      sql`text LIKE ${`%${term.replaceAll("!", "!!").replaceAll("%", "!%").replaceAll("_", "!_")}%`} ESCAPE '!'`,
-                  ),
-                )}`
+              : sql`AND message_id IN (
+                  SELECT message_id FROM message_search
+                  WHERE message_search MATCH ${terms
+                    .map((term) => `"${term.replaceAll('"', '""')}"*`)
+                    .join(" OR ")}
+                )`
           }
         ORDER BY created_at DESC, message_id DESC
         LIMIT ${limit}
