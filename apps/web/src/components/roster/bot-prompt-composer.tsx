@@ -636,7 +636,7 @@ export function BotPromptComposer({
               data-testid="bot-prompt-controls"
               /* Pinned to the box corners in every state: growing the draft must not move
              the add or send button out from under the pointer. */
-              className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between"
+              className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-2"
             >
               <div
                 className={cn(

@@ -14,7 +14,8 @@ export function isDictating(status: string): boolean {
 /**
  * Otto: The row every dictating composer shows in place of its own controls: cancel, the voice and
  * the elapsed time, 8px apart and centered on the row. The composer keeps the stop button in its
- * send slot just after it, so the chat composer, New chat, routines and tasks look and behave alike.
+ * send slot after it, and its row's own 8px gap spaces the two, so the chat composer, New chat,
+ * routines and tasks look and behave alike.
  */
 export function DictationRecordingBar({
   stream,
@@ -28,7 +29,7 @@ export function DictationRecordingBar({
   return (
     <div
       data-testid="dictation-recording-bar"
-      className="pointer-events-auto flex h-7 min-w-0 flex-1 items-center gap-2 pe-2"
+      className="pointer-events-auto flex h-7 min-w-0 flex-1 items-center gap-2"
     >
       <Tooltip>
         <TooltipTrigger
