@@ -5,8 +5,19 @@ import { VOICE_AUDIO_MAX_BYTES, EnvironmentId, type VoiceTranscribeInput } from 
 
 import type { DictationAudio, DictationDependencies, DictationLimits } from "./session.ts";
 
-/** Server-side `voice.transcribe` accepts at most this much decoded audio. */
+/**
+ * Up to 15 minutes of dictation. maxAudioBytes bounds each piece a capture sends, which the
+ * server's `voice.transcribe` caps; a transcription gets two minutes, as long pieces upload slowly.
+ */
 export const VOICE_DICTATION_LIMITS: Partial<DictationLimits> = {
+  maxRecordingMs: 15 * 60_000,
+  maxAudioBytes: VOICE_AUDIO_MAX_BYTES,
+  maxTranscriptionMs: 120_000,
+  maxTranscriptCharacters: 16_000,
+};
+
+/** Mobile records one file without pieces, so it keeps the one-minute default. */
+export const MOBILE_DICTATION_LIMITS: Partial<DictationLimits> = {
   maxAudioBytes: VOICE_AUDIO_MAX_BYTES,
   maxTranscriptCharacters: 16_000,
 };
@@ -53,24 +64,15 @@ export function dictationAudioMediaType(mediaType: string) {
   return MEDIA_TYPES.get(mediaType.split(";", 1)[0]!.trim().toLowerCase()) ?? null;
 }
 
-const BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
+/** Encodes in 32 KB slices with the platform's btoa, far faster than a per-byte loop on long audio. */
 export function encodeDictationAudioBase64(bytes: Uint8Array): string {
-  let output = "";
+  const slices: string[] = [];
 
-  for (let index = 0; index < bytes.length; index += 3) {
-    const a = bytes[index]!;
-    const b = bytes[index + 1];
-    const c = bytes[index + 2];
-    const chunk = (a << 16) | ((b ?? 0) << 8) | (c ?? 0);
-    output +=
-      BASE64[(chunk >> 18) & 63]! +
-      BASE64[(chunk >> 12) & 63]! +
-      (b === undefined ? "=" : BASE64[(chunk >> 6) & 63]!) +
-      (c === undefined ? "=" : BASE64[chunk & 63]!);
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    slices.push(String.fromCharCode(...bytes.subarray(index, index + 0x8000)));
   }
 
-  return output;
+  return btoa(slices.join(""));
 }
 
 const FAILURE_MESSAGES = new Map<string, string>([

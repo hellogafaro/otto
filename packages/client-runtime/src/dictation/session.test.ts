@@ -291,22 +291,79 @@ describe("isolated dictation lifecycle", () => {
     expect(h.updateDraft).not.toHaveBeenCalled();
   });
 
-  it("enforces recording and transcription deadlines without automatic submission", async () => {
+  it("stops at the recording limit and transcribes what was said, without submitting", async () => {
     vi.useFakeTimers();
     const h = setup({ maxRecordingMs: 100, maxTranscriptionMs: 50 });
     await h.session.start(h.draft);
     await vi.advanceTimersByTimeAsync(100);
-    expect(h.session.status).toBe("error");
-    expect(h.transcribe).not.toHaveBeenCalled();
+    expect(h.session.status).toBe("transcribing");
+    expect(h.session.stoppedAtLimit).toBe(true);
+    expect(h.recording.stop).toHaveBeenCalledTimes(1);
+    h.transcription.resolve("spoken");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.session.status).toBe("completed");
+    expect(h.draft.text).toBe("hello spoken");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("enforces the transcription deadline without automatic submission", async () => {
+    vi.useFakeTimers();
+    const h = setup({ maxRecordingMs: 100, maxTranscriptionMs: 50 });
     await h.session.start(h.draft);
     const finish = h.session.finish();
     await h.invoked.promise;
     await vi.advanceTimersByTimeAsync(50);
     await finish;
     expect(h.session.status).toBe("error");
+    expect(h.session.stoppedAtLimit).toBe(false);
     expect(h.transcribe.mock.calls[0]?.[0].signal.aborted).toBe(true);
     expect(h.updateDraft).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("transcribes pieces as they arrive and joins them in recording order", async () => {
+    const h = setup();
+    const first = deferred<string>();
+    const second = deferred<string>();
+    const last = deferred<string>();
+    const pending = [first, second, last];
+    h.transcribe.mockImplementation(() => pending.shift()!.promise);
+    await h.session.start(h.draft);
+    const input = h.capture.mock.calls[0]![0];
+    input.onSegment({ bytes: new Uint8Array([1]), mediaType: "audio/webm", durationMs: 5 });
+    input.onSegment({ bytes: new Uint8Array([2]), mediaType: "audio/webm", durationMs: 5 });
+    expect(h.transcribe).toHaveBeenCalledTimes(2);
+    expect(h.session.status).toBe("recording");
+    const finish = h.session.finish();
+    // Pieces finish out of order; the draft still reads in the order they were spoken.
+    last.resolve("three");
+    first.resolve("one");
+    second.resolve("two");
+    await finish;
+    expect(h.transcribe).toHaveBeenCalledTimes(3);
+    expect(h.session.status).toBe("completed");
+    expect(h.draft.text).toBe("hello one two three");
+  });
+
+  it("keeps earlier pieces when the last one is empty, and retries every piece", async () => {
+    const h = setup();
+    h.recording.stop.mockResolvedValueOnce({
+      bytes: new Uint8Array(),
+      mediaType: "audio/webm",
+      durationMs: 1,
+    });
+    const failing = deferred<string>();
+    h.transcribe.mockImplementationOnce(() => failing.promise);
+    await h.session.start(h.draft);
+    h.capture.mock.calls[0]![0].onSegment(h.audio);
+    failing.reject(new Error("network"));
+    await h.session.finish();
+    expect(h.session.status).toBe("error");
+    expect(h.session.canRetry).toBe(true);
+    h.transcribe.mockImplementationOnce(async () => "again");
+    await h.session.retry();
+    expect(h.transcribe).toHaveBeenCalledTimes(2);
+    expect(h.draft.text).toBe("hello again");
   });
 
   it("cancels permission acquisition on release and disposes a late recording", async () => {
@@ -366,26 +423,22 @@ describe("isolated dictation lifecycle", () => {
     },
   );
 
-  it.each(["recording", "transcribing"] as const)(
-    "notifies subscribers when the %s deadline fails",
-    async (phase) => {
-      vi.useFakeTimers();
-      const h = setup({ maxRecordingMs: 100, maxTranscriptionMs: 50 });
-      const failure = deferred<unknown>();
-      h.session.subscribe(() => {
-        if (h.session.status === "error") failure.resolve(h.session.error);
-      });
-      await h.session.start(h.draft);
-      const finish = phase === "transcribing" ? h.session.finish() : undefined;
-
-      if (finish) await h.invoked.promise;
-      await vi.advanceTimersByTimeAsync(phase === "transcribing" ? 50 : 100);
-      expect(await failure.promise).toEqual(new Error("Dictation time limit exceeded"));
-      await finish;
-      expect(h.updateDraft).not.toHaveBeenCalled();
-      expect(vi.getTimerCount()).toBe(0);
-    },
-  );
+  it("notifies subscribers when the transcribing deadline fails", async () => {
+    vi.useFakeTimers();
+    const h = setup({ maxRecordingMs: 100, maxTranscriptionMs: 50 });
+    const failure = deferred<unknown>();
+    h.session.subscribe(() => {
+      if (h.session.status === "error") failure.resolve(h.session.error);
+    });
+    await h.session.start(h.draft);
+    const finish = h.session.finish();
+    await h.invoked.promise;
+    await vi.advanceTimersByTimeAsync(50);
+    expect(await failure.promise).toEqual(new Error("Transcription took too long. Try again."));
+    await finish;
+    expect(h.updateDraft).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it("reports platform interruption before finish and releases capture immediately", async () => {
     vi.useFakeTimers();

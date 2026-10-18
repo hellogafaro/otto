@@ -1,6 +1,6 @@
 import {
   DICTATION_UNAVAILABLE,
-  VOICE_DICTATION_LIMITS,
+  MOBILE_DICTATION_LIMITS,
   createDictationSession,
   dictationControlStatus,
   dictationUnavailableReason,
@@ -35,7 +35,7 @@ export interface ComposerDictationBinding {
 function nativeSession(dependencies: Omit<DictationDependencies, "capture">) {
   return createDictationSession(
     { ...dependencies, capture: startExpoDictationCapture },
-    VOICE_DICTATION_LIMITS,
+    MOBILE_DICTATION_LIMITS,
   );
 }
 

@@ -56,8 +56,10 @@ describe("browser dictation boundary", () => {
     expect(startDictationCapture).toHaveBeenCalledWith(
       {
         signal: expect.any(AbortSignal),
-        maxDurationMs: 1000,
+        maxDurationMs: 6000,
         maxBytes: 1024,
+        segmentMs: 3 * 60_000,
+        onSegment: expect.any(Function),
       },
       undefined,
     );

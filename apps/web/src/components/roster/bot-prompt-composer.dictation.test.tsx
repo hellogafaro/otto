@@ -134,12 +134,14 @@ vi.mock("../../lib/use-environment-composer-dictation", async () => {
         onCancel: () => session.cancel(),
         stream: null,
         onRetry: session.canRetry ? () => void session.retry() : null,
+        stoppedAtLimit: session.stoppedAtLimit,
       };
     },
   };
 });
 
 import { DictationControls, type DictationControlsProps } from "../chat/dictation-controls";
+import { DictationRecordingBar } from "../chat/dictation-recording-bar";
 import { BotPromptComposer } from "./bot-prompt-composer";
 import type { BotPromptAttachment } from "./bot-prompt-attachments";
 
@@ -159,6 +161,7 @@ function render() {
     visitElements([tree, controls], (element) => element.props["aria-label"] === label);
 
   return {
+    tree,
     textarea: visitElements(tree, (element) => element.type === "textarea") as Element,
     fileInput: visitElements(tree, (element) => element.props.type === "file") as Element,
     attachments: () =>
@@ -224,7 +227,9 @@ describe("BotPromptComposer dictation failure", () => {
 
   it("turns + into a cancel button while dictating", async () => {
     const view = render();
-    expect(view.find("Cancel dictation")).toBeNull();
+    expect(
+      visitElements(view.tree, (element) => element.type === DictationRecordingBar),
+    ).toBeNull();
 
     (view.find("Start dictation")!.props.onClick as (event: { detail: number }) => void)({
       detail: 0,
@@ -233,7 +238,10 @@ describe("BotPromptComposer dictation failure", () => {
 
     const recording = render();
     expect(recording.find("Attach file")).toBeNull();
-    (recording.find("Cancel dictation")!.props.onClick as () => void)();
+    // The shared recording bar holds cancel, the wave and the time, as in every composer.
+    const bar = visitElements(recording.tree, (element) => element.type === DictationRecordingBar);
+    expect(bar).not.toBeNull();
+    (bar!.props.onCancel as () => void)();
     expect(fake.session!.status).toBe("cancelled");
     expect(render().find("Attach file")).not.toBeNull();
   });
