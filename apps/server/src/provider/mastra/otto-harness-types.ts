@@ -133,6 +133,8 @@ export interface OttoMastraHarnessOptions {
     routineId: string,
     paused: boolean,
   ) => Promise<OttoRoutinePausedResult>;
+  /** Names of the secrets a chat's commands get, from its project and from the chat itself. */
+  readonly secretNames?: (threadId: string) => Promise<ReadonlyArray<string>>;
 }
 
 export type OttoControllerHarness = OttoMastraHarness<OttoControllerSession>;
@@ -170,4 +172,5 @@ export type OttoMastraToolOptions = Pick<
   | "deleteRoutines"
   | "updateRoutine"
   | "setRoutinePaused"
+  | "secretNames"
 >;

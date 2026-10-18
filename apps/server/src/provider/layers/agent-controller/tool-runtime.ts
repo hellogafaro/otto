@@ -38,6 +38,7 @@ export function createToolRuntime(deps: {
   >;
   readonly runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>;
   readonly botUsageLedger: BotUsageLedger["Service"];
+  readonly secrets: (threadId: string) => Promise<Readonly<Record<string, string>>>;
   readonly baseEvent: (
     threadId: ThreadId,
     active: Pick<ActiveSession, "provider" | "providerInstanceId">,
@@ -52,6 +53,7 @@ export function createToolRuntime(deps: {
   };
 }) {
   const toolRuntime = createOttoToolRuntime({
+    secrets: deps.secrets,
     onReceipt: (receipt) => {
       const active = deps.sessions.get(String(receipt.threadId));
 

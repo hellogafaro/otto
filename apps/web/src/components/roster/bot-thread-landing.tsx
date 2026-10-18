@@ -639,6 +639,7 @@ export function BotThreadLanding({
                       onSubmit={() => {
                         void runtime.submitPendingUserInputAnswers();
                       }}
+                      onAnswerSecrets={runtime.answerSecretRequest}
                       shortcuts={shortcutApprovalId === null}
                     />
                   </div>

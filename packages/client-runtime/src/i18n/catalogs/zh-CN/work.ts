@@ -176,5 +176,24 @@ export const workCatalog = {
   "This browser can't show notifications.": "此浏览器无法显示通知。",
   "You're all caught up": "已全部处理完毕",
   Earlier: "更早",
+  Secrets: "密钥",
+  "Add secret": "添加密钥",
+  "Secrets couldn't be loaded": "无法加载密钥",
+  "Delete {name}? Chats in this project stop getting it.":
+    "删除 {name}？此项目中的聊天将不再获得它。",
+  "No secrets yet. Every chat in this project gets them as environment variables.":
+    "还没有密钥。此项目中的每个聊天都会以环境变量的形式获得它们。",
+  "{name} couldn't be read": "无法读取 {name}",
+  "Copied {name}": "已复制 {name}",
+  "Updated {date}": "更新于 {date}",
+  Reveal: "显示",
+  Hide: "隐藏",
+  "Copy value": "复制值",
+  "Value of {name}": "{name} 的值",
+  "Replace value": "替换值",
+  "{name} couldn't be saved": "无法保存 {name}",
+  "Replace {name}": "替换 {name}",
+  "Every chat in this project gets it as an environment variable in its commands.":
+    "此项目中的每个聊天都会在命令中以环境变量的形式获得它。",
   "Assign to me": "分配给我",
 } as const;

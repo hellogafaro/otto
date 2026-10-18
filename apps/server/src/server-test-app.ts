@@ -101,6 +101,7 @@ import * as VcsDriverRegistry from "./vcs/vcs-driver-registry.ts";
 import * as GitWorkflowService from "./git/git-workflow-service.ts";
 
 import * as ServerSecretStore from "./auth/server-secret-store.ts";
+import * as Secrets from "./secrets/secrets.ts";
 
 import * as ChannelDeliveryStore from "./channels/channel-delivery-store.ts";
 
@@ -758,6 +759,7 @@ export const buildAppUnderTest = (options?: {
         }),
       ),
       Layer.provideMerge(authTestLayer()),
+      Layer.provideMerge(Secrets.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
       Layer.provideMerge(
         options?.layers?.channelRuntime
