@@ -185,10 +185,22 @@ describe("routineStateNote", () => {
   it("tells a user-paused routine apart from one Otto stopped", () => {
     expect(routineStateNote({ ...item, paused: true })).toBe("Paused until you resume it.");
 
-    const blocked = toRoutinePanelItem({ ...routine, lifecycle: "blocked" }, [], [], []);
+    const blocked = toRoutinePanelItem(
+      { ...routine, enabled: false, lifecycle: "blocked" },
+      [],
+      [],
+      [],
+    );
 
     expect(blocked.pausedByOtto).toBe(true);
     expect(routineStateNote(blocked)).toBe("Paused. Fix the cause in Bot inbox, then resume it.");
+  });
+
+  it("keeps a routine whose last run failed on its schedule", () => {
+    const failed = toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], [], []);
+
+    expect(failed.paused).toBe(false);
+    expect(routineStateNote(failed)).toBeNull();
   });
 
   it("names the way back for a routine that is off or still a draft", () => {

@@ -350,4 +350,103 @@ it.layer(NodeServices.layer)("routine decider", (it) => {
       });
     }),
   );
+
+  it.effect("keeps the schedule running after a failed run", () =>
+    Effect.gen(function* () {
+      let readModel = createEmptyReadModel(NOW);
+      let sequence = 0;
+
+      const apply = (command: Parameters<typeof decideOrchestrationCommand>[0]["command"]) =>
+        Effect.gen(function* () {
+          const decided = yield* decideOrchestrationCommand({ command, readModel });
+
+          for (const event of Array.isArray(decided) ? decided : [decided]) {
+            sequence += 1;
+            readModel = yield* projectEvent(readModel, {
+              ...event,
+              sequence,
+              eventId: EventId.make(`event-keeps-schedule-${sequence}`),
+            });
+          }
+        });
+
+      const routineId = RoutineId.make("routine-keeps-schedule");
+      const routine = () => readModel.routines?.find((candidate) => candidate.id === routineId);
+      yield* apply({
+        type: "routine.create-approved",
+        commandId: CommandId.make("command-keeps-schedule-create"),
+        routineId,
+        botId: BotId.make("bot-1"),
+        targetThreadId: ThreadId.make("thread-1"),
+        threadMode: "target",
+        createdBy: null,
+        visibility: "organization",
+        job: "Daily brief",
+        procedure: "Summarize this chat.",
+        schedule: { kind: "daily", time: "09:00" },
+        timezone: "UTC",
+        skillAssignmentIds: [],
+        connectorDependencies: [],
+        projectId: ProjectId.make("project-1"),
+        sandbox: "local",
+        approvalPolicy: "approval-required",
+        delegateToBotId: null,
+        createdAt: NOW,
+      });
+      yield* apply({
+        type: "routine.enable",
+        commandId: CommandId.make("command-keeps-schedule-enable"),
+        routineId,
+        createdAt: NOW,
+      });
+      expect(routine()?.nextRunAt).toBe("2026-09-01T09:00:00.000Z");
+
+      yield* apply({
+        type: "routine.run",
+        commandId: CommandId.make("command-keeps-schedule-manual"),
+        routineId,
+        runId: RoutineRunId.make("run-keeps-schedule-manual"),
+        trigger: "manual",
+        createdAt: NOW,
+      });
+      yield* apply({
+        type: "routine.run.fail",
+        commandId: CommandId.make("command-keeps-schedule-manual-fail"),
+        routineId,
+        runId: RoutineRunId.make("run-keeps-schedule-manual"),
+        failure: { kind: "execution", message: "Stopped." },
+        usageRef: null,
+        createdAt: NOW,
+      });
+      expect(routine()).toMatchObject({
+        enabled: true,
+        lifecycle: "failed",
+        nextRunAt: "2026-09-01T09:00:00.000Z",
+      });
+
+      const slot = "2026-09-01T09:00:00.000Z";
+      yield* apply({
+        type: "routine.run.scheduled",
+        commandId: CommandId.make("command-keeps-schedule-slot"),
+        routineId,
+        runId: RoutineRunId.make("run-keeps-schedule-slot"),
+        trigger: "scheduled",
+        scheduledFor: slot,
+        createdAt: slot,
+      });
+      yield* apply({
+        type: "routine.run.block",
+        commandId: CommandId.make("command-keeps-schedule-slot-block"),
+        routineId,
+        runId: RoutineRunId.make("run-keeps-schedule-slot"),
+        failure: { kind: "provider", message: "Provider unavailable." },
+        createdAt: "2026-09-01T09:00:05.000Z",
+      });
+      expect(routine()).toMatchObject({
+        enabled: true,
+        lifecycle: "blocked",
+        nextRunAt: "2026-09-02T09:00:00.000Z",
+      });
+    }),
+  );
 });

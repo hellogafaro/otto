@@ -506,9 +506,10 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
       const blockedOrFailed =
         command.type === "routine.run.block" || command.type === "routine.run.fail";
 
+      // Otto: A failed run is recorded on its routine, which keeps its schedule; a failed
+      // scheduled run moves the next run to the following slot.
       const routine = {
         ...existing,
-        enabled: blockedOrFailed ? false : existing.enabled,
         lifecycle: Match.value(command).pipe(
           Match.when({ type: "routine.run.start" }, (_command) => "running" as const),
           Match.when({ type: "routine.run.block" }, (_command) => "blocked" as const),
@@ -525,7 +526,11 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         ),
         nextRunAt: Match.value(command).pipe(
           Match.when({ type: "routine.run.complete" }, (command) => command.nextRunAt),
-          Match.orElse((_command) => (blockedOrFailed ? null : existing.nextRunAt)),
+          Match.orElse((_command) =>
+            blockedOrFailed && existing.enabled && existingRun.scheduledFor !== null
+              ? nextScheduledFor(existing.schedule, existing.timezone, Date.parse(occurredAt))
+              : existing.nextRunAt,
+          ),
         ),
         lastRunAt: terminal ? occurredAt : existing.lastRunAt,
         latestResult:

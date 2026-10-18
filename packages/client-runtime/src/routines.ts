@@ -80,7 +80,7 @@ export interface RoutineAdapterItem {
   readonly procedureApproved: boolean;
   readonly enabled: boolean;
   readonly paused: boolean;
-  /** Otto paused it after a blocked or failed run, not the user. */
+  /** Paused by an earlier Otto after a blocked or failed run, not by the user. */
   readonly pausedByOtto: boolean;
   readonly nextRunAt: string | null;
   readonly lastRunAt: string | null;
@@ -206,10 +206,12 @@ export function toRoutinePanelItem(
     procedureApproved: routine.approvalVersion === routine.procedureVersion,
     enabled: routine.enabled,
     paused:
-      routine.lifecycle === "paused" ||
-      routine.lifecycle === "blocked" ||
-      routine.lifecycle === "failed",
-    pausedByOtto: routine.lifecycle === "blocked" || routine.lifecycle === "failed",
+      !routine.enabled &&
+      (routine.lifecycle === "paused" ||
+        routine.lifecycle === "blocked" ||
+        routine.lifecycle === "failed"),
+    pausedByOtto:
+      !routine.enabled && (routine.lifecycle === "blocked" || routine.lifecycle === "failed"),
     nextRunAt: routine.nextRunAt,
     lastRunAt: routine.lastRunAt,
     latestRun: history[0] ?? null,
