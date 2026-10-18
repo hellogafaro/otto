@@ -124,6 +124,7 @@ export function TasksTable({
   grouped = true,
   statusCounts,
   paging,
+  highlightedKey = null,
   onOpenTask,
 }: {
   readonly tasks: readonly TaskListItem[];
@@ -133,6 +134,7 @@ export function TasksTable({
   readonly grouped?: boolean;
   readonly statusCounts?: TaskListResult["statusCounts"];
   readonly paging?: DataTablePaging;
+  readonly highlightedKey?: string | null;
   readonly onOpenTask: (task: TaskListItem) => void;
 }) {
   const { t } = useI18n();
@@ -146,6 +148,7 @@ export function TasksTable({
       getRowKey={(task) => task.id}
       getRowLabel={(task) => `${task.title}, ${statusLabel(task.status)}`}
       onRowClick={onOpenTask}
+      highlightedKey={highlightedKey}
       {...(paging ? { paging } : {})}
       {...(grouped
         ? {

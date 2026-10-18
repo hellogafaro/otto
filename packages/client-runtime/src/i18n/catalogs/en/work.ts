@@ -176,4 +176,5 @@ export const workCatalog = {
   "This browser can't show notifications.": "This browser can't show notifications.",
   "You're all caught up": "You're all caught up",
   Earlier: "Earlier",
+  "Assign to me": "Assign to me",
 } as const;

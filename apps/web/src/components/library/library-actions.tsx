@@ -27,12 +27,14 @@ import {
 } from "@remixicon/react";
 import { useRouter } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { ensureLocalApi } from "../../local-api";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { cn } from "../../lib/utils";
 import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
+import type { PickerOpenState } from "../details-aside";
 import { libraryEnvironment } from "../../state/library";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
@@ -304,10 +306,12 @@ export function LibraryVisibilitySelect({
   value,
   editable,
   onChange,
+  picker,
 }: {
   readonly value: LibraryVisibility;
   readonly editable: boolean;
   readonly onChange: (visibility: LibraryVisibility) => void;
+  readonly picker?: PickerOpenState;
 }) {
   const { t } = useI18n();
 
@@ -338,6 +342,8 @@ export function LibraryVisibilitySelect({
       onValueChange={(next) => {
         if (next === "user" || next === "organization") onChange(next);
       }}
+      open={picker?.open}
+      onOpenChange={picker?.onOpenChange}
     >
       <SelectTrigger
         size="sm"
@@ -352,7 +358,7 @@ export function LibraryVisibilitySelect({
           </span>
         </SelectValue>
       </SelectTrigger>
-      <SelectPopup alignItemWithTrigger={false}>
+      <SelectPopup alignItemWithTrigger={false} finalFocus={picker?.finalFocus}>
         {(["organization", "user"] as const).map((visibility) => (
           <SelectItem key={visibility} hideIndicator value={visibility}>
             <span className="flex items-center gap-2">
@@ -369,6 +375,106 @@ export function LibraryVisibilitySelect({
 type MenuTarget =
   | { readonly kind: "folder"; readonly folder: LibraryFolder }
   | { readonly kind: "file"; readonly file: LibraryFile };
+
+/**
+ * A system holder folder has no actions; a chat's or project's folder can only be renamed; the
+ * rest is its creator's to change.
+ */
+function libraryItemRights(data: LibraryData, target: MenuTarget) {
+  const isHolder = target.kind === "folder" && LIBRARY_SYSTEM_FOLDER_IDS.has(target.folder.id);
+
+  const isFixedFolder =
+    target.kind === "folder" &&
+    (target.folder.threadId !== undefined || target.folder.projectId !== undefined);
+
+  const editable =
+    !isHolder && data.canEdit(target.kind === "folder" ? target.folder : target.file);
+
+  return { isHolder, isFixedFolder, editable };
+}
+
+/** Copy link and Copy ID: a document's page, another file's preview in its folder, or the folder. */
+function useLibraryItemCopy(target: MenuTarget) {
+  const router = useRouter();
+
+  const path =
+    target.kind === "file" && target.file.type === "document"
+      ? `/library/${target.file.id}`
+      : router.buildLocation({
+          to: "/library",
+          search:
+            target.kind === "folder"
+              ? { folder: target.folder.id }
+              : {
+                  ...(target.file.folderId ? { folder: target.file.folderId } : {}),
+                  preview: target.file.id,
+                },
+        }).href;
+
+  return useCopyPageActions(path, target.kind === "folder" ? target.folder.id : target.file.id);
+}
+
+/**
+ * Otto: The item keys of the Library card J and K hold: Rename and Delete for what its creator
+ * may change, then Copy link and Copy ID, joined to the page's own actions while it is held.
+ */
+export function LibraryRowActions({
+  environmentId,
+  data,
+  target,
+  pageActions,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly data: LibraryData;
+  readonly target: MenuTarget;
+  readonly pageActions: ReadonlyArray<PageAction>;
+}) {
+  const { t } = useI18n();
+  const actions = useLibraryItemActions(environmentId, data, target);
+  const { isHolder, isFixedFolder, editable } = libraryItemRights(data, target);
+  const copy = useLibraryItemCopy(target);
+  const { setRenaming, remove } = actions;
+
+  const pageAndItem = useMemo(
+    (): PageAction[] =>
+      isHolder
+        ? [...pageActions]
+        : [
+            ...pageActions,
+            ...(editable
+              ? [
+                  {
+                    id: "rename",
+                    title: t("Rename"),
+                    icon: RiEditLine,
+                    searchTerms: ["rename", "title", "name"],
+                    shortcutCommand: "item.rename",
+                    run: () => setRenaming(true),
+                  } satisfies PageAction,
+                ]
+              : []),
+            copy.link,
+            copy.id,
+            ...(editable && !isFixedFolder
+              ? [
+                  {
+                    id: "delete",
+                    title: t("Delete"),
+                    icon: RiDeleteBinLine,
+                    searchTerms: ["delete", "remove"],
+                    shortcutCommand: "item.delete",
+                    run: remove,
+                  } satisfies PageAction,
+                ]
+              : []),
+          ],
+    [copy, editable, isFixedFolder, isHolder, pageActions, remove, setRenaming, t],
+  );
+
+  usePageActions(target.kind === "folder" ? target.folder.title : target.file.title, pageAndItem);
+
+  return actions.dialogs;
+}
 
 /**
  * The ⋯ menu on a Library item: download for files, for its creator rename, move and
@@ -391,35 +497,12 @@ export function LibraryItemMenu({
   readonly onDeleted?: () => void;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
   const actions = useLibraryItemActions(environmentId, data, target, onDeleted);
   const download = useLibraryDownload();
   const item = target.kind === "folder" ? target.folder : target.file;
-
-  const isHolder = target.kind === "folder" && LIBRARY_SYSTEM_FOLDER_IDS.has(target.folder.id);
-
-  const isFixedFolder =
-    target.kind === "folder" &&
-    (target.folder.threadId !== undefined || target.folder.projectId !== undefined);
-
-  const editable = !isHolder && data.canEdit(item);
+  const { isHolder, isFixedFolder, editable } = libraryItemRights(data, target);
   const [sharing, setSharing] = useState(false);
-
-  const path =
-    target.kind === "file" && target.file.type === "document"
-      ? `/library/${target.file.id}`
-      : router.buildLocation({
-          to: "/library",
-          search:
-            target.kind === "folder"
-              ? { folder: target.folder.id }
-              : {
-                  ...(target.file.folderId ? { folder: target.file.folderId } : {}),
-                  preview: target.file.id,
-                },
-        }).href;
-
-  const copy = useCopyPageActions(path, item.id);
+  const copy = useLibraryItemCopy(target);
 
   if (isHolder) return null;
 
