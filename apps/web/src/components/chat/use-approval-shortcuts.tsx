@@ -14,7 +14,7 @@ const APPROVAL_SHORTCUT_OPTIONS = { context: { approvalPending: true } };
 /**
  * Answers a waiting request from anywhere in the window with the approval shortcuts. Only the
  * chat's front request turns it on, so one key never answers two; a command without a handler
- * passes through, and a dialog keeps its own keys. Returns each shortcut's hint for its button,
+ * passes through, and a dialog or open menu keeps its own keys. Returns each shortcut's hint for its button,
  * shown only while on.
  */
 export function useApprovalShortcuts(enabled: boolean, handlers: ApprovalShortcutHandlers) {
@@ -30,7 +30,7 @@ export function useApprovalShortcuts(enabled: boolean, handlers: ApprovalShortcu
 
       if (
         event.target instanceof Element &&
-        event.target.closest('[role="dialog"], [role="alertdialog"]') !== null
+        event.target.closest('[role="dialog"], [role="alertdialog"], [role="menu"]') !== null
       ) {
         return;
       }
