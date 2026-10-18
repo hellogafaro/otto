@@ -31,6 +31,9 @@ import {
   LibraryCreateUploadUrlInput,
   LibraryCreateUploadUrlResult,
   LibraryFileInput,
+  LibraryListError,
+  LibraryListQuery,
+  LibraryListResult,
   LibraryReadDocumentResult,
   LibraryRequestError,
   LibrarySaveDocumentInput,
@@ -767,6 +770,12 @@ export const WsNotificationsMarkReadRpc = Rpc.make(WS_METHODS.notificationsMarkR
 });
 
 const libraryError = Schema.Union([LibraryRequestError, EnvironmentAuthorizationError]);
+
+export const WsLibraryListRpc = Rpc.make(WS_METHODS.libraryList, {
+  payload: LibraryListQuery,
+  success: LibraryListResult,
+  error: Schema.Union([LibraryListError, EnvironmentAuthorizationError]),
+});
 
 export const WsLibraryCreateUploadUrlRpc = Rpc.make(WS_METHODS.libraryCreateUploadUrl, {
   payload: LibraryCreateUploadUrlInput,

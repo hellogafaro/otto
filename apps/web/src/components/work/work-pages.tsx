@@ -63,6 +63,7 @@ import { SkeletonCards, SkeletonTableRows } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../workspace-page-header";
+import type { encodeLibrarySearch } from "../library/library.logic";
 import { ProjectCover } from "./project-cover";
 import { TasksTable } from "./tasks-table";
 import {
@@ -222,13 +223,24 @@ export function WorkEmpty({
 }
 
 /** A filter matches nothing once something is set; the page then offers to clear it. */
-export function NoMatches({ to }: { readonly to: "/tasks" | "/projects" | "/routines" }) {
+export function NoMatches({
+  to,
+  search,
+}: {
+  readonly to: "/tasks" | "/projects" | "/routines" | "/library";
+  /** Where clearing lands on that page, such as the Library folder being browsed. */
+  readonly search?: ReturnType<typeof encodeLibrarySearch>;
+}) {
   const { t } = useI18n();
 
   return (
     <p className="text-13px text-muted-foreground">
       {t("Nothing matches these filters.")}{" "}
-      <Link to={to} className="text-foreground underline-offset-2 hover:underline">
+      <Link
+        to={to}
+        {...(search === undefined ? {} : { search })}
+        className="text-foreground underline-offset-2 hover:underline"
+      >
         {t("Clear filters")}
       </Link>
     </p>

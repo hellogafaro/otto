@@ -24,6 +24,12 @@ The Tasks, Projects, Routines and Library pages read their rows from the server 
 
 `projects.list` filters by `owner` (a participant key) and `status` (any of a comma list; none means everything but archived, and a project saved before statuses existed counts as in progress). It sorts by `updated` (the default), `created` or `title`. It never lists deleted projects or the General project. Every workspace member reads every project, so no per-row visibility applies. Rows carry what the Projects cards show: title, owner, status, cover and timestamps.
 
+## Library
+
+`library.list` lists one folder's level (`folder`, or the top level without it) or, with `everywhere`, the matching items of every folder, which the Documents, Images and Files tabs use. It filters by `type` (any of a comma list of `folder`, `document`, `image` and `file`, where `file` is PDFs and every other file) and `creator` (a participant key), and sorts by `updated` (the default), `created` or `title`, folders before files in either order. Folders and files live in separate tables, so one query unions them under a shared key: folders first, the sort value, then the id.
+
+Visibility is applied in that same SQL exactly as the Library's rule (`canSeeLibraryItem`) decides it: a recursive pass finds, from the top down, the folders the person sees (a `user` folder only its creator; a chat's folder that chat's people, or only its creator once the chat or its group is gone), and an item is listed only when it passes the same check and every folder above it is seen. Public links are untouched. A Library cursor is sealed to the person as well as the view.
+
 ## Clients
 
-The web page keeps the filter and sort in the URL, renders a virtualized table (or, for Projects, its card gallery with the pages loaded so far) and asks for the next page when the reader nears the end. When anything in the list changes it reloads the pages already shown, in place, so the reader keeps their position.
+The web page keeps the filter and sort in the URL, renders a virtualized table (or, for Projects and the Library, its card gallery with the pages loaded so far) and asks for the next page when the reader nears the end. When anything in the list changes it reloads the pages already shown, in place, so the reader keeps their position.

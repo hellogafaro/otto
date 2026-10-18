@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 
 import {
   type AuthSessionId,
@@ -12,8 +13,9 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "../base-schemas.ts";
+import { ListCursor, ListLimit, ListOrder } from "./lists.ts";
 import type { GroupMembership } from "./roster.ts";
-import { WorkParticipant, workParticipantKey } from "./work.ts";
+import { WorkParticipant, WorkParticipantKey, workParticipantKey } from "./work.ts";
 
 export const LibraryFolderId = TrimmedNonEmptyString.check(Schema.isMaxLength(100)).pipe(
   Schema.brand("LibraryFolderId"),
@@ -725,6 +727,88 @@ export const LibraryCreateFileUrlResult = Schema.Struct({
 
 export class LibraryRequestError extends Schema.TaggedErrorClass<LibraryRequestError>()(
   "LibraryRequestError",
+  { detail: Schema.String },
+) {
+  override get message(): string {
+    return this.detail;
+  }
+}
+
+/** What a Library list holds: folders, documents, images, or files (PDFs and everything else). */
+export const LIBRARY_LIST_TYPES = ["folder", "document", "image", "file"] as const;
+
+export const LibraryListType = Schema.Literals(LIBRARY_LIST_TYPES);
+
+export type LibraryListType = typeof LibraryListType.Type;
+
+/** Types travel as one comma list, `folder,document`, in URLs and query strings. */
+export const LibraryListTypeList = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Array(LibraryListType),
+    SchemaTransformation.transform({
+      decode: (list) =>
+        // SAFETY: decodeTo validates each entry against LibraryListType right after this split.
+        list.split(",").map((type) => type.trim()) as ReadonlyArray<LibraryListType>,
+      encode: (types) => types.join(","),
+    }),
+  ),
+);
+
+/**
+ * Every field narrows the list. It lists one folder's level, the top level without `folder`,
+ * or with `everywhere` the matching items in every folder.
+ */
+export const LibraryListFilter = Schema.Struct({
+  folder: Schema.optional(LibraryFolderId),
+  everywhere: Schema.optional(Schema.Boolean),
+  type: Schema.optional(LibraryListTypeList),
+  creator: Schema.optional(WorkParticipantKey),
+});
+
+export type LibraryListFilter = typeof LibraryListFilter.Type;
+
+/**
+ * How the Library list is ordered, folders always first: by last change, creation or title.
+ * Each has a natural order that `order` may reverse.
+ */
+export const LIBRARY_LIST_SORTS = ["updated", "created", "title"] as const;
+
+export const LibraryListSort = Schema.Literals(LIBRARY_LIST_SORTS);
+
+export type LibraryListSort = typeof LibraryListSort.Type;
+
+export const LibraryListView = Schema.Struct({
+  ...LibraryListFilter.fields,
+  sort: Schema.optional(LibraryListSort),
+  order: Schema.optional(ListOrder),
+});
+
+export type LibraryListView = typeof LibraryListView.Type;
+
+export const LibraryListQuery = Schema.Struct({
+  ...LibraryListView.fields,
+  limit: Schema.optional(ListLimit),
+  cursor: Schema.optional(ListCursor),
+});
+
+export type LibraryListQuery = typeof LibraryListQuery.Type;
+
+export const LibraryListItem = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("folder"), folder: LibraryFolder }),
+  Schema.Struct({ kind: Schema.Literal("file"), file: LibraryFile }),
+]);
+
+export type LibraryListItem = typeof LibraryListItem.Type;
+
+export const LibraryListResult = Schema.Struct({
+  items: Schema.Array(LibraryListItem),
+  nextCursor: Schema.NullOr(ListCursor),
+});
+
+export type LibraryListResult = typeof LibraryListResult.Type;
+
+export class LibraryListError extends Schema.TaggedErrorClass<LibraryListError>()(
+  "LibraryListError",
   { detail: Schema.String },
 ) {
   override get message(): string {

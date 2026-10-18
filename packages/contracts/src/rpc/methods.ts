@@ -28,6 +28,7 @@ export const WS_METHODS = {
   notificationsMarkRead: "notifications.markRead",
 
   // Library methods
+  libraryList: "library.list",
   libraryCreateUploadUrl: "library.createUploadUrl",
   libraryCreateDocument: "library.createDocument",
   libraryCreateSkill: "library.createSkill",
