@@ -8,6 +8,7 @@ import {
   threadJumpCommandForIndex,
   threadJumpIndexFromCommand,
 } from "./keybindings";
+import { DEFAULT_RESOLVED_KEYBINDINGS } from "@otto/shared/keybindings";
 import { event, DEFAULT_BINDINGS, isOpenFavoriteEditorShortcut } from "./keybindings.test-support";
 
 describe("thread navigation helpers", () => {
@@ -146,6 +147,139 @@ describe("chat/editor shortcuts", () => {
         { platform: "Win32" },
       ),
       "themeEditor.toggle",
+    );
+  });
+});
+
+describe("app-wide default shortcuts", () => {
+  const mac = { platform: "MacIntel" };
+
+  it("goes to each place on Option and the digit key, whatever Option types", () => {
+    const places = [
+      ["¡", "Digit1", "navigation.home"],
+      ["™", "Digit2", "navigation.chats"],
+      ["£", "Digit3", "navigation.routines"],
+      ["¢", "Digit4", "navigation.tasks"],
+      ["∞", "Digit5", "navigation.projects"],
+      ["§", "Digit6", "navigation.library"],
+    ] as const;
+
+    for (const [key, code, command] of places) {
+      assert.strictEqual(
+        resolveShortcutCommand(
+          event({ key, code, altKey: true }),
+          DEFAULT_RESOLVED_KEYBINDINGS,
+          mac,
+        ),
+        command,
+      );
+    }
+  });
+
+  it("opens settings on mod+comma in the desktop app and Option+comma in a browser", () => {
+    const optionComma = event({ key: "≤", code: "Comma", altKey: true });
+    const cmdComma = event({ key: ",", code: "Comma", metaKey: true });
+
+    assert.strictEqual(
+      resolveShortcutCommand(optionComma, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "settings.open",
+    );
+    assert.isNull(resolveShortcutCommand(cmdComma, DEFAULT_RESOLVED_KEYBINDINGS, mac));
+    assert.strictEqual(
+      resolveShortcutCommand(cmdComma, DEFAULT_RESOLVED_KEYBINDINGS, {
+        ...mac,
+        context: { desktop: true },
+      }),
+      "settings.open",
+    );
+    assert.isNull(
+      resolveShortcutCommand(optionComma, DEFAULT_RESOLVED_KEYBINDINGS, {
+        ...mac,
+        context: { desktop: true },
+      }),
+    );
+  });
+
+  it("leaves mod+1–9 to the desktop app's tabs", () => {
+    const cmdOne = event({ key: "1", code: "Digit1", metaKey: true });
+
+    assert.strictEqual(
+      resolveShortcutCommand(cmdOne, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "thread.jump.1",
+    );
+    assert.isNull(
+      resolveShortcutCommand(cmdOne, DEFAULT_RESOLVED_KEYBINDINGS, {
+        ...mac,
+        context: { desktop: true },
+      }),
+    );
+  });
+
+  it("moves between chats on J and K and shows the sheet on ?, unless focus owns the keys", () => {
+    const question = event({ key: "?", code: "Slash", shiftKey: true });
+    const spanishQuestion = event({ key: "?", code: "Minus", shiftKey: true });
+
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "j", code: "KeyJ" }), DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "thread.next",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "k", code: "KeyK" }), DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "thread.previous",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(question, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "shortcuts.show",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(spanishQuestion, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "shortcuts.show",
+    );
+    assert.isNull(
+      resolveShortcutCommand(event({ key: "j", code: "KeyJ" }), DEFAULT_RESOLVED_KEYBINDINGS, {
+        ...mac,
+        context: { inputFocus: true },
+      }),
+    );
+    assert.isNull(
+      resolveShortcutCommand(
+        event({ key: "J", code: "KeyJ", shiftKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        mac,
+      ),
+    );
+  });
+
+  it("reads modifiers from events whose keys live on the prototype, like a real KeyboardEvent", () => {
+    class PrototypeEvent {
+      get key() {
+        return "?";
+      }
+
+      get code() {
+        return "Slash";
+      }
+
+      get shiftKey() {
+        return true;
+      }
+
+      get metaKey() {
+        return false;
+      }
+
+      get ctrlKey() {
+        return false;
+      }
+
+      get altKey() {
+        return false;
+      }
+    }
+
+    assert.strictEqual(
+      resolveShortcutCommand(new PrototypeEvent(), DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "shortcuts.show",
     );
   });
 });

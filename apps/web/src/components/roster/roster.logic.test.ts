@@ -13,7 +13,7 @@ import {
   resolveLatestOpenChatId,
   resolveRosterBotId,
   resolveRosterIndicator,
-  resolveAdjacentRosterBot,
+  resolveAdjacentRosterItem,
   resolveRosterShortcutBot,
   rosterZoneHeading,
 } from "./roster.logic";
@@ -386,28 +386,48 @@ describe("resolveBotPresence", () => {
   });
 });
 
-describe("resolveAdjacentRosterBot", () => {
-  const ordered = [
-    bot({ id: "a", name: "A" }),
-    bot({ id: "b", name: "B" }),
-    bot({ id: "c", name: "C" }),
+describe("resolveAdjacentRosterItem", () => {
+  const items = [
+    { kind: "chat" as const, id: "t-pinned" },
+    { kind: "group" as const, id: "g" },
+    { kind: "bot" as const, id: "a" },
+    { kind: "bot" as const, id: "b" },
   ];
 
-  it("steps through bots in shortcut order and wraps at the ends", () => {
-    expect(resolveAdjacentRosterBot("thread.next", ordered, "a")?.id).toBe("b");
-    expect(resolveAdjacentRosterBot("thread.previous", ordered, "b")?.id).toBe("a");
-    expect(resolveAdjacentRosterBot("thread.next", ordered, "c")?.id).toBe("a");
-    expect(resolveAdjacentRosterBot("thread.previous", ordered, "a")?.id).toBe("c");
+  const open = (threadId: string, botId: string | null, groupId: string | null = null) => ({
+    threadId,
+    botId,
+    groupId,
   });
 
-  it("starts from the ends when no bot is open", () => {
-    expect(resolveAdjacentRosterBot("thread.next", ordered, null)?.id).toBe("a");
-    expect(resolveAdjacentRosterBot("thread.previous", ordered, null)?.id).toBe("c");
+  it("moves through sidebar rows and wraps at the ends", () => {
+    expect(resolveAdjacentRosterItem("thread.next", items, open("t1", "a"))).toEqual(items[3]);
+    expect(resolveAdjacentRosterItem("thread.previous", items, open("t1", "a"))).toEqual(items[1]);
+    expect(resolveAdjacentRosterItem("thread.next", items, open("t2", "b"))).toEqual(items[0]);
+    expect(resolveAdjacentRosterItem("thread.previous", items, open("t-pinned", "a"))).toEqual(
+      items[3],
+    );
   });
 
-  it("ignores other commands and a roster with only the open bot", () => {
-    expect(resolveAdjacentRosterBot("thread.jump.1", ordered, "a")).toBeNull();
-    expect(resolveAdjacentRosterBot("thread.next", [ordered[0]!], "a")).toBeNull();
-    expect(resolveAdjacentRosterBot("thread.next", [], null)).toBeNull();
+  it("prefers the open chat's pinned row, then its group, then its bot", () => {
+    expect(resolveAdjacentRosterItem("thread.next", items, open("t-pinned", "b"))).toEqual(
+      items[1],
+    );
+    expect(resolveAdjacentRosterItem("thread.next", items, open("t3", null, "g"))).toEqual(
+      items[2],
+    );
+  });
+
+  it("starts from the ends when no row is open", () => {
+    expect(resolveAdjacentRosterItem("thread.next", items, null)).toEqual(items[0]);
+    expect(resolveAdjacentRosterItem("thread.previous", items, open("t9", "zzz"))).toEqual(
+      items[3],
+    );
+  });
+
+  it("ignores other commands and a sidebar with only the open row", () => {
+    expect(resolveAdjacentRosterItem("thread.jump.1", items, open("t1", "a"))).toBeNull();
+    expect(resolveAdjacentRosterItem("thread.next", [items[2]!], open("t1", "a"))).toBeNull();
+    expect(resolveAdjacentRosterItem("thread.next", [], null)).toBeNull();
   });
 });

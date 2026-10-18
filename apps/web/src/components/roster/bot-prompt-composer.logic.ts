@@ -47,23 +47,34 @@ export function appendBotMention(draft: string, mention: string): string {
   return `${draft}${draft && !/\s$/.test(draft) ? " " : ""}${mention} `;
 }
 
-export function shouldFocusBotPromptForKey(input: {
+/**
+ * Enter returns to the prompt only where nothing else would take it: not in a field,
+ * on a button, link or option, or inside a dialog or menu.
+ */
+export function shouldFocusBotPromptOnEnter(event: {
+  readonly key: string;
   readonly altKey: boolean;
   readonly ctrlKey: boolean;
-  readonly defaultPrevented: boolean;
-  readonly editableTarget: boolean;
-  readonly isComposing: boolean;
-  readonly key: string;
   readonly metaKey: boolean;
+  readonly shiftKey: boolean;
+  readonly defaultPrevented: boolean;
+  readonly isComposing: boolean;
+  readonly target: EventTarget | null;
 }): boolean {
   return (
-    !input.altKey &&
-    !input.ctrlKey &&
-    !input.defaultPrevented &&
-    !input.editableTarget &&
-    !input.isComposing &&
-    !input.metaKey &&
-    input.key.length === 1
+    event.key === "Enter" &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    !event.defaultPrevented &&
+    !event.isComposing &&
+    !(
+      event.target instanceof Element &&
+      event.target.closest(
+        'input, textarea, select, button, summary, a[href], [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"], [role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+      ) !== null
+    )
   );
 }
 

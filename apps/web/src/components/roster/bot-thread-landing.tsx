@@ -697,7 +697,7 @@ export function BotThreadLanding({
                   />
                 ) : null}
                 <BotPromptComposer
-                  typeToFocus={!waitingForUserInput}
+                  focusOnEnter={!waitingForUserInput}
                   mentionScope={mentionScope}
                   commandCatalog={engineCatalog}
                   botName={bot.name}
