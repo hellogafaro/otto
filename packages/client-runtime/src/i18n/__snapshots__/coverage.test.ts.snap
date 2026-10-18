@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1750,
+  "directMessageCount": 1753,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -134,6 +134,9 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/settings/use-settings-restore.ts": [
       "label)).join(", "),",
+    ],
+    "apps/web/src/routes/__root.tsx": [
+      "resolvePageLabel(pathname)),",
     ],
     "packages/client-runtime/src/bot-inbox.ts": [
       "MEMORY_APPROVAL_ACTIONS[approval.scope]),",
@@ -440,6 +443,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/routines/routine-page.tsx",
     "apps/web/src/components/routines/routine-schedule.tsx",
     "apps/web/src/components/routines/routine-status.ts",
+    "apps/web/src/components/routines/routine-trigger.tsx",
     "apps/web/src/components/routines/routines-page.tsx",
     "apps/web/src/components/settings/api-key-dialog.tsx",
     "apps/web/src/components/settings/archived-bots-settings.tsx",

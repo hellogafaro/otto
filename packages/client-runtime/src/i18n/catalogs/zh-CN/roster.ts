@@ -179,6 +179,8 @@ export const rosterCatalog = {
   "Share with project": "与项目共享",
   "Stable details this bot has learned about you.": "此机器人了解到的关于你的稳定信息。",
   "Not scheduled": "未安排",
+  Trigger: "触发器",
+  "When {event} in {app}": "当 {app} 中发生 {event} 时",
   "Edit schedule": "编辑计划",
   Days: "日期",
   "Time zone": "时区",

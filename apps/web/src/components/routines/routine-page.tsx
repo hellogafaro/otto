@@ -57,6 +57,7 @@ import { WorkEmpty, WorkPage, useWorkData } from "../work/work-pages";
 import { RoutineChatSelect } from "./routine-chat-options";
 import { RoutineHistory } from "./routine-history";
 import { RoutineScheduleEdit } from "./routine-schedule";
+import { RoutineTriggerRows } from "./routine-trigger";
 import { ROUTINE_STATUS_ICON, routineStatus, useRoutineStatusLabel } from "./routine-status";
 
 /**
@@ -464,21 +465,31 @@ function RoutineDetail({
                 onChange={(visibility) => void save({ visibility })}
               />
             </DetailsRow>
-            <DetailsRow label={t("Schedule")}>
-              <RoutineScheduleEdit
-                schedule={routine.schedule}
-                timezone={routine.timezone}
-                label={routineScheduleLabel(item.schedule, i18n)}
-                onSave={(next) => void save(next)}
+            {routine.trigger?.type === "app" ? (
+              <RoutineTriggerRows
+                environmentId={environmentId}
+                trigger={routine.trigger}
+                enabled={routine.enabled}
               />
-            </DetailsRow>
-            <DetailsRow label={t("Next run")}>
-              <span className="px-2.5 text-sm tabular-nums">
-                {routine.enabled && routine.nextRunAt
-                  ? absoluteRunTime(routine.nextRunAt, i18n)
-                  : t("Not scheduled")}
-              </span>
-            </DetailsRow>
+            ) : (
+              <>
+                <DetailsRow label={t("Schedule")}>
+                  <RoutineScheduleEdit
+                    schedule={routine.schedule}
+                    timezone={routine.timezone}
+                    label={routineScheduleLabel(item.schedule, i18n)}
+                    onSave={(next) => void save(next)}
+                  />
+                </DetailsRow>
+                <DetailsRow label={t("Next run")}>
+                  <span className="px-2.5 text-sm tabular-nums">
+                    {routine.enabled && routine.nextRunAt
+                      ? absoluteRunTime(routine.nextRunAt, i18n)
+                      : t("Not scheduled")}
+                  </span>
+                </DetailsRow>
+              </>
+            )}
             <DetailsRow label={t("Last run")}>
               <span className="px-2.5 text-sm tabular-nums">
                 {routine.lastRunAt ? absoluteRunTime(routine.lastRunAt, i18n) : t("Never")}

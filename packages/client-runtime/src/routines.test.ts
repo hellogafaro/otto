@@ -276,7 +276,24 @@ describe("routineApprovalSummary", () => {
       name: "Friday review",
       instructions: "Review the week.",
       schedule: "Monday, Friday at 14:00",
+      trigger: null,
     });
+  });
+
+  it("summarizes a proposed routine that starts on an app event", () => {
+    expect(
+      routineApprovalSummary({
+        name: "Triage mail",
+        instructions: "Label the new message.",
+        trigger: { app: "gmail", event: "GMAIL_NEW_GMAIL_MESSAGE", account: " Work " },
+      }),
+    ).toEqual({
+      name: "Triage mail",
+      instructions: "Label the new message.",
+      schedule: null,
+      trigger: "When GMAIL_NEW_GMAIL_MESSAGE in gmail (Work)",
+    });
+    expect(routineApprovalSummary({ trigger: { app: "gmail" } }).trigger).toBeNull();
   });
 
   it("still renders a malformed proposal as a reviewable approval", () => {
@@ -284,11 +301,13 @@ describe("routineApprovalSummary", () => {
       name: "New routine",
       instructions: null,
       schedule: null,
+      trigger: null,
     });
     expect(routineApprovalSummary({ schedule: { kind: "weekdays", time: "09:00" } })).toEqual({
       name: "New routine",
       instructions: null,
       schedule: "Weekdays at 09:00",
+      trigger: null,
     });
   });
 

@@ -475,6 +475,8 @@ export const connectionsCatalog = {
   "Turn it on to see its tools.": "开启后即可查看其工具。",
   "Loading tools": "正在加载工具",
   "No tools": "没有工具",
+  Triggers: "触发器",
+  "No triggers": "没有触发器",
   "Local servers aren't supported.": "不支持本地服务器。",
   "No integrations": "没有集成",
   "No bots": "没有机器人",

@@ -187,6 +187,8 @@ export const rosterCatalog = {
   "Stable details this bot has learned about you.":
     "Stable details this bot has learned about you.",
   "Not scheduled": "Not scheduled",
+  Trigger: "Trigger",
+  "When {event} in {app}": "When {event} in {app}",
   "Edit schedule": "Edit schedule",
   Days: "Days",
   "Time zone": "Time zone",

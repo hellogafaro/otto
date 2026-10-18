@@ -513,6 +513,26 @@ export interface RoutineApprovalSummary {
   readonly instructions: string | null;
   /** "Weekdays at 09:00", or null when the proposal has no time. */
   readonly schedule: string | null;
+  /** "When GMAIL_NEW_GMAIL_MESSAGE in gmail (Work)", or null for a scheduled routine. */
+  readonly trigger: string | null;
+}
+
+/**
+ * Otto: The app event a `routine_create` request starts on, as the bot named it, with the
+ * account when it named one; null when the request has none.
+ */
+export function routineTriggerProposalText(
+  args: PendingApproval["args"],
+  t: RoutineTranslator["t"] = englishTranslator.t,
+): string | null {
+  const trigger = asRecord(asRecord(args)?.trigger);
+
+  if (!Predicate.isString(trigger?.app) || !Predicate.isString(trigger.event)) return null;
+  const text = t("When {event} in {app}", { event: trigger.event, app: trigger.app });
+
+  return Predicate.isString(trigger.account) && trigger.account.trim()
+    ? `${text} (${trigger.account.trim()})`
+    : text;
 }
 
 /**
@@ -571,5 +591,6 @@ export function routineApprovalSummary(
         ? record.instructions
         : null,
     schedule: base && timezone ? `${base} (${timezone})` : base,
+    trigger: routineTriggerProposalText(args, t),
   };
 }

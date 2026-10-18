@@ -510,6 +510,8 @@ export const connectionsCatalog = {
   "Turn it on to see its tools.": "Turn it on to see its tools.",
   "Loading tools": "Loading tools",
   "No tools": "No tools",
+  Triggers: "Triggers",
+  "No triggers": "No triggers",
   "Local servers aren't supported.": "Local servers aren't supported.",
   "No integrations": "No integrations",
   "No bots": "No bots",
