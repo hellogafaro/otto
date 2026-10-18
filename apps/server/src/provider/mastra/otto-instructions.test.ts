@@ -244,6 +244,41 @@ describe("withOttoPrompt", () => {
     ]);
   });
 
+  it("lists the chat's secret names for shell work and updates them when they change", async () => {
+    const { model, calls } = recordingModel("openai.responses");
+    const chats = inMemoryChats();
+
+    const shell = [
+      { type: "function" as const, name: "shell", inputSchema: { type: "object" as const } },
+    ];
+
+    let names = ["VERCEL_TOKEN", "STRIPE_KEY"];
+    const secretNames = async (threadId: string) => (threadId === "thread-1" ? names : []);
+    const prompt = (state = {}) => withOttoPrompt(model, context(state), chats, now, secretNames);
+
+    await send(prompt(), [user("a")], shell);
+    names = [...names, "AWS_KEY"];
+    await send(prompt(), [user("a"), assistant("b"), user("c")], shell);
+    await send(withOttoPrompt(model, context({}), inMemoryChats(), now, secretNames), [user("a")]);
+
+    expect(calls[0]?.prompt[1]).toEqual({
+      role: "system",
+      content: createOttoChatContext({
+        secrets: "Environment variables in every shell command: STRIPE_KEY, VERCEL_TOKEN",
+      }),
+    });
+    expect(calls[1]?.prompt).toContainEqual({
+      role: "system",
+      content: createOttoChatContextUpdate([
+        [
+          "secrets",
+          "Environment variables in every shell command: AWS_KEY, STRIPE_KEY, VERCEL_TOKEN",
+        ],
+      ]),
+    });
+    expect(JSON.stringify(calls[2]?.prompt)).not.toContain("<secrets>");
+  });
+
   it("keeps each group bot's prefix and OpenAI prompt cache apart", async () => {
     const { model, calls } = recordingModel("openai.responses");
     const chats = inMemoryChats();

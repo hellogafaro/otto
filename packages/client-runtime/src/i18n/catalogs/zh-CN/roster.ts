@@ -361,6 +361,7 @@ export const rosterCatalog = {
   Thinking: "正在思考",
   Untangling: "正在理清",
   "Updating a routine": "正在更新例行任务",
+  "Asking for secrets": "正在请求密钥",
   "Updating profile": "正在更新资料",
   "Using a tool": "正在使用工具",
   "Using an app": "正在使用应用",

@@ -376,4 +376,8 @@ export const chatCatalog = {
   "Archived {time}": "归档于 {time}",
   "Add people or bots to this chat": "将成员或机器人添加到此聊天",
   "Sent to the bot": "发送给机器人",
+  "Values go straight to Otto. The bot gets them in its commands but never sees them.":
+    "这些值会直接发送到 Otto。机器人会在命令中获得它们，但永远看不到它们。",
+  "This chat only": "仅此聊天",
+  "Save to project": "保存到项目",
 } as const;

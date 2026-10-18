@@ -30,6 +30,7 @@ import {
 } from "./tools/otto-tool-types.ts";
 import { ensureWorkspaceCwd, canonicalInput, field } from "./tools/otto-tool-authorization.ts";
 import { editWorkspaceFile } from "./tools/otto-edit-file.ts";
+import { redactSecrets } from "../secrets/secrets.ts";
 import { proposedBotInstructions } from "./mastra/otto-actions.ts";
 import {
   toolsForWorkspace,
@@ -443,9 +444,12 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           failureCode = "internal";
           result = await session.reactToMessage(execution.input, input.toolCallId);
         } else {
+          const secrets = (await options?.secrets?.(input.threadId)) ?? {};
+          const environment = { ...secrets, ...session.commandEnvironment };
+
           const workspace =
-            execution.toolId === "shell" && session.workspace && session.commandEnvironment
-              ? withCommandEnvironment(session.workspace, session.commandEnvironment)
+            execution.toolId === "shell" && session.workspace && Object.keys(environment).length > 0
+              ? withCommandEnvironment(session.workspace, environment)
               : session.workspace;
 
           const backends = await toolsForWorkspace(workspace);
@@ -461,14 +465,17 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           if (!executable(backend)) throw new Error(`Tool '${input.toolId}' has no backend.`);
 
           failureCode = "internal";
-          result = await backend.execute(decoded, {
-            ...(workspace ? { workspace } : {}),
-            requestContext: new RequestContext(),
-            observe: {
-              span: async <A>(_name: string, run: () => A | Promise<A>) => run(),
-              log: () => undefined,
-            },
-          });
+          result = redactSecrets(
+            await backend.execute(decoded, {
+              ...(workspace ? { workspace } : {}),
+              requestContext: new RequestContext(),
+              observe: {
+                span: async <A>(_name: string, run: () => A | Promise<A>) => run(),
+                log: () => undefined,
+              },
+            }),
+            secrets,
+          );
         }
 
         if (field(result, "phase") === "failure") {

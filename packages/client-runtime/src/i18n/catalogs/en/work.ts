@@ -176,5 +176,24 @@ export const workCatalog = {
   "This browser can't show notifications.": "This browser can't show notifications.",
   "You're all caught up": "You're all caught up",
   Earlier: "Earlier",
+  Secrets: "Secrets",
+  "Add secret": "Add secret",
+  "Secrets couldn't be loaded": "Secrets couldn't be loaded",
+  "Delete {name}? Chats in this project stop getting it.":
+    "Delete {name}? Chats in this project stop getting it.",
+  "No secrets yet. Every chat in this project gets them as environment variables.":
+    "No secrets yet. Every chat in this project gets them as environment variables.",
+  "{name} couldn't be read": "{name} couldn't be read",
+  "Copied {name}": "Copied {name}",
+  "Updated {date}": "Updated {date}",
+  Reveal: "Reveal",
+  Hide: "Hide",
+  "Copy value": "Copy value",
+  "Value of {name}": "Value of {name}",
+  "Replace value": "Replace value",
+  "{name} couldn't be saved": "{name} couldn't be saved",
+  "Replace {name}": "Replace {name}",
+  "Every chat in this project gets it as an environment variable in its commands.":
+    "Every chat in this project gets it as an environment variable in its commands.",
   "Assign to me": "Assign to me",
 } as const;

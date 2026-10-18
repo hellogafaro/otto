@@ -91,7 +91,13 @@ export const makeOttoMastraHarness = Effect.fnUntraced(function* (
     instructions: "",
     model: ({ requestContext }) =>
       withLastRequest(
-        withOttoPrompt(resolveModel(requestContext), requestContext, chatContexts),
+        withOttoPrompt(
+          resolveModel(requestContext),
+          requestContext,
+          chatContexts,
+          undefined,
+          options.secretNames,
+        ),
         controllerResourceId(requestContext),
         history.compaction.requests,
       ),

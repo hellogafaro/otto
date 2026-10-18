@@ -6,6 +6,7 @@ import {
   RiBox3Line,
   RiChat1Line,
   RiFileTextLine,
+  RiKey2Line,
   RiListCheck3,
   RiProgress4Line,
   RiUserStarLine,
@@ -25,6 +26,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { ProjectChats, ProjectNewChat } from "./project-chats";
 import { ProjectCover, ProjectCoverControls } from "./project-cover";
 import { ProjectLibrary, ProjectUpload } from "./project-library";
+import { ProjectAddSecret, ProjectSecrets } from "./project-secrets";
 import { TasksTable } from "./tasks-table";
 import { type ProjectTab, projectStatus, sortTasks } from "./work.logic";
 import { WorkDetailPage, WorkResourcesSection, useWorkPickers } from "./work-detail";
@@ -37,8 +39,8 @@ type ProjectFields = Omit<UpdateProjectInput, "projectId">;
 
 /**
  * Otto: A project's page, the same pattern as a task's: its cover, then the Overview, Tasks,
- * Chats and Library tabs; Overview holds the title, description and resources, the others the
- * project's tasks, chats and Library folder. Status, owner and task counts sit in the details
+ * Chats, Library and Secrets tabs; Overview holds the title, description and resources, the
+ * others the project's tasks, chats, Library folder and secrets. Status, owner and task counts sit in the details
  * sidebar.
  */
 export function ProjectPage({
@@ -54,6 +56,7 @@ export function ProjectPage({
   const updateProject = useAtomCommand(projectEnvironment.update);
   const { environmentId, loaded, projects, tasks, participants } = useWorkData();
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [addingSecret, setAddingSecret] = useState(false);
   const openNewTask = useCallback(() => setNewTaskOpen(true), []);
   const { open: openPicker, props: picker } = useWorkPickers<"status" | "owner">("project");
 
@@ -156,6 +159,7 @@ export function ProjectPage({
     ),
     Match.when("chats", () => <ProjectNewChat projectId={project.id} />),
     Match.when("library", () => <ProjectUpload projectId={project.id} />),
+    Match.when("secrets", () => <ProjectAddSecret onAdd={() => setAddingSecret(true)} />),
     Match.orElse(() => null),
   );
 
@@ -197,6 +201,7 @@ export function ProjectPage({
               { value: "tasks", label: t("Tasks"), icon: RiListCheck3 },
               { value: "chats", label: t("Chats"), icon: RiChat1Line },
               { value: "library", label: t("Library"), icon: RiBookShelfLine },
+              { value: "secrets", label: t("Secrets"), icon: RiKey2Line },
             ]}
             value={tab}
             onValueChange={(next) =>
@@ -212,6 +217,16 @@ export function ProjectPage({
           Match.when("tasks", () => ({ view: tasksView })),
           Match.when("chats", () => ({ view: <ProjectChats projectId={project.id} /> })),
           Match.when("library", () => ({ view: <ProjectLibrary projectId={project.id} /> })),
+          Match.when("secrets", () => ({
+            view: (
+              <ProjectSecrets
+                environmentId={environmentId}
+                projectId={project.id}
+                adding={addingSecret}
+                onAddingChange={setAddingSecret}
+              />
+            ),
+          })),
           Match.orElse(() => ({})),
         )}
         title={project.title}
