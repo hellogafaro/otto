@@ -360,6 +360,48 @@ function SkillProposal({
   );
 }
 
+/** The instructions a bot proposes for itself with bot_update; null for any other approval. */
+export function proposedInstructions(
+  approval: Pick<PendingApproval, "toolName" | "args">,
+): string | null {
+  return approval.toolName === "bot_update" &&
+    Predicate.isObject(approval.args) &&
+    Predicate.isString(approval.args.instructions)
+    ? approval.args.instructions
+    : null;
+}
+
+function InstructionsProposal({
+  instructions,
+  className,
+  label,
+}: {
+  instructions: string;
+  className: string | undefined;
+  label: string;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <div
+      aria-label={label}
+      className={cn("flex min-w-0 flex-1 flex-col gap-2", className)}
+      data-testid="instructions-proposal"
+      role="group"
+    >
+      <p className="min-w-0 text-11px text-muted-foreground">
+        {t("Replaces the bot's instructions for every chat.")}
+      </p>
+      <p
+        className="max-h-60 min-w-0 overflow-auto whitespace-pre-wrap break-words text-sm leading-5 text-foreground/90 scrollbar-thin focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+        tabIndex={0}
+      >
+        {instructions}
+      </p>
+    </div>
+  );
+}
+
 /** The brief a bot hands another bot: the goal, what done looks like and any context. */
 export function delegateProposalDetails(args: PendingApproval["args"]) {
   const record = Predicate.isObject(args) ? args : {};
@@ -509,6 +551,18 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
         hideLabel={hideLabel}
         label={t("Skill approval")}
         pendingCount={pendingCount}
+      />
+    );
+  }
+
+  const instructions = proposedInstructions(approval);
+
+  if (instructions !== null) {
+    return (
+      <InstructionsProposal
+        instructions={instructions}
+        className={className}
+        label={t("Instructions approval")}
       />
     );
   }
