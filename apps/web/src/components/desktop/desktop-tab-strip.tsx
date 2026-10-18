@@ -34,6 +34,7 @@ import {
 import { useI18n } from "../../i18n";
 import { cn, isMacPlatform } from "../../lib/utils";
 import { isModelPickerOpen } from "../../model-picker-visibility";
+import { useShortcutHintsVisible } from "../../shortcut-hints";
 import { useThreadShell } from "../../state/entities";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { ThreadStatusIcon } from "../roster/chat-status-icon";
@@ -58,6 +59,13 @@ const PLACES: ReadonlyArray<TabPlace & { readonly base: string }> = [
   { base: "/library", label: "Library", icon: RiBookShelfLine },
   { base: "/customize", label: "Customize", icon: RiShapesLine },
 ];
+
+/** The digit ⌘ jumps to a tab with: 1–8 by position, and 9 for the last tab. */
+export function tabJumpDigit(index: number, count: number): number | null {
+  if (index === count - 1) return Math.min(count, 9);
+
+  return index < 8 ? index + 1 : null;
+}
 
 /** A route's place: the rail's glyph and name, which a page's own title replaces. */
 function tabPlace(href: string): TabPlace {
@@ -112,6 +120,7 @@ export function DesktopTabStrip() {
   const activeId = useDesktopTabs((state) => state.activeId);
   const titles = useDesktopTabs((state) => state.titles);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const jumpHints = useShortcutHintsVisible("command");
   // The app starts on its first route; the saved open tab wins once.
   const restoreHref = useRef<string | null | undefined>(undefined);
 
@@ -200,6 +209,7 @@ export function DesktopTabStrip() {
           const place = tabPlace(tab.href);
           const active = tab.id === activeId;
           const chatId = /^\/chats\/([^/]+)$/.exec(desktopTabPathname(tab.href))?.[1] ?? null;
+          const jumpDigit = jumpHints ? tabJumpDigit(index, tabs.length) : null;
 
           return (
             <div
@@ -237,7 +247,9 @@ export function DesktopTabStrip() {
                 <span>{titles[desktopTabPathname(tab.href)] ?? t(place.label)}</span>
               </button>
               <span className="sidebar-row-trail absolute inset-y-0 right-0 flex items-center pr-1 pl-5">
-                {chatId ? (
+                {jumpDigit !== null ? (
+                  <Kbd variant="jump">{isMac ? `⌘${jumpDigit}` : `Ctrl+${jumpDigit}`}</Kbd>
+                ) : chatId ? (
                   <span
                     className={cn(
                       "flex size-5 items-center justify-center",
@@ -248,7 +260,7 @@ export function DesktopTabStrip() {
                     <TabChatStatus threadId={chatId} current={active} />
                   </span>
                 ) : null}
-                {tabs.length > 1 ? (
+                {tabs.length > 1 && jumpDigit === null ? (
                   <span className="hidden group-hover/tab:flex group-has-focus-visible/tab:flex">
                     <Button
                       variant="ghost-muted"

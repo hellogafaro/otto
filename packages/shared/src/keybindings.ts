@@ -5,7 +5,6 @@ import {
   MAX_KEYBINDINGS_COUNT,
   MAX_WHEN_EXPRESSION_DEPTH,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
-  NAVIGATION_KEYBINDING_COMMANDS,
   type ResolvedKeybindingRule,
   type ResolvedKeybindingsConfig,
   THREAD_JUMP_KEYBINDING_COMMANDS,
@@ -36,17 +35,14 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "c", command: "item.new", when: "!inputFocus" },
   // Browsers keep mod+n for a new window, so only the desktop app takes it.
   { key: "mod+n", command: "item.new", when: "desktop" },
-  { key: "r", command: "item.rename", when: "!inputFocus" },
-  { key: "p", command: "item.pin", when: "!inputFocus" },
-  { key: "u", command: "item.markUnread", when: "!inputFocus" },
-  { key: "h", command: "item.snooze", when: "!inputFocus" },
-  { key: "e", command: "item.archive", when: "!inputFocus" },
+  // Rename, pin, unread, snooze, archive and assign to me have no single key: a letter typed
+  // while the composer only looked focused must never change anything. More actions and the
+  // command palette still run them, and a person can bind a key in Settings.
   { key: "mod+backspace", command: "item.delete", when: "!inputFocus" },
   { key: "mod+shift+,", command: "item.copyLink", when: "!inputFocus" },
   { key: "mod+.", command: "item.copyId", when: "!inputFocus" },
   { key: "s", command: "property.status", when: "!inputFocus" },
   { key: "a", command: "property.assignees", when: "!inputFocus" },
-  { key: "i", command: "property.assignToMe", when: "!inputFocus" },
   { key: "o", command: "property.owner", when: "!inputFocus" },
   { key: "shift+d", command: "property.dueDate", when: "!inputFocus" },
   { key: "shift+p", command: "property.project", when: "!inputFocus" },
@@ -55,15 +51,11 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "b", command: "property.bot", when: "!inputFocus" },
   { key: "v", command: "property.visibility", when: "!inputFocus" },
   { key: "m", command: "property.members", when: "!inputFocus" },
-  ...NAVIGATION_KEYBINDING_COMMANDS.map((command, index) => ({
+  // Option 1–9 opens the sidebar's rows, pinned first, even from the composer. The desktop
+  // app's tabs own mod+1–9; the web leaves it to the browser.
+  ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `alt+${index + 1}`,
     command,
-  })),
-  // The desktop app's tabs own mod+1–9.
-  ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
-    key: `mod+${index + 1}`,
-    command,
-    when: "!desktop",
   })),
   ...MODEL_PICKER_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `mod+${index + 1}`,

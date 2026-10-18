@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { readShortcutHintsVisible, subscribeShortcutHints } from "./shortcut-hints";
+import { readShortcutHintModifier, subscribeShortcutHints } from "./shortcut-hints";
 
 function key(type: "keydown" | "keyup", key: string, modifiers: Partial<KeyboardEvent> = {}) {
   window.dispatchEvent(
@@ -30,23 +30,23 @@ describe("shortcut hints", () => {
     const { listener, unsubscribe } = hold("MacIntel");
 
     key("keydown", "Meta", { metaKey: true });
-    expect(readShortcutHintsVisible()).toBe(true);
+    expect(readShortcutHintModifier()).toBe("command");
     expect(listener).toHaveBeenCalledTimes(1);
 
     key("keyup", "Meta");
-    expect(readShortcutHintsVisible()).toBe(false);
+    expect(readShortcutHintModifier()).toBe(null);
     unsubscribe();
   });
 
   it("uses Ctrl off macOS and ignores Ctrl on macOS", () => {
     const linux = hold("Linux x86_64");
     key("keydown", "Control", { ctrlKey: true });
-    expect(readShortcutHintsVisible()).toBe(true);
+    expect(readShortcutHintModifier()).toBe("command");
     linux.unsubscribe();
 
     const mac = hold("MacIntel");
     key("keydown", "Control", { ctrlKey: true });
-    expect(readShortcutHintsVisible()).toBe(false);
+    expect(readShortcutHintModifier()).toBe(null);
     mac.unsubscribe();
   });
 
@@ -55,13 +55,13 @@ describe("shortcut hints", () => {
 
     key("keydown", "Meta", { metaKey: true });
     key("keydown", "c", { metaKey: true });
-    expect(readShortcutHintsVisible()).toBe(false);
+    expect(readShortcutHintModifier()).toBe(null);
     key("keydown", "Meta", { metaKey: true, repeat: true });
-    expect(readShortcutHintsVisible()).toBe(false);
+    expect(readShortcutHintModifier()).toBe(null);
 
     key("keyup", "Meta");
     key("keydown", "Meta", { metaKey: true });
-    expect(readShortcutHintsVisible()).toBe(true);
+    expect(readShortcutHintModifier()).toBe("command");
     unsubscribe();
   });
 
@@ -69,8 +69,25 @@ describe("shortcut hints", () => {
     const { unsubscribe } = hold("MacIntel");
 
     key("keydown", "Meta", { metaKey: true });
-    key("keydown", "Alt", { metaKey: true });
-    expect(readShortcutHintsVisible()).toBe(true);
+    key("keydown", "Alt", { metaKey: true, altKey: true });
+    expect(readShortcutHintModifier()).toBe("command");
+    key("keyup", "Alt", { metaKey: true });
+    expect(readShortcutHintModifier()).toBe("command");
+    unsubscribe();
+  });
+
+  it("shows the Option hints while Option is held on its own", () => {
+    const { unsubscribe } = hold("MacIntel");
+
+    key("keydown", "Alt", { altKey: true });
+    expect(readShortcutHintModifier()).toBe("option");
+    key("keydown", "1", { altKey: true });
+    expect(readShortcutHintModifier()).toBe(null);
+    key("keydown", "Alt", { altKey: true, repeat: true });
+    expect(readShortcutHintModifier()).toBe(null);
+    key("keyup", "Alt");
+    key("keydown", "Alt", { altKey: true });
+    expect(readShortcutHintModifier()).toBe("option");
     unsubscribe();
   });
 
@@ -79,7 +96,7 @@ describe("shortcut hints", () => {
 
     key("keydown", "Meta", { metaKey: true });
     window.dispatchEvent(new Event("blur"));
-    expect(readShortcutHintsVisible()).toBe(false);
+    expect(readShortcutHintModifier()).toBe(null);
     unsubscribe();
   });
 });

@@ -12,6 +12,7 @@ import {
   MAX_KEYBINDINGS_COUNT,
   ResolvedKeybindingsConfig,
   type ServerConfigIssue,
+  NAVIGATION_KEYBINDING_COMMANDS,
   THREAD_JUMP_KEYBINDING_COMMANDS,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
@@ -55,6 +56,25 @@ export const RETIRED_DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `mod+${index + 1}`,
     command,
+  })),
+  // Single letters that changed the open item. A letter typed while the composer only looked
+  // focused archived or pinned it, so these now run from More actions and the command palette.
+  { key: "r", command: "item.rename", when: "!inputFocus" },
+  { key: "p", command: "item.pin", when: "!inputFocus" },
+  { key: "u", command: "item.markUnread", when: "!inputFocus" },
+  { key: "h", command: "item.snooze", when: "!inputFocus" },
+  { key: "e", command: "item.archive", when: "!inputFocus" },
+  { key: "i", command: "property.assignToMe", when: "!inputFocus" },
+  // Option 1–9 moved from the rail's pages to the sidebar's rows, and the web gave mod+1–9 back
+  // to the browser.
+  ...NAVIGATION_KEYBINDING_COMMANDS.map((command, index) => ({
+    key: `alt+${index + 1}`,
+    command,
+  })),
+  ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
+    key: `mod+${index + 1}`,
+    command,
+    when: "!desktop",
   })),
 ];
 
