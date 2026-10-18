@@ -62,6 +62,17 @@ const RoutineRow = Schema.Struct({
         ),
         time: Schema.String,
       }),
+      Schema.Struct({
+        kind: Schema.Literals(["monthly", "quarterly"]),
+        day: Schema.Number,
+        time: Schema.String,
+      }),
+      Schema.Struct({
+        kind: Schema.Literal("yearly"),
+        month: Schema.Number,
+        day: Schema.Number,
+        time: Schema.String,
+      }),
     ]),
   ),
   timezone: Schema.String,

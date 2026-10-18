@@ -56,6 +56,15 @@ export const RoutineHourInterval = Schema.Literals([1, 2, 3, 4, 6, 8, 12]);
 
 export type RoutineHourInterval = typeof RoutineHourInterval.Type;
 
+/** A day of the month; in a shorter month the routine runs on its last day. */
+export const RoutineMonthDay = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 31 }));
+
+export type RoutineMonthDay = typeof RoutineMonthDay.Type;
+
+export const RoutineMonth = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 12 }));
+
+export type RoutineMonth = typeof RoutineMonth.Type;
+
 export const RoutineSchedule = Schema.Union([
   /** Runs at `time` and every `everyHours` hours around the clock from it. */
   Schema.Struct({
@@ -68,6 +77,19 @@ export const RoutineSchedule = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("weekly"),
     weekdays: Schema.Array(RoutineWeekday).check(Schema.isMinLength(1)),
+    time: RoutineLocalTime,
+  }),
+  Schema.Struct({ kind: Schema.Literal("monthly"), day: RoutineMonthDay, time: RoutineLocalTime }),
+  /** Runs in January, April, July and October. */
+  Schema.Struct({
+    kind: Schema.Literal("quarterly"),
+    day: RoutineMonthDay,
+    time: RoutineLocalTime,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("yearly"),
+    month: RoutineMonth,
+    day: RoutineMonthDay,
     time: RoutineLocalTime,
   }),
 ]);

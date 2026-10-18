@@ -10,14 +10,28 @@ import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
 
-type Repeat = `hourly-${RoutineHourInterval}` | "daily" | "weekdays" | "weekly";
+type Repeat =
+  | `hourly-${RoutineHourInterval}`
+  | "daily"
+  | "weekdays"
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "yearly";
 
 const REPEATS: readonly Repeat[] = [
   ...ROUTINE_HOUR_INTERVALS.map((hours) => `hourly-${hours}` as const),
   "daily",
   "weekdays",
   "weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
 ];
+
+const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
+
+const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 const repeatOf = (schedule: RoutineSchedule): Repeat =>
   schedule.kind === "hourly" ? `hourly-${schedule.everyHours}` : schedule.kind;
@@ -57,6 +71,8 @@ export function RoutineScheduleEdit({
     schedule.kind === "weekly" ? schedule.weekdays : ["monday"],
   );
 
+  const [day, setDay] = useState("day" in schedule ? schedule.day : 1);
+  const [month, setMonth] = useState(schedule.kind === "yearly" ? schedule.month : 1);
   const [zone, setZone] = useState(timezone);
 
   const repeatLabel = (value: Repeat) => {
@@ -65,6 +81,12 @@ export function RoutineScheduleEdit({
     if (value === "weekdays") return t("Weekdays");
 
     if (value === "weekly") return t("Weekly");
+
+    if (value === "monthly") return t("Monthly");
+
+    if (value === "quarterly") return t("Quarterly");
+
+    if (value === "yearly") return t("Yearly");
 
     const hours = Number(value.slice(7));
 
@@ -76,10 +98,19 @@ export function RoutineScheduleEdit({
       Date.UTC(2024, 0, 1 + index),
     );
 
+  const monthName = (value: number) =>
+    new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(
+      Date.UTC(2024, value - 1, 1),
+    );
+
   const next = ((): RoutineSchedule => {
     if (repeat === "daily" || repeat === "weekdays") return { kind: repeat, time };
 
     if (repeat === "weekly") return { kind: "weekly", weekdays, time };
+
+    if (repeat === "monthly" || repeat === "quarterly") return { kind: repeat, day, time };
+
+    if (repeat === "yearly") return { kind: "yearly", month, day, time };
 
     return {
       kind: "hourly",
@@ -112,6 +143,8 @@ export function RoutineScheduleEdit({
           setRepeat(repeatOf(schedule));
           setTime(schedule.time);
           setWeekdays(schedule.kind === "weekly" ? schedule.weekdays : ["monday"]);
+          setDay("day" in schedule ? schedule.day : 1);
+          setMonth(schedule.kind === "yearly" ? schedule.month : 1);
           setZone(timezone);
           saved.current = JSON.stringify({ schedule, timezone });
         } else {
@@ -176,6 +209,44 @@ export function RoutineScheduleEdit({
                   </Toggle>
                 ))}
               </ToggleGroup>
+            </ScheduleField>
+          ) : null}
+          {repeat === "yearly" ? (
+            <ScheduleField label={t("Month")}>
+              <Select
+                value={String(month)}
+                onValueChange={(value) => value && edit(() => setMonth(Number(value)))}
+              >
+                <SelectTrigger size="sm" aria-label={t("Month")}>
+                  <SelectValue>{monthName(month)}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup alignItemWithTrigger={false}>
+                  {MONTHS.map((option) => (
+                    <SelectItem key={option} hideIndicator value={String(option)}>
+                      {monthName(option)}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            </ScheduleField>
+          ) : null}
+          {repeat === "monthly" || repeat === "quarterly" || repeat === "yearly" ? (
+            <ScheduleField label={t("Day of month")}>
+              <Select
+                value={String(day)}
+                onValueChange={(value) => value && edit(() => setDay(Number(value)))}
+              >
+                <SelectTrigger size="sm" aria-label={t("Day of month")}>
+                  <SelectValue>{day}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup alignItemWithTrigger={false}>
+                  {MONTH_DAYS.map((option) => (
+                    <SelectItem key={option} hideIndicator value={String(option)}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             </ScheduleField>
           ) : null}
           <ScheduleField label={t("Time")}>
