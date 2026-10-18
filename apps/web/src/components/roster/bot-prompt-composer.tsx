@@ -477,7 +477,7 @@ export function BotPromptComposer({
                 ? BOT_COMPOSER_QUIET_SURFACE_CLASS_NAME
                 : BOT_COMPOSER_SURFACE_CLASS_NAME,
               pendingActionSlot ? "rounded-t-md border-t-transparent" : undefined,
-              dragging && "ring-2 ring-ring ring-inset",
+              dragging && "outline-2 -outline-offset-2 outline-ring",
             )}
           >
             {/* One line, always the same height, so starting a reply never resizes the box. */}

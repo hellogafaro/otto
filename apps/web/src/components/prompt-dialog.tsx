@@ -141,7 +141,7 @@ function PromptDialogBody({
 
   return (
     <form
-      className={cn("flex flex-col", files.dragging && "ring-2 ring-ring ring-inset")}
+      className={cn("flex flex-col", files.dragging && "outline-2 -outline-offset-2 outline-ring")}
       {...dropHandlers}
       onSubmit={(event) => {
         event.preventDefault();
