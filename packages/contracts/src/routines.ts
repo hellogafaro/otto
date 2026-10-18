@@ -316,6 +316,8 @@ export const RoutineListThreadRunsInput = Schema.Struct({
   beforeRunId: Schema.optional(RoutineRunId),
 });
 
+export type RoutineListThreadRunsInput = typeof RoutineListThreadRunsInput.Type;
+
 /**
  * One page of the runs posted for a chat's routines, newest first, with the routines that post
  * there: the live ones the viewer may see, and the deleted ones by their receipt fields.
