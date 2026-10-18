@@ -13,6 +13,8 @@ export const workCatalog = {
   Repeat: "重复",
   "Does not repeat": "不重复",
   Monthly: "每月",
+  Quarterly: "每季度",
+  Yearly: "每年",
   Links: "链接",
   "Heading 2": "二级标题",
   "Heading 3": "三级标题",

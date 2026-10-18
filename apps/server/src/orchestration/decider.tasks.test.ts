@@ -307,6 +307,12 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
     expect(nextTaskDueDate("monthly", "2026-01-31", "2026-01-31")).toBe("2026-02-28");
     expect(nextTaskDueDate("monthly", "2026-01-31", "2026-03-01")).toBe("2026-03-31");
     expect(nextTaskDueDate("weekly", null, "2026-03-18")).toBe("2026-03-25");
+    expect(nextTaskDueDate("quarterly", "2026-01-09", "2026-01-09")).toBe("2026-04-09");
+    expect(nextTaskDueDate("quarterly", "2025-11-30", "2026-03-01")).toBe("2026-05-30");
+    expect(nextTaskDueDate("quarterly", "2026-08-31", "2026-08-31")).toBe("2026-11-30");
+    expect(nextTaskDueDate("yearly", "2026-10-18", "2026-10-18")).toBe("2027-10-18");
+    expect(nextTaskDueDate("yearly", "2024-02-29", "2024-02-29")).toBe("2025-02-28");
+    expect(nextTaskDueDate("yearly", "2024-02-29", "2027-06-01")).toBe("2028-02-29");
   });
 
   it.effect("completing a repeating task creates the next one and hands it the repeat", () =>

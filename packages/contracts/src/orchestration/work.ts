@@ -100,7 +100,14 @@ export const TaskDueDate = TrimmedNonEmptyString.check(Schema.isPattern(/^\d{4}-
 export type TaskDueDate = typeof TaskDueDate.Type;
 
 /** How a task repeats; completing it creates the next one with the next due date. */
-export const TaskRepeat = Schema.Literals(["daily", "weekdays", "weekly", "monthly"]);
+export const TaskRepeat = Schema.Literals([
+  "daily",
+  "weekdays",
+  "weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+]);
 
 export type TaskRepeat = typeof TaskRepeat.Type;
 
