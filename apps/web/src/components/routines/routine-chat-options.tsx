@@ -1,7 +1,7 @@
 import type { RoutineThreadMode } from "@otto/contracts";
 import {
   RiChat3Line,
-  RiChatNewLine,
+  RiChatHistoryLine,
   RiWechatLine,
   type RemixiconComponentType,
 } from "@remixicon/react";
@@ -18,9 +18,9 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 const MODES = ["target", "single", "per-run"] as const satisfies readonly RoutineThreadMode[];
 
 const MODE_ICONS = {
-  target: RiChat3Line,
+  target: RiChatHistoryLine,
+  single: RiChat3Line,
   "per-run": RiWechatLine,
-  single: RiChatNewLine,
 } as const satisfies Record<RoutineThreadMode, RemixiconComponentType>;
 
 const modeIcon = (mode: RoutineThreadMode) => MODE_ICONS[mode];
