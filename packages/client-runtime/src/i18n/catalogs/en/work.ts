@@ -13,6 +13,8 @@ export const workCatalog = {
   Repeat: "Repeat",
   "Does not repeat": "Does not repeat",
   Monthly: "Monthly",
+  Quarterly: "Quarterly",
+  Yearly: "Yearly",
   Links: "Links",
   "Heading 2": "Heading 2",
   "Heading 3": "Heading 3",
