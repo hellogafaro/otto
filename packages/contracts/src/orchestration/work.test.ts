@@ -28,6 +28,7 @@ const task = (overrides: Partial<OrchestrationTask> = {}): OrchestrationTask => 
   assignees: [scout],
   resources: [],
   dueDate: "2026-03-10",
+  repeat: null,
   status: "in_progress",
   timeEntries: [],
   createdAt: "2026-03-01T00:00:00.000Z",

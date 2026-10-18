@@ -11,6 +11,7 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { decideOrchestrationCommand } from "./decider.ts";
+import { nextTaskDueDate } from "./decider/tasks.ts";
 import { createEmptyReadModel, projectEvent } from "./projector.ts";
 import { asProjectId } from "./test-support/project-decider-fixtures.ts";
 
@@ -144,6 +145,7 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
           assignees: [person],
           resources: [],
           dueDate: null,
+          repeat: null,
           status: "backlog",
           timeEntries: [],
           createdAt: now,
@@ -295,6 +297,94 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
       expect(removed.readModel.tasks?.[0]?.timeEntries.map((entry) => entry.id)).toEqual([
         "entry-2",
       ]);
+    }),
+  );
+  it("schedules the next occurrence after today, counted from the due date", () => {
+    expect(nextTaskDueDate("daily", "2026-03-10", "2026-03-09")).toBe("2026-03-11");
+    expect(nextTaskDueDate("daily", "2026-03-10", "2026-03-14")).toBe("2026-03-15");
+    expect(nextTaskDueDate("weekdays", "2026-03-13", "2026-03-13")).toBe("2026-03-16");
+    expect(nextTaskDueDate("weekly", "2026-03-02", "2026-03-18")).toBe("2026-03-23");
+    expect(nextTaskDueDate("monthly", "2026-01-31", "2026-01-31")).toBe("2026-02-28");
+    expect(nextTaskDueDate("monthly", "2026-01-31", "2026-03-01")).toBe("2026-03-31");
+    expect(nextTaskDueDate("weekly", null, "2026-03-18")).toBe("2026-03-25");
+  });
+
+  it.effect("completing a repeating task creates the next one and hands it the repeat", () =>
+    Effect.gen(function* () {
+      const ada = { personId: AuthSessionId.make("user-ada") };
+
+      const created = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-repeat-create"),
+        taskId,
+        projectId,
+        title: "Send the monthly report",
+        owner: person,
+        assignees: [person],
+        dueDate: "2099-01-31",
+        createdAt: now,
+      });
+
+      const repeating = yield* decideAndProject(
+        created.readModel,
+        {
+          type: "task.update",
+          commandId: CommandId.make("cmd-task-repeat-set"),
+          taskId,
+          repeat: "monthly",
+        },
+        ada,
+      );
+
+      expect(repeating.events).toHaveLength(1);
+      expect(repeating.events[0]?.payload).toMatchObject({
+        changes: { repeat: { from: null, to: "monthly" } },
+      });
+
+      const complete = (readModel: OrchestrationReadModel, id: string) =>
+        decideAndProject(
+          readModel,
+          { type: "task.update", commandId: CommandId.make(id), taskId, status: "completed" },
+          ada,
+        );
+
+      const completed = yield* complete(repeating.readModel, "cmd-task-repeat-complete");
+
+      expect(completed.events.map((event) => event.type)).toEqual(["task.updated", "task.created"]);
+      expect(completed.events[0]?.payload).toMatchObject({
+        changes: { status: { from: "backlog", to: "completed" } },
+      });
+
+      const [done, next] = completed.readModel.tasks ?? [];
+
+      expect(done).toMatchObject({ id: taskId, status: "completed", repeat: null });
+      expect(next).toMatchObject({
+        projectId,
+        title: "Send the monthly report",
+        owner: person,
+        assignees: [person],
+        dueDate: "2099-02-28",
+        repeat: "monthly",
+        status: "pending",
+        timeEntries: [],
+      });
+      expect(next?.id).not.toBe(taskId);
+
+      const reopened = yield* decideAndProject(
+        completed.readModel,
+        {
+          type: "task.update",
+          commandId: CommandId.make("cmd-task-repeat-reopen"),
+          taskId,
+          status: "pending",
+        },
+        ada,
+      );
+
+      const again = yield* complete(reopened.readModel, "cmd-task-repeat-complete-again");
+
+      expect(again.events.map((event) => event.type)).toEqual(["task.updated"]);
+      expect(again.readModel.tasks).toHaveLength(2);
     }),
   );
 });
