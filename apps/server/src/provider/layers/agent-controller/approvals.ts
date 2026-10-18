@@ -27,8 +27,6 @@ import type { OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
 
 import type { PendingWaiters } from "../../pending-waiters.ts";
 
-import { isMemoryToolId } from "../../otto-tool-runtime.ts";
-
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
@@ -280,7 +278,7 @@ export function createApprovals(deps: {
 
     const { name: toolName, input: toolInput } = toolRequest;
     const ottoTool = OTTO_TOOL_CATALOG.find((tool) => tool.id === toolName);
-    const runtimeToolId = ottoTool?.id ?? (isMemoryToolId(toolName) ? toolName : undefined);
+    const runtimeToolId = ottoTool?.id;
 
     const target = pendingApproval.toolName;
 

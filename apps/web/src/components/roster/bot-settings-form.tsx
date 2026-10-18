@@ -36,7 +36,6 @@ import { BotAlwaysAllowed } from "./bot-always-allowed";
 import { BotAvatarView } from "./bot-avatar-view";
 import { BotEngineFields } from "./bot-engine-fields";
 import { BotIdentityFields } from "./bot-identity-fields";
-import { BotMemorySheet } from "./bot-memory-sheet";
 import { BotToolSwitches } from "./bot-tool-switches";
 import { BOT_SANDBOX_OPTIONS, botSandboxLabel } from "./bot-sandbox";
 import type { Bot } from "./types";
@@ -89,7 +88,6 @@ export function BotSettingsForm({
 
   const draft = useBotProfileDraft(bot, onSave);
   const [avatarOpen, setAvatarOpen] = useState(false);
-  const [memoryOpen, setMemoryOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const onDeleteBot = useCallback(() => {
@@ -271,23 +269,6 @@ export function BotSettingsForm({
             />
 
             <SettingsRow
-              title={t("Memory")}
-              description={t("What {bot} remembers.", { bot: bot.name })}
-              control={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  aria-label={t("Manage bot memory")}
-                  disabled={!environmentId}
-                  onClick={() => setMemoryOpen(true)}
-                >
-                  {t("View")}
-                </Button>
-              }
-            />
-
-            <SettingsRow
               title={t("Channels")}
               description={t("Where this bot answers outside Otto.")}
               control={<Badge variant="quiet">{t("Coming soon")}</Badge>}
@@ -328,15 +309,6 @@ export function BotSettingsForm({
       </div>
 
       <AvatarPickerDialog bot={bot} open={avatarOpen} onOpenChange={setAvatarOpen} />
-      {environmentId ? (
-        <BotMemorySheet
-          open={memoryOpen}
-          onOpenChange={setMemoryOpen}
-          environmentId={environmentId}
-          botId={BotId.make(bot.id)}
-          botName={bot.name}
-        />
-      ) : null}
     </>
   );
 }

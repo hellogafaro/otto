@@ -17,15 +17,10 @@ import {
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import {
-  MEMORY_UPDATE_TOOL_DESCRIPTION,
-  type MemoryUpdateToolId,
-} from "../memory/memory-update-tool.ts";
-import {
   type OttoRuntimeToolDefinition,
   type OttoToolRuntimeOptions,
   type OttoToolRuntime,
   type OttoToolSession,
-  type OttoRuntimeToolId,
   type OttoToolExecution,
 } from "./tools/otto-tool-types.ts";
 import { ensureWorkspaceCwd, canonicalInput, field } from "./tools/otto-tool-authorization.ts";
@@ -43,21 +38,13 @@ const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
 
 const isDelegationProviderUnsupported = Schema.is(OttoDelegationProviderUnsupportedError);
 
-const MEMORY_TOOL_DEFINITIONS = [
-  { id: "memory_update", description: MEMORY_UPDATE_TOOL_DESCRIPTION },
-] as const satisfies ReadonlyArray<OttoRuntimeToolDefinition>;
-
-export function isMemoryToolId(toolId: string): toolId is MemoryUpdateToolId {
-  return toolId === "memory_update";
-}
-
 export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToolRuntime {
   const sessions = new Map<string, OttoToolSession>();
 
   const grants = new Map<
     string,
     {
-      readonly toolId: OttoRuntimeToolId;
+      readonly toolId: OttoToolId;
       readonly input: string;
       readonly responder?: ApprovalResponder;
     }
@@ -177,12 +164,10 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
         : {}),
     });
 
-    return session.memoryHandlers
-      ? [...workspaceTools, ...MEMORY_TOOL_DEFINITIONS]
-      : workspaceTools;
+    return workspaceTools;
   };
 
-  const decodedGrantInput = (toolId: OttoRuntimeToolId, input: OttoToolExecution["input"]) =>
+  const decodedGrantInput = (toolId: OttoToolId, input: OttoToolExecution["input"]) =>
     decodeOttoRuntimeToolInput(toolId, input, { approvalGrant: true }).input;
 
   const requiresApproval = async (
@@ -190,8 +175,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
     tool: OttoRuntimeToolDefinition,
     input: OttoToolExecution["input"],
   ) => {
-    if (tool.id === "memory_update") return false;
-
     if (proposedBotInstructions(tool.id, input) !== null) return true;
     const ottoTool = OTTO_TOOL_CATALOG.find((candidate) => candidate.id === tool.id);
 
@@ -275,18 +258,9 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
         failureCode = "not_found";
         let result: OttoToolResult;
 
-        const catalogHandler =
-          execution.toolId === "memory_update"
-            ? undefined
-            : session.catalogHandlers?.[execution.toolId];
+        const catalogHandler = session.catalogHandlers?.[execution.toolId];
 
-        if (isMemoryToolId(input.toolId)) {
-          const handler = session.memoryHandlers?.[input.toolId];
-
-          if (!handler) throw new Error(`Tool '${input.toolId}' has no backend.`);
-          failureCode = "internal";
-          result = await handler({ ...input, toolId: input.toolId, input: decoded });
-        } else if (catalogHandler) {
+        if (catalogHandler) {
           failureCode = "internal";
           result = await catalogHandler({
             input: decoded,
@@ -296,8 +270,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
             emitProgress: (summary, details) =>
               options?.onProgress?.({
                 threadId: input.threadId,
-                // SAFETY: Only catalog tools reach this callback; memory dispatch returns above.
-                toolId: input.toolId as OttoToolId,
+                toolId: input.toolId,
                 toolCallId: input.toolCallId,
                 summary,
                 ...details,
@@ -502,7 +475,6 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 }
 
 export {
-  type OttoRuntimeToolId,
   type OttoRuntimeToolDefinition,
   type OttoToolSession,
   type OttoToolRuntimeOptions,

@@ -103,9 +103,4 @@ export {
   SandboxSettings,
 } from "./settings/sandbox.ts";
 
-export {
-  SharedProjectMemorySaveMode,
-  DEFAULT_SHARED_PROJECT_MEMORY_SAVE_MODE,
-  MemorySettings,
-  MemorySettingsPatch,
-} from "./settings/memory.ts";
+export { MemorySettings, MemorySettingsPatch } from "./settings/memory.ts";

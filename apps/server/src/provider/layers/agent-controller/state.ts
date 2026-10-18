@@ -18,8 +18,8 @@ import {
   type TaskWake,
 } from "@otto/contracts";
 import * as Deferred from "effect/Deferred";
+import type { ChatMemory } from "../../../memory/memories.ts";
 import * as Semaphore from "effect/Semaphore";
-import type { MemoryChat } from "../../../memory/memories.ts";
 import { type OttoControllerSession } from "../../mastra/otto-harness-types.ts";
 import { type OttoToolSession } from "../../otto-tool-runtime.ts";
 import {
@@ -71,13 +71,14 @@ export interface PendingTurn {
   readonly message: Parameters<MastraSession["sendMessage"]>[0];
   readonly botUsage: AgentControllerSendTurnInput["botUsage"];
   readonly toolSession: OttoToolSession;
-  readonly memoryChat: MemoryChat | undefined;
-  /** The person whose message this turn answers; person memory writes go to them. */
-  readonly authorPersonId: AuthSessionId | null;
+  /** What this chat remembers. */
+  readonly memory: ChatMemory | undefined;
   /** The person whose GitHub login the bot's computer gets this turn. */
   readonly askerPersonId: AuthSessionId | null;
   readonly hiddenWake: boolean;
   readonly delegationResults: string | undefined;
+  /** What is going on for the bot right now, sent in the turn block. */
+  readonly nowContext: string | undefined;
   /** The group turn note, sent in the turn block instead of the stored message. */
   readonly turnNote: string;
   /** The task event this turn answers, sent as signals instead of `message`. */

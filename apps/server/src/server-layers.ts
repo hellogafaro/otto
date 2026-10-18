@@ -53,6 +53,7 @@ import * as Secrets from "./secrets/secrets.ts";
 import * as DesktopTelemetryReceiver from "./desktop-telemetry/desktop-telemetry-receiver.ts";
 import * as UsageService from "./usage/usage-service.ts";
 import { MemoriesLive } from "./memory/memories.ts";
+import { MemoryReviewLive } from "./memory/memory-review.ts";
 import { OrchestrationLayerLive } from "./orchestration/runtime-layer.ts";
 import * as NetService from "@otto/shared/Net";
 import { RoutineLayerLive } from "./routines/layer.ts";
@@ -130,10 +131,7 @@ export const PersistenceLayerLive = Layer.empty.pipe(
 
 export const McpSessionRegistryLayerLive = McpSessionRegistry.layer;
 
-export const MemoriesLayerLive = MemoriesLive.pipe(
-  Layer.provide(OrchestrationLayerLive),
-  Layer.provide(PersistenceLayerLive),
-);
+export const MemoriesLayerLive = MemoriesLive.pipe(Layer.provide(PersistenceLayerLive));
 
 export const ProviderLayerLive = AgentControllerLive.pipe(
   Layer.provide(LegacyProviderLayerLive),
@@ -255,6 +253,7 @@ export const RuntimeCoreWithRoutinesLive = Layer.mergeAll(
   ImageGenerationRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
   LibraryToolRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
   TaskToolRuntime.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
+  MemoryReviewLive.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
   AudioTranscribeTool.layer.pipe(Layer.provide(RuntimeCoreDependenciesLive)),
 );
 

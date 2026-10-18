@@ -17,13 +17,12 @@ import * as Effect from "effect/Effect";
 import { resolveAttachmentPath } from "../../../attachment-store.ts";
 
 import { ServerConfig } from "../../../config.ts";
+import type { ChatMemory } from "../../../memory/memories.ts";
 
 import type { OttoControllerHarness } from "../../mastra/otto-harness-types.ts";
 import { createOttoInstructions } from "../../otto-agent-instructions.ts";
 import { splitGroupTurnNote } from "../../../orchestration/group-responder.ts";
 
-import type { MemoryChat } from "../../../memory/memories.ts";
-import type { MemoryTurn } from "./memory-access.ts";
 import { cancelActiveImageGenerations } from "../../../image-generation/image-generation-runtime.ts";
 
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
@@ -80,10 +79,9 @@ export function createTurnRequests(deps: {
     run: (signal: AbortSignal) => Promise<A>,
   ) => Effect.Effect<A, AgentControllerRuntimeError, never>;
   readonly memoryContext: (
-    chat: MemoryChat | undefined,
+    memory: ChatMemory | undefined,
     timezone: string | undefined,
   ) => Promise<string>;
-  readonly memoryTurns: Map<string, MemoryTurn>;
   readonly bundle: OttoControllerHarness;
   readonly addLegacyPending: (
     key: string,
@@ -280,8 +278,8 @@ export function createTurnRequests(deps: {
         const {
           botUsage: _,
           delegationResults,
-          memoryChat: requestedMemoryChat,
-          authorPersonId,
+          nowContext,
+          memory: requestedMemory,
           taskWake,
           routineWake,
           ...requested
@@ -295,19 +293,13 @@ export function createTurnRequests(deps: {
             ? { ...requested, input: routineWakeText(routineWake) }
             : requested;
 
-        const memoryChat = deps.legacyResourceIdentity.get(key)?.memory
-          ? requestedMemoryChat
+        const turnMemory = deps.legacyResourceIdentity.get(key)?.memory
+          ? requestedMemory
           : undefined;
 
         const memoryContext = yield* deps.runMastra("memory.render", () =>
-          deps.memoryContext(memoryChat, input.timezone),
+          deps.memoryContext(turnMemory, input.timezone),
         );
-
-        if (memoryChat) {
-          deps.memoryTurns.set(key, { chat: memoryChat, authorPersonId: authorPersonId ?? null });
-        } else {
-          deps.memoryTurns.delete(key);
-        }
 
         const pendingMemory: LegacyTurnMemoryState = {
           promptId: NodeCrypto.randomUUID(),
@@ -338,12 +330,15 @@ export function createTurnRequests(deps: {
         const providerContext = [
           contextInSystem ? turnInstructions : "",
           memoryContext,
+          contextInSystem ? nowContext : "",
           contextInSystem ? delegationResults : "",
         ]
           .filter(Boolean)
           .join("\n\n");
 
-        const inputPrefix = contextInSystem ? [] : [turnInstructions, delegationResults];
+        const inputPrefix = contextInSystem
+          ? []
+          : [turnInstructions, nowContext, delegationResults];
 
         return yield* deps.legacyProviderBridge
           .sendTurn({
@@ -445,11 +440,11 @@ export function createTurnRequests(deps: {
             turnNote: note,
             botUsage: input.botUsage,
             toolSession: active.configuredToolSession,
-            memoryChat: input.memoryChat,
-            authorPersonId: input.authorPersonId ?? null,
+            memory: input.memory,
             askerPersonId: input.askerPersonId ?? null,
             hiddenWake: input.hiddenWake === true,
             delegationResults: input.delegationResults,
+            nowContext: input.nowContext,
             taskWake: input.taskWake,
             routineWake: input.routineWake,
           });

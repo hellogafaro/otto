@@ -45,8 +45,6 @@ import {
   type OttoPluginRuntimeOptions,
 } from "../../otto-catalog-tool-handlers.ts";
 
-import { isMemoryToolId } from "../../otto-tool-runtime.ts";
-
 import { OttoSessionResources } from "../../otto-session-resources.ts";
 
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
@@ -584,9 +582,9 @@ export function createEvents(deps: {
                     if (active.activeTurn !== turn || turn.finished) return;
 
                     // Otto runtime tools check their own grant before running.
-                    const runtimeToolId =
-                      OTTO_TOOL_CATALOG.find((tool) => tool.id === event.toolName)?.id ??
-                      (isMemoryToolId(event.toolName) ? event.toolName : undefined);
+                    const runtimeToolId = OTTO_TOOL_CATALOG.find(
+                      (tool) => tool.id === event.toolName,
+                    )?.id;
 
                     if (runtimeToolId) {
                       deps.toolRuntime.grantApproval({

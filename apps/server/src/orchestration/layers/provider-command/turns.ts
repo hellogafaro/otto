@@ -2,6 +2,8 @@ import { OttoUsageReservationId, type ChatAttachment, ThreadId } from "@otto/con
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { nowContext } from "../../../provider/now-context.ts";
+import { chatTimeZone } from "../../../provider/otto-agent-instructions.ts";
 import { OTTO_TURN_USAGE_RESERVATION_TOKENS } from "../../../usage/bot-usage-ledger.ts";
 import {
   type ProviderIntentEvent,
@@ -322,10 +324,31 @@ export function createTurns({
       return;
     }
 
+    // What is going on for the bot right now; a turn still starts when it cannot be read.
+    const now =
+      respondingBotId === null
+        ? ""
+        : yield* projectionSnapshotQuery.getCommandReadModel().pipe(
+            Effect.map((readModel) =>
+              nowContext({
+                threadId: thread.id,
+                botId: respondingBotId,
+                tasks: readModel.tasks ?? [],
+                delegations: readModel.delegations,
+                routines: readModel.routines ?? [],
+                bots: readModel.bots,
+                pendingApprovals: thread.hasPendingApprovals,
+                timeZone: chatTimeZone(event.payload.timezone),
+              }),
+            ),
+            Effect.orElseSucceed(() => ""),
+          );
+
     yield* agentController
       .sendTurn({
         ...sendTurnRequest.value,
         ...(delegationResults.value ? { delegationResults: delegationResults.value } : {}),
+        ...(now ? { nowContext: now } : {}),
         ...(event.payload.taskWake !== undefined ? { taskWake: event.payload.taskWake } : {}),
         ...(event.payload.routineWake !== undefined
           ? { routineWake: event.payload.routineWake }

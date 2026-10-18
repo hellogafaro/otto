@@ -13,7 +13,11 @@ import { extractJsonObject } from "@otto/shared/schemaJson";
 
 import { TextGenerationError } from "@otto/contracts";
 import * as TextGeneration from "./text-generation.ts";
-import { buildBranchNamePrompt, buildThreadTitlePrompt } from "./text-generation-prompts.ts";
+import {
+  buildBranchNamePrompt,
+  buildMemoryReviewPrompt,
+  buildThreadTitlePrompt,
+} from "./text-generation-prompts.ts";
 import { sanitizeThreadTitle } from "./text-generation-utils.ts";
 import {
   applyGrokAcpModelSelection,
@@ -42,7 +46,7 @@ export const makeGrokTextGeneration = Effect.fn("makeGrokTextGeneration")(functi
     outputSchemaJson,
     modelSelection,
   }: {
-    operation: "generateBranchName" | "generateThreadTitle";
+    operation: TextGeneration.TextGenerationOperation;
     cwd: string;
     prompt: string;
     outputSchemaJson: S;
@@ -197,8 +201,22 @@ export const makeGrokTextGeneration = Effect.fn("makeGrokTextGeneration")(functi
       } satisfies TextGeneration.ThreadTitleGenerationResult;
     });
 
+  const generateMemoryReview: TextGeneration.TextGeneration["Service"]["generateMemoryReview"] =
+    Effect.fn("GrokTextGeneration.generateMemoryReview")(function* (input) {
+      const { prompt, outputSchema } = buildMemoryReviewPrompt(input);
+
+      return yield* runGrokJson({
+        operation: "generateMemoryReview",
+        cwd: input.cwd,
+        prompt,
+        outputSchemaJson: outputSchema,
+        modelSelection: input.modelSelection,
+      });
+    });
+
   return {
     generateBranchName,
     generateThreadTitle,
+    generateMemoryReview,
   } satisfies TextGeneration.TextGeneration["Service"];
 });

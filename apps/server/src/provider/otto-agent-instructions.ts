@@ -1,7 +1,6 @@
 import { OTTO_TOOL_CATALOG, OTTO_TOOL_FAMILIES } from "@otto/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
-import { MEMORY_UPDATE_TOOL_PROMPT } from "../memory/memory-update-tool.ts";
 import { OTTO_ROUTINE_TOOL_PROMPTS } from "./mastra/otto-routine-schemas.ts";
 
 /** What a loaded tool adds to the prompt: its line in <tools> and its rules. */
@@ -65,8 +64,6 @@ function toolPrompt(name: string): OttoToolPrompt | undefined {
       ...(catalog.promptGuidelines ? { guidelines: catalog.promptGuidelines } : {}),
     };
   }
-
-  if (name === "memory_update") return MEMORY_UPDATE_TOOL_PROMPT;
 
   if (name === "ask_user") return ASK_USER_PROMPT;
 
@@ -164,25 +161,15 @@ export function createOttoChatContext(context: OttoChatContext): string {
   );
 }
 
-/** A memory section's entries by id, each with its scope label and text. */
+/** A memory section's lines by id. */
 function memoryEntries(memory: string): ReadonlyMap<string, string> {
-  const entries = new Map<string, string>();
-  let scope = "";
+  return new Map(
+    memory.split("\n").flatMap((line) => {
+      const entry = /^- \[([^\]]+)\] (.*)$/.exec(line);
 
-  for (const line of memory.split("\n")) {
-    const tag = /^<(person|bot|group|project|workspace)(?: name="([^"]*)")?>$/.exec(line);
-
-    if (tag) {
-      scope = tag[1] === "person" ? "person" : [tag[1], tag[2]].filter(Boolean).join(" ");
-      continue;
-    }
-
-    const entry = /^- \[([^\]]+)\] (.*)$/.exec(line);
-
-    if (entry?.[1] && entry[2] !== undefined) entries.set(entry[1], `${scope}: ${entry[2]}`);
-  }
-
-  return entries;
+      return entry?.[1] && entry[2] !== undefined ? [[entry[1], entry[2]] as const] : [];
+    }),
+  );
 }
 
 /** What changed in memory since it was sent, entry by entry. */
@@ -200,16 +187,32 @@ function memoryChanges(previous: string, current: string): string {
   return lines.length > 0 ? ["<memory_changes>", ...lines, "</memory_changes>"].join("\n") : "";
 }
 
+/** A memory section without its lines: what it says about how memory works in this chat. */
+const memoryHeader = (memory: string) =>
+  memory
+    .split("\n")
+    .filter((line) => !line.startsWith("- [") && line !== "(nothing yet)")
+    .join("\n");
+
 /**
  * Sections that changed since the chat context was sent; a removed section is an empty tag.
- * Memory changes are listed per entry instead of resending the whole section.
+ * Memory changes are listed per entry instead of resending the whole section, unless what it
+ * says about memory changed, such as a chat everyone could read becoming private.
  */
 export function createOttoChatContextUpdate(
   changes: ReadonlyArray<readonly [name: string, content: string]>,
   previous: Readonly<Record<string, string>> = {},
 ): string {
-  const replaced = changes.filter(([name]) => name !== "memory");
-  const memory = changes.find(([name]) => name === "memory");
+  const memoryChanged = changes.find(([name]) => name === "memory");
+
+  const memory =
+    memoryChanged &&
+    memoryChanged[1] !== "" &&
+    memoryHeader(memoryChanged[1]) === memoryHeader(previous["memory"] ?? "")
+      ? memoryChanged
+      : undefined;
+
+  const replaced = changes.filter((change) => change !== memory);
 
   return [
     replaced.length > 0

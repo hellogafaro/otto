@@ -22,21 +22,6 @@ const root = new URL("../../../../", import.meta.url);
 
 const read = (file: string) => readFileSync(new URL(file, root), "utf8");
 
-function readSurface(file: string): string {
-  const modules =
-    file === "packages/client-runtime/src/durable-memory.ts"
-      ? [
-          file,
-          "packages/client-runtime/src/durable-memory/types.ts",
-          "packages/client-runtime/src/durable-memory/facts.ts",
-          "packages/client-runtime/src/durable-memory/import.ts",
-          "packages/client-runtime/src/durable-memory/approvals.ts",
-        ]
-      : [file];
-
-  return modules.map(read).join("\n");
-}
-
 function discover(directory: string): string[] {
   return readdirSync(new URL(directory, root), { withFileTypes: true }).flatMap((entry) => {
     const file = `${directory}/${entry.name}`;
@@ -162,7 +147,6 @@ describe("discovered interface message coverage", () => {
       "apps/mobile/src/features/updates/app-updates.ts",
       "packages/client-runtime/src/bot-inbox.ts",
       "packages/client-runtime/src/channel-presentation.ts",
-      "packages/client-runtime/src/durable-memory.ts",
       "packages/client-runtime/src/errors/thread-error-presentation.ts",
       "packages/client-runtime/src/image-generation.ts",
       "packages/client-runtime/src/provider-access-guide.ts",
@@ -177,7 +161,7 @@ describe("discovered interface message coverage", () => {
     const directMessages = new Set<string>();
 
     for (const file of surfaces) {
-      const result = extract(readSurface(file));
+      const result = extract(read(file));
       expect(result.parameterIssues, `${file}: named parameter coverage`).toEqual([]);
 
       for (const message of result.messages) {

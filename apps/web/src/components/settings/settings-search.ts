@@ -79,7 +79,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "memory-enabled",
     title: "Memory",
     to: "/settings/memory",
-    keywords: ["durable facts", "remember"],
+    keywords: ["memories", "remember"],
   },
   {
     id: "voice-enabled",

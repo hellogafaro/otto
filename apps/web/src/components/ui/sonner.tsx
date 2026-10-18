@@ -81,12 +81,14 @@ function Toaster(props: ToasterProps) {
 
 /**
  * The main panel's inner right and bottom edges, measured from the window's, plus the
- * composer's inset. It measures again whenever the stack appears, because the panel
- * mounts after the Toaster (behind sign-in and loading).
+ * composer's inset. Otto: while a side sheet is open its corner is used instead, so a toast
+ * never floats over the dimmed page beside it. It measures again whenever a toast appears and
+ * whenever a sheet opens or closes, because the panel mounts after the Toaster (behind sign-in
+ * and loading).
  */
 function useMainPanelOffset(): { right: number; bottom: number } {
   const pathname = useLocation({ select: (location) => location.pathname });
-  const visible = useSonner().toasts.length > 0;
+  const toasts = useSonner().toasts.length;
   const [offset, setOffset] = useState({ right: TOAST_INSET, bottom: TOAST_INSET });
 
   useEffect(() => {
@@ -95,35 +97,41 @@ function useMainPanelOffset(): { right: number; bottom: number } {
     const measure = () => {
       const inset = window.matchMedia("(min-width: 40rem)").matches ? TOAST_INSET_SM : TOAST_INSET;
 
-      if (!panel) {
+      const corner =
+        document.querySelector<HTMLElement>("[data-slot=sheet-popup][data-open]") ?? panel;
+
+      if (!corner) {
         setOffset({ right: inset, bottom: inset });
 
         return;
       }
 
-      const rect = panel.getBoundingClientRect();
+      const rect = corner.getBoundingClientRect();
 
       setOffset({
         right:
           inset +
-          Math.max(0, window.innerWidth - (rect.left + panel.clientLeft + panel.clientWidth)),
+          Math.max(0, window.innerWidth - (rect.left + corner.clientLeft + corner.clientWidth)),
         bottom:
           inset +
-          Math.max(0, window.innerHeight - (rect.top + panel.clientTop + panel.clientHeight)),
+          Math.max(0, window.innerHeight - (rect.top + corner.clientTop + corner.clientHeight)),
       });
     };
 
     measure();
-    const observer = new ResizeObserver(measure);
+    const resizes = new ResizeObserver(measure);
+    const portals = new MutationObserver(measure);
 
-    if (panel) observer.observe(panel);
+    if (panel) resizes.observe(panel);
+    portals.observe(document.body, { childList: true });
     window.addEventListener("resize", measure);
 
     return () => {
-      observer.disconnect();
+      resizes.disconnect();
+      portals.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [pathname, visible]);
+  }, [pathname, toasts]);
 
   return offset;
 }

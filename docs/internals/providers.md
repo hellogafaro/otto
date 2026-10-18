@@ -55,9 +55,9 @@ URLs take precedence and never fall back to provider-wide credentials. AgentCont
 maps Mastra message, tool, approval, usage, completion, and error events to
 `ProviderRuntimeEvent`.
 
-All active provider paths receive bot-owned Markdown memory and participate in scope-specific
-review accounting. Mastra refreshes the files before turn admission; standard OpenCode carries
-them in its per-prompt system context. See [Memory architecture](memory.md).
+All active provider paths receive the chat's memory and its Now block, rebuilt for every turn;
+standard OpenCode carries them in its per-prompt system context. See
+[Memory architecture](memory.md).
 
 ### Runtime seam
 

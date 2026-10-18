@@ -59,15 +59,10 @@ A user-visible log item attached to a thread. In [the contracts][1], activities 
 
 #### Bot memory
 
-Small, server-owned Markdown context attached to one named bot: `USER.md`, `MEMORY.md`, and one
-bot-specific `GROUP.md` per group. It is distinct from bot instructions and the chat history. See
+Short lines bots learned in earlier chats: the team's, learned in chats everyone can read, and each
+person's own, learned in their private chats. Each line applies to all projects or one. A review
+after each chat keeps them current. It is distinct from bot instructions and the chat history. See
 [memory architecture](memory.md).
-
-#### Memory approval
-
-A pending request from a bot to save a shared durable fact at project, group, or workspace scope.
-It appears as a chat card and a bot inbox item, and either one decides it through
-`candidate.decide`. See [shared memory approvals](memory.md#shared-memory-approvals).
 
 #### History checkpoint
 

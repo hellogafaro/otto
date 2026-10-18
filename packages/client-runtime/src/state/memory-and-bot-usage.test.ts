@@ -1,5 +1,5 @@
 import { testEnvironmentRegistry, testRpcClient } from "../test-support/services.ts";
-import { BotId, EnvironmentId, ThreadId, WS_METHODS } from "@otto/contracts";
+import { BotId, EnvironmentId, WS_METHODS } from "@otto/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -81,31 +81,15 @@ const runtimeFor = Effect.fn("memoryAndBotUsage.runtimeFor")(function* (
 });
 
 describe("memory and bot usage environment atoms", () => {
-  it.effect("routes memory inspection and refreshes it after a mutation", () =>
+  it.effect("routes memory edits and refreshes the memory list after a change", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const threadId = ThreadId.make("thread-memory");
-        let resolveInspect!: () => void;
-
-        const inspected = new Promise<void>((resolve) => {
-          resolveInspect = resolve;
-        });
+        const updated: unknown[] = [];
 
         const client = testRpcClient({
-          [WS_METHODS.memoryDocumentsInspect]: () =>
-            Effect.sync(() => {
-              resolveInspect();
-
-              return {
-                botId: BotId.make("bot-memory"),
-                groupId: null,
-                user: {},
-                memory: {},
-                group: null,
-                conversation: { current: null, history: [] },
-              } as never;
-            }),
-          [WS_METHODS.memoryDocumentReplace]: () => Effect.succeed({} as never),
+          [WS_METHODS.memoryList]: () => Effect.succeed({ memories: [] } as never),
+          [WS_METHODS.memoryUpdate]: (input) =>
+            Effect.sync(() => updated.push(input)).pipe(Effect.as({} as never)),
         });
 
         const atoms = createMemoryEnvironmentAtoms(yield* runtimeFor(client));
@@ -114,28 +98,17 @@ describe("memory and bot usage environment atoms", () => {
           Effect.sync(() => value.dispose()),
         );
 
-        const input = { environmentId, input: { threadId } };
-        const inspectAtom = atoms.inspectDocuments(input);
+        const listed = atoms.list({ environmentId, input: {} });
         const refresh = vi.spyOn(registry, "refresh");
-        const unmount = registry.mount(inspectAtom);
-        yield* Effect.addFinalizer(() => Effect.sync(unmount));
-        yield* Effect.promise(() => inspected);
+        const input = { id: "m_1", projectId: null, text: "Ana leads QA." };
 
         const result = yield* Effect.promise(() =>
-          atoms.replaceDocument.run(registry, {
-            environmentId,
-            input: {
-              threadId,
-              expectedBotId: BotId.make("bot-1"),
-              expectedContent: "",
-              target: "memory",
-              content: "Remember this.",
-            },
-          }),
+          atoms.update.run(registry, { environmentId, input }),
         );
 
         expect(AsyncResult.isSuccess(result)).toBe(true);
-        expect(refresh.mock.calls.some(([atom]) => atom === inspectAtom)).toBe(true);
+        expect(updated).toEqual([input]);
+        expect(refresh).toHaveBeenCalledWith(listed);
       }),
     ),
   );

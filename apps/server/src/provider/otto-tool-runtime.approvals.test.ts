@@ -23,36 +23,6 @@ describe("OttoToolRuntime", () => {
     directories.clear();
   });
 
-  it("exposes one direct, approval-free memory tool", async () => {
-    const memory = vi.fn(async () => ({ saved: true }));
-    const runtime = createOttoToolRuntime();
-    runtime.registerSession("thread-memory", {
-      runtimeMode: "full-access",
-      workspaceType: "none",
-      memoryHandlers: {
-        memory_update: memory,
-      },
-    });
-
-    expect(runtime.toolsForThread("thread-memory").map((tool) => tool.id)).toEqual([
-      "memory_update",
-    ]);
-
-    const write = {
-      threadId: "thread-memory",
-      toolId: "memory_update" as const,
-      toolCallId: "memory-write",
-      input: { changes: [{ action: "add", id: null, scope: "person", text: "Prefers vim." }] },
-      approvalMode: "require-grant" as const,
-    };
-
-    await expect(
-      runtime.requiresApproval("thread-memory", "memory_update", write.input),
-    ).resolves.toBe(false);
-    await expect(runtime.execute(write)).resolves.toEqual({ saved: true });
-    expect(memory).toHaveBeenCalledOnce();
-  });
-
   it("runs a skill proposal only with a person's grant, as that person, even with full access", async () => {
     const proposeSkill = vi.fn(async () => ({ saved: true }));
     const runtime = createOttoToolRuntime();
@@ -186,28 +156,16 @@ describe("OttoToolRuntime", () => {
     await expect(runtime.execute(execution)).rejects.toThrow("requires approval");
   });
 
-  it("rejects excess properties and preserves memory input validation", async () => {
+  it("rejects excess properties in granted input", async () => {
     const runtime = createOttoToolRuntime();
-    const memory = vi.fn();
-    runtime.registerSession("memory-boundary", {
+    runtime.registerSession("input-boundary", {
       runtimeMode: "full-access",
       workspaceType: "none",
-      memoryHandlers: { memory_update: memory },
     });
 
-    await expect(
-      runtime.execute({
-        threadId: "memory-boundary",
-        toolId: "memory_update",
-        toolCallId: "invalid-memory",
-        approvalMode: "require-grant",
-        input: { changes: [{ action: "add", text: "Remember this.", extra: true }] },
-      }),
-    ).rejects.toThrow();
-    expect(memory).not.toHaveBeenCalled();
     expect(() =>
       runtime.grantApproval({
-        threadId: "memory-boundary",
+        threadId: "input-boundary",
         toolId: "shell",
         toolCallId: "extra-command",
         input: { command: "pwd", extra: null },
@@ -215,7 +173,7 @@ describe("OttoToolRuntime", () => {
     ).not.toThrow();
     expect(() =>
       runtime.grantApproval({
-        threadId: "memory-boundary",
+        threadId: "input-boundary",
         toolId: "shell",
         toolCallId: "extra-command",
         input: { command: "pwd", extra: "unexpected" },

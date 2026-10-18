@@ -117,10 +117,6 @@ export function useThreadComposerSettings(input: {
       onUpdateRuntimeMode: onUpdateRuntimeMode,
       ...(bot
         ? {
-            memoryThreadRef: {
-              environmentId: environmentId,
-              threadId: selectedThread.id,
-            },
             routinesRef: {
               environmentId: environmentId,
               botId: bot.id,

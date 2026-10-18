@@ -339,7 +339,7 @@ layer("ProjectionThreadMessageRepository", (it) => {
     }),
   );
 
-  it.effect("searches finished messages in the given chats, newest first", () =>
+  it.effect("searches finished messages in the given chats by word, newest first", () =>
     Effect.gen(function* () {
       const repository = yield* ProjectionThreadMessageRepository;
       const seen = ThreadId.make("thread-search-seen");
@@ -377,7 +377,28 @@ layer("ProjectionThreadMessageRepository", (it) => {
       );
 
       assert.deepEqual(
-        ids(yield* repository.search({ threadIds: [seen], terms: ["50%"], limit: 10 })),
+        ids(yield* repository.search({ threadIds: [seen], terms: ["fri", '"mon'], limit: 10 })),
+        ["search-new", "search-old"],
+      );
+
+      assert.deepEqual(
+        ids(yield* repository.search({ threadIds: [seen], terms: ["points"], limit: 10 })),
+        ["search-percent"],
+      );
+
+      yield* repository.upsert({
+        messageId: MessageId.make("search-percent"),
+        threadId: seen,
+        turnId: null,
+        role: "user",
+        text: "Up 60 points",
+        isStreaming: false,
+        createdAt: "2026-03-01T10:00:04.000Z",
+        updatedAt: "2026-03-01T10:00:05.000Z",
+      });
+
+      assert.deepEqual(
+        ids(yield* repository.search({ threadIds: [seen], terms: ["50"], limit: 10 })),
         ["search-new"],
       );
 

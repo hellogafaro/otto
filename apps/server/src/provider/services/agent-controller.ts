@@ -31,11 +31,11 @@ import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
 import type * as Stream from "effect/Stream";
 
-import type { MemoryChat } from "../../memory/memories.ts";
 import type { OttoDelegationDispatch, OttoDelegationHandle } from "../otto-delegation-runtime.ts";
 import type { AgentControllerError, AgentControllerRuntimeError } from "../errors.ts";
 import type { ProviderAdapterCapabilities } from "./provider-adapter.ts";
 import type { ProviderInstanceRoutingInfo } from "./provider-adapter-registry.ts";
+import type { ChatMemory } from "../../memory/memories.ts";
 
 export interface AgentControllerAvailableEngine {
   readonly modelSelection: ModelSelection;
@@ -56,10 +56,10 @@ export type AgentControllerSendTurnInput = ProviderSendTurnInput & {
    * provider path adds it to this turn only; it is never queued as a message.
    */
   readonly delegationResults?: string;
-  /** The chat's memory scopes and audience, derived on the server for this turn. */
-  readonly memoryChat?: MemoryChat;
-  /** The person whose message this turn answers. */
-  readonly authorPersonId?: AuthSessionId | null;
+  /** What this chat remembers, derived on the server from the chat. */
+  readonly memory?: ChatMemory;
+  /** What is going on for the bot right now, read for this turn only and never stored. */
+  readonly nowContext?: string;
   /** The task event this turn answers, sent as signals instead of `input`. */
   readonly taskWake?: TaskWake;
   /** The routine run this turn carries out, sent as a signal instead of `input`. */

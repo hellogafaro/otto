@@ -4,9 +4,9 @@ Otto stores environment data under `~/.otto` by default. This includes projects,
 profiles, settings, secrets, logs, local memory, and cached provider data. A worktree development
 server uses that worktree's `.otto` directory instead.
 
-Named-bot memory is stored as private Markdown files on the environment server. It is sent only as
-context to the provider running that bot. Group memory is separate for every bot, not a shared group
-document. See [Bot memory](memory.md).
+Bot memory is stored in the Otto database on the environment server. It is sent only as context to
+the provider running the bot. What bots learn in your private chats is yours and is used only in
+your private chats; groups that only some people can read teach nothing. See [Bot memory](memory.md).
 
 ## Data that can leave the environment
 

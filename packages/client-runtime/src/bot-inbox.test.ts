@@ -1,4 +1,4 @@
-import { OttoMemoryCandidateId, BotId, ThreadId } from "@otto/contracts";
+import { BotId } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -9,7 +9,6 @@ import {
   type BotInboxItem,
 } from "./bot-inbox.js";
 import { createTranslator } from "./i18n/index.ts";
-import { zhCNCatalog } from "./i18n/zh-cn.ts";
 
 function incident(overrides: Partial<BotInboxItem> = {}): BotInboxItem {
   return {
@@ -46,53 +45,11 @@ describe("selectOpenBotInboxItems", () => {
 });
 
 describe("botInboxItemCopy", () => {
-  const memoryApproval = {
-    candidateId: OttoMemoryCandidateId.make("candidate-1"),
-    fact: "Standups start at ten.",
-    scope: "group",
-    sensitive: true,
-    sourceThreadId: ThreadId.make("thread-1"),
-    authorBotId: BotId.make("bot-1"),
-    affectedBotIds: [BotId.make("bot-1")],
-  } as const;
-
-  const memoryItem = incident({
-    kind: "approval-request",
-    lastFailure: "Save to group memory: Standups start at ten.",
-    nextAction: "Approve or reject this memory.",
-    memoryApproval,
-  });
-
-  it("renders memory approvals from the request instead of the server prose", () => {
-    expect(botInboxItemCopy(memoryItem, createTranslator("en").t)).toEqual({
-      kind: "Memory approval",
-      detail: "Standups start at ten.",
-      nextAction: "Save to group memory",
-      sensitive: "Sensitive, always needs approval",
-    });
-    expect(botInboxItemCopy(memoryItem, createTranslator("zh-CN", zhCNCatalog).t)).toEqual({
-      kind: "记忆批准",
-      detail: "Standups start at ten.",
-      nextAction: "保存到群组记忆",
-      sensitive: "敏感内容，始终需要批准",
-    });
-  });
-
-  it("omits the sensitivity note for ordinary memory approvals", () => {
-    expect(
-      botInboxItemCopy(
-        incident({ memoryApproval: { ...memoryApproval, sensitive: false } }),
-        createTranslator("en").t,
-      ).sensitive,
-    ).toBeNull();
-  });
-
   it("keeps the server copy for other items", () => {
     expect(botInboxItemCopy(incident(), createTranslator("en").t)).toEqual({
       kind: "Provider connection failed",
       detail: "The request failed.",
       nextAction: "Reconnect the provider.",
-      sensitive: null,
     });
   });
 });
@@ -132,45 +89,6 @@ describe("botInboxRowAction", () => {
     expect(botInboxRowAction(incident())).toBe("providers");
     expect(botInboxRowAction(incident({ incidentKey: "access:mcp-builtin-exa:bot-1" }))).toBe(
       "plugins",
-    );
-  });
-
-  it("decides memory approvals instead of resolving them", () => {
-    const item = incident({
-      kind: "approval-request",
-      incidentKey: "memory-approval:candidate-1",
-      memoryApproval: {
-        candidateId: OttoMemoryCandidateId.make("candidate-1"),
-        fact: "Deploys happen on Fridays.",
-        scope: "project",
-        sensitive: false,
-        sourceThreadId: ThreadId.make("thread-ada"),
-        authorBotId: BotId.make("bot-1"),
-        affectedBotIds: [BotId.make("bot-1")],
-      },
-    });
-
-    expect(botInboxRowAction(item)).toBe("memory-approval");
-  });
-
-  it("keeps the sensitive marker on memory approvals the row decides", () => {
-    const item = incident({
-      kind: "approval-request",
-      incidentKey: "memory-approval:candidate-2",
-      memoryApproval: {
-        candidateId: OttoMemoryCandidateId.make("candidate-2"),
-        fact: "Ada's home address is on file.",
-        scope: "project",
-        sensitive: true,
-        sourceThreadId: ThreadId.make("thread-ada"),
-        authorBotId: BotId.make("bot-1"),
-        affectedBotIds: [BotId.make("bot-1")],
-      },
-    });
-
-    expect(botInboxRowAction(item)).toBe("memory-approval");
-    expect(botInboxItemCopy(item, createTranslator("en").t).sensitive).toBe(
-      "Sensitive, always needs approval",
     );
   });
 });

@@ -23,8 +23,6 @@ import * as Effect from "effect/Effect";
 
 import { type OttoChannelRuntime } from "../../otto-channel-runtime.ts";
 import { type OttoBotStateRuntime } from "../../otto-bot-state-runtime.ts";
-import type { MemoryChat } from "../../../memory/memories.ts";
-import type { MemoryTurn } from "./memory-access.ts";
 import { type OttoDelegationChildOutcome } from "../../otto-delegation-runtime.ts";
 
 import type { PendingWaiters } from "../../pending-waiters.ts";
@@ -35,6 +33,7 @@ import {
 
 import { AgentControllerRuntimeError } from "../../errors.ts";
 import { activeLibraryTools } from "../../../library/library-tool-runtime.ts";
+import type { ChatMemory } from "../../../memory/memories.ts";
 import { routineNotification } from "../../mastra/otto-routine-signals.ts";
 import { taskWakeSignal } from "../../mastra/otto-task-signals.ts";
 
@@ -93,10 +92,9 @@ export function createTurnLifecycle(deps: {
     readonly threadId: ThreadId;
   }) => Effect.Effect<void, ProviderServiceError | AgentControllerRuntimeError, never>;
   readonly memoryContext: (
-    chat: MemoryChat | undefined,
+    memory: ChatMemory | undefined,
     timezone: string | undefined,
   ) => Promise<string>;
-  readonly memoryTurns: Map<string, MemoryTurn>;
   readonly legacyProviderBridge: LegacyProviderBridge["Service"];
   readonly startPendingTurn: (active: ActiveSession, pending: PendingTurn) => void;
   readonly completeAssistantMessages: (
@@ -253,7 +251,9 @@ export function createTurnLifecycle(deps: {
   // This turn's block: why the bot answers now, sent last and never stored.
   const turnState = (pending: PendingTurn) => ({
     turnContext:
-      [pending.turnNote, pending.delegationResults].filter(Boolean).join("\n\n") || undefined,
+      [pending.nowContext, pending.turnNote, pending.delegationResults]
+        .filter(Boolean)
+        .join("\n\n") || undefined,
     timezone: pending.toolSession.timezone,
   });
 
@@ -263,24 +263,14 @@ export function createTurnLifecycle(deps: {
     if (active.admittingTurn?.turnId !== turnId) return;
 
     const dispatch: Promise<void> = (async () => {
-      const memoryChat = active.configuredMemory ? pending.memoryChat : undefined;
-
-      const memoryContext = memoryChat
-        ? await deps.memoryContext(memoryChat, pending.toolSession.timezone)
-        : "";
+      const memoryContext =
+        active.configuredMemory && pending.memory
+          ? await deps.memoryContext(pending.memory, pending.toolSession.timezone)
+          : "";
 
       // Rendering memory is asynchronous; the turn may have been interrupted while it was
       // pending. Only mutate session state if this admission still owns the turn.
       if (active.admittingTurn?.turnId !== turnId) return;
-
-      if (memoryChat) {
-        deps.memoryTurns.set(String(threadId), {
-          chat: memoryChat,
-          authorPersonId: pending.authorPersonId,
-        });
-      } else {
-        deps.memoryTurns.delete(String(threadId));
-      }
 
       active.toolSession = pending.toolSession;
       deps.toolRuntime.registerSession(String(threadId), active.toolSession);

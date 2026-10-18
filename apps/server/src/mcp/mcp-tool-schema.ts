@@ -1,7 +1,6 @@
 import * as Schema from "effect/Schema";
 import { decodeJson, jsonObject } from "../json.ts";
 import * as Predicate from "effect/Predicate";
-import * as Data from "effect/Data";
 import { McpSchema, Tool } from "effect/unstable/ai";
 
 type ToolInputSchema = ReturnType<typeof Tool.getJsonSchema>;
@@ -98,7 +97,3 @@ export const toolErrorResult = (message: string) =>
     isError: true,
     content: [{ type: "text", text: message }],
   });
-
-export class MemoryMcpExecutionError extends Data.TaggedError("MemoryMcpExecutionError")<{
-  readonly cause: unknown;
-}> {}

@@ -8,7 +8,6 @@
  */
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { OttoMemoryApprovalRequest } from "./otto-memory/base.ts";
 import { BotId, IsoDateTime, NonNegativeInt, TrimmedNonEmptyString } from "./base-schemas.ts";
 import { McpServerId } from "./mcp-server.ts";
 import { ProviderInstanceId } from "./provider-instance.ts";
@@ -196,8 +195,6 @@ export const BotInboxItem = Schema.Struct({
   lastSeenAt: IsoDateTime,
   resolvedAt: Schema.optional(IsoDateTime),
   occurrenceCount: Schema.Int.check(Schema.isGreaterThan(0)),
-  // Present on approval requests that ask to save shared memory.
-  memoryApproval: Schema.optional(OttoMemoryApprovalRequest),
 });
 
 export type BotInboxItem = typeof BotInboxItem.Type;

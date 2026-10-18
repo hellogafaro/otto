@@ -23,8 +23,6 @@ import { ottoToolCategory } from "../../otto-mastra-harness.ts";
 
 import { type OttoPluginRuntimeOptions } from "../../otto-catalog-tool-handlers.ts";
 
-import { isMemoryToolId } from "../../otto-tool-runtime.ts";
-
 import { ProviderValidationError } from "../../errors.ts";
 
 import { type ResolvedEngine, type ActiveSession } from "./state.ts";
@@ -166,8 +164,6 @@ export function mcpToolNeedsApproval(manager: McpManager | undefined, toolName: 
   const ottoTool = OTTO_TOOL_CATALOG.find((entry) => entry.id === toolName);
 
   if (ottoTool) return ottoTool.approval !== "none";
-
-  if (isMemoryToolId(toolName)) return false;
 
   return !BUILTIN_MASTRA_TOOL_NAMES.has(toolName);
 }

@@ -306,7 +306,6 @@ export const commonLabelsCatalog = {
   "Nothing open": "没有待处理项",
   "Could not load the inbox": "无法加载收件箱",
   "Loading inbox": "正在加载收件箱",
-  "Approve edit": "保存修改",
   "Timestamp format": "时间戳格式",
   Shared: "共享",
   Separate: "独立",

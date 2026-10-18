@@ -108,10 +108,6 @@
       "types": "./src/settings-deep-link.ts",
       "default": "./src/settings-deep-link.ts"
     },
-    "./durable-memory": {
-      "types": "./src/durable-memory.ts",
-      "default": "./src/durable-memory.ts"
-    },
     "./routines": {
       "types": "./src/routines.ts",
       "default": "./src/routines.ts"

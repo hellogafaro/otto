@@ -1,4 +1,3 @@
-import type { EnvironmentId, ThreadId } from "@otto/contracts";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createContext, use } from "react";
 import type {
@@ -9,10 +8,6 @@ import type {
 export type ThreadSettingsPickerStackParams = {
   ThreadSettingsModels: undefined;
   ThreadSettingsChoice: ThreadSettingsSubmenuPage & { readonly title: string };
-  ThreadSettingsMemory: {
-    readonly environmentId: EnvironmentId;
-    readonly threadId: ThreadId;
-  };
   ThreadSettingsRoutines: NonNullable<ThreadSettingsSessionProps["routinesRef"]>;
 };
 

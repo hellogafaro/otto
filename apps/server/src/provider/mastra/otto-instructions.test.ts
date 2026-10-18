@@ -375,7 +375,7 @@ describe("withOttoPrompt", () => {
     }
   });
 
-  it("keeps a memory written during a turn as an update after the reloaded history", async () => {
+  it("keeps a memory changed between turns as an update after the reloaded history", async () => {
     const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-chat-context-"));
     const before = { botConversation: true, botName: "Mina", workspaceContext: "People: Ben" };
     const after = { ...before, persistentMemoryContext: "- [m_1] Ben prefers bullet points." };
@@ -388,7 +388,7 @@ describe("withOttoPrompt", () => {
 
     const call: Prompt[number] = {
       role: "assistant",
-      content: [{ type: "tool-call", toolCallId: "call-1", toolName: "memory_update", input: {} }],
+      content: [{ type: "tool-call", toolCallId: "call-1", toolName: "read", input: {} }],
     };
 
     const result: Prompt[number] = {
@@ -397,7 +397,7 @@ describe("withOttoPrompt", () => {
         {
           type: "tool-result",
           toolCallId: "call-1",
-          toolName: "memory_update",
+          toolName: "read",
           output: { type: "json", value: { status: "saved" } },
         },
       ],
@@ -421,7 +421,7 @@ describe("withOttoPrompt", () => {
       const chats = storedChatContexts(memory.memory);
       const { model, calls } = recordingModel("openai.responses");
 
-      // The memory is written by a tool during the first turn; the next turn sees it.
+      // The memory changes after the first turn; the next turn sees it.
       await send(withOttoPrompt(model, context(before), chats, now), history(1).slice(0, 1));
       await send(withOttoPrompt(model, context(before), chats, now), history(2).slice(0, 3));
       await send(withOttoPrompt(model, context(after), chats, now), history(3));

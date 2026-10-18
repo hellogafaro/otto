@@ -31,12 +31,12 @@ describe("Otto bot instructions", () => {
 
   it("lists only loaded tools, each with its own rules", () => {
     const instructions = createOttoInstructions({
-      tools: ["read", "memory_update", "unknown_tool"],
+      tools: ["read", "delegate", "unknown_tool"],
     });
 
     expect(instructions).toContain("- read: ");
-    expect(instructions).toContain("- memory_update: ");
-    expect(instructions).toContain("facts about a person go to person, never bot");
+    expect(instructions).toContain("- delegation (delegate): ");
+    expect(instructions).toContain("Brief it like a teammate");
     expect(instructions).not.toContain("unknown_tool");
     expect(instructions).not.toContain("<computer>");
     expect(createOttoInstructions({ tools: ["shell"] })).toContain("<computer>");
@@ -115,6 +115,25 @@ describe("Otto chat context", () => {
       ]),
     ).toBe(
       "<context_update>\nThese sections replace the ones sent earlier.\n<project>\nLaunch\n</project>\n<chat />\n</context_update>",
+    );
+  });
+
+  it("lists memory changes line by line while what memory says stays the same", () => {
+    const previous = { memory: "Shared chat.\n- [m_1] Ben likes tea.\n- [m_2] Ships on Fridays." };
+
+    expect(
+      createOttoChatContextUpdate(
+        [["memory", "Shared chat.\n- [m_1] Ben likes coffee.\n- [m_3] Mai runs QA."]],
+        previous,
+      ),
+    ).toBe(
+      "<memory_changes>\n- updated [m_1] Ben likes coffee.\n- added [m_3] Mai runs QA.\n- deleted [m_2]\n</memory_changes>",
+    );
+
+    expect(
+      createOttoChatContextUpdate([["memory", "Private chat.\n- [m_1] Ben likes tea."]], previous),
+    ).toBe(
+      "<context_update>\nThese sections replace the ones sent earlier.\n<memory>\nPrivate chat.\n- [m_1] Ben likes tea.\n</memory>\n</context_update>",
     );
   });
 });

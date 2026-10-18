@@ -35,13 +35,48 @@ export interface ThreadTitleGenerationResult {
   title: string;
 }
 
+/** One change to a chat's memory, as the review returns it; unused fields are null. */
+export interface MemoryReviewChange {
+  readonly action: "add" | "update" | "confirm" | "delete";
+  readonly id: string | null;
+  readonly text: string | null;
+  readonly projectOnly: boolean | null;
+}
+
+export interface MemoryReviewInput {
+  /** Where a CLI provider runs; the review reads no files. */
+  cwd: string;
+  /** The memory as the bot sees it, one line per entry with its id. */
+  memory: string;
+  /** The messages since the last review, oldest first, each as "Name: text". */
+  transcript: string;
+  /** YYYY-MM-DD in the server's timezone. */
+  today: string;
+  /** Whose memory this chat adds to: the whole team's, or one person's own. */
+  learner: "team" | "person";
+  /** The project the chat is in, or null when it is in none. */
+  project: string | null;
+  /** What model and provider to use for generation. */
+  modelSelection: ModelSelection;
+}
+
+export interface MemoryReviewResult {
+  changes: ReadonlyArray<MemoryReviewChange>;
+}
+
+export type TextGenerationOperation =
+  | "generateBranchName"
+  | "generateThreadTitle"
+  | "generateMemoryReview";
+
 export interface TextGenerationService {
   generateBranchName(input: BranchNameGenerationInput): Promise<BranchNameGenerationResult>;
   generateThreadTitle(input: ThreadTitleGenerationInput): Promise<ThreadTitleGenerationResult>;
+  generateMemoryReview(input: MemoryReviewInput): Promise<MemoryReviewResult>;
 }
 
 /**
- * TextGeneration - Service tag for branch name and thread title generation.
+ * TextGeneration - Service tag for branch names, thread titles and memory reviews.
  */
 export class TextGeneration extends Context.Service<
   TextGeneration,
@@ -57,17 +92,20 @@ export class TextGeneration extends Context.Service<
     readonly generateThreadTitle: (
       input: ThreadTitleGenerationInput,
     ) => Effect.Effect<ThreadTitleGenerationResult, TextGenerationError>;
+
+    /** Review a chat's new messages and return the changes to its memory. */
+    readonly generateMemoryReview: (
+      input: MemoryReviewInput,
+    ) => Effect.Effect<MemoryReviewResult, TextGenerationError>;
   }
 >()("@otto/server/text-generation/text-generation/TextGeneration") {}
 
 /** @deprecated Use `TextGeneration["Service"]`. */
 export type TextGenerationShape = TextGeneration["Service"];
 
-type TextGenerationOp = "generateBranchName" | "generateThreadTitle";
-
 const resolveInstance = (
   registry: ProviderInstanceRegistry.ProviderInstanceRegistry["Service"],
-  operation: TextGenerationOp,
+  operation: TextGenerationOperation,
   instanceId: ProviderInstanceId,
 ): Effect.Effect<NonNullable<ProviderInstance["textGeneration"]>, TextGenerationError> =>
   registry.getInstance(instanceId).pipe(
@@ -94,6 +132,10 @@ export const makeTextGenerationFromRegistry = (
     generateThreadTitle: (input) =>
       resolveInstance(registry, "generateThreadTitle", input.modelSelection.instanceId).pipe(
         Effect.flatMap((textGeneration) => textGeneration.generateThreadTitle(input)),
+      ),
+    generateMemoryReview: (input) =>
+      resolveInstance(registry, "generateMemoryReview", input.modelSelection.instanceId).pipe(
+        Effect.flatMap((textGeneration) => textGeneration.generateMemoryReview(input)),
       ),
   });
 

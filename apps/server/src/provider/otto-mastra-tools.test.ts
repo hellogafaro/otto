@@ -8,7 +8,6 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
 
-import { createOttoToolRuntime } from "./otto-tool-runtime.ts";
 import { createOttoMastraTools, foldConstraintAllOf } from "./otto-mastra-tools.ts";
 
 describe("createOttoMastraTools", () => {
@@ -177,31 +176,5 @@ describe("createOttoMastraTools", () => {
     const webFetch = probeTool(createOttoMastraTools("thread-fetch", runtime).web_fetch);
 
     await expect(webFetch.needsApprovalFn({ url: {} })).resolves.toBe(false);
-  });
-
-  it("builds registered memory handlers as Mastra tools", async () => {
-    const memoryHandler = vi.fn(async () => ({ saved: true }));
-    const runtime = createOttoToolRuntime();
-    runtime.registerSession("thread-memory", {
-      runtimeMode: "full-access",
-      workspaceType: "none",
-      memoryHandlers: {
-        memory_update: memoryHandler,
-      },
-    });
-
-    const memory = probeTool(createOttoMastraTools("thread-memory", runtime).memory_update);
-
-    if (!memory?.execute) throw new Error("Memory tool is unavailable.");
-
-    await expect(
-      memory.execute(
-        { changes: [{ action: "add", id: null, scope: "person", text: "Prefers vim." }] },
-        {
-          agent: { toolCallId: "memory-1" },
-        } as never,
-      ),
-    ).resolves.toEqual({ saved: true });
-    expect(memoryHandler).toHaveBeenCalledOnce();
   });
 });
