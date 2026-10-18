@@ -2,7 +2,14 @@
 
 import {
   RiArchiveLine,
+  RiBookShelfLine,
   RiBox3Line,
+  RiChat1Line,
+  RiChatNewLine,
+  RiFileAddLine,
+  RiFolderAddLine,
+  RiHomeLine,
+  RiInbox2Line,
   RiRobot2Line,
   RiBarChartLine,
   RiImageLine,
@@ -14,7 +21,9 @@ import {
   RiShapesLine,
   RiSettings3Line,
   RiSunLine,
+  type RemixiconComponentType,
 } from "@remixicon/react";
+import type { NavigationKeybindingCommand } from "@otto/contracts";
 import { GENERAL_PROJECT_ID } from "@otto/contracts";
 import { Match, Predicate } from "effect";
 
@@ -26,9 +35,11 @@ import { useTheme } from "../hooks/use-theme";
 import { isPreviewFocused } from "../lib/preview-focus";
 import { activeComposerModelPicker } from "../composer-model-picker-registry";
 import { useI18n } from "../i18n";
-import { activeChatPaletteActions } from "../chat-actions-registry";
+import { activePageActions } from "../page-actions-registry";
+import { requestCreate, type CreateKind } from "../create-request-store";
+import { NAVIGATION_PATHS } from "./global-shortcuts";
 import {
-  buildChatCommandPaletteItems,
+  buildPageCommandPaletteItems,
   buildChatSearchCommandPaletteItems,
   buildEnvironmentOwnerNames,
   buildLanguageCommandPaletteAction,
@@ -59,8 +70,10 @@ import { useRosterStore } from "./roster/roster-store";
 import { BotAvatarView } from "./roster/bot-avatar-view";
 import { PersonAvatar } from "./roster/person-avatar";
 import { LIBRARY_TYPE_ICONS } from "./library/library-visuals";
-import { useWorkStatusLabel } from "./work/work-status";
+import { WorkStatusIcon } from "./work/work-status";
 import { projectStatus } from "./work/work.logic";
+import { StatusIcon } from "./status-icon";
+import { ROUTINE_STATUS_ICON, routineStatus } from "./routines/routine-status";
 import { resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
@@ -253,15 +266,30 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
   ];
 
   // Read once per open: the palette mounts fresh each time it opens.
-  const [chatItems] = useState(() =>
-    buildChatCommandPaletteItems({
-      actions: activeChatPaletteActions(),
-      icon: <RiDiscussLine className={ITEM_ICON_CLASS} />,
-    }),
-  );
+  const [pageGroup] = useState(() => {
+    const page = activePageActions();
+
+    return {
+      value: "page",
+      label: page.label,
+      items: buildPageCommandPaletteItems({
+        actions: page.actions,
+        renderIcon: (action) => {
+          const Icon = action.icon ?? RiDiscussLine;
+
+          return <Icon className={ITEM_ICON_CLASS} />;
+        },
+      }),
+    };
+  });
+
+  const createItems = useCreateItems();
+  const goToItems = useGoToItems();
 
   const groups: CommandPaletteGroup[] = [
-    ...(chatItems.length > 0 ? [{ value: "chat", label: t("This chat"), items: chatItems }] : []),
+    ...(pageGroup.items.length > 0 ? [pageGroup] : []),
+    { value: "create", label: t("Create"), items: createItems },
+    { value: "go-to", label: t("Go to"), items: goToItems },
     { value: "actions", label: t("Actions"), items: actionItems },
   ];
 
@@ -395,6 +423,87 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
 }
 
 /**
+ * Otto: Something new from anywhere: a chat opens the New chat dialog; anything else goes to its
+ * page, unless already there, which opens its own New flow.
+ */
+function useCreateItems(): CommandPaletteActionItem[] {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+
+  const create = (
+    kind: CreateKind,
+    to: "/tasks" | "/projects" | "/routines" | "/library",
+    title: string,
+    Icon: RemixiconComponentType,
+  ): CommandPaletteActionItem => ({
+    value: `create:${kind}`,
+    searchTerms: [title, "new", "create", "add", kind],
+    title,
+    icon: <Icon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      requestCreate(kind);
+
+      if (window.location.pathname !== to) await navigate({ to });
+    },
+  });
+
+  return [
+    {
+      value: "create:chat",
+      searchTerms: [t("New chat"), "new", "create", "chat", "message", "dm", "group"],
+      title: t("New chat"),
+      icon: <RiChatNewLine className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        useRosterStore.getState().openNewChat({});
+      },
+    },
+    create("task", "/tasks", t("New task"), RiListCheck3),
+    create("project", "/projects", t("New project"), RiBox3Line),
+    create("routine", "/routines", t("New routine"), RiTimeLine),
+    create("document", "/library", t("New document"), RiFileAddLine),
+    create("folder", "/library", t("New folder"), RiFolderAddLine),
+  ];
+}
+
+const GO_TO_PLACES: ReadonlyArray<readonly [NavigationKeybindingCommand, RemixiconComponentType]> =
+  [
+    ["navigation.home", RiHomeLine],
+    ["navigation.notifications", RiInbox2Line],
+    ["navigation.chats", RiChat1Line],
+    ["navigation.routines", RiTimeLine],
+    ["navigation.tasks", RiListCheck3],
+    ["navigation.projects", RiBox3Line],
+    ["navigation.library", RiBookShelfLine],
+  ];
+
+/** Otto: The rail's places in rail order, each with its ⌥ key. */
+function useGoToItems(): CommandPaletteActionItem[] {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+
+  const titles: Record<NavigationKeybindingCommand, string> = {
+    "navigation.home": t("Home"),
+    "navigation.notifications": t("Notifications"),
+    "navigation.chats": t("Chats"),
+    "navigation.routines": t("Routines"),
+    "navigation.tasks": t("Tasks"),
+    "navigation.projects": t("Projects"),
+    "navigation.library": t("Library"),
+  };
+
+  return GO_TO_PLACES.map(([place, Icon]) => ({
+    value: `go-to:${place}`,
+    searchTerms: [titles[place], "go to", "open", "navigate"],
+    title: titles[place],
+    icon: <Icon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: place,
+    run: async () => {
+      await navigate({ to: NAVIGATION_PATHS[place] });
+    },
+  }));
+}
+
+/**
  * Everything else the palette finds by name, newest first within each group: live bots, people,
  * tasks, projects, routines and Library files of the primary environment. The server already left
  * out what this person can't see.
@@ -406,7 +515,6 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? ("" as never)));
   const bots = useRosterStore((state) => state.bots);
-  const statusLabel = useWorkStatusLabel();
 
   const newestFirst = <A extends { readonly updatedAt: string }>(items: ReadonlyArray<A>) =>
     items.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -470,10 +578,10 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
         value: `task:${task.id}`,
         searchTerms: [task.title, task.description],
         title: task.title,
-        description: [projectTitles.get(task.projectId), statusLabel(task.status)]
-          .filter(Boolean)
-          .join(" · "),
-        icon: <RiListCheck3 className={ITEM_ICON_CLASS} />,
+        ...(projectTitles.has(task.projectId)
+          ? { description: projectTitles.get(task.projectId) }
+          : {}),
+        icon: <WorkStatusIcon status={task.status} className="size-4" />,
         run: async () => {
           await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
         },
@@ -488,8 +596,7 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
         value: `project:${project.id}`,
         searchTerms: [project.title, project.description ?? ""],
         title: project.title,
-        description: statusLabel(projectStatus(project)),
-        icon: <RiBox3Line className={ITEM_ICON_CLASS} />,
+        icon: <WorkStatusIcon status={projectStatus(project)} className="size-4" />,
         run: async () => {
           await navigate({ to: "/projects/$projectId", params: { projectId: project.id } });
         },
@@ -505,7 +612,9 @@ function useWorkspaceSearchGroups(): CommandPaletteGroup[] {
         searchTerms: [routine.job, botNames.get(routine.botId) ?? ""],
         title: routine.job,
         ...(botNames.has(routine.botId) ? { description: botNames.get(routine.botId) } : {}),
-        icon: <RiTimeLine className={ITEM_ICON_CLASS} />,
+        icon: (
+          <StatusIcon status={ROUTINE_STATUS_ICON[routineStatus(routine)]} className="size-4" />
+        ),
         run: async () => {
           await navigate({ to: "/routines/$routineId", params: { routineId: routine.id } });
         },

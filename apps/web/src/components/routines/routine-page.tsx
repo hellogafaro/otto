@@ -24,25 +24,27 @@ import {
   RiTimeLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { requestConfirmDialog } from "../../confirm-dialog";
 import { useI18n } from "../../i18n";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { randomUUID } from "../../lib/utils";
 import { hasTag } from "../../lib/tagged-union";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { routineEnvironment } from "../../state/routines";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { CopyMenuItems } from "../copy-menu-items";
+import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
 import { DetailsRow } from "../details-aside";
 import { LibraryVisibilitySelect } from "../library/library-actions";
+import { PageActionMenuItem } from "../page-action-menu-item";
 import { PromptDialog } from "../prompt-dialog";
 import { BotAvatarView } from "../roster/bot-avatar-view";
 import { useRosterStore } from "../roster/roster-store";
 import { StatusIcon, type StatusKind } from "../status-icon";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
+import { Menu, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { projectStatus } from "../work/work.logic";
@@ -103,6 +105,12 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
   );
 }
 
+const act = async (result: Promise<{ readonly _tag: string }>, failure: string) => {
+  if (!hasTag(await result, "Success")) toast.error(failure);
+};
+
+const createdAt = () => new Date().toISOString();
+
 function RoutineDetail({
   environmentId,
   routine,
@@ -128,6 +136,7 @@ function RoutineDetail({
   const update = useAtomCommand(routineEnvironment.update, { reportFailure: false });
 
   const { projects } = useWorkData();
+  const copy = useCopyPageActions(`/routines/${routine.id}`, routine.id);
 
   const running = item.latestRun?.status === "running";
   const failed = routine.lifecycle === "failed" || routine.lifecycle === "blocked";
@@ -145,12 +154,118 @@ function RoutineDetail({
   const openChat = (threadId: string = routine.targetThreadId) =>
     void navigate({ to: "/chats/$threadId", params: { threadId } });
 
-  const act = async (result: Promise<{ readonly _tag: string }>, failure: string) => {
-    if (!hasTag(await result, "Success")) toast.error(failure);
-  };
-
-  const createdAt = () => new Date().toISOString();
   const routineIdValue = RoutineId.make(routine.id);
+
+  const runNow = useMemo(
+    (): PageAction => ({
+      id: "run-now",
+      title: t("Run now"),
+      icon: RiPlayLine,
+      searchTerms: ["run now", "start", "trigger"],
+      disabled: running,
+      run: () =>
+        act(
+          run({
+            environmentId,
+            input: {
+              routineId: RoutineId.make(routine.id),
+              runId: RoutineRunId.make(randomUUID()),
+              trigger: "manual",
+              createdAt: createdAt(),
+            },
+          }),
+          t("Routine couldn't be started"),
+        ),
+    }),
+    [environmentId, routine.id, run, running, t],
+  );
+
+  const pauseOrResume = useMemo(
+    (): PageAction =>
+      routine.enabled
+        ? {
+            id: "pause",
+            title: t("Pause"),
+            icon: RiPauseCircleLine,
+            searchTerms: ["pause", "stop", "disable"],
+            run: () =>
+              act(
+                pause({
+                  environmentId,
+                  input: {
+                    routineId: RoutineId.make(routine.id),
+                    reason: "Paused by the user.",
+                    createdAt: createdAt(),
+                  },
+                }),
+                t("Routine couldn't be paused"),
+              ),
+          }
+        : {
+            id: "resume",
+            title: t("Resume"),
+            icon: RiPlayCircleLine,
+            searchTerms: ["resume", "enable", "start"],
+            run: () =>
+              act(
+                enable({
+                  environmentId,
+                  input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
+                }),
+                t("Routine couldn't be resumed"),
+              ),
+          },
+    [enable, environmentId, pause, routine.enabled, routine.id, t],
+  );
+
+  const deleteRoutine = useMemo(
+    (): PageAction => ({
+      id: "delete",
+      title: t("Delete"),
+      icon: RiDeleteBinLine,
+      searchTerms: ["delete", "remove"],
+      shortcutCommand: "item.delete",
+      run: async () => {
+        const confirmed =
+          (await requestConfirmDialog(
+            t("Delete {name}?\nIt stops running. Its chat and past runs stay.", {
+              name: routine.job,
+            }),
+            { variant: "destructive", confirmLabel: t("Delete") },
+          )) ?? false;
+
+        if (!confirmed) return;
+        await act(
+          remove({
+            environmentId,
+            input: { routineId: RoutineId.make(routine.id), createdAt: createdAt() },
+          }),
+          t("Routine couldn't be deleted"),
+        );
+      },
+    }),
+    [environmentId, remove, routine.id, routine.job, t],
+  );
+
+  const pageActions = useMemo(
+    (): PageAction[] => [
+      {
+        id: "edit",
+        title: t("Edit"),
+        icon: RiPencilLine,
+        searchTerms: ["edit", "change", "instructions", "schedule"],
+        run: () => setChanging(true),
+      },
+      runNow,
+      pauseOrResume,
+      copy.link,
+      copy.id,
+      deleteRoutine,
+    ],
+    [copy, deleteRoutine, pauseOrResume, runNow, t],
+  );
+
+  usePageActions(t("This routine"), pageActions);
 
   const save = (fields: {
     readonly job?: string;
@@ -201,20 +316,7 @@ function RoutineDetail({
                     variant="ghost-muted"
                     aria-label={t("Run now")}
                     disabled={running}
-                    onClick={() =>
-                      void act(
-                        run({
-                          environmentId,
-                          input: {
-                            routineId: routineIdValue,
-                            runId: RoutineRunId.make(randomUUID()),
-                            trigger: "manual",
-                            createdAt: createdAt(),
-                          },
-                        }),
-                        t("Routine couldn't be started"),
-                      )
-                    }
+                    onClick={() => void runNow.run()}
                   >
                     <RiPlayLine aria-hidden className="size-4" />
                   </Button>
@@ -238,68 +340,11 @@ function RoutineDetail({
                 <TooltipPopup side="bottom">{t("More actions")}</TooltipPopup>
               </Tooltip>
               <MenuPopup align="end">
-                {routine.enabled ? (
-                  <MenuItem
-                    onClick={() =>
-                      void act(
-                        pause({
-                          environmentId,
-                          input: {
-                            routineId: routineIdValue,
-                            reason: "Paused by the user.",
-                            createdAt: createdAt(),
-                          },
-                        }),
-                        t("Routine couldn't be paused"),
-                      )
-                    }
-                  >
-                    <RiPauseCircleLine />
-                    {t("Pause")}
-                  </MenuItem>
-                ) : (
-                  <MenuItem
-                    onClick={() =>
-                      void act(
-                        enable({
-                          environmentId,
-                          input: { routineId: routineIdValue, createdAt: createdAt() },
-                        }),
-                        t("Routine couldn't be resumed"),
-                      )
-                    }
-                  >
-                    <RiPlayCircleLine />
-                    {t("Resume")}
-                  </MenuItem>
-                )}
+                <PageActionMenuItem action={pauseOrResume} />
                 <MenuSeparator />
-                <CopyMenuItems path={`/routines/${routine.id}`} id={routine.id} />
+                <CopyMenuItems actions={copy} />
                 <MenuSeparator />
-                <MenuItem
-                  variant="destructive"
-                  onClick={async () => {
-                    const confirmed =
-                      (await requestConfirmDialog(
-                        t("Delete {name}?\nIt stops running. Its chat and past runs stay.", {
-                          name: routine.job,
-                        }),
-                        { variant: "destructive", confirmLabel: t("Delete") },
-                      )) ?? false;
-
-                    if (!confirmed) return;
-                    await act(
-                      remove({
-                        environmentId,
-                        input: { routineId: routineIdValue, createdAt: createdAt() },
-                      }),
-                      t("Routine couldn't be deleted"),
-                    );
-                  }}
-                >
-                  <RiDeleteBinLine />
-                  {t("Delete")}
-                </MenuItem>
+                <PageActionMenuItem action={deleteRoutine} variant="destructive" />
               </MenuPopup>
             </Menu>
           </>

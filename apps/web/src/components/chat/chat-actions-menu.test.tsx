@@ -291,7 +291,7 @@ describe("buildChatPaletteActions", () => {
     typeof buildChatPaletteActions
   >[0]["t"];
 
-  function paletteActions(overrides: Partial<OrchestrationThreadShell> = {}) {
+  function paletteActions(overrides: Partial<OrchestrationThreadShell> = {}, openSnooze = vi.fn()) {
     const state = resolveChatMenuState({
       shell: shell(overrides),
       lastVisitedAt: "2026-09-27T10:01:00.000Z",
@@ -305,30 +305,39 @@ describe("buildChatPaletteActions", () => {
       newChat: null,
       actions: mocks.actions as Parameters<typeof buildChatPaletteActions>[0]["actions"],
       t,
-      now: new Date("2026-09-27T12:00:00.000Z"),
       openRename: vi.fn(),
+      openSnooze,
+      copy: null,
     });
   }
 
-  it("offers each snooze preset with its wake time and snoozes from now", async () => {
-    const actions = paletteActions();
-    const snoozes = actions.filter((action) => action.id.startsWith("snooze:"));
+  it("binds each chat verb to its item key", () => {
+    const keys = Object.fromEntries(
+      paletteActions().map((action) => [action.id, action.shortcutCommand]),
+    );
 
-    expect(snoozes.map((action) => action.title)).toContain("Snooze chat: Tomorrow");
-    expect(snoozes.length).toBeGreaterThanOrEqual(4);
-    expect(snoozes.every((action) => (action.description ?? "").length > 0)).toBe(true);
-    expect(actions.some((action) => action.id === "unsnooze")).toBe(false);
-
-    await snoozes.find((action) => action.id === "snooze:tomorrow")?.run();
-    const [ref, until] = mocks.actions.snooze.mock.calls[0] ?? [];
-    expect(ref).toEqual(threadRef);
-    expect(Date.parse(until)).toBeGreaterThan(Date.now());
+    expect(keys).toMatchObject({
+      rename: "item.rename",
+      pin: "item.pin",
+      "mark-unread": "item.markUnread",
+      snooze: "item.snooze",
+      archive: "item.archive",
+      delete: "item.delete",
+    });
   });
 
-  it("offers Wake chat instead of the presets while the chat is snoozed", async () => {
+  it("opens the snooze presets from Snooze", async () => {
+    const openSnooze = vi.fn();
+    const snooze = paletteActions({}, openSnooze).find((action) => action.id === "snooze");
+
+    await snooze?.run();
+    expect(openSnooze).toHaveBeenCalledOnce();
+  });
+
+  it("offers Wake chat instead of Snooze while the chat is snoozed", async () => {
     const actions = paletteActions({ snoozedUntil: "2999-01-01T09:00:00.000Z" });
 
-    expect(actions.some((action) => action.id.startsWith("snooze:"))).toBe(false);
+    expect(actions.some((action) => action.id === "snooze")).toBe(false);
     await actions.find((action) => action.id === "unsnooze")?.run();
     expect(mocks.actions.unsnooze).toHaveBeenCalledWith(threadRef);
   });

@@ -1,39 +1,23 @@
-import {
-  RiMoreLine,
-  RiAlarmLine,
-  RiArchiveLine,
-  RiRadioButtonLine,
-  RiPencilLine,
-  RiPushpinLine,
-  RiUnpinLine,
-  RiLoopRightLine,
-  RiSunLine,
-  RiDeleteBinLine,
-} from "@remixicon/react";
+import { RiMoreLine, RiAlarmLine, RiPushpinLine } from "@remixicon/react";
 import { scopedThreadKey } from "@otto/client-runtime/environment";
-import {
-  resolveSnoozePresets,
-  type SnoozePresetId,
-} from "@otto/client-runtime/state/thread-snoozed";
+import { resolveSnoozePresets } from "@otto/client-runtime/state/thread-snoozed";
 import type { ScopedThreadRef } from "@otto/contracts";
-import { useAtomValue } from "@effect/atom-react";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { registerChatPaletteActions } from "../../chat-actions-registry";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useNowMinute } from "../../hooks/use-now-minute";
 import { useI18n } from "../../i18n";
-import { resolveShortcutCommand } from "../../keybindings";
-import { isModelPickerOpen } from "../../model-picker-visibility";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import {
   readEnvironmentSupportsPinning,
   readEnvironmentSupportsSnooze,
   readEnvironmentSupportsTitleRegeneration,
   useThreadShell,
 } from "../../state/entities";
-import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useUiStateStore } from "../../ui-state-store";
-import { CopyMenuItems } from "../copy-menu-items";
+import { CopyMenuItems, useCopyPageActions } from "../copy-menu-items";
+import { PageActionMenuItem } from "../page-action-menu-item";
+import { ShortcutKbd } from "../shortcut-kbd";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import {
@@ -64,10 +48,9 @@ import {
 } from "./chat-palette-actions";
 
 /**
- * The open chat's state and its menu in the chat header: rename, regenerate
- * the title, pin, mark unread, snooze, copy link and ID, archive, and delete. The same
- * actions are published to the command palette, and the `chat.new` shortcut runs here
- * while the chat is open.
+ * The open chat's state and its menu in the chat header: rename, regenerate the title, pin, mark
+ * unread, snooze, copy link and ID, archive, and delete. The same entries are the palette's This
+ * chat group and answer the item shortcuts (R, P, U, H, E, ⌘⌫ …) while the chat is open.
  */
 export function ChatActionsMenu({
   threadRef,
@@ -82,7 +65,6 @@ export function ChatActionsMenu({
   // Minute-quantized UTC, so the menu re-reads snooze state once a minute.
   const nowMinute = useNowMinute();
   const now = `${nowMinute}:00.000Z`;
-  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
 
   const lastVisitedAt = useUiStateStore((state) =>
     threadRef ? state.threadLastVisitedAtById[scopedThreadKey(threadRef)] : undefined,
@@ -90,6 +72,8 @@ export function ChatActionsMenu({
 
   const [renaming, setRenaming] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
+  const [snoozing, setSnoozing] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const state = useMemo(
     () =>
@@ -108,15 +92,17 @@ export function ChatActionsMenu({
     [lastVisitedAt, now, shell, threadRef],
   );
 
-  const snoozeLabel = (id: SnoozePresetId) => snoozePresetLabel(id, t);
-
   const openRename = useCallback(() => {
     if (!shell) return;
     setDraftTitle(shell.title);
     setRenaming(true);
   }, [shell]);
 
-  const paletteActions = useMemo(
+  const openSnooze = useCallback(() => setSnoozing(true), []);
+  const threadId = threadRef?.threadId ?? "";
+  const copy = useCopyPageActions(`/chats/${threadId}`, threadId);
+
+  const pageActions = useMemo(
     () =>
       buildChatPaletteActions({
         threadRef,
@@ -124,56 +110,35 @@ export function ChatActionsMenu({
         newChat,
         actions,
         t,
-        now: new Date(),
         openRename,
+        openSnooze,
+        copy: threadRef ? copy : null,
       }),
-    [actions, newChat, openRename, state, t, threadRef],
+    [actions, copy, newChat, openRename, openSnooze, state, t, threadRef],
   );
 
-  const registryOwner = useRef(Symbol("chat-actions"));
-  useEffect(
-    () => registerChatPaletteActions(registryOwner.current, paletteActions),
-    [paletteActions],
-  );
-
-  const newChatTarget = useRef(newChat);
-  newChatTarget.current = newChat;
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat) return;
-
-      // Shortcut recording and open dialogs keep their keystrokes; chat actions
-      // only answer keys pressed in the chat itself.
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest("[data-keybinding-capture], [role='dialog'], [role='alertdialog']")
-      ) {
-        return;
-      }
-
-      const command = resolveShortcutCommand(event, keybindings, {
-        context: { modelPickerOpen: isModelPickerOpen() },
-      });
-
-      if (command !== "chat.new") return;
-      const control = newChatTarget.current;
-
-      if (!control) return;
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (control.canStart) control.start();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [keybindings]);
+  usePageActions(t("This chat"), pageActions);
 
   // A bot with no chat yet has nothing to act on; its first message starts one.
   if (!threadRef || !shell || !state) return null;
 
+  const action = (id: string): PageAction | undefined =>
+    pageActions.find((entry) => entry.id === id);
+
+  const row = (id: string, variant?: "destructive") => {
+    const entry = action(id);
+
+    return entry ? <PageActionMenuItem action={entry} {...(variant ? { variant } : {})} /> : null;
+  };
+
   const snoozePresets = resolveSnoozePresets(new Date());
+
+  const snoozeItems = snoozePresets.map((preset) => (
+    <MenuItem key={preset.id} onClick={() => void actions.snooze(threadRef, preset.snoozedUntil)}>
+      <span className="flex-1">{snoozePresetLabel(preset.id, t)}</span>
+      <span className="text-xs text-muted-foreground">{preset.whenLabel}</span>
+    </MenuItem>
+  ));
 
   const snoozedUntilLabel = state.snoozedUntil
     ? formatDate(new Date(state.snoozedUntil), {
@@ -216,6 +181,7 @@ export function ChatActionsMenu({
               <MenuTrigger
                 render={
                   <Button
+                    ref={triggerRef}
                     type="button"
                     size="icon-sm"
                     variant="ghost"
@@ -231,75 +197,35 @@ export function ChatActionsMenu({
           <TooltipPopup side="bottom">{t("Chat actions")}</TooltipPopup>
         </Tooltip>
         <MenuPopup align="end" data-testid="chat-actions-menu">
-          <MenuItem onClick={openRename}>
-            <RiPencilLine />
-            {t("Rename chat")}
-          </MenuItem>
-          {state.supports.titleRegeneration ? (
-            <MenuItem
-              disabled={state.isRegeneratingTitle}
-              onClick={() => void actions.regenerateTitle(threadRef)}
-            >
-              <RiLoopRightLine />
-              {state.isRegeneratingTitle ? t("Regenerating…") : t("Regenerate title")}
-            </MenuItem>
+          {row("rename")}
+          {row("regenerate-title")}
+          <MenuSeparator />
+          {row("pin")}
+          {row("unpin")}
+          {row("mark-unread")}
+          {row("unsnooze")}
+          {action("snooze") ? (
+            <MenuSub>
+              <MenuSubTrigger disabled={!state.canSnooze}>
+                <RiAlarmLine />
+                {t("Snooze")}
+                <ShortcutKbd command="item.snooze" className="ms-auto" />
+              </MenuSubTrigger>
+              <MenuSubPopup>{snoozeItems}</MenuSubPopup>
+            </MenuSub>
           ) : null}
           <MenuSeparator />
-          {state.supports.pinning ? (
-            state.isPinned ? (
-              <MenuItem onClick={() => void actions.unpin(threadRef)}>
-                <RiUnpinLine />
-                {t("Unpin chat")}
-              </MenuItem>
-            ) : (
-              <MenuItem onClick={() => void actions.pin(threadRef)}>
-                <RiPushpinLine />
-                {t("Pin chat")}
-              </MenuItem>
-            )
-          ) : null}
-          <MenuItem disabled={!state.canMarkUnread} onClick={() => actions.markUnread(threadRef)}>
-            <RiRadioButtonLine />
-            {t("Mark unread")}
-          </MenuItem>
-          {state.supports.snooze ? (
-            state.isSnoozed ? (
-              <MenuItem onClick={() => void actions.unsnooze(threadRef)}>
-                <RiSunLine />
-                {t("Wake chat")}
-              </MenuItem>
-            ) : (
-              <MenuSub>
-                <MenuSubTrigger disabled={!state.canSnooze}>
-                  <RiAlarmLine />
-                  {t("Snooze")}
-                </MenuSubTrigger>
-                <MenuSubPopup>
-                  {snoozePresets.map((preset) => (
-                    <MenuItem
-                      key={preset.id}
-                      onClick={() => void actions.snooze(threadRef, preset.snoozedUntil)}
-                    >
-                      <span className="flex-1">{snoozeLabel(preset.id)}</span>
-                      <span className="text-xs text-muted-foreground">{preset.whenLabel}</span>
-                    </MenuItem>
-                  ))}
-                </MenuSubPopup>
-              </MenuSub>
-            )
-          ) : null}
+          <CopyMenuItems actions={copy} />
           <MenuSeparator />
-          <CopyMenuItems path={`/chats/${threadRef.threadId}`} id={threadRef.threadId} />
+          {row("archive")}
           <MenuSeparator />
-          <MenuItem disabled={!state.canArchive} onClick={() => void actions.archive(threadRef)}>
-            <RiArchiveLine />
-            {t("Archive chat")}
-          </MenuItem>
-          <MenuSeparator />
-          <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
-            <RiDeleteBinLine />
-            {t("Delete chat")}
-          </MenuItem>
+          {row("delete", "destructive")}
+        </MenuPopup>
+      </Menu>
+      {/* Otto: The snooze key opens the presets beside More actions, as if picked from it. */}
+      <Menu open={snoozing} onOpenChange={setSnoozing}>
+        <MenuPopup align="end" anchor={triggerRef} data-testid="chat-snooze-menu">
+          {snoozeItems}
         </MenuPopup>
       </Menu>
       <Dialog open={renaming} onOpenChange={setRenaming}>

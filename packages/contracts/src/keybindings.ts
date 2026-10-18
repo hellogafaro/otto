@@ -75,6 +75,21 @@ export const NAVIGATION_KEYBINDING_COMMANDS = [
 
 export type NavigationKeybindingCommand = (typeof NAVIGATION_KEYBINDING_COMMANDS)[number];
 
+/** Verbs that act on whatever the open page shows: a chat, a task, a routine or a file. */
+export const ITEM_KEYBINDING_COMMANDS = [
+  "item.new",
+  "item.rename",
+  "item.pin",
+  "item.markUnread",
+  "item.snooze",
+  "item.archive",
+  "item.delete",
+  "item.copyLink",
+  "item.copyId",
+] as const;
+
+export type ItemKeybindingCommand = (typeof ITEM_KEYBINDING_COMMANDS)[number];
+
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
   "terminal.toggle",
@@ -104,6 +119,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   ...THREAD_KEYBINDING_COMMANDS,
   ...APPROVAL_KEYBINDING_COMMANDS,
   ...NAVIGATION_KEYBINDING_COMMANDS,
+  ...ITEM_KEYBINDING_COMMANDS,
   "settings.open",
   "shortcuts.show",
 ] as const;

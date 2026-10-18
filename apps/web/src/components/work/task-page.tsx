@@ -69,6 +69,7 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
       back={back}
       actions={
         <WorkMoreActions
+          label={t("This task")}
           path={`/tasks/${task.id}`}
           id={task.id}
           status={task.status}

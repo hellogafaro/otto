@@ -7,10 +7,12 @@ import { BotId, type Routine, type RoutineThreadMode, type Visibility } from "@o
 import { useAtomValue } from "@effect/atom-react";
 import { RiAddLine, RiTimeLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import { useCreateRequest } from "../../create-request-store";
 import { useI18n } from "../../i18n";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { PromptDialog } from "../prompt-dialog";
@@ -19,7 +21,7 @@ import { useStartChat } from "../roster/chat-navigation";
 import { ProjectComposerControl, useProjectChoice } from "../roster/project-composer-control";
 import { useRosterStore } from "../roster/roster-store";
 import type { Bot } from "../roster/types";
-import { StatusIcon, type StatusKind } from "../status-icon";
+import { StatusIcon } from "../status-icon";
 import { Button } from "../ui/button";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { SkeletonTableRows } from "../ui/skeleton";
@@ -27,20 +29,7 @@ import { ParticipantAvatar } from "../work/work-participants";
 import { WorkColumn, WorkEmpty, WorkHeaderAction, WorkPage } from "../work/work-pages";
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
-
-type RoutineStatus = "active" | "paused" | "failed";
-
-const ROUTINE_STATUS_ICON = {
-  active: "pending",
-  paused: "paused",
-  failed: "error",
-} as const satisfies Record<RoutineStatus, StatusKind>;
-
-function routineStatus(routine: Routine): RoutineStatus {
-  if (routine.lifecycle === "failed" || routine.lifecycle === "blocked") return "failed";
-
-  return routine.enabled ? "active" : "paused";
-}
+import { ROUTINE_STATUS_ICON, routineStatus, type RoutineStatus } from "./routine-status";
 
 function routineColumns({
   i18n,
@@ -98,6 +87,25 @@ export function RoutinesPage() {
   const bots = useRosterStore((state) => state.bots);
   const [creating, setCreating] = useState(false);
   const routines = (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
+  const openNewRoutine = useCallback(() => setCreating(true), []);
+
+  useCreateRequest("routine", Boolean(snapshot), openNewRoutine);
+
+  const pageActions = useMemo(
+    (): PageAction[] => [
+      {
+        id: "new-routine",
+        title: t("New routine"),
+        icon: RiAddLine,
+        searchTerms: ["new routine", "create", "schedule", "automation"],
+        shortcutCommand: "item.new",
+        run: openNewRoutine,
+      },
+    ],
+    [openNewRoutine, t],
+  );
+
+  usePageActions(t("Routines"), pageActions);
 
   const statusLabel: Record<RoutineStatus, string> = {
     active: t("Active"),
