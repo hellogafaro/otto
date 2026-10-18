@@ -51,27 +51,17 @@ export const CHANGE_TOKENS = new Set([
   "update",
 ]);
 
-export const MUTATING_INTENT_KEYS = new Set([
+/** Input keys whose text names the action, including each tool a connector runs in one batch. */
+export const ACTION_TEXT_KEYS = new Set([
   "action",
+  "command",
+  "deliverymode",
   "intent",
   "method",
   "operation",
   "requesttype",
+  "tool_slug",
   "verb",
-]);
-
-export const ACTION_TEXT_KEYS = new Set([...MUTATING_INTENT_KEYS, "command", "deliverymode"]);
-
-export const READ_ONLY_INTENT_TOKENS = new Set([
-  "find",
-  "get",
-  "inspect",
-  "list",
-  "read",
-  "search",
-  "stat",
-  "status",
-  "view",
 ]);
 
 export const CRITICAL_SHELL_ACTIONS: ReadonlyArray<readonly [OttoCriticalAction, RegExp]> = [
@@ -173,9 +163,10 @@ const COMPOUND_SHELL_COMMAND = /[;&|`\n\r]|\$\(|[<>]\(/;
 export type OttoActionInspection = {
   /** Every kind of action the call contains, in the order found. */
   readonly actions: ReadonlyArray<OttoCriticalAction>;
-  readonly hasUnclassifiedIntent: boolean;
   /** A shell command runs several commands, so its actions are not all known. */
   readonly hasCompoundCommand: boolean;
+  /** The input is cyclic or too large to read in full, so its actions are not all known. */
+  readonly incomplete: boolean;
 };
 
 export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoActionInspection {
@@ -184,13 +175,13 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
   const visited = new WeakSet<object>();
   let inspected = 0;
   let entriesInspected = 0;
-  let hasUnclassifiedIntent = false;
   let hasCompoundCommand = false;
+  let incomplete = false;
 
-  const inspection = (unclassified: boolean): OttoActionInspection => ({
+  const inspection = (unread: boolean): OttoActionInspection => ({
     actions: [...actions],
-    hasUnclassifiedIntent: unclassified,
     hasCompoundCommand,
+    incomplete: unread,
   });
 
   while (pending.length > 0 && inspected < 100) {
@@ -200,7 +191,7 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
     if (!Predicate.isObject(value) && !Array.isArray(value)) continue;
 
     if (visited.has(value)) {
-      hasUnclassifiedIntent = true;
+      incomplete = true;
       continue;
     }
 
@@ -239,14 +230,6 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
         if (command && COMPOUND_SHELL_COMMAND.test(entry.replace(/\d*[<>]&[\d-]*/g, ""))) {
           hasCompoundCommand = true;
         }
-
-        if (found.length === 0 && MUTATING_INTENT_KEYS.has(normalizedKey)) {
-          const tokens = textTokens(entry);
-
-          if (![...tokens].some((token) => READ_ONLY_INTENT_TOKENS.has(token))) {
-            hasUnclassifiedIntent = true;
-          }
-        }
       }
 
       if (
@@ -261,7 +244,7 @@ export function inspectOttoAction<Input>(toolName: string, args?: Input): OttoAc
     }
   }
 
-  return inspection(hasUnclassifiedIntent || pending.length > 0);
+  return inspection(incomplete || pending.length > 0);
 }
 
 export function criticalOttoAction<Input>(
@@ -273,17 +256,18 @@ export function criticalOttoAction<Input>(
 
 /**
  * The kinds of action Always allow rules must cover for a call: each classified action, or null
- * for a plain call. Null overall when no rule may cover it: a proposal, an intent the classifier
- * cannot read, or a shell command that runs several commands.
+ * for a plain call. Null overall when no rule may cover it: a proposal, input too large to read,
+ * or a shell command that runs several commands.
  */
 export function alwaysAllowKinds<Input>(
   toolName: string,
   args?: Input,
 ): ReadonlyArray<OttoCriticalAction | null> | null {
   if (isOttoProposal(toolName, args)) return null;
-  const { actions, hasUnclassifiedIntent, hasCompoundCommand } = inspectOttoAction(toolName, args);
 
-  if (hasUnclassifiedIntent || hasCompoundCommand) return null;
+  const { actions, hasCompoundCommand, incomplete } = inspectOttoAction(toolName, args);
+
+  if (incomplete || hasCompoundCommand) return null;
 
   return actions.length > 0 ? actions : [null];
 }
@@ -321,13 +305,17 @@ export function isOttoProposal<Input>(toolName: string, args?: Input): boolean {
   );
 }
 
+/**
+ * Whether a call asks a person first: a proposal, a known critical action such as sending,
+ * paying or deleting, or input too large to read in full. Every other action runs.
+ */
 export function ottoActionNeedsApproval<Input>(toolName: string, args?: Input): boolean {
   if (proposedBotInstructions(toolName, args) !== null) return true;
 
   if (toolName === "skill_create" || toolName === "skill_update") return true;
   const inspection = inspectOttoAction(toolName, args);
 
-  return inspection.actions.length > 0 || inspection.hasUnclassifiedIntent;
+  return inspection.actions.length > 0 || inspection.incomplete;
 }
 
 export function ottoToolCategory(toolName: string): OttoToolCategory {

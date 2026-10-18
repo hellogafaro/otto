@@ -161,6 +161,7 @@ const TOOL_PREVIEW_FIELDS: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
   ["delegate", ["botId", "task", "expectedResult", "context"]],
   ["skill_create", SKILL_PREVIEW_FIELDS],
   ["skill_update", SKILL_PREVIEW_FIELDS],
+  ["bot_update", ["instructions"]],
 ]);
 
 const APPROVAL_PREVIEW_MAX_CHARS = 2_000;

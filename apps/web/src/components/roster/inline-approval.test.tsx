@@ -162,6 +162,40 @@ describe("InlineApproval", () => {
     expect(markup).not.toContain("Approve this action with");
   });
 
+  it("shows the instructions a bot proposes for itself, with Decline before Approve", () => {
+    const approval = {
+      requestId: ApprovalRequestId.make("review-instructions"),
+      requestKind: "command",
+      toolName: "bot_update",
+      createdAt: "2026-10-18T00:00:00.000Z",
+      detail: "Change this bot's instructions to:\n\nOwn the weekly sales report.",
+      args: { instructions: "Own the weekly sales report.\nUse HubSpot and Google Sheets." },
+      options: [
+        { decision: "decline", label: "Decline" },
+        { decision: "accept", label: "Approve" },
+      ],
+    } as const;
+
+    const markup = render(approval);
+
+    expect(markup).toContain("Review instructions");
+    expect(markup).toContain('data-testid="instructions-proposal"');
+    expect(markup).toContain("Own the weekly sales report.\nUse HubSpot and Google Sheets.");
+    expect(markup).not.toContain("instructions:");
+    expect(markup).not.toContain("Runs once");
+    expect(markup).not.toContain("Allow once");
+    expect(markup.indexOf(">Decline<")).toBeLessThan(markup.indexOf(">Approve<"));
+
+    const answered = render({
+      ...approval,
+      resolution: { decision: "accept", actor: "user", respondedBy: "Ana" },
+    });
+
+    expect(answered).toContain("Approved by Ana");
+    expect(answered).toContain("Own the weekly sales report.");
+    expect(answered).not.toContain("HubSpot");
+  });
+
   it("shows the routine purpose and schedule once, with Don't create before Create routine", () => {
     const markup = render({
       requestId: ApprovalRequestId.make("review-routine-quote"),

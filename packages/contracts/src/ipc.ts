@@ -9,6 +9,7 @@ import {
   type DesktopTheme,
   type DesktopUpdateChannel,
   type DesktopAppBranding,
+  type DesktopNotification,
   type DesktopUpdateState,
 } from "./ipc/app.ts";
 import {
@@ -118,6 +119,13 @@ export interface DesktopBridge {
   onQuitShortcut?: (listener: (event: QuitShortcutHintEvent) => void) => () => void;
   getWindowFullscreenState: () => boolean;
   onWindowFullscreenStateChange: (listener: (fullscreen: boolean) => void) => () => void;
+  /**
+   * Shows a native OS notification. Optional: older desktop builds lack it, and the web app
+   * falls back to web notifications.
+   */
+  showNotification?: (notification: DesktopNotification) => Promise<void>;
+  /** The id of a shown notification the person clicked, after the window came to the front. */
+  onNotificationClick?: (listener: (id: string) => void) => () => void;
   getUpdateState: () => Promise<DesktopUpdateState>;
   setUpdateChannel: (channel: DesktopUpdateChannel) => Promise<DesktopUpdateState>;
   checkForUpdate: () => Promise<DesktopUpdateCheckResult>;
@@ -254,6 +262,8 @@ export {
   DesktopAppStageLabelSchema,
   type DesktopAppBranding,
   DesktopAppBrandingSchema,
+  type DesktopNotification,
+  DesktopNotificationSchema,
   type DesktopRuntimeInfo,
   DesktopRuntimeInfoSchema,
   type DesktopUpdateState,

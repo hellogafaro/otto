@@ -80,8 +80,17 @@ export class ElectronShell extends Context.Service<
       rawUrl: Parameters<typeof parseSafeExternalUrl>[0],
     ) => Effect.Effect<boolean>;
     readonly copyText: (text: string) => Effect.Effect<void>;
+    readonly showNotification: (input: {
+      readonly title: string;
+      readonly body: string;
+      readonly onClick: () => void;
+    }) => Effect.Effect<void>;
   }
 >()("@otto/desktop/electron/electron-shell/ElectronShell") {}
+
+// Electron stops delivering a notification's click once it is garbage collected, so each one is
+// held until it is clicked or closed.
+const shownNotifications = new Set<Electron.Notification>();
 
 export const make = ElectronShell.of({
   openExternal: (rawUrl) =>
@@ -98,6 +107,21 @@ export const make = ElectronShell.of({
   copyText: (text) =>
     Effect.sync(() => {
       Electron.clipboard.writeText(text);
+    }),
+  showNotification: ({ title, body, onClick }) =>
+    Effect.sync(() => {
+      if (!Electron.Notification.isSupported()) return;
+
+      const notification = new Electron.Notification({ title, body });
+      shownNotifications.add(notification);
+
+      notification.on("click", () => {
+        shownNotifications.delete(notification);
+        onClick();
+      });
+
+      notification.on("close", () => shownNotifications.delete(notification));
+      notification.show();
     }),
 });
 

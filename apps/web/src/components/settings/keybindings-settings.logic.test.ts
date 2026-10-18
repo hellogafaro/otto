@@ -176,11 +176,12 @@ describe("KeybindingsSettings.logic", () => {
       ),
     ).toEqual([
       ["Home", "alt+1"],
-      ["Chats", "alt+2"],
-      ["Routines", "alt+3"],
-      ["Tasks", "alt+4"],
-      ["Projects", "alt+5"],
-      ["Library", "alt+6"],
+      ["Notifications", "alt+2"],
+      ["Chats", "alt+3"],
+      ["Routines", "alt+4"],
+      ["Tasks", "alt+5"],
+      ["Projects", "alt+6"],
+      ["Library", "alt+7"],
     ]);
     // No default depends on the removed terminal or browser preview.
     expect(
@@ -192,7 +193,7 @@ describe("KeybindingsSettings.logic", () => {
       "!desktop",
       "desktop",
       "!inputFocus",
-      ...Array.from({ length: 6 }, () => ""),
+      ...Array.from({ length: 7 }, () => ""),
       "!inputFocus",
       "!inputFocus",
       "approvalPending",

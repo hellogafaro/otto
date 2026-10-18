@@ -24,6 +24,8 @@ const decodeSshPasswordPrompt = Schema.decodeUnknownOption(DesktopSshPasswordPro
 
 const decodeMenuAction = Schema.decodeUnknownOption(Schema.String);
 
+const decodeNotificationClick = Schema.decodeUnknownOption(Schema.String);
+
 const decodeQuitShortcut = Schema.decodeUnknownOption(QuitShortcutHint);
 
 const decodeWindowFullscreenStateChange = Schema.decodeUnknownOption(Schema.Boolean);
@@ -149,6 +151,10 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     subscribeDecoded(IpcChannels.MENU_ACTION_CHANNEL, decodeMenuAction, listener),
   onQuitShortcut: (listener) =>
     subscribeDecoded(IpcChannels.QUIT_SHORTCUT_CHANNEL, decodeQuitShortcut, listener),
+  showNotification: (notification) =>
+    ipcRenderer.invoke(IpcChannels.SHOW_NOTIFICATION_CHANNEL, notification),
+  onNotificationClick: (listener) =>
+    subscribeDecoded(IpcChannels.NOTIFICATION_CLICK_CHANNEL, decodeNotificationClick, listener),
   getWindowFullscreenState: () =>
     ipcRenderer.sendSync(IpcChannels.GET_WINDOW_FULLSCREEN_STATE_CHANNEL) === true,
   onWindowFullscreenStateChange: (listener) =>

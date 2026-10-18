@@ -143,7 +143,7 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       assert.equal(defaultsByCommand.get("thread.next"), "j");
       assert.equal(defaultsByCommand.get("thread.previous"), "k");
       assert.equal(defaultsByCommand.get("navigation.home"), "alt+1");
-      assert.equal(defaultsByCommand.get("navigation.library"), "alt+6");
+      assert.equal(defaultsByCommand.get("navigation.library"), "alt+7");
       assert.equal(defaultsByCommand.get("shortcuts.show"), "?");
       assert.isTrue(defaultsByCommand.has("settings.open"));
 

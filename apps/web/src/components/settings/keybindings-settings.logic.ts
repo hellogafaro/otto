@@ -207,6 +207,7 @@ const COMMAND_META: ReadonlyArray<readonly [string, string, KeybindingGroupId]> 
   ["settings.open", "Open settings", "general"],
   ["shortcuts.show", "Show keyboard shortcuts", "general"],
   ["navigation.home", "Home", "navigation"],
+  ["navigation.notifications", "Notifications", "navigation"],
   ["navigation.chats", "Chats", "navigation"],
   ["navigation.routines", "Routines", "navigation"],
   ["navigation.tasks", "Tasks", "navigation"],

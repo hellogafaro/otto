@@ -16,6 +16,7 @@ import { useI18n } from "../i18n";
 import { resolveShortcutCommand } from "../keybindings";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { GlobalShortcuts } from "./global-shortcuts";
+import { NotificationAlerts } from "./notifications/notification-alerts";
 import BotRosterSidebar from "./roster/bot-roster-sidebar";
 import { ShortcutKbd } from "./shortcut-kbd";
 import {
@@ -223,6 +224,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       {isElectron ? <DesktopTabStrip /> : null}
       <GlobalShortcuts />
       <ProjectProjectionRetention />
+      <NotificationAlerts />
       <Sidebar
         side="left"
         collapsible="icon"

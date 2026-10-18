@@ -21,6 +21,7 @@ import { useLatestGroupThreadId, useThreadMessages } from "../../state/entities"
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestamp-format";
 import { Button } from "../ui/button";
+import { Kbd } from "../ui/kbd";
 import { MenuItem, MenuSeparator } from "../ui/menu";
 import { SidebarGroup } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -160,6 +161,7 @@ export const BotRosterRow = memo(function BotRosterRow({
   canMoveDown,
   onNudge,
   onArchive,
+  shortcutLabel,
 }: {
   bot: Bot;
   lastMessage: RosterLastMessage | null;
@@ -173,6 +175,8 @@ export const BotRosterRow = memo(function BotRosterRow({
   canMoveDown: boolean;
   onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
   onArchive: (bot: Bot) => void;
+  /** Its jump shortcut while the command modifier is held, in place of the status and time. */
+  shortcutLabel: string | null;
 }) {
   const { t } = useI18n();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -290,7 +294,9 @@ export const BotRosterRow = memo(function BotRosterRow({
         ) : null}
         <span className={ROSTER_TRAIL_CLASS}>
           <span className={ROSTER_TRAIL_INFO_CLASS}>
-            {hasChatTree && chatsOpen ? null : (
+            {shortcutLabel ? (
+              <Kbd variant="jump">{shortcutLabel}</Kbd>
+            ) : hasChatTree && chatsOpen ? null : (
               <ChatStatusIcon
                 presence={presence}
                 unread={unread}

@@ -9,6 +9,7 @@ import { recordLookup } from "./record-lookup";
 
 const NAVIGATION_PATHS = {
   "navigation.home": "/",
+  "navigation.notifications": "/notifications",
   "navigation.chats": "/chats",
   "navigation.routines": "/routines",
   "navigation.tasks": "/tasks",

@@ -1,11 +1,5 @@
 import { scopedThreadKey, scopeThreadRef } from "@otto/client-runtime/environment";
-import {
-  BotId,
-  type EnvironmentId,
-  type Notification,
-  type NotificationType,
-  type WorkParticipant,
-} from "@otto/contracts";
+import { BotId } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   RiChat1Line,
@@ -15,19 +9,17 @@ import {
   RiTimeLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { AsyncResult } from "effect/unstable/reactivity";
 import { useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useThreadShells } from "../../state/entities";
-import { notificationEnvironment } from "../../state/notifications";
-import { useEnvironmentQuery } from "../../state/query";
-import { useAtomCommand } from "../../state/use-atom-command";
 import { formatRelativeTimeLabel, localDateKey } from "../../timestamp-format";
 import { useUiStateStore } from "../../ui-state-store";
 import { hasUnseenCompletion } from "../chat/chat-actions.logic";
 import { CustomizeGroup, CustomizeRow } from "../customize/customize-group";
+import { NotificationRow } from "../notifications/notification-row";
+import { useNotifications } from "../notifications/use-notifications";
 import { Button } from "../ui/button";
 import { SkeletonTableRows } from "../ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -41,15 +33,6 @@ import { pickGreeting, routinesToday, routineTime, tasksDue } from "./home.logic
 type ChatState = "needs" | "working" | "ready";
 
 const CHAT_STATE_ORDER: Record<ChatState, number> = { needs: 0, ready: 1, working: 2 };
-
-const NOTIFICATION_TEXT = {
-  assigned: "{name} assigned you {title}",
-  owner: "{name} made you the owner of {title}",
-  mention: "{name} mentioned you on {title}",
-  reply: "{name} replied to you on {title}",
-  comment: "{name} commented on {title}",
-  chat_mention: "{name} mentioned you in {title}",
-} as const satisfies Record<NotificationType, string>;
 
 const timeOfDay = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -142,52 +125,8 @@ export function HomePage() {
     working: t("Working"),
   };
 
-  const query = useEnvironmentQuery(
-    environmentId ? notificationEnvironment.list({ environmentId, input: {} }) : null,
-  );
-
-  const markRead = useAtomCommand(notificationEnvironment.markRead);
-  const notifications = query.data?.notifications ?? [];
-  const unread = query.data?.unread ?? 0;
-
-  const read = async (target: EnvironmentId, ids?: readonly string[]) => {
-    const result = await markRead({
-      environmentId: target,
-      input: ids === undefined ? {} : { ids: [...ids] },
-    });
-
-    if (AsyncResult.isSuccess(result)) query.refresh();
-  };
-
-  const actor = (notification: Notification): WorkParticipant | null => {
-    if (notification.actor === null) return null;
-
-    if (notification.actor.type === "bot") {
-      return { kind: "bot", botId: BotId.make(notification.actor.id) };
-    }
-
-    const personId = notification.actor.id;
-
-    return (
-      participants.people.find((person) => person.personId === personId) ?? {
-        kind: "person",
-        personId,
-        displayName: t("Someone"),
-      }
-    );
-  };
-
-  const openNotification = (notification: Notification) => {
-    if (environmentId && notification.readAt === null) void read(environmentId, [notification.id]);
-
-    if (notification.entityType === "task") {
-      void navigate({ to: "/tasks/$taskId", params: { taskId: notification.entityId } });
-
-      return;
-    }
-
-    void navigate({ to: "/chats/$threadId", params: { threadId: notification.entityId } });
-  };
+  const notificationList = useNotifications();
+  const { notifications, unread } = notificationList;
 
   return (
     <WorkPage backdrop={<HomeDither seed={currentPersonId ?? "otto"} />}>
@@ -297,7 +236,7 @@ export function HomePage() {
                   : null
               }
               action={
-                environmentId && unread > 0 ? (
+                unread > 0 ? (
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -305,7 +244,7 @@ export function HomePage() {
                           size="icon-sm"
                           variant="ghost-muted"
                           aria-label={t("Mark all read")}
-                          onClick={() => void read(environmentId)}
+                          onClick={notificationList.markAllRead}
                         >
                           <RiCheckDoubleLine aria-hidden className="size-4" />
                         </Button>
@@ -316,33 +255,13 @@ export function HomePage() {
                 ) : null
               }
             >
-              {notifications.map((notification) => {
-                const who = actor(notification);
-
-                return (
-                  <CustomizeRow
-                    key={notification.id}
-                    logo={<RiInbox2Line aria-hidden className="size-4" />}
-                    avatar={
-                      who ? <RowAvatar participant={who} bots={participants.allBots} /> : undefined
-                    }
-                    name={t(NOTIFICATION_TEXT[notification.type], {
-                      name: who ? participantName(who, participants.allBots) : t("Someone"),
-                      title: notification.title,
-                    })}
-                    detail={notification.excerpt || undefined}
-                    status={
-                      <span className="flex shrink-0 items-center gap-2">
-                        <Meta>{formatRelativeTimeLabel(notification.createdAt)}</Meta>
-                        {notification.readAt === null ? (
-                          <span aria-hidden className="size-1.5 rounded-full bg-destructive" />
-                        ) : null}
-                      </span>
-                    }
-                    onOpen={() => openNotification(notification)}
-                  />
-                );
-              })}
+              {notifications.map((notification) => (
+                <NotificationRow
+                  key={notification.id}
+                  notification={notification}
+                  notifications={notificationList}
+                />
+              ))}
             </CustomizeGroup>
           </div>
         )}

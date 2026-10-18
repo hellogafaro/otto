@@ -3,6 +3,7 @@ import {
   RiBox3Line,
   RiChat1Line,
   RiHome5Line,
+  RiInbox2Line,
   RiTimeLine,
   RiListCheck3,
   type RemixiconComponentType,
@@ -81,11 +82,14 @@ export function useRailOnly(): boolean {
   return !isPathUnder(pathname, "/settings") && noBots;
 }
 
-/** Home, Routines, Tasks, Projects and the Library own the whole main panel, so the panel steps aside. */
+/**
+ * Home, Notifications, Routines, Tasks, Projects and the Library own the whole main panel, so the
+ * panel steps aside.
+ */
 function isFullPage(pathname: string): boolean {
   if (pathname === "/") return true;
 
-  return ["/routines", "/tasks", "/projects", "/library"].some((base) =>
+  return ["/notifications", "/routines", "/tasks", "/projects", "/library"].some((base) =>
     isPathUnder(pathname, base),
   );
 }
@@ -101,6 +105,7 @@ export function ExperimentalSidebar() {
   // the panel, and leaving it goes back to the chat workspace.
   const onSettings = isPathUnder(pathname, "/settings");
   const onHome = pathname === "/";
+  const onNotifications = isPathUnder(pathname, "/notifications");
   const onRoutines = isPathUnder(pathname, "/routines");
   const onTasks = isPathUnder(pathname, "/tasks");
   const onProjects = isPathUnder(pathname, "/projects");
@@ -154,13 +159,26 @@ export function ExperimentalSidebar() {
             <span aria-hidden="true" className="otto-wordmark-symbol bg-current text-xl" />
           </button>
           <RailButton
-            label={unread > 0 ? t("Home, {count} unread", { count: unread }) : t("Home")}
+            label={t("Home")}
             icon={RiHome5Line}
             shortcut="navigation.home"
             active={onHome}
-            badge={unread > 0}
             onClick={() => {
               if (!onHome) void navigate({ to: "/" });
+            }}
+          />
+          <RailButton
+            label={
+              unread > 0
+                ? t("Notifications, {count} unread", { count: unread })
+                : t("Notifications")
+            }
+            icon={RiInbox2Line}
+            shortcut="navigation.notifications"
+            active={onNotifications}
+            badge={unread > 0}
+            onClick={() => {
+              if (!onNotifications) void navigate({ to: "/notifications" });
             }}
           />
           <RailButton

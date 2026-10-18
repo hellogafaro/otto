@@ -157,11 +157,12 @@ describe("app-wide default shortcuts", () => {
   it("goes to each place on Option and the digit key, whatever Option types", () => {
     const places = [
       ["¡", "Digit1", "navigation.home"],
-      ["™", "Digit2", "navigation.chats"],
-      ["£", "Digit3", "navigation.routines"],
-      ["¢", "Digit4", "navigation.tasks"],
-      ["∞", "Digit5", "navigation.projects"],
-      ["§", "Digit6", "navigation.library"],
+      ["™", "Digit2", "navigation.notifications"],
+      ["£", "Digit3", "navigation.chats"],
+      ["¢", "Digit4", "navigation.routines"],
+      ["∞", "Digit5", "navigation.tasks"],
+      ["§", "Digit6", "navigation.projects"],
+      ["¶", "Digit7", "navigation.library"],
     ] as const;
 
     for (const [key, code, command] of places) {

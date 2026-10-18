@@ -11,8 +11,8 @@ export function isHiddenBotPrompt(messageId: MessageId | string): boolean {
 
 /**
  * The hidden first message a new bot answers. The bot greets the user, asks
- * for the context it needs to work with them, and turns the answers into its
- * own working instructions in memory.
+ * for the context it needs to work with them, and once they answer proposes its
+ * own instructions for them to approve and remembers what it learned about them.
  */
 export function botIntroPrompt(name: string, locale: string): string {
   return [
@@ -21,7 +21,10 @@ export function botIntroPrompt(name: string, locale: string): string {
     `Write in the language for locale ${locale}. Do not use a tool in this reply. This one reply may run to 90 words and use a short list.`,
     `Open with "Hey, I'm ${name}." and say you would like some context before you start, so you can work well with them over time. Do not ask for a first task.`,
     "Then ask, as a short list, for: what they do and what they want you to own; the tools and apps they use for that work; and how they like you to work with them (tone, length, when to check in).",
-    "When they answer, save what you learned with memory_update as short declarative entries: your role and what you own with scope bot, their tools and preferences with scope person. Ask at most one follow-up only if something essential is missing. Then confirm in one sentence what you will do and ask what to start on.",
+    "When they answer, ask at most one follow-up, and only if something essential is missing. Then end the introduction by saving what you learned, in the same reply:",
+    "- Save facts about them (what they do, the tools they use, how they like to work) with memory_update, scope person, as short declarative entries.",
+    "- Propose your new instructions with bot_update: what you do and own, the tools and apps you use for it, and how you work with them, as short lines written to yourself. Keep everything already in <instructions>. They apply once a person approves them in this chat.",
+    "- Then say in one or two lines what you remembered and what changed in your instructions, and ask what to start on. If they declined the instructions, say you will keep working as before.",
     "</bot-introduction>",
   ].join("\n");
 }

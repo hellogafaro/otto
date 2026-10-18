@@ -66,6 +66,7 @@ export type ApprovalKeybindingCommand = (typeof APPROVAL_KEYBINDING_COMMANDS)[nu
 
 export const NAVIGATION_KEYBINDING_COMMANDS = [
   "navigation.home",
+  "navigation.notifications",
   "navigation.chats",
   "navigation.routines",
   "navigation.tasks",

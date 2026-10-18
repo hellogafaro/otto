@@ -10,6 +10,7 @@ import { cn } from "../lib/utils";
 import { resolveShortcutCommand } from "../keybindings";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../right-panel-layout";
 import { primaryServerKeybindingsAtom } from "../state/server";
+import { ShortcutHint } from "./shortcut-hint";
 import { AppIcon } from "./ui/app-icon";
 import { Button } from "./ui/button";
 import { Sheet, SheetClose, SheetPopup, SheetTitle } from "./ui/sheet";
@@ -128,6 +129,7 @@ export function DetailsAside({
                     onClick={() => setDesktopOpen((open) => !open)}
                   >
                     <AppIcon icon={RiCloseLine} />
+                    <ShortcutHint command="rightPanel.toggle" />
                   </Button>
                 }
               />
@@ -155,6 +157,7 @@ export function DetailsAside({
             onClick={() => setDesktopOpen((open) => !open)}
           >
             <AppIcon icon={RiListCheck} />
+            <ShortcutHint command="rightPanel.toggle" />
           </Button>
         </div>
       ) : null}
@@ -166,6 +169,7 @@ export function DetailsAside({
           onClick={() => setMobileOpen(true)}
         >
           <AppIcon icon={RiListCheck} />
+          <ShortcutHint command="rightPanel.toggle" />
         </Button>
       </div>
       <Sheet open={mobileOpen} onOpenChange={(open) => setMobileOpen(open)}>
@@ -182,6 +186,7 @@ export function DetailsAside({
               render={<Button size="icon-sm" variant="ghost" />}
             >
               <AppIcon icon={RiCloseLine} />
+              <ShortcutHint command="rightPanel.toggle" />
             </SheetClose>,
           )}
         </SheetPopup>
