@@ -597,7 +597,7 @@ export function GroupThreadLanding({
           </BotConversationScrollArea>
           <ThreadRuntimeWarningBanner warning={runtimeWarning} />
           {archived ? (
-            <ArchivedChatBar threadRef={threadRef} />
+            <ArchivedChatBar threadRef={threadRef} groupId={group.id} />
           ) : (
             <>
               {connectNeeded && connect ? (
