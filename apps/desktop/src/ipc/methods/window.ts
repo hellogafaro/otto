@@ -2,6 +2,7 @@ import {
   ContextMenuItemSchema,
   DesktopAppBrandingSchema,
   DesktopEnvironmentBootstrapSchema,
+  DesktopNotificationSchema,
   DesktopThemeSchema,
   PickedThemeFileSchema,
   PickFolderOptionsSchema,
@@ -373,6 +374,35 @@ export const openExternal = DesktopIpc.defineIpcMethod({
     const shell = yield* ElectronShell.ElectronShell;
 
     return yield* shell.openExternal(url);
+  }),
+});
+
+// Otto: a click brings the window that asked to the front, then tells its web app which
+// notification to open.
+export const showNotification = DesktopIpc.defineIpcMethod({
+  channel: IpcChannels.SHOW_NOTIFICATION_CHANNEL,
+  payload: DesktopNotificationSchema,
+  result: Schema.Void,
+  handler: Effect.fn("desktop.ipc.window.showNotification")(function* (notification) {
+    const shell = yield* ElectronShell.ElectronShell;
+    const electronWindow = yield* ElectronWindow.ElectronWindow;
+    const window = yield* electronWindow.currentMainOrFirst;
+    const runSync = Effect.runSyncWith(yield* Effect.context<never>());
+
+    if (Option.isNone(window)) return;
+
+    const target = window.value;
+
+    yield* shell.showNotification({
+      title: notification.title,
+      body: notification.body,
+      onClick: () => {
+        if (target.isDestroyed()) return;
+
+        runSync(electronWindow.reveal(target));
+        target.webContents.send(IpcChannels.NOTIFICATION_CLICK_CHANNEL, notification.id);
+      },
+    });
   }),
 });
 

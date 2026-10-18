@@ -10,6 +10,10 @@ export const OPEN_EXTERNAL_CHANNEL = "desktop:open-external";
 
 export const MENU_ACTION_CHANNEL = "desktop:menu-action";
 
+export const SHOW_NOTIFICATION_CHANNEL = "desktop:show-notification";
+
+export const NOTIFICATION_CLICK_CHANNEL = "desktop:notification-click";
+
 export const QUIT_SHORTCUT_CHANNEL = "desktop:quit-shortcut";
 
 export const GET_WINDOW_FULLSCREEN_STATE_CHANNEL = "desktop:get-window-fullscreen-state";

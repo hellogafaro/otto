@@ -33,6 +33,7 @@ export const updateTask: (input: UpdateTaskInput) => CommandEffect = Effect.fn(
 )(function* (input) {
   return yield* dispatch({
     ...input,
+    timezone: input.timezone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
     type: "task.update",
     commandId: yield* commandId(input),
   });

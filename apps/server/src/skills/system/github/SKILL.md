@@ -4,7 +4,7 @@ description: Use with the git skill when the repository is on GitHub, to push, o
 ---
 
 - Your git and gh login are set per turn for the person who asked, so commits and pull requests are theirs. If git or gh says you are not logged in, ask that person to connect GitHub in Settings → Integrations and stop there.
-- Install gh if it is missing.
+- gh comes installed with your login. Use it for GitHub work instead of calling the GitHub API by hand; install it only if it is still missing.
 - Run every gh command without prompts: pass `--title` and `--body-file` instead of opening an editor, and read with `--json` when you need to parse the result.
 - Before pushing to an existing pull request, check `gh pr view <n> --json state`. A merged or closed pull request is final: never push to it or reopen it; start a new branch and pull request instead.
 - Push with `git push -u origin <branch>`.

@@ -4,11 +4,16 @@ import {
   type OrchestrationReadModel,
   type OrchestrationTask,
   type TaskChanges,
+  type TaskDueDate,
+  TaskId,
+  type TaskRepeat,
   type WorkParticipant,
   workParticipantKey,
 } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
@@ -62,6 +67,9 @@ export function taskChanges(before: OrchestrationTask, after: OrchestrationTask)
     ...(before.dueDate !== after.dueDate
       ? { dueDate: { from: before.dueDate, to: after.dueDate } }
       : {}),
+    ...(before.repeat !== after.repeat
+      ? { repeat: { from: before.repeat, to: after.repeat } }
+      : {}),
     ...(before.projectId !== after.projectId
       ? { projectId: { from: before.projectId, to: after.projectId } }
       : {}),
@@ -70,6 +78,30 @@ export function taskChanges(before: OrchestrationTask, after: OrchestrationTask)
       : {}),
     ...(before.description !== after.description ? { description: true as const } : {}),
   };
+}
+
+/**
+ * The next due day of a repeating task: the first occurrence after `today`, counted from its
+ * due date (or from today when it has none), so finishing late never schedules a past day.
+ */
+export function nextTaskDueDate(
+  repeat: TaskRepeat,
+  dueDate: TaskDueDate | null,
+  today: TaskDueDate,
+): TaskDueDate {
+  const anchor = DateTime.makeUnsafe(`${dueDate ?? today}T00:00:00Z`);
+
+  for (let step = 1; ; step += 1) {
+    const next = DateTime.add(
+      anchor,
+      repeat === "monthly" ? { months: step } : { days: (repeat === "weekly" ? 7 : 1) * step },
+    );
+
+    const weekDay = DateTime.getPartUtc(next, "weekDay");
+    const key = DateTime.formatIsoDateUtc(next);
+
+    if (key > today && !(repeat === "weekdays" && (weekDay === 0 || weekDay === 6))) return key;
+  }
 }
 
 export const decideTasks = Effect.fn("decideTasks")(function* ({
@@ -129,6 +161,7 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
             assignees,
             resources: command.resources ?? [],
             dueDate: command.dueDate ?? null,
+            repeat: null,
             status: command.status ?? "backlog",
             timeEntries: [],
             createdAt: command.createdAt,
@@ -174,20 +207,58 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
         ...(assignees !== undefined ? { assignees } : {}),
         ...(command.resources !== undefined ? { resources: command.resources } : {}),
         ...(command.dueDate !== undefined ? { dueDate: command.dueDate } : {}),
+        ...(command.repeat !== undefined ? { repeat: command.repeat } : {}),
         ...(command.status !== undefined ? { status: command.status } : {}),
         updatedAt: occurredAt,
       };
 
-      return {
+      const updated = {
         ...(yield* withEventBase({
           aggregateKind: "task",
           aggregateId: command.taskId,
           occurredAt,
           commandId: command.commandId,
         })),
-        type: "task.updated",
+        type: "task.updated" as const,
         payload: { task, changes: taskChanges(existing, task), ...actorFields(by) },
       };
+
+      if (task.repeat === null || existing.status === "completed" || task.status !== "completed") {
+        return updated;
+      }
+
+      const crypto = yield* Crypto.Crypto;
+      const nextTaskId = TaskId.make(yield* crypto.randomUUIDv4);
+      const zoned = DateTime.makeZoned(occurredAt, { timeZone: command.timezone ?? "UTC" });
+
+      const today = Option.isSome(zoned)
+        ? DateTime.formatIsoDate(zoned.value)
+        : occurredAt.slice(0, 10);
+
+      return [
+        { ...updated, payload: { ...updated.payload, task: { ...task, repeat: null } } },
+        {
+          ...(yield* withEventBase({
+            aggregateKind: "task",
+            aggregateId: nextTaskId,
+            occurredAt,
+            commandId: command.commandId,
+          })),
+          type: "task.created" as const,
+          payload: {
+            task: {
+              ...task,
+              id: nextTaskId,
+              dueDate: nextTaskDueDate(task.repeat, task.dueDate, today),
+              status: "pending" as const,
+              timeEntries: [],
+              createdAt: occurredAt,
+              updatedAt: occurredAt,
+            },
+            ...actorFields(by),
+          },
+        },
+      ];
     }
 
     case "task.time.add": {

@@ -33,11 +33,11 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 
 ## Next
 
-- **Push notifications** on desktop and mobile, and a full Notifications page.
-- **Long messages** fold after a few lines, with a click to expand.
 - **Meeting recordings**: record a call, then transcribe and summarize it.
 - **Composio triggers**: let an event from a connected app start a bot or routine.
-- **Allow all** is missing on some tool approvals.
+- **Always allow per app.** An Always allow rule covers one kind of action per tool, so "Always
+  allow send" on Composio's combined tool allows sending through every connected app, Gmail and Slack
+  alike. Scope the rule to the app, for example Gmail send.
 - **gh on bot computers.** A bot said "The \`gh\` CLI isn't installed on my machine, so I use git and the
   GitHub API directly." Install \`gh\` on bot computers.
 - **Recurring tasks.**
@@ -50,9 +50,7 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **More page actions**, for example Copy link and Copy ID on a task.
 - **"New single chat" in automations**: a run can start a fresh chat.
 - **Global search** in the command palette.
-- **Shortcut hints**: holding ⌘ shows each control's shortcut.
-- **Menus like Linear's**: every dropdown item shows a one-key shortcut, and typing filters the menu.
-- **Shortcuts for approvals**: approve, deny and Allow all from the keyboard, for every bot approval.
+- **Shortcuts for menu actions**: real shortcuts for chat, task, project and other actions, shown in their menus, for example Rename R, Pin P, Mark unread U, Snooze H, Archive E, Delete ⌘⌫, Copy link ⌘⇧, and Copy ID ⌘. (letters work when you aren't typing).
 
 ## Not verified yet
 

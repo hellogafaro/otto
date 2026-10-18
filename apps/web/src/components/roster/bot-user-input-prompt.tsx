@@ -19,6 +19,7 @@ export function BotUserInputPrompt({
   onSelectOption,
   onAnswerWithText,
   onSubmit,
+  shortcuts = false,
 }: {
   readonly pendingUserInputs: PendingUserInput[];
   readonly respondingRequestIds: ApprovalRequestId[];
@@ -28,6 +29,7 @@ export function BotUserInputPrompt({
   readonly onSelectOption: (questionId: string, optionLabel: string) => void;
   readonly onAnswerWithText: (text: string) => void;
   readonly onSubmit: () => void;
+  readonly shortcuts?: boolean;
 }) {
   const { t } = useI18n();
   // Once an answer is on its way the question has been dealt with: the composer's working
@@ -56,6 +58,7 @@ export function BotUserInputPrompt({
         onSelectOption={onSelectOption}
         onAnswerWithText={onAnswerWithText}
         onSubmit={onSubmit}
+        shortcuts={shortcuts}
       />
     </section>
   );

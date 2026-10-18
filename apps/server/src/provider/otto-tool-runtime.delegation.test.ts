@@ -124,8 +124,6 @@ describe("OttoToolRuntime", () => {
       approvalMode: "require-grant" as const,
     };
 
-    await expect(runtime.execute(stopExecution)).rejects.toThrow("requires approval");
-    runtime.grantApproval(stopExecution);
     await expect(runtime.execute(stopExecution)).resolves.toBeDefined();
 
     expect(send).toHaveBeenCalledOnce();

@@ -6,6 +6,7 @@ description: Use when working in a git repository on your computer, to branch, c
 Start
 
 - Run `git status --short --branch` and `git remote -v`. On GitHub, also read the github skill. On any other host, use plain git, and that host's own tool only if it is installed and the person asked for it.
+- Repositories linked in the project's resources are already cloned in your working folder under `repos/<owner>/<name>`; work in those checkouts.
 - Leave changes you did not make untouched unless the person asks you to include them.
 - Branch from a fresh base: `git fetch origin`, then `git switch -c otto/<your-name>/<topic> origin/<default-branch>`. Never commit to the default branch.
 

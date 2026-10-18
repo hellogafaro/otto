@@ -34,7 +34,7 @@ import {
   isBotPromptSubmissionCurrent,
   isBotPromptExpanded,
   restoreBotStashPrompt,
-  shouldFocusBotPromptForKey,
+  shouldFocusBotPromptOnEnter,
 } from "./bot-prompt-composer";
 
 afterEach(() => {
@@ -164,22 +164,38 @@ describe("bot prompt composer", () => {
     }
   });
 
-  it("focuses the prompt for unmodified printable typing outside an editor", () => {
-    const baseInput = {
+  it("returns to the prompt on a bare Enter where nothing else takes it", () => {
+    class FakeElement extends EventTarget {
+      constructor(readonly owned: boolean) {
+        super();
+      }
+
+      closest() {
+        return this.owned ? this : null;
+      }
+    }
+
+    vi.stubGlobal("Element", FakeElement);
+
+    const enter = {
+      key: "Enter",
       altKey: false,
       ctrlKey: false,
-      defaultPrevented: false,
-      editableTarget: false,
-      isComposing: false,
-      key: "a",
       metaKey: false,
+      shiftKey: false,
+      defaultPrevented: false,
+      isComposing: false,
+      target: new FakeElement(false),
     };
 
-    expect(shouldFocusBotPromptForKey(baseInput)).toBe(true);
-    expect(shouldFocusBotPromptForKey({ ...baseInput, key: "Enter" })).toBe(false);
-    expect(shouldFocusBotPromptForKey({ ...baseInput, metaKey: true })).toBe(false);
-    expect(shouldFocusBotPromptForKey({ ...baseInput, editableTarget: true })).toBe(false);
-    expect(shouldFocusBotPromptForKey({ ...baseInput, isComposing: true })).toBe(false);
+    expect(shouldFocusBotPromptOnEnter(enter)).toBe(true);
+    expect(shouldFocusBotPromptOnEnter({ ...enter, key: "a" })).toBe(false);
+    expect(shouldFocusBotPromptOnEnter({ ...enter, shiftKey: true })).toBe(false);
+    expect(shouldFocusBotPromptOnEnter({ ...enter, isComposing: true })).toBe(false);
+    expect(shouldFocusBotPromptOnEnter({ ...enter, defaultPrevented: true })).toBe(false);
+    // A field, button, link, option, dialog or menu keeps its own Enter.
+    expect(shouldFocusBotPromptOnEnter({ ...enter, target: new FakeElement(true) })).toBe(false);
+    vi.unstubAllGlobals();
   });
 
   it("restores stashed text after the current draft", () => {

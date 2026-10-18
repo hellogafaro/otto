@@ -1,4 +1,9 @@
-import { RiArrowDownLine, RiArrowUpLine } from "@remixicon/react";
+import {
+  RiArrowDownLine,
+  RiArrowLeftLine,
+  RiArrowRightLine,
+  RiArrowUpLine,
+} from "@remixicon/react";
 
 import type { ComponentProps, ReactNode } from "react";
 
@@ -14,6 +19,8 @@ type CommandPaletteContentProps = Omit<ComponentProps<typeof Command>, "children
   readonly inputAccessory?: ReactNode;
   readonly inputProps: ComponentProps<typeof CommandInput>;
   readonly showBackHint?: boolean;
+  /** Category tabs under the input; ← and → switch them, so the footer says so. */
+  readonly tabs?: ReactNode;
   readonly testId?: string;
 };
 
@@ -30,6 +37,7 @@ export function CommandPaletteContent({
   inputAccessory,
   inputProps,
   showBackHint,
+  tabs,
   testId,
   ...commandProps
 }: CommandPaletteContentProps) {
@@ -42,6 +50,7 @@ export function CommandPaletteContent({
           <CommandInput {...inputProps} />
           {inputAccessory}
         </div>
+        {tabs ? <div className="px-2 pt-2">{tabs}</div> : null}
         <CommandPanel className="max-h-(--spacing-min-28rem-70vh)">{children}</CommandPanel>
         <CommandFooter className="gap-3 max-sm:flex-col max-sm:items-start">
           <div className="flex items-center gap-3">
@@ -58,6 +67,17 @@ export function CommandPaletteContent({
               <KbdGroup className="items-center gap-1.5">
                 <Kbd>Enter</Kbd>
                 <span>{footerActionLabel}</span>
+              </KbdGroup>
+            ) : null}
+            {tabs ? (
+              <KbdGroup className="items-center gap-1.5">
+                <Kbd>
+                  <RiArrowLeftLine />
+                </Kbd>
+                <Kbd>
+                  <RiArrowRightLine />
+                </Kbd>
+                <span>{t("Category")}</span>
               </KbdGroup>
             ) : null}
             {showBackHint ? (

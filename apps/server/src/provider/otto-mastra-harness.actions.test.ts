@@ -84,7 +84,42 @@ describe("Otto action classifier", () => {
         removeSecret,
       ),
     ).toBe(false);
-    expect(alwaysAllowKinds("custom_tool", { operation: "frobnicate" })).toBeNull();
+  });
+
+  it("runs connector actions it cannot classify and asks for each critical one in a batch", () => {
+    for (const [toolName, input] of [
+      ["notion_pages", { operation: "append", pageId: "page-1" }],
+      ["custom_api", { method: "PATCH", path: "/v1/issues/1" }],
+      ["COMPOSIO_MANAGE_CONNECTIONS", { toolkits: [{ name: "gmail", action: "add" }] }],
+      [
+        "COMPOSIO_MULTI_EXECUTE_TOOL",
+        { tools: [{ tool_slug: "LINEAR_CREATE_LINEAR_ISSUE", arguments: { title: "Bug" } }] },
+      ],
+    ] as const) {
+      expect(ottoActionNeedsApproval(toolName, input)).toBe(false);
+    }
+
+    const batch = (...slugs: string[]) => ({
+      tools: slugs.map((tool_slug) => ({ tool_slug, arguments: {} })),
+    });
+
+    const sendEmail = batch("LINEAR_CREATE_LINEAR_ISSUE", "GMAIL_SEND_EMAIL");
+
+    expect(ottoActionNeedsApproval("COMPOSIO_MULTI_EXECUTE_TOOL", sendEmail)).toBe(true);
+    expect(alwaysAllowKinds("COMPOSIO_MULTI_EXECUTE_TOOL", sendEmail)).toEqual(["send"]);
+    expect(
+      new Set(
+        alwaysAllowKinds(
+          "COMPOSIO_MULTI_EXECUTE_TOOL",
+          batch("GMAIL_SEND_EMAIL", "GITHUB_DELETE_A_REPOSITORY"),
+        ),
+      ),
+    ).toEqual(new Set(["send", "delete"]));
+    expect(
+      ottoActionNeedsApproval("COMPOSIO_MANAGE_CONNECTIONS", {
+        toolkits: [{ name: "gmail", action: "remove", account_id: "account-1" }],
+      }),
+    ).toBe(true);
   });
 
   it("requires approval when nested input exceeds the inspection limit", () => {
@@ -94,5 +129,6 @@ describe("Otto action classifier", () => {
 
     expect(criticalOttoAction("custom_tool", args)).toBeNull();
     expect(ottoActionNeedsApproval("custom_tool", args)).toBe(true);
+    expect(alwaysAllowKinds("custom_tool", args)).toBeNull();
   });
 });

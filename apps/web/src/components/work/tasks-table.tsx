@@ -3,13 +3,14 @@ import {
   type OrchestrationTask,
   workParticipantKey,
 } from "@otto/contracts";
-import { RiBox3Line, RiCalendarLine } from "@remixicon/react";
+import { RiBox3Line, RiCalendarLine, RiRepeatLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { formatRelativeTime, localDateKey } from "../../timestamp-format";
 import type { Bot } from "../roster/types";
 import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
 import { WORK_STATUS_ORDER } from "./work.logic";
+import { useTaskRepeatLabel } from "./task-repeat";
 import { ParticipantStack } from "./work-participants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
 
@@ -24,11 +25,13 @@ function formatDueDate(dueDate: string): string {
 
 function taskColumns({
   t,
+  repeatLabel,
   projects,
   bots,
   showProject,
 }: {
   readonly t: ReturnType<typeof useI18n>["t"];
+  readonly repeatLabel: ReturnType<typeof useTaskRepeatLabel>;
   readonly projects: readonly OrchestrationProjectShell[];
   readonly bots: readonly Bot[];
   readonly showProject: boolean;
@@ -80,6 +83,12 @@ function taskColumns({
                 {formatDueDate(task.dueDate)}
               </DataTableChip>
             ) : null}
+            {task.repeat !== null ? (
+              <DataTableChip>
+                <RiRepeatLine aria-hidden />
+                {repeatLabel(task.repeat)}
+              </DataTableChip>
+            ) : null}
           </>
         );
       },
@@ -115,11 +124,12 @@ export function TasksTable({
 }) {
   const { t } = useI18n();
   const statusLabel = useWorkStatusLabel();
+  const repeatLabel = useTaskRepeatLabel();
 
   return (
     <DataTable
       rows={tasks}
-      columns={taskColumns({ t, projects, bots, showProject })}
+      columns={taskColumns({ t, repeatLabel, projects, bots, showProject })}
       getRowKey={(task) => task.id}
       getRowLabel={(task) => `${task.title}, ${statusLabel(task.status)}`}
       onRowClick={onOpenTask}

@@ -166,9 +166,39 @@ function SkeletonSettingsSections({
   );
 }
 
+/**
+ * Otto: Stand-in command palette results in their geometry: a 28px group label, then 44px rows
+ * with a 16px glyph, a title bar and a shorter context bar, so results land where these were.
+ */
+function SkeletonPaletteRows({
+  label,
+  rows = 3,
+}: {
+  readonly label: string;
+  readonly rows?: number;
+}) {
+  return (
+    <SkeletonRegion label={label} className="flex flex-col p-2">
+      <div className="flex h-7 items-center ps-2.25">
+        <Skeleton className="h-2 w-10" />
+      </div>
+      {Array.from({ length: rows }, (_, row) => (
+        <div key={row} className="flex h-11 items-center gap-2 px-2">
+          <Skeleton className="size-4 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className={cn("h-2.5", TEXT_WIDTHS[row % TEXT_WIDTHS.length])} />
+            <Skeleton className="h-2 w-1/4" />
+          </div>
+        </div>
+      ))}
+    </SkeletonRegion>
+  );
+}
+
 export {
   Skeleton,
   SkeletonCards,
+  SkeletonPaletteRows,
   SkeletonRegion,
   SkeletonSettingsSections,
   SkeletonSidebarRows,

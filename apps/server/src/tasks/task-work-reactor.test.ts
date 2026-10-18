@@ -47,6 +47,7 @@ const task: OrchestrationTask = {
   assignees: [],
   resources: [],
   dueDate: null,
+  repeat: null,
   status: "pending",
   timeEntries: [],
   createdAt: NOW,

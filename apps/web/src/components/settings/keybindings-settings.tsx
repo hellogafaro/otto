@@ -31,6 +31,7 @@ import {
  * Otto: One card per purpose group. Click the keys to record new ones; the
  * change saves at once, and the reset icon beside a changed command restores
  * its default. Commands without a default sit in their group, ready to record.
+ * Esc and Enter for the composer are fixed keys, listed for completeness.
  */
 export function KeybindingsSettingsPanel() {
   const { t } = useI18n();
@@ -188,6 +189,18 @@ export function KeybindingsSettingsPanel() {
           {unboundCommands
             .filter((command) => keybindingGroupForCommand(command) === group.id)
             .map(renderUnboundRow)}
+          {group.id === "composer" ? (
+            <>
+              <SettingsRow
+                title={t("Leave the composer")}
+                control={<KeyCaps value="esc" className="px-0.75" />}
+              />
+              <SettingsRow
+                title={t("Back to the composer")}
+                control={<KeyCaps value="enter" className="px-0.75" />}
+              />
+            </>
+          ) : null}
         </SettingsSection>
       ))}
     </SettingsPageContainer>
