@@ -88,6 +88,14 @@ export function createLibraryEnvironmentAtoms<R, E>(
       label: "environment-data:library:create-file-url",
       tag: WS_METHODS.libraryCreateFileUrl,
     }),
+    shareFile: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:library:share-file",
+      tag: WS_METHODS.libraryShareFile,
+    }),
+    unshareFile: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:library:unshare-file",
+      tag: WS_METHODS.libraryUnshareFile,
+    }),
     /** A document's saved text, for a glance such as a skill's description. */
     document: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:library:document",

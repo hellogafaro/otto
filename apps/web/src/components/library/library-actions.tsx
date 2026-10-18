@@ -21,6 +21,7 @@ import {
   RiFolderLine,
   RiFolderTransferLine,
   RiGlobalLine,
+  RiLink,
   RiLockLine,
   RiMoreLine,
 } from "@remixicon/react";
@@ -44,6 +45,7 @@ import {
 import { Input } from "../ui/input";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { LibraryShareDialog } from "./library-share-dialog";
 import { useLibraryDownload, type LibraryData } from "./use-library";
 
 /** One short line of text: a new folder's name or anything's new title. */
@@ -396,6 +398,7 @@ export function LibraryItemMenu({
     (target.folder.threadId !== undefined || target.folder.projectId !== undefined);
 
   const editable = !isHolder && data.canEdit(item);
+  const [sharing, setSharing] = useState(false);
 
   if (target.kind === "folder" && !editable) return null;
 
@@ -420,6 +423,12 @@ export function LibraryItemMenu({
             <MenuItem onClick={() => void download(environmentId, target.file.id)}>
               <RiDownloadLine />
               {t("Download")}
+            </MenuItem>
+          ) : null}
+          {target.kind === "file" && editable ? (
+            <MenuItem onClick={() => setSharing(true)}>
+              <RiLink />
+              {t("Share public link")}
             </MenuItem>
           ) : null}
           {editable ? (
@@ -454,6 +463,14 @@ export function LibraryItemMenu({
         </MenuPopup>
       </Menu>
       {actions.dialogs}
+      {target.kind === "file" ? (
+        <LibraryShareDialog
+          open={sharing}
+          onOpenChange={setSharing}
+          environmentId={environmentId}
+          file={target.file}
+        />
+      ) : null}
     </>
   );
 }

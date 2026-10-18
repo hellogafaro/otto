@@ -1,6 +1,7 @@
 import {
   LibraryFile,
   LibraryFileId,
+  LibraryFileShare,
   LibraryFolder,
   LibraryFolderId,
   GroupId,
@@ -36,7 +37,11 @@ const FolderDbRow = LibraryFolder.mapFields(Struct.omit(["threadId", "projectId"
 );
 
 const FileDbRow = LibraryFile.mapFields(
-  Struct.assign({ createdBy: ParticipantJson, updatedBy: ParticipantJson }),
+  Struct.assign({
+    share: Schema.NullOr(Schema.fromJsonString(LibraryFileShare)),
+    createdBy: ParticipantJson,
+    updatedBy: ParticipantJson,
+  }),
 );
 
 const makeProjectionLibraryRepository = Effect.gen(function* () {
@@ -76,12 +81,12 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     execute: (file) =>
       sql`
         INSERT INTO projection_library_files (
-          file_id, folder_id, type, title, extension, size_bytes, visibility,
+          file_id, folder_id, type, title, extension, size_bytes, visibility, share_json,
           created_by_json, created_at, updated_by_json, updated_at
         )
         VALUES (
           ${file.id}, ${file.folderId}, ${file.type}, ${file.title}, ${file.extension},
-          ${file.sizeBytes}, ${file.visibility}, ${file.createdBy},
+          ${file.sizeBytes}, ${file.visibility}, ${file.share}, ${file.createdBy},
           ${file.createdAt}, ${file.updatedBy}, ${file.updatedAt}
         )
         ON CONFLICT (file_id)
@@ -90,6 +95,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
           title = excluded.title,
           size_bytes = excluded.size_bytes,
           visibility = excluded.visibility,
+          share_json = excluded.share_json,
           updated_by_json = excluded.updated_by_json,
           updated_at = excluded.updated_at
       `,
@@ -134,6 +140,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
           extension,
           size_bytes AS "sizeBytes",
           visibility,
+          share_json AS "share",
           created_by_json AS "createdBy",
           created_at AS "createdAt",
           updated_by_json AS "updatedBy",
@@ -185,7 +192,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.deleteFolder:query")),
       ),
     upsertFile: (file) =>
-      upsertFileRow(file).pipe(
+      upsertFileRow({ ...file, share: file.share ?? null }).pipe(
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.upsertFile:query")),
       ),
     deleteFile: (fileId) =>
@@ -205,6 +212,9 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
       ),
     listFiles: () =>
       listFileRows().pipe(
+        Effect.map((rows) =>
+          rows.map(({ share, ...file }) => (share === null ? file : { ...file, share })),
+        ),
         Effect.mapError(toPersistenceSqlError("ProjectionLibraryRepository.listFiles:query")),
       ),
   } satisfies ProjectionLibraryRepositoryShape;
