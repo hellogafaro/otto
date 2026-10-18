@@ -99,11 +99,8 @@ export function ditherWaves(seed: number) {
   };
 }
 
-/**
- * How dense Home's dither is at a point, from 0 to 1: slow drifting waves, strongest at the top
- * and fading to nothing at the bottom and towards the sides, so it never reaches the cards.
- */
-export function ditherDensity(
+/** Otto: The dither's slow drifting waves at a point, from 0 to 1, shared by Home and covers. */
+export function ditherWaveLevel(
   u: number,
   v: number,
   seconds: number,
@@ -116,7 +113,20 @@ export function ditherDensity(
     Math.sin(u * waves.scale * 0.6 - v * 3.1 - t * 0.8) * 0.3 +
     Math.cos((u - v) * waves.scale * 1.4 + t * 0.6) * 0.2;
 
+  return 0.5 + wave * 0.5;
+}
+
+/**
+ * How dense Home's dither is at a point, from 0 to 1: slow drifting waves, strongest at the top
+ * and fading to nothing at the bottom and towards the sides, so it never reaches the cards.
+ */
+export function ditherDensity(
+  u: number,
+  v: number,
+  seconds: number,
+  waves: ReturnType<typeof ditherWaves>,
+) {
   const fade = (1 - v) ** 1.6 * Math.min(1, u * 4, (1 - u) * 4);
 
-  return Math.max(0, Math.min(1, (0.5 + wave * 0.5) * fade * 0.85));
+  return Math.max(0, Math.min(1, ditherWaveLevel(u, v, seconds, waves) * fade * 0.85));
 }
