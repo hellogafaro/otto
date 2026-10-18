@@ -98,15 +98,26 @@ export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
   }
 
   // Otto: The snapshot carries each routine's newest runs live; older ones come from the
-  // routine's full history.
+  // routine's full history. A running run whose chat waits on someone's approval or answer
+  // shows as waiting for approval, not as running.
   const liveRuns = snapshot.routineRuns ?? [];
+
+  const waitingChats = new Set(
+    snapshot.threads
+      .filter((thread) => thread.hasPendingApprovals || thread.hasPendingUserInput)
+      .map((thread) => thread.id),
+  );
 
   const item = toRoutinePanelItem(
     routine,
     [
       ...liveRuns,
       ...(history.data?.runs ?? []).filter((run) => !liveRuns.some((live) => live.id === run.id)),
-    ],
+    ].map((run) =>
+      run.status === "running" && run.threadRef !== null && waitingChats.has(run.threadRef)
+        ? { ...run, status: "waiting-for-approval" as const }
+        : run,
+    ),
     snapshot.skillAssignments ?? [],
     snapshot.mcpServers ?? [],
   );
@@ -156,13 +167,16 @@ function RoutineDetail({
 
   const { projects } = useWorkData();
 
-  const running = item.latestRun?.status === "running";
+  const waiting = item.latestRun?.status === "waiting-for-approval";
+  const running = waiting || item.latestRun?.status === "running";
   const statusLabel = useRoutineStatusLabel();
   const routineState = routineStatus(routine);
 
-  const status: { readonly icon: StatusKind; readonly label: string } = running
-    ? { icon: "in_progress", label: t("Running") }
-    : { icon: ROUTINE_STATUS_ICON[routineState], label: statusLabel(routineState) };
+  const status: { readonly icon: StatusKind; readonly label: string } = waiting
+    ? { icon: "waiting", label: t("Waiting for approval") }
+    : running
+      ? { icon: "in_progress", label: t("Running") }
+      : { icon: ROUTINE_STATUS_ICON[routineState], label: statusLabel(routineState) };
 
   const botName = bot?.name ?? t("Unknown bot");
 
@@ -344,10 +358,21 @@ function RoutineDetail({
         aside={
           <div className="flex flex-col">
             <DetailsRow label={t("Status")}>
-              <span className="flex items-center gap-1.5 px-2.5 text-sm">
-                <StatusIcon status={status.icon} />
-                {status.label}
-              </span>
+              {waiting ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => openChat(item.latestRun?.threadId ?? undefined)}
+                >
+                  <StatusIcon status={status.icon} />
+                  {status.label}
+                </Button>
+              ) : (
+                <span className="flex items-center gap-1.5 px-2.5 text-sm">
+                  <StatusIcon status={status.icon} />
+                  {status.label}
+                </span>
+              )}
             </DetailsRow>
             <DetailsRow label={t("Bot")}>
               <Button size="sm" variant="ghost" onClick={() => openChat()}>

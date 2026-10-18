@@ -666,16 +666,49 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         deletedAt: command.createdAt,
       };
 
-      return {
+      const deleted = {
         ...(yield* withEventBase({
           aggregateKind: "routine",
           aggregateId: command.routineId,
           occurredAt: command.createdAt,
           commandId: command.commandId,
         })),
-        type: "routine.deleted",
+        type: "routine.deleted" as const,
         payload: { routine },
       };
+
+      // Otto: A deleted routine's open runs end with it, so none stays running forever.
+      const canceled = yield* Effect.forEach(
+        (readModel.routineRuns ?? []).filter(
+          (run) =>
+            run.routineId === command.routineId &&
+            (run.status === "queued" ||
+              run.status === "running" ||
+              run.status === "waiting-for-approval"),
+        ),
+        Effect.fn(function* (run) {
+          return {
+            ...(yield* withEventBase({
+              aggregateKind: "routine",
+              aggregateId: command.routineId,
+              occurredAt: command.createdAt,
+              commandId: command.commandId,
+            })),
+            type: "routine.run-canceled" as const,
+            payload: {
+              routine,
+              run: {
+                ...run,
+                status: "canceled" as const,
+                completedAt: command.createdAt,
+                updatedAt: command.createdAt,
+              },
+            },
+          };
+        }),
+      );
+
+      return [deleted, ...canceled];
     }
 
     case "routine.skill.assign": {

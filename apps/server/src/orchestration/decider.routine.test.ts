@@ -144,11 +144,31 @@ it.layer(NodeServices.layer)("routine decider", (it) => {
         });
       }
 
-      const afterDelete = yield* projectEvent(withRun, {
-        ...deletedEvent,
-        sequence: 3,
-        eventId: EventId.make("event-routine-deleted"),
+      const canceledEvent = Array.isArray(deleted) ? deleted[1] : undefined;
+
+      expect(canceledEvent).toMatchObject({
+        type: "routine.run-canceled",
+        payload: {
+          routine: { lifecycle: "deleted" },
+          run: { id: "run-before-delete", status: "canceled", completedAt: deletedAt },
+        },
       });
+
+      const afterDelete = yield* projectEvent(
+        yield* projectEvent(withRun, {
+          ...deletedEvent,
+          sequence: 3,
+          eventId: EventId.make("event-routine-deleted"),
+        }),
+        { ...canceledEvent!, sequence: 4, eventId: EventId.make("event-routine-run-canceled") },
+      );
+
+      expect(afterDelete.routineRuns?.find((run) => run.id === "run-before-delete")?.status).toBe(
+        "canceled",
+      );
+      expect(
+        afterDelete.routines?.find((routine) => routine.id === "routine-delete"),
+      ).toMatchObject({ lifecycle: "deleted" });
 
       const completionError = yield* Effect.flip(
         decideOrchestrationCommand({
