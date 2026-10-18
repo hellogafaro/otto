@@ -443,6 +443,7 @@ export const commonLabelsCatalog = {
   Publishes: "发布",
   "Changes permissions": "更改权限",
   "Show less": "收起",
+  "Show more": "展开",
   "This link is incomplete": "此链接不完整",
   Address: "地址",
   "Get a new link": "获取新链接",
