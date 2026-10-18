@@ -87,7 +87,7 @@ function MenuKey({ className }: { className?: string }) {
     <span
       aria-hidden
       className={cn(
-        "ms-auto shrink-0 ps-4 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
+        "-me-0.5 sm:-me-1 ms-auto shrink-0 ps-4 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
         className,
       )}
       data-slot="menu-key"
@@ -313,7 +313,11 @@ function MenuSeparator({ className, ...props }: MenuPrimitive.Separator.Props) {
 
 function MenuShortcut({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
-    <KbdGroup className={cn("ms-auto ps-4", className)} data-slot="menu-shortcut" {...props} />
+    <KbdGroup
+      className={cn("-me-0.5 sm:-me-1 ms-auto ps-4", className)}
+      data-slot="menu-shortcut"
+      {...props}
+    />
   );
 }
 
