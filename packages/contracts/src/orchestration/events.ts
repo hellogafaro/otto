@@ -77,8 +77,6 @@ import {
   ThreadDeletedPayload,
   ThreadArchivedPayload,
   ThreadUnarchivedPayload,
-  ThreadSettledPayload,
-  ThreadUnsettledPayload,
   ThreadSnoozedPayload,
   ThreadUnsnoozedPayload,
   ThreadPinnedPayload,
@@ -407,16 +405,6 @@ export const OrchestrationEvent = Schema.Union([
     ...EventBaseFields,
     type: Schema.Literal("thread.unarchived"),
     payload: ThreadUnarchivedPayload,
-  }),
-  Schema.Struct({
-    ...EventBaseFields,
-    type: Schema.Literal("thread.settled"),
-    payload: ThreadSettledPayload,
-  }),
-  Schema.Struct({
-    ...EventBaseFields,
-    type: Schema.Literal("thread.unsettled"),
-    payload: ThreadUnsettledPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

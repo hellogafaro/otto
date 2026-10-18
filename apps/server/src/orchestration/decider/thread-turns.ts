@@ -277,28 +277,9 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         },
       };
 
-      // Real activity resets any override. It wakes an explicitly settled
-      // thread and clears an active override back to neutral.
-      // A snooze clears the same way — sending a message to a snoozed
-      // thread is the user re-engaging, so the return ticket is spent.
+      // Sending a message to a snoozed thread is the user re-engaging, so
+      // the return ticket is spent.
       const lifecycleResetEvents: Array<Omit<OrchestrationEvent, "sequence">> = [];
-
-      if (targetThread.settledOverride !== null) {
-        lifecycleResetEvents.push({
-          ...(yield* withEventBase({
-            aggregateKind: "thread",
-            aggregateId: command.threadId,
-            occurredAt: command.createdAt,
-            commandId: command.commandId,
-          })),
-          type: "thread.unsettled",
-          payload: {
-            threadId: command.threadId,
-            reason: "activity",
-            updatedAt: command.createdAt,
-          },
-        });
-      }
 
       if (targetThread.snoozedUntil != null) {
         lifecycleResetEvents.push({

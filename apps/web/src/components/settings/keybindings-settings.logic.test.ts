@@ -329,11 +329,11 @@ describe("KeybindingsSettings.logic", () => {
   it("offers the chat commands that run without a default shortcut and hides new local chat", () => {
     const options = buildKeybindingCommandOptions([]);
 
-    expect(options).toEqual(
-      expect.arrayContaining(["chat.new", "thread.previous", "thread.next", "thread.settle"]),
-    );
+    expect(options).toEqual(expect.arrayContaining(["chat.new", "thread.previous", "thread.next"]));
     expect(options).not.toContain("chat.newLocal");
+    expect(options).not.toContain("thread.settle");
     expect(isRetiredCommand("chat.newLocal")).toBe(true);
+    expect(isRetiredCommand("thread.settle")).toBe(true);
     expect(commandLabel("thread.previous")).toBe("Previous chat");
     expect(commandLabel("thread.next")).toBe("Next chat");
   });
@@ -387,7 +387,7 @@ describe("KeybindingsSettings.logic", () => {
         },
       },
       {
-        command: "thread.settle",
+        command: "thread.previous",
         shortcut: {
           key: "n",
           modKey: true,
@@ -403,13 +403,13 @@ describe("KeybindingsSettings.logic", () => {
       },
     ] satisfies ResolvedKeybindingsConfig);
 
-    expect(rows[0]?.conflicts).toEqual(["Settle chat"]);
+    expect(rows[0]?.conflicts).toEqual(["Previous chat"]);
     expect(
       keybindingConflictLabels(rows, {
         rowId: rows[0]?.id ?? "",
         key: "mod+n",
         when: "",
       }),
-    ).toEqual(["Settle chat"]);
+    ).toEqual(["Previous chat"]);
   });
 });

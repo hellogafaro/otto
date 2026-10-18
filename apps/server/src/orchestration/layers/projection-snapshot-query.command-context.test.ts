@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { ProjectionSnapshotQuery } from "../services/projection-snapshot-query.ts";
 import { decideOrchestrationCommand } from "../decider.ts";
-import { makeReadModel, createSession } from "../test-support/settled-decider-fixtures.ts";
+import { makeReadModel, createSession } from "../test-support/thread-decider-fixtures.ts";
 import { projectionSnapshotLayer } from "./test-support/projection-snapshot-harness.ts";
 
 projectionSnapshotLayer("command context timestamps", (it) => {
@@ -31,25 +31,20 @@ projectionSnapshotLayer("command context timestamps", (it) => {
       assert.equal(context.messages.length, 1);
       assert.equal(context.messages[0]?.createdAt, timestamps[1]);
 
-      for (const command of [
-        { type: "thread.settle", commandId: CommandId.make("settle-offsets"), threadId },
-        {
+      const error = yield* decideOrchestrationCommand({
+        command: {
           type: "thread.snooze",
           commandId: CommandId.make("snooze-offsets"),
           threadId,
           snoozedUntil: "1970-01-01T01:00:00Z",
         },
-      ] as const) {
-        const error = yield* decideOrchestrationCommand({
-          command,
-          readModel: makeReadModel(null, null, createSession("ready"), [], context.messages),
-        }).pipe(Effect.flip);
+        readModel: makeReadModel(null, createSession("ready"), [], context.messages),
+      }).pipe(Effect.flip);
 
-        assert.equal(error._tag, "OrchestrationCommandInvariantError");
+      assert.equal(error._tag, "OrchestrationCommandInvariantError");
 
-        if (Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
-          assert.include(error.detail, "queued turn start");
-        }
+      if (Predicate.isTagged(error, "OrchestrationCommandInvariantError")) {
+        assert.include(error.detail, "queued turn start");
       }
 
       yield* sql`

@@ -121,8 +121,6 @@ export function makeGroupThread(): OrchestrationThread {
     createdAt: NOW,
     updatedAt: NOW,
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     deletedAt: null,
     messages: [],
     proposedPlans: [],

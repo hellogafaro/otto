@@ -58,7 +58,7 @@ export function userInputAnswerText(
 
 // Session adoption takes seconds; a user message still unadopted after this
 // window is a failed/stale start, not pending work. Mirrors the client's
-// QUEUED_TURN_START_GRACE_MS in client-runtime thread-settled.ts.
+// QUEUED_TURN_START_GRACE_MS in client-runtime thread-snoozed.ts.
 export const QUEUED_TURN_START_GRACE_MS = 2 * 60 * 1_000;
 
 export const TERMINAL_DELEGATION_PHASES = new Set<OttoDelegationPhase["_tag"]>([

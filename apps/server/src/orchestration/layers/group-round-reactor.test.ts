@@ -90,8 +90,6 @@ const makeHarness = (options: { readonly signalTurnDelivers?: boolean } = {}) =>
             ...makeGroupThread(),
             session: null,
             archivedAt: null,
-            settledOverride: null,
-            settledAt: null,
             latestUserMessageAt: null,
             hasPendingApprovals: false,
             hasPendingUserInput: false,

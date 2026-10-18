@@ -64,8 +64,6 @@ export function useChatActions() {
   const archive = useAtomCommand(threadEnvironment.archive, { reportFailure: false });
   const unarchive = useAtomCommand(threadEnvironment.unarchive, { reportFailure: false });
   const remove = useAtomCommand(threadEnvironment.delete, { reportFailure: false });
-  const settle = useAtomCommand(threadEnvironment.settle, { reportFailure: false });
-  const unsettle = useAtomCommand(threadEnvironment.unsettle, { reportFailure: false });
   const snooze = useAtomCommand(threadEnvironment.snooze, { reportFailure: false });
   const unsnooze = useAtomCommand(threadEnvironment.unsnooze, { reportFailure: false });
   const pin = useAtomCommand(threadEnvironment.pin, { reportFailure: false });
@@ -138,15 +136,6 @@ export function useChatActions() {
       },
       unpin: (threadRef: ScopedThreadRef) =>
         report(t("Chat couldn't be unpinned"), () => unpin(input(threadRef))),
-      settle: (threadRef: ScopedThreadRef) =>
-        report(t("Chat couldn't be settled"), () => settle(input(threadRef))),
-      unsettle: (threadRef: ScopedThreadRef) =>
-        report(t("Chat couldn't be unsettled"), () =>
-          unsettle({
-            environmentId: threadRef.environmentId,
-            input: { threadId: threadRef.threadId, reason: "user" },
-          }),
-        ),
       snooze: (threadRef: ScopedThreadRef, snoozedUntil: string) =>
         report(t("Chat couldn't be snoozed"), () =>
           snooze({
@@ -234,13 +223,11 @@ export function useChatActions() {
       pin,
       remove,
       report,
-      settle,
       snooze,
       stopSession,
       t,
       unarchive,
       unpin,
-      unsettle,
       unsnooze,
       updateMetadata,
     ],

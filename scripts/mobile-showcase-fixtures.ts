@@ -141,17 +141,12 @@ export const SHOWCASE_THREADS = [
       "Delayed work now carries a concise reason through the trace, so the wait is legible without changing scheduling behavior.",
     snoozeMinutes: 8 * 60,
   },
-  // Finished work, settled by hand: the list keeps it as a receded tail so
-  // the active block above reads as everything still in flight. The active
-  // block stays small enough that the settled tail begins above the fold —
-  // a store screenshot has to show that history exists, not just imply it.
   {
     id: "handoff-haptics",
     projectId: "ottoLegacy",
     title: "Tune the handoff haptics",
     branch: "feat/handoff-haptics",
     minutesAgo: 5 * 60,
-    settled: true,
     request: "Give the desktop-to-phone handoff a haptic that lands with the animation.",
     response:
       "The handoff now taps once as the thread lands and stays silent on failure, so the phone never celebrates a handoff that did not happen.",
@@ -162,7 +157,6 @@ export const SHOWCASE_THREADS = [
     title: "Stream the shell before the data",
     branch: "feat/streaming-shell",
     minutesAgo: 28 * 60,
-    settled: true,
     request: "Get the app shell painted before any data request resolves.",
     response:
       "The shell now flushes on first byte and the data boundaries hydrate underneath it, so the first paint no longer waits on the slowest query.",
@@ -173,7 +167,6 @@ export const SHOWCASE_THREADS = [
     title: "Make the OOM killer explain itself",
     branch: "feat/quieter-oom",
     minutesAgo: 2 * 24 * 60,
-    settled: true,
     request: "Make out-of-memory kills legible without adding a single allocation to the hot path.",
     response:
       "Kills now report the winning heuristic and the runner-up alongside the usual dump, assembled entirely from data the path already had.",

@@ -1,8 +1,4 @@
-import {
-  type OrchestrationCommand,
-  type OrchestrationEvent,
-  type OrchestrationReadModel,
-} from "@otto/contracts";
+import { type OrchestrationCommand, type OrchestrationReadModel } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
@@ -21,10 +17,7 @@ export const decideThreadVisibility = Effect.fn("decideThreadVisibility")(functi
   command,
   readModel,
 }: {
-  readonly command: Extract<
-    OrchestrationCommand,
-    { type: "thread.settle" | "thread.unsettle" | "thread.snooze" | "thread.unsnooze" }
-  >;
+  readonly command: Extract<OrchestrationCommand, { type: "thread.snooze" | "thread.unsnooze" }>;
   readonly readModel: OrchestrationReadModel;
   readonly actor?: OrchestrationDispatchActor;
 }): Effect.fn.Return<
@@ -33,135 +26,6 @@ export const decideThreadVisibility = Effect.fn("decideThreadVisibility")(functi
   Crypto.Crypto
 > {
   switch (command.type) {
-    case "thread.settle": {
-      const thread = yield* requireThreadNotArchived({
-        readModel,
-        command,
-        threadId: command.threadId,
-      });
-
-      // Server-side twin of the client's canSettle session check: a stale
-      // or raced client must not settle a thread whose session is coming
-      // alive or working.
-      if (thread.session?.status === "starting" || thread.session?.status === "running") {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `thread ${command.threadId} has an active session and cannot be settled`,
-        });
-      }
-
-      // Pending approval / user-input requests are blocked-on-you work: a
-      // raced or stale client must not park them behind a settled override
-      // that would surface only after the request resolves.
-      if (hasOpenBlockingRequest(thread)) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `thread ${command.threadId} has a pending approval or user-input request and cannot be settled`,
-        });
-      }
-
-      const occurredAt = yield* nowIso;
-
-      // Settling inside the adoption window would hide just-requested work.
-      if (threadHasQueuedTurnStart(thread, occurredAt)) {
-        return yield* new OrchestrationCommandInvariantError({
-          commandType: command.type,
-          detail: `thread ${command.threadId} has a queued turn start and cannot be settled`,
-        });
-      }
-
-      // Settling an already-settled thread re-emits with the original
-      // settledAt: the engine rejects zero-event commands, and bulk-settle /
-      // double-click must stay silent no-ops rather than surface errors.
-      const alreadySettled = thread.settledOverride === "settled" && thread.settledAt !== null;
-
-      const settledEvent = {
-        ...(yield* withEventBase({
-          aggregateKind: "thread",
-          aggregateId: command.threadId,
-          occurredAt,
-          commandId: command.commandId,
-        })),
-        type: "thread.settled" as const,
-        payload: {
-          threadId: command.threadId,
-          settledAt: alreadySettled ? thread.settledAt : occurredAt,
-          // A re-emission is a projected no-op: keep the existing updatedAt
-          // so duplicate settles neither rewind nor churn ordering. A fresh
-          // settle stamps the command time.
-          updatedAt: alreadySettled ? thread.updatedAt : occurredAt,
-        },
-      };
-
-      // Settling is "I'm done with this": clear states that would keep the
-      // row pinned or snoozed instead of showing the new settled state.
-      const companionEvents: Array<Omit<OrchestrationEvent, "sequence">> = [];
-
-      if (thread.pinnedAt != null) {
-        companionEvents.push({
-          ...(yield* withEventBase({
-            aggregateKind: "thread",
-            aggregateId: command.threadId,
-            occurredAt,
-            commandId: command.commandId,
-          })),
-          type: "thread.unpinned" as const,
-          payload: {
-            threadId: command.threadId,
-            updatedAt: occurredAt,
-          },
-        });
-      }
-
-      if (thread.snoozedUntil != null) {
-        companionEvents.push({
-          ...(yield* withEventBase({
-            aggregateKind: "thread",
-            aggregateId: command.threadId,
-            occurredAt,
-            commandId: command.commandId,
-          })),
-          type: "thread.unsnoozed",
-          payload: {
-            threadId: command.threadId,
-            reason: "user",
-            updatedAt: occurredAt,
-          },
-        });
-      }
-
-      return companionEvents.length > 0 ? [settledEvent, ...companionEvents] : settledEvent;
-    }
-
-    case "thread.unsettle": {
-      const thread = yield* requireThreadNotArchived({
-        readModel,
-        command,
-        threadId: command.threadId,
-      });
-
-      // Idempotent by re-emission (see thread.settle): reducing the event a
-      // second time lands on the same override state. A re-emission keeps
-      // the existing updatedAt so duplicates do not churn ordering.
-      const alreadyPinnedActive = thread.settledOverride === "active";
-      const occurredAt = yield* nowIso;
-
-      return {
-        ...(yield* withEventBase({
-          aggregateKind: "thread",
-          aggregateId: command.threadId,
-          occurredAt,
-          commandId: command.commandId,
-        })),
-        type: "thread.unsettled",
-        payload: {
-          threadId: command.threadId,
-          reason: command.reason,
-          updatedAt: alreadyPinnedActive ? thread.updatedAt : occurredAt,
-        },
-      };
-    }
-
     case "thread.snooze": {
       const thread = yield* requireThreadNotArchived({
         readModel,
@@ -197,8 +61,7 @@ export const decideThreadVisibility = Effect.fn("decideThreadVisibility")(functi
 
       // A queued turn start — a user message no turn has adopted yet — is
       // invisible pending work: no session, no pending flags. Snoozing in
-      // that window would hide a just-requested turn exactly the way settle
-      // would.
+      // that window would hide a just-requested turn.
       if (threadHasQueuedTurnStart(thread, occurredAt)) {
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
@@ -239,9 +102,8 @@ export const decideThreadVisibility = Effect.fn("decideThreadVisibility")(functi
         threadId: command.threadId,
       });
 
-      // Idempotent by re-emission (see thread.settle): waking a thread that
-      // is not snoozed lands on the same null state without churning
-      // updatedAt.
+      // Idempotent by re-emission: waking a thread that is not snoozed
+      // lands on the same null state without churning updatedAt.
       const alreadyAwake = thread.snoozedUntil == null;
       const occurredAt = yield* nowIso;
 
