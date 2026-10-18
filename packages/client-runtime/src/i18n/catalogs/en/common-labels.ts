@@ -126,6 +126,7 @@ export const commonLabelsCatalog = {
   Remove: "Remove",
   OK: "OK",
   "Copy ID": "Copy ID",
+  "Copy link": "Copy link",
   "Could not dictate": "Could not dictate",
   "Cancel reply": "Cancel reply",
   "Dictation unavailable": "Dictation unavailable",

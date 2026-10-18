@@ -36,6 +36,7 @@ import {
 } from "../../state/entities";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useUiStateStore } from "../../ui-state-store";
+import { CopyMenuItems } from "../copy-menu-items";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import {
@@ -67,7 +68,7 @@ import {
 
 /**
  * The open chat's state and its menu in the chat header: rename, regenerate
- * the title, pin, mark unread, settle, snooze, archive, and delete. The same
+ * the title, pin, mark unread, settle, snooze, copy link and ID, archive, and delete. The same
  * actions are published to the command palette, and `chat.new` and
  * `thread.settle` shortcuts run here while the chat is open.
  */
@@ -327,6 +328,8 @@ export function ChatActionsMenu({
               </MenuSub>
             )
           ) : null}
+          <MenuSeparator />
+          <CopyMenuItems path={`/chats/${threadRef.threadId}`} id={threadRef.threadId} />
           <MenuSeparator />
           <MenuItem disabled={!state.canArchive} onClick={() => void actions.archive(threadRef)}>
             <RiArchiveLine />

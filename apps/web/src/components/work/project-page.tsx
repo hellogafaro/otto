@@ -139,7 +139,12 @@ export function ProjectPage({
         actions={
           <>
             {tabAction}
-            <WorkMoreActions status={status} onStatusChange={(next) => update({ status: next })} />
+            <WorkMoreActions
+              path={`/projects/${project.id}`}
+              id={project.id}
+              status={status}
+              onStatusChange={(next) => update({ status: next })}
+            />
           </>
         }
         cover={
