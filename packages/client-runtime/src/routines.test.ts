@@ -20,8 +20,10 @@ import {
   botRoutinesView,
   routineApprovalSummary,
   routineLifecycleAction,
+  routineFrequencyLabel,
   routineScheduleLabel,
   routineStateNote,
+  routineTimeLabel,
   runStatusTone,
   toRoutinePanelItem,
 } from "./routines.ts";
@@ -142,6 +144,30 @@ describe("toRoutinePanelItem", () => {
 
     expect(routineScheduleLabel(item.schedule)).toBe(
       "Monday, Wednesday at 07:30 (America/New_York)",
+    );
+  });
+
+  it("names monthly, quarterly and yearly routines and hourly times in words", () => {
+    const schedule = (value: Routine["schedule"]) =>
+      toRoutinePanelItem({ ...routine, schedule: value }, [], [], []).schedule;
+
+    expect(routineFrequencyLabel(schedule({ kind: "monthly", day: 15, time: "09:00" }))).toBe(
+      "Monthly on day 15",
+    );
+    expect(routineFrequencyLabel(schedule({ kind: "quarterly", day: 1, time: "09:00" }))).toBe(
+      "Quarterly on day 1",
+    );
+    expect(
+      routineFrequencyLabel(schedule({ kind: "yearly", month: 3, day: 15, time: "09:00" })),
+    ).toBe("Yearly on Mar 15");
+    expect(routineTimeLabel(schedule({ kind: "hourly", everyHours: 1, time: "09:00" }))).toBe(
+      "On the hour",
+    );
+    expect(routineTimeLabel(schedule({ kind: "hourly", everyHours: 1, time: "09:15" }))).toBe(
+      "15 min past",
+    );
+    expect(routineTimeLabel(schedule({ kind: "hourly", everyHours: 4, time: "10:00" }))).toBe(
+      "From 02:00",
     );
   });
 
@@ -314,7 +340,8 @@ describe("routine run timestamps", () => {
 
 describe("hourlyScheduleText", () => {
   it("names an hourly schedule by its earliest run of the day", () => {
-    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at :15");
+    expect(hourlyScheduleText(1, "09:15")).toBe("Every hour at 15 min past");
+    expect(hourlyScheduleText(1, "09:00")).toBe("Every hour on the hour");
     expect(hourlyScheduleText(3, "09:30")).toBe("Every 3 hours from 00:30");
     expect(hourlyScheduleText(4, "10:00")).toBe("Every 4 hours from 02:00");
   });

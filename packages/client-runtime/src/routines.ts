@@ -50,6 +50,10 @@ export interface RoutineAdapterSchedule {
   readonly weekdays?: readonly number[];
   /** Hours between runs of an hourly routine. */
   readonly everyHours?: RoutineHourInterval | null;
+  /** The day of the month a monthly, quarterly or yearly routine runs on. */
+  readonly day?: number;
+  /** The month, January as 1, a yearly routine runs in. */
+  readonly month?: number;
 }
 
 export const ROUTINE_HOUR_INTERVALS: ReadonlyArray<RoutineHourInterval> = [1, 2, 3, 4, 6, 8, 12];
@@ -129,9 +133,13 @@ export function toRoutineSchedule(draft: RoutineAdapterDraft): RoutineSchedule {
     };
   }
 
-  if (draft.schedule.frequency !== "weekly") {
-    return { kind: draft.schedule.frequency, time: draft.schedule.time };
-  }
+  const { frequency, time, day = 1, month = 1 } = draft.schedule;
+
+  if (frequency === "monthly" || frequency === "quarterly") return { kind: frequency, day, time };
+
+  if (frequency === "yearly") return { kind: "yearly", month, day, time };
+
+  if (frequency !== "weekly") return { kind: frequency, time };
 
   return {
     kind: "weekly",
@@ -153,6 +161,8 @@ function toAdapterSchedule(routine: Routine): RoutineAdapterSchedule {
       ? { weekdays: routine.schedule.weekdays.map((day) => WEEKDAY_IDS.indexOf(day)) }
       : {}),
     ...(routine.schedule.kind === "hourly" ? { everyHours: routine.schedule.everyHours } : {}),
+    ...("day" in routine.schedule ? { day: routine.schedule.day } : {}),
+    ...(routine.schedule.kind === "yearly" ? { month: routine.schedule.month } : {}),
   };
 }
 
@@ -274,23 +284,52 @@ export function hourlyScheduleText(
   time: string,
   t: RoutineTranslator["t"] = englishTranslator.t,
 ): string {
-  const minute = time.slice(3, 5);
+  if (everyHours > 1) {
+    return t("Every {count} hours from {time}", {
+      count: everyHours,
+      time: firstHourlyTime(everyHours, time),
+    });
+  }
 
-  if (everyHours <= 1) return t("Every hour at :{minute}", { minute });
-  const firstHour = String(Number(time.slice(0, 2)) % everyHours).padStart(2, "0");
+  const minute = Number(time.slice(3, 5));
 
-  return t("Every {count} hours from {time}", {
-    count: everyHours,
-    time: `${firstHour}:${minute}`,
-  });
+  return minute === 0
+    ? t("Every hour on the hour")
+    : t("Every hour at {count} min past", { count: minute });
 }
 
-/** How often a routine runs, without its time or timezone: Daily, Weekdays, Monday, Hourly. */
+const firstHourlyTime = (everyHours: number, time: string) =>
+  `${String(Number(time.slice(0, 2)) % everyHours).padStart(2, "0")}:${time.slice(3, 5)}`;
+
+/**
+ * When a routine runs, without how often: the time of day, or for an hourly one where in the
+ * hour (On the hour, 15 min past) or, every few hours, its first run of the day (From 02:00).
+ */
+export function routineTimeLabel(
+  schedule: RoutineAdapterSchedule,
+  i18n: RoutineTranslator = englishTranslator,
+) {
+  if (schedule.frequency !== "hourly") return schedule.time;
+  const everyHours = schedule.everyHours ?? 1;
+
+  if (everyHours > 1)
+    return i18n.t("From {time}", { time: firstHourlyTime(everyHours, schedule.time) });
+
+  const minute = Number(schedule.time.slice(3, 5));
+
+  return minute === 0 ? i18n.t("On the hour") : i18n.t("{count} min past", { count: minute });
+}
+
+/**
+ * How often a routine runs, without its time or timezone: Daily, Weekdays, Monday, Hourly,
+ * Monthly on day 15, Yearly on Mar 15.
+ */
 export function routineFrequencyLabel(
   schedule: RoutineAdapterSchedule,
   i18n: RoutineTranslator = englishTranslator,
 ) {
   const everyHours = schedule.everyHours ?? 1;
+  const day = schedule.day ?? 1;
 
   return Match.value(schedule.frequency).pipe(
     Match.when("hourly", () =>
@@ -298,6 +337,16 @@ export function routineFrequencyLabel(
     ),
     Match.when("daily", () => i18n.t("Daily")),
     Match.when("weekdays", () => i18n.t("Weekdays")),
+    Match.when("monthly", () => i18n.t("Monthly on day {count}", { count: day })),
+    Match.when("quarterly", () => i18n.t("Quarterly on day {count}", { count: day })),
+    Match.when("yearly", () =>
+      i18n.t("Yearly on {date}", {
+        date: i18n.formatDate(
+          DateTime.toDateUtc(DateTime.makeUnsafe({ year: 2024, month: schedule.month ?? 1, day })),
+          { month: "short", day: "numeric", timeZone: "UTC" },
+        ),
+      }),
+    ),
     Match.orElse(() =>
       (schedule.weekdays ?? [schedule.weekday ?? 1])
         .map((day) => i18n.t(WEEKDAY_LABELS[day] ?? "Monday"))
@@ -483,8 +532,13 @@ export function routineApprovalSummary(
     ? schedule.weekdays.filter((day): day is string => Predicate.isString(day))
     : [];
 
+  const day = Predicate.isNumber(schedule?.day) ? schedule.day : 1;
+
   const kind = Match.value(schedule?.kind).pipe(
     Match.when("weekdays", () => t("Weekdays")),
+    Match.when("monthly", () => t("Monthly on day {count}", { count: day })),
+    Match.when("quarterly", () => t("Quarterly on day {count}", { count: day })),
+    Match.when("yearly", () => t("Yearly")),
     Match.when("weekly", () =>
       weekdays.length > 0
         ? weekdays
