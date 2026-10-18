@@ -24,14 +24,13 @@ Open the **⋯** menu at the top right of the open chat to act on it:
   also appears when a bot finishes replying in a chat you have opened before but are not looking
   at, including an open chat whose window or tab is in the background. Unread dots are kept on
   this device only.
-- **Settle chat** and **Un-settle chat**.
 - **Snooze** until a preset time, such as **In 1 hour** or **Tomorrow**, and **Wake chat** to end
   the snooze early.
 - **Archive chat** and **Delete chat**. Delete asks for confirmation first. A chat cannot be
   archived while the bot is replying.
 
-The chat header shows a pin when the chat is pinned, and **Settled** or **Snoozed until** with the
-wake time while those apply. The same actions are in the command palette under **This chat** while
+The chat header shows a pin when the chat is pinned, and **Snoozed until** with the wake time while
+the chat is snoozed. The same actions are in the command palette under **This chat** while
 the chat is open. The palette lists each snooze choice as its own entry, such as **Snooze chat:
 Tomorrow**, with its wake time.
 
@@ -64,17 +63,11 @@ Search covers every environment this client is connected to. Chats in another en
 listed after the ones you can open, with their bot or group and that environment's name, but cannot
 be opened from here; open them from a client connected to that environment. Start your query with `>` to search actions only.
 
-## Active and settled chats
-
-Otto settles a chat only when you select **Settle chat**. Inactivity does not move chats to the
-settled list.
-
-Settling a pinned chat also removes its pin. **Un-settle chat** returns the chat to the top of the
-active list without changing its timestamps.
+## Snoozed chats
 
 Use **Snooze** to hide a chat until its wake time. Use **Wake chat** to return it early.
 
-On web and desktop, settling or snoozing a bot's open chat keeps it open. Archiving or deleting it
+On web and desktop, snoozing a bot's open chat keeps it open. Archiving or deleting it
 does not: the bot then opens its next newest chat, or an empty chat if it has none.
 
 ## Archived chats

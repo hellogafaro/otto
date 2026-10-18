@@ -38,8 +38,6 @@ const dm: OrchestrationThread = {
   createdAt: NOW,
   updatedAt: NOW,
   archivedAt: null,
-  settledOverride: null,
-  settledAt: null,
   snoozedUntil: null,
   snoozedAt: null,
   deletedAt: null,

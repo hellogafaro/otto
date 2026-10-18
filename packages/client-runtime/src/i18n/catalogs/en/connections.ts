@@ -124,8 +124,6 @@ export const connectionsCatalog = {
   "Try another search or environment.": "Try another search or environment.",
   "Could not update environment": "Could not update environment",
   "The environment could not be updated.": "The environment could not be updated.",
-  "This environment's server does not support settling yet. Update the server to use Settle.":
-    "This environment's server does not support settling yet. Update the server to use Settle.",
   "This environment's server does not support snoozing yet. Update the server to use Snooze.":
     "This environment's server does not support snoozing yet. Update the server to use Snooze.",
   "This environment's server does not support snoozing yet. Update the server to wake this chat.":

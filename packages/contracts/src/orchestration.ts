@@ -168,8 +168,6 @@ export {
   ThreadDeletedPayload,
   ThreadArchivedPayload,
   ThreadUnarchivedPayload,
-  ThreadSettledPayload,
-  ThreadUnsettledPayload,
   ThreadSnoozedPayload,
   ThreadUnsnoozedPayload,
   ThreadPinnedPayload,

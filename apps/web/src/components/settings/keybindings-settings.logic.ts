@@ -207,7 +207,6 @@ const COMMAND_META: ReadonlyArray<readonly [string, string, KeybindingGroupId]> 
   ["thread.previous", "Previous bot", "chats"],
   ["thread.next", "Next bot", "chats"],
   ["thread.jump", "Jump to chat", "chats"],
-  ["thread.settle", "Settle chat", "chats"],
   ["composer.stash", "Stash draft", "composer"],
   ["modelPicker.toggle", "Open model picker", "composer"],
   ["modelPicker.jump", "Pick model", "composer"],
@@ -233,8 +232,8 @@ function seriesParts(command: KeybindingCommand): { id: string; index: number } 
 
 /**
  * Commands for surfaces Otto no longer has: the terminal drawer, diff panel,
- * file browser, project scripts, preview-panel shortcuts, and local-versus-
- * worktree new chats. They still decode from older keybindings files, but
+ * file browser, project scripts, preview-panel shortcuts, local-versus-
+ * worktree new chats, and chat settling. They still decode from older keybindings files, but
  * nothing handles them, so settings hides them.
  */
 const RETIRED_COMMAND_PREFIXES = ["terminal.", "diff.", "preview.", "script."] as const;
@@ -246,6 +245,7 @@ const RETIRED_COMMANDS = new Set([
   "editor.openFavorite",
   "rightPanel.toggleMaximized",
   "chat.newLocal",
+  "thread.settle",
 ]);
 
 export function isRetiredCommand(command: KeybindingCommand): boolean {
@@ -472,7 +472,6 @@ const UNBOUND_COMMANDS: ReadonlyArray<KeybindingCommand> = [
   "chat.new",
   "thread.previous",
   "thread.next",
-  "thread.settle",
 ];
 
 export function buildKeybindingCommandOptions(

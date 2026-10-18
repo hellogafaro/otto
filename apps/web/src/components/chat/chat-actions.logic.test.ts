@@ -11,7 +11,6 @@ import {
 const NOW = "2026-09-27T12:00:00.000Z";
 
 const ALL_SUPPORTED: ChatActionSupport = {
-  settlement: true,
   snooze: true,
   pinning: true,
   titleRegeneration: true,
@@ -38,8 +37,6 @@ function shell(overrides: Partial<OrchestrationThreadShell> = {}): Orchestration
     createdAt: "2026-09-27T09:00:00.000Z",
     updatedAt: "2026-09-27T10:01:00.000Z",
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     session: null,
     latestUserMessageAt: "2026-09-27T10:00:00.000Z",
     hasPendingApprovals: false,
@@ -60,9 +57,7 @@ describe("resolveChatMenuState", () => {
 
     expect(state).toMatchObject({
       isPinned: false,
-      isSettled: false,
       isSnoozed: false,
-      canSettle: true,
       canSnooze: true,
       canArchive: true,
       canMarkUnread: true,
@@ -74,8 +69,6 @@ describe("resolveChatMenuState", () => {
     const state = resolveChatMenuState({
       shell: shell({
         pinnedAt: "2026-09-27T11:00:00.000Z",
-        settledOverride: "settled",
-        settledAt: "2026-09-27T11:00:00.000Z",
         snoozedUntil: "2026-09-28T09:00:00.000Z",
         snoozedAt: "2026-09-27T11:00:00.000Z",
       }),
@@ -85,7 +78,6 @@ describe("resolveChatMenuState", () => {
     });
 
     expect(state.isPinned).toBe(true);
-    expect(state.isSettled).toBe(true);
     expect(state.isSnoozed).toBe(true);
     expect(state.snoozedUntil).toBe("2026-09-28T09:00:00.000Z");
   });
@@ -102,7 +94,7 @@ describe("resolveChatMenuState", () => {
     expect(state.snoozedUntil).toBeNull();
   });
 
-  it("blocks archive and settle while a turn runs", () => {
+  it("blocks archive while a turn runs", () => {
     const state = resolveChatMenuState({
       shell: shell({
         session: {
@@ -121,7 +113,6 @@ describe("resolveChatMenuState", () => {
     });
 
     expect(state.canArchive).toBe(false);
-    expect(state.canSettle).toBe(false);
   });
 
   it("blocks archive while a session starts", () => {
@@ -145,19 +136,14 @@ describe("resolveChatMenuState", () => {
     expect(state.canArchive).toBe(false);
   });
 
-  it("does not claim settled or snoozed on a server that cannot do either", () => {
+  it("does not claim snoozed on a server that cannot snooze", () => {
     const state = resolveChatMenuState({
-      shell: shell({
-        settledOverride: "settled",
-        settledAt: "2026-09-27T11:00:00.000Z",
-        snoozedUntil: "2026-09-28T09:00:00.000Z",
-      }),
-      supports: { ...ALL_SUPPORTED, settlement: false, snooze: false },
+      shell: shell({ snoozedUntil: "2026-09-28T09:00:00.000Z" }),
+      supports: { ...ALL_SUPPORTED, snooze: false },
       lastVisitedAt: undefined,
       now: NOW,
     });
 
-    expect(state.isSettled).toBe(false);
     expect(state.isSnoozed).toBe(false);
   });
 

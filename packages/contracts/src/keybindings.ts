@@ -43,7 +43,6 @@ export type ModelPickerJumpKeybindingCommand =
 export const THREAD_KEYBINDING_COMMANDS = [
   "thread.previous",
   "thread.next",
-  "thread.settle",
   ...THREAD_JUMP_KEYBINDING_COMMANDS,
 ] as const;
 
@@ -79,6 +78,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "composer.stash",
   "chat.new",
   "chat.newLocal",
+  "thread.settle",
   "editor.openFavorite",
   ...MODEL_PICKER_KEYBINDING_COMMANDS,
   ...THREAD_KEYBINDING_COMMANDS,

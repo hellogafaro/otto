@@ -77,8 +77,6 @@ export function makeThread(id: ThreadId, botId: BotId): OrchestrationThread {
     createdAt: NOW,
     updatedAt: NOW,
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     deletedAt: null,
     messages: [],
     proposedPlans: [],

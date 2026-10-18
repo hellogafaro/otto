@@ -31,9 +31,6 @@ it.each(["approval", "user-input"] as const)(
       });
       await system.restart();
       await expect(
-        system.dispatch({ type: "thread.settle", threadId, commandId: CommandId.make("settle") }),
-      ).rejects.toThrow("pending approval or user-input request");
-      await expect(
         system.dispatch({
           type: "thread.snooze",
           threadId,
@@ -58,9 +55,10 @@ it.each(["approval", "user-input"] as const)(
         createdAt: resolvedAt,
       });
       await system.dispatch({
-        type: "thread.settle",
+        type: "thread.snooze",
         threadId,
-        commandId: CommandId.make("settle-resolved"),
+        commandId: CommandId.make("snooze-resolved"),
+        snoozedUntil: "2099-01-01T00:00:00.000Z",
       });
     } finally {
       await system.dispose();
@@ -87,9 +85,6 @@ it("keeps an unadopted user start visible after restart", async () => {
       createdAt: nowIso(),
     });
     await system.restart();
-    await expect(
-      system.dispatch({ type: "thread.settle", threadId, commandId: CommandId.make("settle") }),
-    ).rejects.toThrow("queued turn start");
     await expect(
       system.dispatch({
         type: "thread.snooze",

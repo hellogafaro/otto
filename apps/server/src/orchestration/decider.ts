@@ -82,8 +82,6 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.delete":
     case "thread.archive":
     case "thread.unarchive":
-    case "thread.settle":
-    case "thread.unsettle":
     case "thread.snooze":
     case "thread.unsnooze":
     case "thread.pin":
@@ -208,8 +206,6 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         readModel,
         ...(actor !== undefined ? { actor } : {}),
       });
-    case "thread.settle":
-    case "thread.unsettle":
     case "thread.snooze":
     case "thread.unsnooze":
       return yield* decideThreadVisibility({

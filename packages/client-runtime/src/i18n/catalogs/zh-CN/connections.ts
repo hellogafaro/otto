@@ -113,8 +113,6 @@ export const connectionsCatalog = {
   "Try another search or environment.": "请尝试其他搜索词或环境。",
   "Could not update environment": "无法更新环境",
   "The environment could not be updated.": "无法更新该环境。",
-  "This environment's server does not support settling yet. Update the server to use Settle.":
-    "此环境的服务器尚不支持结束聊天。请更新服务器后再使用“结束”。",
   "This environment's server does not support snoozing yet. Update the server to use Snooze.":
     "此环境的服务器尚不支持延后。请更新服务器后再使用“延后”。",
   "This environment's server does not support snoozing yet. Update the server to wake this chat.":

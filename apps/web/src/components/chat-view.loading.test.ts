@@ -175,8 +175,6 @@ describe("buildLoadingThreadFromShell", () => {
       createdAt: now,
       updatedAt: now,
       archivedAt: null,
-      settledOverride: null,
-      settledAt: null,
       snoozedUntil: null,
       snoozedAt: null,
       session: null,

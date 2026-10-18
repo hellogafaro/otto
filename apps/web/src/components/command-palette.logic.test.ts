@@ -116,16 +116,16 @@ describe("chat actions in the command palette", () => {
   it("publishes the open chat's actions until that chat unmounts", () => {
     const first = Symbol("first");
     const second = Symbol("second");
-    const settle = { id: "settle", title: "Settle chat", searchTerms: ["settle"], run: vi.fn() };
-    const cleanupFirst = registerChatPaletteActions(first, [settle]);
-    expect(activeChatPaletteActions()).toEqual([settle]);
+    const pin = { id: "pin", title: "Pin chat", searchTerms: ["pin"], run: vi.fn() };
+    const cleanupFirst = registerChatPaletteActions(first, [pin]);
+    expect(activeChatPaletteActions()).toEqual([pin]);
 
     const cleanupSecond = registerChatPaletteActions(second, []);
     cleanupFirst();
     expect(activeChatPaletteActions()).toEqual([]);
-    registerChatPaletteActions(second, [settle]);
+    registerChatPaletteActions(second, [pin]);
     cleanupFirst();
-    expect(activeChatPaletteActions()).toEqual([settle]);
+    expect(activeChatPaletteActions()).toEqual([pin]);
     cleanupSecond();
     expect(activeChatPaletteActions()).toEqual([]);
   });
@@ -136,10 +136,10 @@ describe("chat actions in the command palette", () => {
     const [item] = buildChatCommandPaletteItems({
       actions: [
         {
-          id: "settle",
-          title: "Settle chat",
-          searchTerms: ["settle", "done"],
-          shortcutCommand: "thread.settle",
+          id: "new",
+          title: "New chat",
+          searchTerms: ["new chat", "fresh"],
+          shortcutCommand: "chat.new",
           run,
         },
       ],
@@ -147,18 +147,18 @@ describe("chat actions in the command palette", () => {
     });
 
     expect(item).toMatchObject({
-      value: "chat:settle",
-      title: "Settle chat",
-      shortcutCommand: "thread.settle",
-      searchTerms: ["Settle chat", "chat", "settle", "done"],
+      value: "chat:new",
+      title: "New chat",
+      shortcutCommand: "chat.new",
+      searchTerms: ["New chat", "chat", "new chat", "fresh"],
     });
 
     const filtered = filterCommandPaletteGroups({
       groups: [{ value: "chat", label: "This chat", items: item ? [item] : [] }],
-      query: "done",
+      query: "fresh",
     });
 
-    expect(filtered[0]?.items.map((entry) => entry.value)).toEqual(["chat:settle"]);
+    expect(filtered[0]?.items.map((entry) => entry.value)).toEqual(["chat:new"]);
     await item?.run();
     expect(run).toHaveBeenCalledTimes(1);
   });

@@ -30,8 +30,6 @@ export function makeThread(overrides: Partial<Thread> = {}): Thread {
     createdAt: now,
     updatedAt: now,
     archivedAt: null,
-    settledOverride: null,
-    settledAt: null,
     deletedAt: null,
     latestTurn: null,
     branch: null,

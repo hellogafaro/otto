@@ -271,37 +271,36 @@ describe("mobile connection storage", () => {
   });
 
   it("persists Thread List v2 shelf expansion preferences", async () => {
-    await expect(
-      savePreferencesPatch({
-        threadListV2SettledShelfExpanded: false,
+    await expect(savePreferencesPatch({ threadListV2SnoozedShelfExpanded: true })).resolves.toEqual(
+      {
         threadListV2SnoozedShelfExpanded: true,
-      }),
-    ).resolves.toEqual({
-      threadListV2SettledShelfExpanded: false,
-      threadListV2SnoozedShelfExpanded: true,
-    });
+      },
+    );
 
-    await expect(loadPreferences()).resolves.toEqual({
-      threadListV2SettledShelfExpanded: false,
-      threadListV2SnoozedShelfExpanded: true,
-    });
+    await expect(loadPreferences()).resolves.toEqual({ threadListV2SnoozedShelfExpanded: true });
     expect(JSON.parse(mocks.getPreferencesJson() ?? "")).toEqual({
-      threadListV2SettledShelfExpanded: false,
       threadListV2SnoozedShelfExpanded: true,
     });
   });
 
   it("ignores invalid Thread List v2 shelf expansion preference types", async () => {
     mocks.setPreferencesJson(
-      JSON.stringify({
-        baseFontSize: 17,
-        threadListV2SettledShelfExpanded: "false",
-        threadListV2SnoozedShelfExpanded: 1,
-      }),
+      JSON.stringify({ baseFontSize: 17, threadListV2SnoozedShelfExpanded: 1 }),
       10,
     );
 
     await expect(loadPreferences()).resolves.toEqual({ baseFontSize: 17 });
+  });
+
+  it("drops the retired Settled shelf preference on the next save", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({ baseFontSize: 17, threadListV2SettledShelfExpanded: false }),
+      10,
+    );
+
+    await expect(loadPreferences()).resolves.toEqual({ baseFontSize: 17 });
+    await expect(savePreferencesPatch({ baseFontSize: 18 })).resolves.toEqual({ baseFontSize: 18 });
+    expect(JSON.parse(mocks.getPreferencesJson() ?? "")).toEqual({ baseFontSize: 18 });
   });
 
   it("reconciles fallback preferences after SQLite recovers", async () => {

@@ -14,71 +14,9 @@ describe("sortThreadsForListV2", () => {
 
     expect(sorted.map((thread) => thread.id)).toEqual(["newest", "middle", "oldest"]);
   });
-
-  it("surfaces an un-settled thread at the top via its re-entry stamp", () => {
-    const sorted = sortThreadsForListV2([
-      {
-        id: "old-unsettled",
-        createdAt: "2026-06-01T08:00:00.000Z",
-        unsettledAt: "2026-06-01T13:00:00.000Z",
-      },
-      { id: "newest", createdAt: "2026-06-01T12:00:00.000Z" },
-      { id: "middle", createdAt: "2026-06-01T10:00:00.000Z" },
-    ]);
-
-    expect(sorted.map((thread) => thread.id)).toEqual(["old-unsettled", "newest", "middle"]);
-  });
 });
 
 describe("buildThreadListV2Items", () => {
-  it("does not settle a linked pull request thread", () => {
-    const thread = makeThread({
-      id: ThreadId.make("linked"),
-      title: "Linked pull request",
-    });
-
-    const layout = buildThreadListV2Items({
-      threads: [thread],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-    });
-
-    expect(layout.settledCount).toBe(0);
-    expect(layout.items[0]?.variant).toBe("card");
-  });
-
-  it("keeps an active thread in the card list", () => {
-    const thread = makeThread({
-      id: ThreadId.make("linked-merged"),
-      title: "Linked merged pull request",
-    });
-
-    const layout = buildThreadListV2Items({
-      threads: [thread],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-    });
-
-    expect(layout.settledCount).toBe(0);
-    expect(layout.items[0]?.variant).toBe("card");
-  });
-
-  it("keeps a merged thread active", () => {
-    const merged = makeThread({ id: ThreadId.make("merged"), title: "Merged" });
-
-    const layout = buildThreadListV2Items({
-      threads: [merged],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-    });
-
-    expect(layout.items.map((item) => item.thread.id)).toEqual(["merged"]);
-    expect(layout.settledCount).toBe(0);
-  });
-
   it("hides snoozed threads and counts them — visibility parity with web", () => {
     const layout = buildThreadListV2Items({
       threads: [
@@ -108,29 +46,7 @@ describe("buildThreadListV2Items", () => {
     expect(layout.snoozedCount).toBe(1);
   });
 
-  it("places settled pinned threads in the settled shelf", () => {
-    const layout = buildThreadListV2Items({
-      threads: [
-        makeThread({ id: ThreadId.make("active"), title: "Active" }),
-        makeThread({
-          id: ThreadId.make("pinned-settled"),
-          title: "Pinned while settled",
-          pinnedAt: "2026-06-01T12:00:00.000Z",
-          settledOverride: "settled",
-          settledAt: "2026-06-01T12:00:00.000Z",
-        }),
-      ],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-    });
-
-    expect(layout.items.map((item) => item.thread.id)).toEqual(["active", "pinned-settled"]);
-    expect(layout.items.map((item) => item.pinned)).toEqual([false, false]);
-    expect(layout.settledCount).toBe(1);
-  });
-
-  it("keeps pinned threads pinned without an explicit settle", () => {
+  it("keeps pinned threads above active ones", () => {
     const merged = makeThread({
       id: ThreadId.make("pinned-merged"),
       title: "Pinned merged pull request",
@@ -147,7 +63,6 @@ describe("buildThreadListV2Items", () => {
     expect(layout.items.map((item) => item.thread.id)).toEqual(["pinned-merged", "active"]);
     expect(layout.items.map((item) => item.variant)).toEqual(["card", "card"]);
     expect(layout.items[0]?.thread.pinnedAt).toBe("2026-06-01T12:00:00.000Z");
-    expect(layout.settledCount).toBe(0);
   });
 
   it("keeps inactive pinned threads pinned", () => {
@@ -178,7 +93,6 @@ describe("buildThreadListV2Items", () => {
       variant: "card",
       pinned: true,
     });
-    expect(layout.settledCount).toBe(0);
   });
 
   it("keeps pinned merged threads pinned", () => {
@@ -200,7 +114,6 @@ describe("buildThreadListV2Items", () => {
       variant: "card",
       pinned: true,
     });
-    expect(layout.settledCount).toBe(0);
   });
 
   it("snooze hides a pinned thread and wake restores it to the pinned block", () => {
@@ -261,16 +174,10 @@ describe("buildThreadListV2Items", () => {
     expect(layout.nextSnoozeWakeAt).toBe("2026-06-02T09:00:00.000Z");
   });
 
-  it("builds snoozed rows between active and settled when the shelf is expanded", () => {
+  it("builds snoozed rows after active when the shelf is expanded", () => {
     const layout = buildThreadListV2Items({
       threads: [
         makeThread({ id: ThreadId.make("active"), title: "Active" }),
-        makeThread({
-          id: ThreadId.make("settled"),
-          title: "Settled",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
         makeThread({
           id: ThreadId.make("later"),
           title: "Wakes later",
@@ -290,13 +197,8 @@ describe("buildThreadListV2Items", () => {
       snoozedShelfExpanded: true,
     });
 
-    expect(layout.items.map((item) => item.thread.id)).toEqual([
-      "active",
-      "sooner",
-      "later",
-      "settled",
-    ]);
-    expect(layout.items.map((item) => item.snoozed)).toEqual([false, true, true, false]);
+    expect(layout.items.map((item) => item.thread.id)).toEqual(["active", "sooner", "later"]);
+    expect(layout.items.map((item) => item.snoozed)).toEqual([false, true, true]);
     expect(layout.snoozedShelfHeaderIndex).toBe(1);
     expect(layout.snoozedCount).toBe(2);
   });
@@ -368,89 +270,7 @@ describe("buildThreadListV2Items", () => {
     expect(layout.snoozedCount).toBe(0);
   });
 
-  it("partitions settled threads into a slim shelf", () => {
-    const layout = buildThreadListV2Items({
-      threads: [
-        makeThread({ id: ThreadId.make("active"), title: "Active" }),
-        makeThread({
-          id: ThreadId.make("settled"),
-          title: "Settled",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
-        makeThread({
-          id: ThreadId.make("settled-2"),
-          title: "Settled 2",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
-      ],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-    });
-
-    expect(layout.items.map((item) => [item.thread.id, item.variant])).toEqual([
-      ["active", "card"],
-      ["settled", "slim"],
-      ["settled-2", "slim"],
-    ]);
-    expect(layout.items.map((item) => item.isLast)).toEqual([false, false, true]);
-    expect(layout.settledCount).toBe(2);
-    expect(layout.settledShelfHeaderIndex).toBe(1);
-  });
-
-  it("collapses settled threads to a counted shelf header", () => {
-    const layout = buildThreadListV2Items({
-      threads: [
-        makeThread({ id: ThreadId.make("active"), title: "Active" }),
-        makeThread({
-          id: ThreadId.make("settled"),
-          title: "Settled",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
-      ],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-      settledShelfExpanded: false,
-    });
-
-    expect(layout.items.map((item) => item.thread.id)).toEqual(["active"]);
-    expect(layout.settledCount).toBe(1);
-    expect(layout.settledShelfHeaderIndex).toBe(1);
-  });
-
-  it("keeps the selected settled thread visible when its shelf is collapsed", () => {
-    const layout = buildThreadListV2Items({
-      threads: [
-        makeThread({
-          id: ThreadId.make("selected"),
-          title: "Selected",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
-        makeThread({
-          id: ThreadId.make("other"),
-          title: "Other",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
-      ],
-      environmentId: null,
-      searchQuery: "",
-      now: NOW,
-      settledShelfExpanded: false,
-      selectedThreadKey: `${environmentId}:selected`,
-    });
-
-    expect(layout.items.map((item) => item.thread.id)).toEqual(["selected"]);
-    expect(layout.settledCount).toBe(2);
-    expect(layout.settledShelfHeaderIndex).toBe(0);
-  });
-
-  it("keeps cards in creation order while settled sorts by recency", () => {
+  it("keeps cards in creation order", () => {
     const { items } = buildThreadListV2Items({
       threads: [
         makeThread({
@@ -473,27 +293,18 @@ describe("buildThreadListV2Items", () => {
     expect(items.map((item) => item.thread.id)).toEqual(["newer-created", "older-created"]);
   });
 
-  it("keeps settled threads in the tail and filters by search query", () => {
+  it("filters by search query", () => {
     const { items } = buildThreadListV2Items({
       threads: [
         makeThread({ id: ThreadId.make("match"), title: "Fix login bug" }),
         makeThread({ id: ThreadId.make("miss"), title: "Greeting" }),
-        makeThread({
-          id: ThreadId.make("settled"),
-          title: "Fix login again",
-          settledOverride: "settled",
-          settledAt: NOW,
-        }),
       ],
       environmentId: null,
       searchQuery: "login",
       now: NOW,
     });
 
-    expect(items.map((item) => [item.thread.id, item.variant])).toEqual([
-      ["match", "card"],
-      ["settled", "slim"],
-    ]);
+    expect(items.map((item) => [item.thread.id, item.variant])).toEqual([["match", "card"]]);
   });
 
   it("includes a thread matched by message content", () => {

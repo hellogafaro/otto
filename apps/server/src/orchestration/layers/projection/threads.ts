@@ -94,9 +94,6 @@ export function createThreads({
             createdAt: event.payload.createdAt,
             updatedAt: event.payload.updatedAt,
             archivedAt: null,
-            settledOverride: null,
-            settledAt: null,
-            unsettledAt: null,
             snoozedUntil: null,
             snoozedAt: null,
             pinnedAt: null,
@@ -162,52 +159,6 @@ export function createThreads({
           yield* projectionThreadRepository.upsert({
             ...existingRow.value,
             archivedAt: null,
-            updatedAt: event.payload.updatedAt,
-          });
-
-          return;
-        }
-
-        case "thread.settled": {
-          const existingRow = yield* projectionThreadRepository.getById({
-            threadId: event.payload.threadId,
-          });
-
-          if (Option.isNone(existingRow)) {
-            return;
-          }
-
-          yield* projectionThreadRepository.upsert({
-            ...existingRow.value,
-            settledOverride: "settled",
-            settledAt: event.payload.settledAt,
-            unsettledAt: null,
-            updatedAt: event.payload.updatedAt,
-          });
-
-          return;
-        }
-
-        case "thread.unsettled": {
-          const existingRow = yield* projectionThreadRepository.getById({
-            threadId: event.payload.threadId,
-          });
-
-          if (Option.isNone(existingRow)) {
-            return;
-          }
-
-          yield* projectionThreadRepository.upsert({
-            ...existingRow.value,
-            settledOverride: event.payload.reason === "user" ? "active" : null,
-            settledAt: null,
-            // Re-entry stamp for active-list ordering. A thread already pinned
-            // active keeps its stamp: the activity reset that clears the pin
-            // is not a re-entry and must not reorder the list.
-            unsettledAt:
-              existingRow.value.settledOverride === "active"
-                ? existingRow.value.unsettledAt
-                : event.payload.updatedAt,
             updatedAt: event.payload.updatedAt,
           });
 
