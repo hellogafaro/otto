@@ -271,6 +271,8 @@ export const OttoToolInputSchemas = {
   audio_transcribe: AudioTranscribeInput,
   library_create: SaveToLibraryInput,
   library_read: Schema.Struct({ fileId: LibraryFileId }),
+  library_share: Schema.Struct({ fileId: LibraryFileId }),
+  library_unshare: Schema.Struct({ fileId: LibraryFileId }),
   library_update: Schema.Struct({
     fileId: LibraryFileId,
     content: LibraryText,
