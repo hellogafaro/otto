@@ -36,37 +36,51 @@ export function ProjectCover({
       <UploadedCover
         environmentId={environmentId}
         fileId={project.coverFileId}
+        seed={project.id}
         appearance={resolvedTheme}
         className={className}
       />
     );
   }
 
-  return <DitheredCover appearance={resolvedTheme} imageUrl={null} className={className} />;
+  return (
+    <DitheredCover
+      seed={project.id}
+      appearance={resolvedTheme}
+      imageUrl={null}
+      className={className}
+    />
+  );
 }
 
 function UploadedCover({
   environmentId,
   fileId,
+  seed,
   appearance,
   className,
 }: {
   readonly environmentId: EnvironmentId;
   readonly fileId: LibraryFileId;
+  readonly seed: string;
   readonly appearance: "light" | "dark";
   readonly className: string | undefined;
 }) {
   const imageUrl = useLibraryFileUrl(environmentId, fileId);
 
-  return <DitheredCover appearance={appearance} imageUrl={imageUrl} className={className} />;
+  return (
+    <DitheredCover seed={seed} appearance={appearance} imageUrl={imageUrl} className={className} />
+  );
 }
 
 /** Draws the dithered image, or the gray cover until there is one, whenever the size changes. */
 function DitheredCover({
+  seed,
   appearance,
   imageUrl,
   className,
 }: {
+  readonly seed: string;
   readonly appearance: "light" | "dark";
   readonly imageUrl: string | null;
   readonly className: string | undefined;
@@ -94,7 +108,7 @@ function DitheredCover({
       canvas.height = height;
 
       if (!image?.complete || image.naturalWidth === 0) {
-        const pixels = grayCover(width, height, appearance);
+        const pixels = grayCover(seed, width, height, appearance);
         context.putImageData(new ImageData(pixels, width, height), 0, 0);
 
         return;
@@ -130,7 +144,7 @@ function DitheredCover({
       observer.disconnect();
       image?.removeEventListener("load", draw);
     };
-  }, [appearance, imageUrl]);
+  }, [seed, appearance, imageUrl]);
 
   return (
     <canvas
