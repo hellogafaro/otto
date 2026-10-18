@@ -1,4 +1,5 @@
-import { makeShellSnapshot } from "../test-support/fixtures";
+import type { RoutineCache } from "@otto/client-runtime/state/routines";
+import { decodeRoutineRun, makeShellSnapshot } from "../test-support/fixtures";
 import { Match } from "effect";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   refreshHistory: vi.fn(),
   queryData: { inbox: [], runs: [], nextCursor: null },
   snapshot: null as OrchestrationShellSnapshot | null,
+  routineCache: null as RoutineCache | null,
   rosterLoadState: { kind: "loading" } as { kind: "loading" } | { kind: "failed"; message: string },
 }));
 
@@ -61,14 +63,25 @@ vi.mock("./use-server-roster", () => ({
   useEnableBotAutoReview: () => vi.fn(),
 }));
 
-vi.mock("@effect/atom-react", () => ({
-  useAtomValue: (atom: string) =>
-    Match.value(atom).pipe(
-      Match.when("people", () => ({ current: null, host: null })),
-      Match.when("snapshot", () => mocks.snapshot),
-      Match.when("bots", () => []),
-      Match.orElse(() => null),
-    ),
+vi.mock("@effect/atom-react", async () => {
+  const { createContext } = await import("react");
+
+  return {
+    RegistryContext: createContext({ update: () => {} }),
+    useAtomValue: (atom: string) =>
+      Match.value(atom).pipe(
+        Match.when("people", () => ({ current: null, host: null })),
+        Match.when("snapshot", () => mocks.snapshot),
+        Match.when("routine-cache", () => mocks.routineCache),
+        Match.when("bots", () => []),
+        Match.orElse(() => null),
+      ),
+  };
+});
+
+vi.mock("../../state/routines", () => ({
+  routineCacheAtom: () => "routine-cache",
+  withRoutines: (cache: RoutineCache) => cache,
 }));
 
 vi.mock("../../state/bots", () => ({
@@ -324,6 +337,7 @@ beforeEach(() => {
   mocks.messages = [];
   mocks.mediaBlocked = false;
   mocks.snapshot = null;
+  mocks.routineCache = { routines: new Map(), runs: new Map(), receiptSources: new Map() };
   mocks.rosterLoadState = { kind: "loading" };
   const document = new TestNode("#document", null, 9);
   vi.stubGlobal("document", document);
@@ -357,11 +371,12 @@ describe("thread landing reply playback hook order", () => {
       createdAt: "2026-09-29T09:00:00.000Z",
     };
 
-    mocks.snapshot = makeShellSnapshot({
-      routineReceiptSources: [source],
-      routineRuns: [],
-      delegations: [],
-    });
+    mocks.snapshot = makeShellSnapshot({ delegations: [] });
+    mocks.routineCache = {
+      routines: new Map(),
+      runs: new Map(),
+      receiptSources: new Map([[source.id, source]]),
+    };
 
     const renderBot = async () => {
       await act(async () => root.render(<BotThreadLanding botId={bot.id} threadRef={chatRef} />));
@@ -370,19 +385,24 @@ describe("thread landing reply playback hook order", () => {
     await renderBot();
     expect(mocks.refreshHistory).not.toHaveBeenCalled();
 
-    mocks.snapshot = makeShellSnapshot({
-      routineReceiptSources: [source],
-      delegations: [],
-      routineRuns: [
-        {
-          id: "run-1",
-          routineId: source.id,
-          status: "queued",
-          startedAt: null,
-          updatedAt: "2026-09-29T09:01:00.000Z",
-        },
-      ],
+    const run = decodeRoutineRun({
+      id: "run-1",
+      routineId: source.id,
+      procedureVersion: 1,
+      status: "queued",
+      trigger: "manual",
+      scheduledFor: null,
+      result: null,
+      failure: null,
+      usageRef: null,
+      threadRef: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: "2026-09-29T09:00:00.000Z",
+      updatedAt: "2026-09-29T09:01:00.000Z",
     });
+
+    mocks.routineCache = { ...mocks.routineCache, runs: new Map([[run.id, run]]) };
     await renderBot();
     expect(mocks.refreshHistory).toHaveBeenCalledTimes(1);
   });

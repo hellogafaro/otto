@@ -29,7 +29,7 @@ import { useListPages } from "../../hooks/use-list-pages";
 import { useI18n } from "../../i18n";
 import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { routineEnvironment } from "../../state/routines";
+import { routineChangesAtom, routineEnvironment } from "../../state/routines";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useCopyPageActions } from "../copy-menu-items";
@@ -129,13 +129,15 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
   const bots = useRosterStore((state) => state.bots);
   const liveBots = useLiveBots();
   const listRoutines = useAtomCommand(routineEnvironment.list, { reportFailure: false });
+  // SAFETY: the empty environment ID is an inactive sentinel, like the snapshot's above.
+  const routineChanges = useAtomValue(routineChangesAtom(environmentId ?? ("" as never)));
   const [creating, setCreating] = useState(false);
   const openNewRoutine = useCallback(() => setCreating(true), []);
   const sort = view.sort ?? "status";
 
   const list = useListPages({
     view: `${environmentId}:${encodeRoutineView(view)}`,
-    revision: snapshot?.routines,
+    revision: routineChanges,
     getNextCursor: nextRoutineCursor,
     fetchPage: async (cursor) => {
       if (!environmentId) return null;
@@ -183,13 +185,7 @@ export function RoutinesPage({ view }: { readonly view: RoutineListView }) {
 
   const statusLabel = useRoutineStatusLabel();
 
-  const schedule = (routine: Routine) =>
-    toRoutinePanelItem(
-      routine,
-      snapshot?.routineRuns ?? [],
-      snapshot?.skillAssignments ?? [],
-      snapshot?.mcpServers ?? [],
-    ).schedule;
+  const schedule = (routine: Routine) => toRoutinePanelItem(routine, [], []).schedule;
 
   const filters: ListFilter[] = [
     {

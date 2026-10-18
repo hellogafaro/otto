@@ -1,13 +1,4 @@
-import {
-  BotId,
-  SkillAssignmentId,
-  McpServerId,
-  RoutineId,
-  ThreadId,
-  Routine,
-  RoutineRun,
-  SkillId,
-} from "@otto/contracts";
+import { BotId, McpServerId, RoutineId, ThreadId, Routine, RoutineRun } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -91,17 +82,6 @@ const snapshot = {
       failure: { kind: "provider", message: "Provider timed out" },
     }),
   ],
-  skillAssignments: [
-    {
-      id: SkillAssignmentId.make("assignment-1"),
-      name: "research",
-      botId: routine.botId,
-      skillId: SkillId.make("research"),
-      description: null,
-      createdAt: routine.createdAt,
-      updatedAt: routine.updatedAt,
-    },
-  ],
   mcpServers: [
     {
       id: McpServerId.make("mcp-1"),
@@ -117,7 +97,7 @@ const snapshot = {
 
 describe("toRoutinePanelItem", () => {
   it("resolves names and orders run history newest first", () => {
-    const item = toRoutinePanelItem(routine, snapshot!.routineRuns!, [], []);
+    const item = toRoutinePanelItem(routine, snapshot!.routineRuns!, []);
     expect(item.schedule).toEqual({
       frequency: "weekly",
       time: "09:00",
@@ -139,7 +119,6 @@ describe("toRoutinePanelItem", () => {
       },
       [],
       [],
-      [],
     );
 
     expect(routineScheduleLabel(item.schedule)).toBe(
@@ -149,7 +128,7 @@ describe("toRoutinePanelItem", () => {
 
   it("names monthly, quarterly and yearly routines and hourly times in words", () => {
     const schedule = (value: Routine["schedule"]) =>
-      toRoutinePanelItem({ ...routine, schedule: value }, [], [], []).schedule;
+      toRoutinePanelItem({ ...routine, schedule: value }, [], []).schedule;
 
     expect(routineFrequencyLabel(schedule({ kind: "monthly", day: 15, time: "09:00" }))).toBe(
       "Monthly on day 15",
@@ -173,7 +152,7 @@ describe("toRoutinePanelItem", () => {
 
   it("carries the bot a routine hands its work to", () => {
     const delegateToBotId = BotId.make("bot-helper");
-    expect(toRoutinePanelItem({ ...routine, delegateToBotId }, [], [], []).delegateToBotId).toBe(
+    expect(toRoutinePanelItem({ ...routine, delegateToBotId }, [], []).delegateToBotId).toBe(
       delegateToBotId,
     );
   });
@@ -189,14 +168,13 @@ describe("botRoutinesView", () => {
     expect(botRoutinesView({ routines: [] }, "bot-1")).toEqual({ kind: "ready", routines: [] });
   });
 
-  it("keeps only the bot's live routines with their skills and connectors", () => {
+  it("keeps only the bot's live routines with their connectors", () => {
     const view = botRoutinesView(snapshot, "bot-1");
     expect(view.kind).toBe("ready");
 
     if (view.kind !== "ready") return;
     expect(view.routines.map((item) => item.id)).toEqual(["routine-1"]);
     expect(view.routines[0]).toMatchObject({
-      skills: ["research"],
       connectors: ["Gmail"],
       procedureApproved: true,
     });
@@ -204,7 +182,7 @@ describe("botRoutinesView", () => {
 });
 
 describe("routineLifecycleAction", () => {
-  const item = toRoutinePanelItem(routine, [], [], []);
+  const item = toRoutinePanelItem(routine, [], []);
 
   it("offers only the reverse of the state a routine is in", () => {
     expect(routineLifecycleAction(item)).toBe("pause");
@@ -220,7 +198,7 @@ describe("routineLifecycleAction", () => {
 });
 
 describe("routineStateNote", () => {
-  const item = toRoutinePanelItem(routine, [], [], []);
+  const item = toRoutinePanelItem(routine, [], []);
 
   it("says nothing while a routine runs on schedule", () => {
     expect(routineStateNote(item)).toBe(null);
@@ -233,14 +211,13 @@ describe("routineStateNote", () => {
       { ...routine, enabled: false, lifecycle: "blocked" },
       [],
       [],
-      [],
     );
 
     expect(routineStateNote(blocked)).toBe("Paused until you resume it.");
   });
 
   it("keeps a routine whose last run failed on its schedule", () => {
-    const failed = toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], [], []);
+    const failed = toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], []);
 
     expect(failed.paused).toBe(false);
     expect(routineStateNote(failed)).toBeNull();

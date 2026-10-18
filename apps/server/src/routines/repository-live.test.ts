@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { RoutineId, RoutineRunId, ThreadId } from "@otto/contracts";
+import { AuthSessionId, RoutineId, RoutineRunId, ThreadId } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -54,11 +54,12 @@ it.layer(layer)("RoutineRepository.listThreadRuns", (it) => {
         )
       `;
 
-      const first = yield* repository.listThreadRuns(threadId);
+      const viewer = AuthSessionId.make("person-1");
+      const first = yield* repository.listThreadRuns(threadId, viewer);
       assert.equal(first.runs.length, 100);
       assert.equal(first.runs[0]?.id, RoutineRunId.make("paged-run-150"));
       assert.equal(first.nextCursor, RoutineRunId.make("paged-run-051"));
-      const second = yield* repository.listThreadRuns(threadId, first.nextCursor!);
+      const second = yield* repository.listThreadRuns(threadId, viewer, first.nextCursor!);
       assert.equal(second.runs.length, 51);
       assert.equal(second.runs.at(-1)?.id, RoutineRunId.make("paged-run-000"));
       assert.equal(second.nextCursor, null);

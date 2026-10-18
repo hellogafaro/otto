@@ -14,7 +14,6 @@ import type {
   RoutineRunStatus,
   RoutineSandbox,
   RoutineSchedule,
-  RoutineSkillAssignment,
 } from "@otto/contracts";
 import { withoutErrorStack } from "@otto/shared/errorText";
 
@@ -79,7 +78,6 @@ export interface RoutineAdapterItem {
   readonly sandbox: RoutineAdapterSandbox;
   readonly schedule: RoutineAdapterSchedule;
   readonly approval: RoutineAdapterApproval;
-  readonly skills: readonly string[];
   readonly connectors: readonly string[];
   /** The bot each run hands its work to, or null when the owner does it. */
   readonly delegateToBotId: string | null;
@@ -182,7 +180,6 @@ function toAdapterRun(run: RoutineRun): RoutineAdapterRun {
 export function toRoutinePanelItem(
   routine: Routine,
   runs: readonly RoutineRun[],
-  assignments: readonly RoutineSkillAssignment[],
   mcpServers: readonly McpServer[],
 ): RoutineAdapterItem {
   // .sort() on a copy, not .toSorted(): Hermes lacks ES2023 change-by-copy.
@@ -190,10 +187,6 @@ export function toRoutinePanelItem(
     .filter((run) => run.routineId === routine.id)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .map(toAdapterRun);
-
-  const assignmentNames = new Map(
-    assignments.map((assignment) => [assignment.id, assignment.name]),
-  );
 
   const connectorNames = new Map(mcpServers.map((server) => [server.id, server.name]));
 
@@ -205,11 +198,6 @@ export function toRoutinePanelItem(
     sandbox: routine.sandbox,
     schedule: toAdapterSchedule(routine),
     approval: routine.approvalPolicy,
-    skills: routine.skillAssignmentIds.flatMap((id) => {
-      const name = assignmentNames.get(id);
-
-      return name ? [name] : [];
-    }),
     connectors: routine.connectorDependencies.flatMap((id) => {
       const name = connectorNames.get(id);
 
@@ -230,11 +218,10 @@ export function toRoutinePanelItem(
   };
 }
 
-/** The slice of an environment snapshot a bot's routine list reads. */
+/** What a bot's routine list reads: its routines from the server, their runs and the plugins. */
 export interface BotRoutineSource {
   readonly routines?: readonly Routine[] | undefined;
   readonly routineRuns?: readonly RoutineRun[] | undefined;
-  readonly skillAssignments?: readonly RoutineSkillAssignment[] | undefined;
   readonly mcpServers?: readonly McpServer[] | undefined;
 }
 
@@ -244,28 +231,23 @@ export type BotRoutinesView =
   | { readonly kind: "ready"; readonly routines: readonly RoutineAdapterItem[] };
 
 /**
- * One bot's live routines. A snapshot without a routines list comes from an environment
- * that predates routines, which is different from a bot that has none.
+ * One bot's live routines. A source without a routines list could not read them, which is
+ * different from a bot that has none.
  */
 export function botRoutinesView(
-  snapshot: BotRoutineSource | null | undefined,
+  source: BotRoutineSource | null | undefined,
   botId: BotId | string,
 ): BotRoutinesView {
-  if (!snapshot) return { kind: "loading" };
+  if (!source) return { kind: "loading" };
 
-  if (snapshot.routines === undefined) return { kind: "unavailable" };
+  if (source.routines === undefined) return { kind: "unavailable" };
 
   return {
     kind: "ready",
-    routines: snapshot.routines
+    routines: source.routines
       .filter((routine) => routine.botId === botId && routine.lifecycle !== "deleted")
       .map((routine) =>
-        toRoutinePanelItem(
-          routine,
-          snapshot.routineRuns ?? [],
-          snapshot.skillAssignments ?? [],
-          snapshot.mcpServers ?? [],
-        ),
+        toRoutinePanelItem(routine, source.routineRuns ?? [], source.mcpServers ?? []),
       ),
   };
 }

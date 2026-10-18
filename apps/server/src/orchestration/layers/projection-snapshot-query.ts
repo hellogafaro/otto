@@ -136,7 +136,6 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
     projectionMcpServerRepository,
     projectionTaskRepository,
     projectionLibraryRepository,
-    routineRepository,
     listActiveThreadRows,
     listActiveThreadSessionRows,
     listActiveLatestTurnRows,

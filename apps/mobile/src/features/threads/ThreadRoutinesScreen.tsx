@@ -13,17 +13,25 @@ import {
   type RoutineAdapterItem,
 } from "@otto/client-runtime/routines";
 import type { AtomCommandResult } from "@otto/client-runtime/state/runtime";
-import { RoutineId, RoutineRunId, type EnvironmentId } from "@otto/contracts";
+import {
+  BotId,
+  RoutineId,
+  RoutineRunId,
+  type EnvironmentId,
+  type Routine,
+  type RoutineRun,
+} from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { randomUUID } from "expo-crypto";
-import { useMemo, useState } from "react";
+import { AsyncResult } from "effect/unstable/reactivity";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
 import { useMobileI18n } from "../../lib/i18n";
-import { routineEnvironment } from "../../state/routines";
+import { routineCacheAtom, routineChangesAtom, routineEnvironment } from "../../state/routines";
 import { useEnvironmentOperateAccess } from "../../state/session";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -207,7 +215,70 @@ export function ThreadRoutinesScreen() {
   const { environmentId, botId } = route.params;
   const botName = route.params.botName ?? t("this bot");
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId));
-  const view = useMemo(() => botRoutinesView(snapshot, botId), [snapshot, botId]);
+  const cache = useAtomValue(routineCacheAtom(environmentId));
+  const changes = useAtomValue(routineChangesAtom(environmentId));
+  const listRoutines = useAtomCommand(routineEnvironment.list, { reportFailure: false });
+  const listRuns = useAtomCommand(routineEnvironment.listRuns, { reportFailure: false });
+  // Otto: Undefined until the bot's routines arrive, null when they couldn't be read.
+  const [routines, setRoutines] = useState<ReadonlyArray<Routine> | null | undefined>(undefined);
+  const [history, setHistory] = useState<ReadonlyArray<RoutineRun>>([]);
+  const routineIds = routines?.map((routine) => routine.id).join(",") ?? "";
+
+  // Otto: The bot's routines are the first page the server lists for it, read again when any
+  // routine changes; each one's runs are read once, and the stream's runs keep them live.
+  useEffect(() => {
+    let current = true;
+
+    void listRoutines({ environmentId, input: { bot: BotId.make(botId) } }).then((result) => {
+      if (current) setRoutines(AsyncResult.isSuccess(result) ? result.value.routines : null);
+    });
+
+    return () => {
+      current = false;
+    };
+  }, [botId, changes, environmentId, listRoutines]);
+
+  useEffect(() => {
+    if (routineIds === "") return;
+    let current = true;
+
+    void Promise.all(
+      routineIds
+        .split(",")
+        .map((routineId) =>
+          listRuns({ environmentId, input: { routineId: RoutineId.make(routineId) } }),
+        ),
+    ).then((results) => {
+      if (current) {
+        setHistory(
+          results.flatMap((result) => (AsyncResult.isSuccess(result) ? result.value.runs : [])),
+        );
+      }
+    });
+
+    return () => {
+      current = false;
+    };
+  }, [environmentId, listRuns, routineIds]);
+
+  const view = useMemo(() => {
+    if (routines === undefined || !snapshot) return botRoutinesView(null, botId);
+
+    const live = [...cache.runs.values()];
+
+    return botRoutinesView(
+      {
+        ...(routines === null ? {} : { routines }),
+        routineRuns: [
+          ...live,
+          ...history.filter((run) => !live.some((item) => item.id === run.id)),
+        ],
+        mcpServers: snapshot.mcpServers,
+      },
+      botId,
+    );
+  }, [botId, cache.runs, history, routines, snapshot]);
+
   const canOperate = useEnvironmentOperateAccess(environmentId) === "granted";
   const approve = useAtomCommand(routineEnvironment.approve, { reportFailure: false });
   const enable = useAtomCommand(routineEnvironment.enable, { reportFailure: false });
@@ -286,7 +357,7 @@ export function ThreadRoutinesScreen() {
               error={failure?.routineId === routine.id ? failure.message : null}
               routine={routine}
               onApprove={() => {
-                const current = snapshot?.routines?.find((item) => item.id === routine.id);
+                const current = routines?.find((item) => item.id === routine.id);
 
                 if (!current) return;
                 void perform(

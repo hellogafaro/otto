@@ -45,6 +45,7 @@ export const createWsOrchestrationHandlers = ({
   projectionGroups,
   projectionSnapshotQuery,
   projectionBots,
+  routineRepository,
   checkpointDiffQuery,
   providerRegistry,
   subscriptionAuth,
@@ -65,6 +66,7 @@ export const createWsOrchestrationHandlers = ({
   | "projectionGroups"
   | "projectionSnapshotQuery"
   | "projectionBots"
+  | "routineRepository"
   | "checkpointDiffQuery"
   | "providerRegistry"
   | "subscriptionAuth"
@@ -86,11 +88,9 @@ export const createWsOrchestrationHandlers = ({
       if (command.type !== "routine.update" || command.regenerateTitle !== true) return command;
       const { regenerateTitle: _, ...update } = command;
 
-      const routine = (yield* projectionSnapshotQuery.getShellSnapshot()).routines?.find(
-        (candidate) => candidate.id === command.routineId,
-      );
+      const routine = yield* routineRepository.getById(command.routineId);
 
-      if (routine === undefined || Option.isNone(textGeneration)) {
+      if (routine === null || routine.deletedAt !== null || Option.isNone(textGeneration)) {
         return yield* new OrchestrationDispatchCommandError({
           message: "That routine title cannot be generated here.",
         });

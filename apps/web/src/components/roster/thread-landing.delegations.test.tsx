@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   providersAtom: Symbol("providers"),
   snapshotAtom: Symbol("snapshot"),
   peopleAtom: Symbol("people"),
+  routineCacheAtom: Symbol("routine-cache"),
   snapshot: null as OrchestrationShellSnapshot | null,
   bots: [] as Bot[],
   groups: [] as Group[],
@@ -46,6 +47,7 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...actual,
     useCallback: reactHookHarness.useCallback,
+    useContext: () => ({ update: () => undefined }),
     useEffect: () => undefined,
     useId: () => "test-id",
     useMemo: reactHookHarness.useMemo,
@@ -61,12 +63,20 @@ vi.mock("react/compiler-runtime", async () => {
 });
 
 vi.mock("@effect/atom-react", () => ({
+  RegistryContext: Symbol("registry"),
   useAtomValue: <T,>(atom: T) =>
     atom === mocks.snapshotAtom
       ? mocks.snapshot
       : atom === mocks.peopleAtom
         ? { current: null, host: null }
-        : [],
+        : atom === mocks.routineCacheAtom
+          ? { routines: new Map(), runs: new Map(), receiptSources: new Map() }
+          : [],
+}));
+
+vi.mock("../../state/routines", () => ({
+  routineCacheAtom: () => mocks.routineCacheAtom,
+  withRoutines: <T,>(cache: T) => cache,
 }));
 
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => vi.fn() }));

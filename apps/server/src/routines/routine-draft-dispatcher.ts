@@ -21,6 +21,7 @@ import * as Schema from "effect/Schema";
 import { canSeeRoutine, chatPeople } from "../orchestration/group-visibility.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
+import { RoutineRepository } from "./repository.ts";
 
 const decodeRoutineTimeZone = Schema.decodeUnknownEffect(RoutineTimeZone);
 
@@ -113,6 +114,7 @@ export class RoutineDraftDispatcher extends Context.Service<
 const make = Effect.gen(function* () {
   const engine = yield* OrchestrationEngineService;
   const snapshots = yield* ProjectionSnapshotQuery;
+  const routineRepository = yield* RoutineRepository;
   const crypto = yield* Crypto.Crypto;
   const decodeTimezone = decodeRoutineTimeZone;
   const fail = (message: string) => new RoutineDraftError({ message });
@@ -149,7 +151,7 @@ const make = Effect.gen(function* () {
 
       const requestedSkills = new Set((input.skillNames ?? []).map((name) => name.toLowerCase()));
 
-      const skillAssignmentIds = (snapshot.skillAssignments ?? [])
+      const skillAssignmentIds = (yield* routineRepository.listSkillAssignments)
         .filter(
           (assignment) =>
             assignment.botId === botId && requestedSkills.has(assignment.name.toLowerCase()),
@@ -246,7 +248,7 @@ const make = Effect.gen(function* () {
       if (!bot) return yield* fail("The current bot is unavailable.");
 
       return routineStatusesForBot(
-        snapshot.routines ?? [],
+        yield* routineRepository.listAll,
         botId,
         chatPeople(thread, snapshot.groups),
       );
@@ -288,7 +290,7 @@ const make = Effect.gen(function* () {
 
       const availableRoutineIds = new Set(
         routineStatusesForBot(
-          snapshot.routines ?? [],
+          yield* routineRepository.listAll,
           botId,
           chatPeople(thread, snapshot.groups),
         ).map((routine) => routine.id),
@@ -348,7 +350,7 @@ const make = Effect.gen(function* () {
 
       const people = chatPeople(thread, snapshot.groups);
 
-      const routine = (snapshot.routines ?? []).find(
+      const routine = (yield* routineRepository.listAll).find(
         (candidate) =>
           candidate.id === routineId &&
           candidate.botId === botId &&

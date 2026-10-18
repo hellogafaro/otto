@@ -132,6 +132,7 @@ export const WS_METHODS = {
   memoryDelete: "memory.delete",
   memoryDecide: "memory.decide",
   botUsage: "bot.usage",
+  routinesGet: "routines.get",
   routinesList: "routines.list",
   routinesListRuns: "routines.listRuns",
   routinesListThreadRuns: "routines.listThreadRuns",

@@ -101,6 +101,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       runtimeEvents,
       orchestrationEngine,
       projectionSnapshotQuery,
+      routineRepository,
       projectionMessages,
       projectionTurns,
       resolvedByThread,
@@ -386,6 +387,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       webFetch,
       runPromise,
       projectionSnapshotQuery,
+      routineRepository,
       projectionMessages,
       storeChatFile: (threadId, file) =>
         runPromise(storeChatFile(fileSystem, path, config.attachmentsDir, threadId, file)),
