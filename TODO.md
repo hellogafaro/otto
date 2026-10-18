@@ -50,6 +50,7 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **More page actions**, for example Copy link and Copy ID on a task.
 - **"New single chat" in automations**: a run can start a fresh chat.
 - **Global search** in the command palette.
+- **Shortcuts for menu actions**: real shortcuts for chat, task, project and other actions, shown in their menus, for example Rename R, Pin P, Mark unread U, Snooze H, Archive E, Delete ⌘⌫, Copy link ⌘⇧, and Copy ID ⌘. (letters work when you aren't typing).
 
 ## Not verified yet
 
@@ -58,4 +59,3 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - Desktop tabs in fullscreen, and on Windows and Linux.
 - Packaged desktop builds.
 - Compaction near the 400k-token context limit.
-- **Shortcuts for menu actions**: real shortcuts for chat, task, project and other actions, shown in their menus, for example Rename R, Pin P, Mark unread U, Snooze H, Archive E, Delete ⌘⌫, Copy link ⌘⇧, and Copy ID ⌘. (letters work when you aren't typing). After the approval shortcuts' keybinding changes.

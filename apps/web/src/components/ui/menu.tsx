@@ -8,7 +8,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { createContext, use } from "react";
 import type * as React from "react";
 
-import { Kbd, KbdGroup } from "~/components/ui/kbd";
+import { Kbd } from "~/components/ui/kbd";
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 
@@ -87,7 +87,7 @@ function MenuKey({ className }: { className?: string }) {
     <span
       aria-hidden
       className={cn(
-        "-me-0.5 sm:-me-1 ms-auto shrink-0 ps-4 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
+        "-me-0.5 sm:-me-1 ms-auto flex shrink-0 ps-4 group-has-[[data-slot=menu-filter]:not(:placeholder-shown)]/menu:hidden",
         className,
       )}
       data-slot="menu-key"
@@ -193,10 +193,11 @@ function MenuItem({
   variant?: "default" | "destructive";
 }) {
   return (
-    // Otto: Menu rows are 28px on desktop, like radio, checkbox and submenu rows.
+    // Otto: Menu rows are 28px on desktop, like radio, checkbox and submenu rows. A command's
+    // shortcut caps sit 24px from the label and as far from the right edge as from the top.
     <MenuPrimitive.Item
       className={cn(
-        "[&>svg]:-mx-0.5 flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-70 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current [&>svg]:pointer-events-none [&>svg]:shrink-0",
+        "[&>svg]:-mx-0.5 [&>[data-slot=kbd-group]]:-me-0.5 sm:[&>[data-slot=kbd-group]]:-me-1 [&>[data-slot=kbd-group]]:ps-4 flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-secondary data-inset:ps-8 data-[variant=destructive]:text-destructive-foreground data-highlighted:text-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&>svg:not([class*='opacity-'])]:opacity-70 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4 [&>svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:[&>svg:not([class*='text-'])]:text-current [&>svg]:pointer-events-none [&>svg]:shrink-0",
         className,
       )}
       data-inset={inset}
@@ -311,16 +312,6 @@ function MenuSeparator({ className, ...props }: MenuPrimitive.Separator.Props) {
   );
 }
 
-function MenuShortcut({ className, ...props }: React.ComponentProps<"kbd">) {
-  return (
-    <KbdGroup
-      className={cn("-me-0.5 sm:-me-1 ms-auto ps-4", className)}
-      data-slot="menu-shortcut"
-      {...props}
-    />
-  );
-}
-
 function MenuSub(props: MenuPrimitive.SubmenuRoot.Props) {
   return <MenuPrimitive.SubmenuRoot data-slot="menu-sub" {...props} />;
 }
@@ -403,8 +394,6 @@ export {
   MenuGroupLabel as DropdownMenuLabel,
   MenuSeparator,
   MenuSeparator as DropdownMenuSeparator,
-  MenuShortcut,
-  MenuShortcut as DropdownMenuShortcut,
   MenuSub,
   MenuSub as DropdownMenuSub,
   MenuSubTrigger,
