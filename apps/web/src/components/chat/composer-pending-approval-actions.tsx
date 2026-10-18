@@ -1,5 +1,6 @@
 import {
   OTTO_CREATE_ROUTINE_TOOL_NAME,
+  type ApprovalKeybindingCommand,
   type ApprovalRequestId,
   type ProviderApprovalDecision,
   type ProviderApprovalOption,
@@ -9,6 +10,7 @@ import {
 import { memo } from "react";
 import { useI18n } from "~/i18n";
 import { Button } from "../ui/button";
+import { type ApprovalShortcutHandlers, useApprovalShortcuts } from "./use-approval-shortcuts";
 
 interface ComposerPendingApprovalActionsProps {
   requestId: ApprovalRequestId;
@@ -18,6 +20,8 @@ interface ComposerPendingApprovalActionsProps {
   proposal?: boolean | undefined;
   isResponding: boolean;
   options?: ReadonlyArray<ProviderApprovalOption> | undefined;
+  /** The chat's front request answers the approval shortcuts and shows them. */
+  shortcuts?: boolean;
   onRespondToApproval: (
     requestId: ApprovalRequestId,
     decision: ProviderApprovalDecision,
@@ -72,6 +76,29 @@ function commandApprovalOptions(
   ];
 }
 
+/** Which shown choice each approval shortcut picks: allow once, the broadest allow, the refusal. */
+function shortcutDecisions(
+  options: ReadonlyArray<ProviderApprovalOption>,
+): ReadonlyMap<ProviderApprovalDecision, ApprovalKeybindingCommand> {
+  const shown = new Set(options.map((option) => option.decision));
+
+  const first = (...decisions: ProviderApprovalDecision[]) =>
+    decisions.find((decision) => shown.has(decision));
+
+  const commands = new Map<ProviderApprovalDecision, ApprovalKeybindingCommand>();
+  const approve = first("accept");
+  const allowAll = first("acceptAlways", "acceptForSession");
+  const deny = first("decline", "cancel");
+
+  if (approve) commands.set(approve, "approval.approve");
+
+  if (allowAll) commands.set(allowAll, "approval.allowAll");
+
+  if (deny) commands.set(deny, "approval.deny");
+
+  return commands;
+}
+
 export const ComposerPendingApprovalActions = memo(function ComposerPendingApprovalActions({
   requestId,
   requestKind,
@@ -79,6 +106,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
   proposal = false,
   isResponding,
   options: providedOptions,
+  shortcuts = false,
   onRespondToApproval,
 }: ComposerPendingApprovalActionsProps) {
   const { t } = useI18n();
@@ -93,10 +121,22 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
         ? commandApprovalOptions(options, t)
         : options;
 
+  const commands = shortcutDecisions(visibleOptions);
+  const handlers: ApprovalShortcutHandlers = {};
+
+  for (const [decision, command] of commands) {
+    handlers[command] = () => {
+      if (!isResponding) void onRespondToApproval(requestId, decision);
+    };
+  }
+
+  const shortcutHint = useApprovalShortcuts(shortcuts, handlers);
+
   return (
     <>
       {visibleOptions.map((option, index) => {
         const allows = option.decision.startsWith("accept");
+        const command = commands.get(option.decision);
 
         return (
           <Button
@@ -110,6 +150,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
             onClick={() => void onRespondToApproval(requestId, option.decision)}
           >
             <span className="max-w-40 truncate">{option.label}</span>
+            {command ? shortcutHint(command) : null}
           </Button>
         );
       })}

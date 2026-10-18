@@ -126,6 +126,7 @@ export function InlineApproval({
   currentPersonId,
   delegateTo,
   response,
+  shortcuts = false,
   onRespond,
 }: {
   readonly approval: ApprovalRecord;
@@ -138,6 +139,8 @@ export function InlineApproval({
   /** The bot a delegate request hands work to, by name. */
   readonly delegateTo: string | null;
   readonly response: { readonly responding: boolean; readonly error: string | null };
+  /** The chat's front request answers the approval shortcuts. */
+  readonly shortcuts?: boolean;
   readonly onRespond: (
     requestId: ApprovalRequestId,
     decision: ProviderApprovalDecision,
@@ -237,6 +240,7 @@ export function InlineApproval({
               proposal={isProposal(approval)}
               isResponding={response.responding}
               options={options}
+              shortcuts={shortcuts}
               onRespondToApproval={onRespond}
             />
           </QuestionnaireActions>

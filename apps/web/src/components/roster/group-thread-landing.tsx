@@ -255,6 +255,7 @@ export function GroupThreadLanding({
   }, [groupId, runtime.linkedThreadRef?.environmentId, runtime.linkedThreadRef?.threadId]);
 
   const waitingForApproval = approvalState.pending.length > 0;
+  const shortcutApprovalId = approvalState.pending[0]?.requestId ?? null;
   const pendingUserInput = runtime.pendingUserInputs[0] ?? null;
 
   const waitingForUserInput =
@@ -458,6 +459,7 @@ export function GroupThreadLanding({
                           : null
                       }
                       response={approvalState.responseFor(item.approval.requestId)}
+                      shortcuts={item.approval.requestId === shortcutApprovalId}
                       onRespond={approvalState.respond}
                     />
                   );
@@ -609,7 +611,7 @@ export function GroupThreadLanding({
                 />
               ) : null}
               <BotPromptComposer
-                typeToFocus={!waitingForUserInput}
+                focusOnEnter={!waitingForUserInput}
                 mentionScope={mentionScope}
                 commandCatalog={composerCatalog}
                 onAddressedBotChange={setAddressedBotId}
@@ -631,11 +633,13 @@ export function GroupThreadLanding({
                       onSubmit={() => {
                         void runtime.submitPendingUserInputAnswers();
                       }}
+                      shortcuts={shortcutApprovalId === null}
                     />
                   ) : memoryApprovals.length > 0 && runtime.linkedThreadRef ? (
                     <MemoryApprovalPrompt
                       threadRef={runtime.linkedThreadRef}
                       approvals={memoryApprovals}
+                      shortcuts={shortcutApprovalId === null}
                     />
                   ) : null
                 }

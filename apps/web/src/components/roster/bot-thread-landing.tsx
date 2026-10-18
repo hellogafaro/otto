@@ -354,6 +354,7 @@ export function BotThreadLanding({
   );
 
   const waitingForApproval = approvalState.pending.length > 0;
+  const shortcutApprovalId = approvalState.pending[0]?.requestId ?? null;
 
   const transcriptRows = withInlineApprovals(timelineItems, approvalState.approvals, (item) =>
     Predicate.isTagged(item, "Message")
@@ -509,6 +510,7 @@ export function BotThreadLanding({
                             : null
                         }
                         response={approvalState.responseFor(item.approval.requestId)}
+                        shortcuts={item.approval.requestId === shortcutApprovalId}
                         onRespond={approvalState.respond}
                       />
                     ) : Predicate.isTagged(item, "Receipt") ? (
@@ -637,6 +639,7 @@ export function BotThreadLanding({
                       onSubmit={() => {
                         void runtime.submitPendingUserInputAnswers();
                       }}
+                      shortcuts={shortcutApprovalId === null}
                     />
                   </div>
                 </div>
@@ -694,7 +697,7 @@ export function BotThreadLanding({
                   />
                 ) : null}
                 <BotPromptComposer
-                  typeToFocus={!waitingForUserInput}
+                  focusOnEnter={!waitingForUserInput}
                   mentionScope={mentionScope}
                   commandCatalog={engineCatalog}
                   botName={bot.name}
@@ -705,6 +708,7 @@ export function BotThreadLanding({
                       <MemoryApprovalPrompt
                         threadRef={runtime.linkedThreadRef}
                         approvals={memoryApprovals}
+                        shortcuts={shortcutApprovalId === null && !waitingForUserInput}
                       />
                     ) : null
                   }

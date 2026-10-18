@@ -121,19 +121,37 @@ describe("KeybindingsSettings.logic", () => {
   it("groups default bindings by purpose and collapses numbered series", () => {
     const groups = buildKeybindingGroups(buildKeybindingRows(DEFAULT_RESOLVED_KEYBINDINGS));
 
-    expect(groups.map((group) => group.id)).toEqual(["general", "chats", "composer", "layout"]);
+    expect(groups.map((group) => group.id)).toEqual([
+      "general",
+      "navigation",
+      "chats",
+      "composer",
+      "layout",
+    ]);
     const chats = groups.find((group) => group.id === "chats");
-    expect(chats?.rowCount).toBe(9);
-    expect(chats?.items).toEqual([
+    expect(chats?.rowCount).toBe(14);
+    expect(chats?.items[2]).toEqual(
       expect.objectContaining({
         type: "series",
         series: expect.objectContaining({
           id: "thread.jump",
           title: "Jump to chat 1–9",
           rangeKey: "mod+1–9",
-          when: "",
+          when: "!desktop",
         }),
       }),
+    );
+    expect(
+      chats?.items.map((item) =>
+        item.type === "row" ? [commandLabel(item.row.command), item.row.key] : null,
+      ),
+    ).toEqual([
+      ["Next chat", "j"],
+      ["Previous chat", "k"],
+      null,
+      ["Approve", "mod+enter"],
+      ["Allow all", "mod+shift+enter"],
+      ["Deny", "mod+shift+backspace"],
     ]);
     const composer = groups.find((group) => group.id === "composer");
     expect(composer?.items.map((item) => item.type)).toEqual(["row", "series"]);
@@ -145,13 +163,46 @@ describe("KeybindingsSettings.logic", () => {
     const general = groups.find((group) => group.id === "general");
     expect(
       general?.items.map((item) => (item.type === "row" ? commandLabel(item.row.command) : "")),
-    ).toEqual(["Open command palette"]);
+    ).toEqual([
+      "Open command palette",
+      "Open settings",
+      "Open settings",
+      "Show keyboard shortcuts",
+    ]);
+    const navigation = groups.find((group) => group.id === "navigation");
+    expect(
+      navigation?.items.map((item) =>
+        item.type === "row" ? [commandLabel(item.row.command), item.row.key] : null,
+      ),
+    ).toEqual([
+      ["Home", "alt+1"],
+      ["Notifications", "alt+2"],
+      ["Chats", "alt+3"],
+      ["Routines", "alt+4"],
+      ["Tasks", "alt+5"],
+      ["Projects", "alt+6"],
+      ["Library", "alt+7"],
+    ]);
     // No default depends on the removed terminal or browser preview.
     expect(
       groups.flatMap((group) =>
         group.items.flatMap((item) => (item.type === "row" ? [item.row.when] : [])),
       ),
-    ).toEqual(["", "", "", ""]);
+    ).toEqual([
+      "",
+      "!desktop",
+      "desktop",
+      "!inputFocus",
+      ...Array.from({ length: 7 }, () => ""),
+      "!inputFocus",
+      "!inputFocus",
+      "approvalPending",
+      "approvalPending",
+      "approvalPending",
+      "",
+      "",
+      "",
+    ]);
   });
 
   it("drops the range shortcut when a series step was customized", () => {
@@ -283,8 +334,8 @@ describe("KeybindingsSettings.logic", () => {
     );
     expect(options).not.toContain("chat.newLocal");
     expect(isRetiredCommand("chat.newLocal")).toBe(true);
-    expect(commandLabel("thread.previous")).toBe("Previous bot");
-    expect(commandLabel("thread.next")).toBe("Next bot");
+    expect(commandLabel("thread.previous")).toBe("Previous chat");
+    expect(commandLabel("thread.next")).toBe("Next chat");
   });
 
   it("hides bindings for retired commands", () => {

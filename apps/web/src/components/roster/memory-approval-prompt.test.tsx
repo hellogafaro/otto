@@ -41,6 +41,8 @@ vi.mock("../../state/memory", () => ({ memoryEnvironment: { decide: Symbol("deci
 
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => mocks.decide }));
 
+vi.mock("../chat/use-approval-shortcuts", () => ({ useApprovalShortcuts: () => () => null }));
+
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { MemoryApprovalPrompt } from "./memory-approval-prompt";
@@ -65,6 +67,25 @@ function textarea(node: ReactNode): TextareaElement | undefined {
 
   return textarea(node.props.children);
 }
+
+interface CardProps {
+  readonly threadRef: typeof threadRef;
+  readonly approval: MemoryApprovalRequest;
+  readonly count: number;
+  readonly shortcuts: boolean;
+}
+
+/** The prompt's card, rendered outside a renderer so its handlers are reachable. */
+function card(approvals: ReadonlyArray<MemoryApprovalRequest>): ReactNode {
+  const element = MemoryApprovalPrompt({ threadRef, approvals }) as ReactElement<
+    CardProps,
+    (props: CardProps) => ReactNode
+  >;
+
+  return element.type(element.props);
+}
+
+const label = (button: ButtonElement) => [button.props.children].flat()[0];
 
 function buttons(node: ReactNode): ButtonElement[] {
   if (Array.isArray(node)) return node.flatMap(buttons);
@@ -141,19 +162,16 @@ describe("MemoryApprovalPrompt", () => {
     expect(update).toContain("A bot wants to remember this for the workspace");
     expect(update).toContain("Replaces: Deploys happen on Fridays.");
 
-    const remove = MemoryApprovalPrompt({
-      threadRef,
-      approvals: [
-        approval("m_delete", "bot-grace", {
-          action: "delete",
-          text: "",
-          previousText: "Deploys happen on Fridays.",
-        }),
-      ],
-    });
+    const remove = card([
+      approval("m_delete", "bot-grace", {
+        action: "delete",
+        text: "",
+        previousText: "Deploys happen on Fridays.",
+      }),
+    ]);
 
     expect(renderToStaticMarkup(remove)).toContain("Delete from project memory?");
-    expect(buttons(remove).map((item) => item.props.children)).toEqual(["Reject", "Approve"]);
+    expect(buttons(remove).map(label)).toEqual(["Reject", "Approve"]);
   });
 
   it("renders nothing once every proposal is decided", () => {
@@ -162,15 +180,15 @@ describe("MemoryApprovalPrompt", () => {
     ).toBe("");
   });
 
-  it.each(["Approve", "Reject"] as const)("%s decides the proposal", async (label) => {
-    const tree = MemoryApprovalPrompt({ threadRef, approvals: [approval("m_first")] });
-    const target = buttons(tree).find((item) => item.props.children === label);
+  it.each(["Approve", "Reject"] as const)("%s decides the proposal", async (name) => {
+    const tree = card([approval("m_first")]);
+    const target = buttons(tree).find((item) => label(item) === name);
     expect(target).toBeDefined();
     target?.props.onClick();
     await vi.waitFor(() => expect(mocks.decide).toHaveBeenCalledTimes(1));
     expect(mocks.decide).toHaveBeenCalledWith({
       environmentId: threadRef.environmentId,
-      input: { id: "m_first", decision: label === "Approve" ? "approve" : "reject" },
+      input: { id: "m_first", decision: name === "Approve" ? "approve" : "reject" },
     });
   });
 
@@ -179,7 +197,7 @@ describe("MemoryApprovalPrompt", () => {
       mocks.states = [{ memoryId: "m_first", text: "Deploys happen on Mondays." }];
       mocks.setState.mockClear();
 
-      const tree = MemoryApprovalPrompt({ threadRef, approvals: [approval("m_first")] });
+      const tree = card([approval("m_first")]);
 
       const event = {
         key: "Escape",

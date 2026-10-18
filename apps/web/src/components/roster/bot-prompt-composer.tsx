@@ -82,7 +82,7 @@ export {
   type MentionBot,
   resolveBotMention,
   restoreBotStashPrompt,
-  shouldFocusBotPromptForKey,
+  shouldFocusBotPromptOnEnter,
 } from "./bot-prompt-composer.logic";
 
 const EMPTY_MENTION_BOTS: ReadonlyArray<MentionBot> = [];
@@ -92,7 +92,7 @@ export function BotPromptComposer({
   draftKey,
   disabled,
   readOnly = false,
-  typeToFocus = true,
+  focusOnEnter = true,
   mentionBots = EMPTY_MENTION_BOTS,
   mentionEveryone = false,
   mentionPeople,
@@ -116,8 +116,8 @@ export function BotPromptComposer({
   draftKey?: string;
   disabled: boolean;
   readOnly?: boolean;
-  /** Off while something else on the page owns printable keys, like an open question's letter shortcuts. */
-  typeToFocus?: boolean;
+  /** Off while something else on the page owns Enter, like an open question's submit. */
+  focusOnEnter?: boolean;
   mentionBots?: ReadonlyArray<MentionBot>;
   /** Offers `@everyone` in the picker; group chats only. */
   mentionEveryone?: boolean;
@@ -318,10 +318,9 @@ export function BotPromptComposer({
   const composerState = botComposerState({ disabled, busy, canSubmit });
   useBotComposerKeyboard({
     readOnly,
-    typeToFocus,
+    focusOnEnter,
     keybindings,
     promptInputRef,
-    persistDraft,
     stashCurrentPrompt,
   });
 
@@ -579,6 +578,11 @@ export function BotPromptComposer({
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
                     event.currentTarget.form?.requestSubmit();
+                  }
+
+                  // Esc leaves the prompt so bare-key shortcuts such as J and K reach the app.
+                  if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+                    event.currentTarget.blur();
                   }
                 }}
                 onPaste={(event) => {
