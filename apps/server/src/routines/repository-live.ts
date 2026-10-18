@@ -16,7 +16,6 @@ import {
   RoutineFailureKind,
   RoutineRun,
   RoutineHourInterval,
-  type ListOrder,
   ROUTINE_STATUSES,
   type RoutineListSort,
   type RoutineListView,
@@ -28,6 +27,7 @@ import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { toPersistenceSqlError } from "../persistence/errors.ts";
+import { listKeyset, type ListSortSpec } from "../persistence/list-keyset.ts";
 import { RoutineRepository, type RoutineClaim, type RoutineRepositoryShape } from "./repository.ts";
 
 const RoutineRow = Schema.Struct({
@@ -160,18 +160,8 @@ const STATUS_RANK = `CASE ${STATUS_SQL} ${ROUTINE_STATUSES.map(
   (status, rank) => `WHEN '${status}' THEN ${rank}`,
 ).join(" ")} END`;
 
-interface SortKey {
-  readonly sql: string;
-  readonly direction: ListOrder;
-  /** Kept whichever way the list runs, so unscheduled routines stay last. */
-  readonly fixed?: true;
-}
-
 /** Each sort's natural order and its keys; the routine id breaks ties so every row has a place. */
-const ROUTINE_SORTS: Record<
-  RoutineListSort,
-  { readonly natural: ListOrder; readonly keys: SortKey[] }
-> = {
+const ROUTINE_SORTS: Record<RoutineListSort, ListSortSpec> = {
   status: {
     natural: "asc",
     keys: [
@@ -285,34 +275,10 @@ const make = Effect.gen(function* () {
   );
 
   const list: RoutineRepositoryShape["list"] = ({ query, viewer, limit, after }) => {
-    const sort = ROUTINE_SORTS[query.sort ?? "status"];
-    const reversed = query.order !== undefined && query.order !== sort.natural;
-
-    const keys = sort.keys.map((key) => ({
-      sql: key.sql,
-      direction:
-        reversed && !key.fixed ? (key.direction === "asc" ? "desc" : "asc") : key.direction,
-    }));
-
+    const keyset = listKeyset(ROUTINE_SORTS[query.sort ?? "status"], query.order, after);
     const filter = routineFilterSql(query, viewer);
-    const conditions = [...filter.conditions];
-    const params: Array<string | number> = [...filter.params];
-
-    // Keyset paging: rows strictly after the last key, comparing one sort key at a time.
-    if (after !== null && after.length === keys.length) {
-      conditions.push(
-        `(${keys
-          .map((key, index) =>
-            [
-              ...keys.slice(0, index).map((earlier) => `${earlier.sql} = ?`),
-              `${key.sql} ${key.direction === "asc" ? ">" : "<"} ?`,
-            ].join(" AND "),
-          )
-          .join(" OR ")})`,
-      );
-
-      keys.forEach((_, index) => params.push(...after.slice(0, index + 1)));
-    }
+    const conditions = [...filter.conditions, ...(keyset.after ? [keyset.after.sql] : [])];
+    const params = [...filter.params, ...(keyset.after?.params ?? [])];
 
     const rows = sql.unsafe(
       `
@@ -328,10 +294,10 @@ const make = Effect.gen(function* () {
           next_run_at AS "nextRunAt", last_run_at AS "lastRunAt",
           latest_result_json AS "latestResult", latest_failure_json AS "latestFailure",
           created_at AS "createdAt", updated_at AS "updatedAt", deleted_at AS "deletedAt",
-          json_array(${keys.map((key) => key.sql).join(", ")}) AS "sortKey"
+          ${keyset.sortKeySql} AS "sortKey"
         FROM projection_routines
         WHERE ${conditions.join(" AND ")}
-        ORDER BY ${keys.map((key) => `${key.sql} ${key.direction.toUpperCase()}`).join(", ")}
+        ORDER BY ${keyset.orderBySql}
         LIMIT ?
       `,
       [...params, limit + 1],

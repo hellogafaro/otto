@@ -3,7 +3,7 @@ import type { ListOrder } from "@otto/contracts";
 export interface ListSortKey {
   readonly sql: string;
   readonly direction: ListOrder;
-  /** Kept whichever way the list runs, such as undated tasks last or folders first. */
+  /** Kept whichever way the list runs: undated tasks and unscheduled routines last, folders first. */
   readonly fixed?: true;
 }
 
