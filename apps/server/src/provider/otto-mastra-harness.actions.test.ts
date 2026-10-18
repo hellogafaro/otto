@@ -84,28 +84,42 @@ describe("Otto action classifier", () => {
         removeSecret,
       ),
     ).toBe(false);
-    expect(alwaysAllowKinds("custom_tool", { operation: "frobnicate" })).toBeNull();
   });
 
-  it("offers Always allow for the intents an Otto tool defines, never an unknown one", () => {
-    const generate = { operation: "generate", prompt: "A red kite" };
+  it("runs connector actions it cannot classify and asks for each critical one in a batch", () => {
+    for (const [toolName, input] of [
+      ["notion_pages", { operation: "append", pageId: "page-1" }],
+      ["custom_api", { method: "PATCH", path: "/v1/issues/1" }],
+      ["COMPOSIO_MANAGE_CONNECTIONS", { toolkits: [{ name: "gmail", action: "add" }] }],
+      [
+        "COMPOSIO_MULTI_EXECUTE_TOOL",
+        { tools: [{ tool_slug: "LINEAR_CREATE_LINEAR_ISSUE", arguments: { title: "Bug" } }] },
+      ],
+    ] as const) {
+      expect(ottoActionNeedsApproval(toolName, input)).toBe(false);
+    }
 
-    expect(ottoActionNeedsApproval("image_create", generate)).toBe(true);
-    expect(alwaysAllowKinds("image_create", generate)).toEqual([null]);
-    expect(alwaysAllowKinds("image_create", { ...generate, operation: "edit" })).toEqual([null]);
-    expect(alwaysAllowKinds("connection_check", { id: "linear", action: "authenticate" })).toEqual([
-      null,
-    ]);
-    expect(
-      alwaysAllowKinds("message_react", { messageId: "message-1", emoji: "👍", action: "add" }),
-    ).toEqual([null]);
-    expect(
-      alwaysAllowKinds("message_react", { messageId: "message-1", emoji: "👍", action: "remove" }),
-    ).toEqual(["delete"]);
+    const batch = (...slugs: string[]) => ({
+      tools: slugs.map((tool_slug) => ({ tool_slug, arguments: {} })),
+    });
 
-    expect(alwaysAllowKinds("connection_check", { id: "linear", action: "frobnicate" })).toBeNull();
-    expect(alwaysAllowKinds("image_create", { ...generate, method: "patch" })).toBeNull();
-    expect(alwaysAllowKinds("notion_pages", { operation: "append", pageId: "page-1" })).toBeNull();
+    const sendEmail = batch("LINEAR_CREATE_LINEAR_ISSUE", "GMAIL_SEND_EMAIL");
+
+    expect(ottoActionNeedsApproval("COMPOSIO_MULTI_EXECUTE_TOOL", sendEmail)).toBe(true);
+    expect(alwaysAllowKinds("COMPOSIO_MULTI_EXECUTE_TOOL", sendEmail)).toEqual(["send"]);
+    expect(
+      new Set(
+        alwaysAllowKinds(
+          "COMPOSIO_MULTI_EXECUTE_TOOL",
+          batch("GMAIL_SEND_EMAIL", "GITHUB_DELETE_A_REPOSITORY"),
+        ),
+      ),
+    ).toEqual(new Set(["send", "delete"]));
+    expect(
+      ottoActionNeedsApproval("COMPOSIO_MANAGE_CONNECTIONS", {
+        toolkits: [{ name: "gmail", action: "remove", account_id: "account-1" }],
+      }),
+    ).toBe(true);
   });
 
   it("requires approval when nested input exceeds the inspection limit", () => {

@@ -186,7 +186,7 @@ describe("AgentControllerLive Always allow", () => {
     );
   });
 
-  it.effect("offers and keeps Always allow for an Otto tool's own intent", () => {
+  it.effect("asks before a connector batch sends, and keeps Always allow to that kind", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
@@ -194,22 +194,23 @@ describe("AgentControllerLive Always allow", () => {
       Effect.gen(function* () {
         const { events, saved, allowAlways } = yield* startBotTurn(mastra);
 
-        const generate = (toolCallId: string) =>
+        const batch = (toolCallId: string, ...slugs: string[]) =>
           mastra.emit({
             type: "tool_approval_required",
             toolCallId,
-            toolName: "image_create",
-            args: { operation: "generate", prompt: "A red kite" },
+            toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+            args: { tools: slugs.map((tool_slug) => ({ tool_slug, arguments: {} })) },
           } as AgentControllerEvent);
 
-        generate("image-1");
+        batch("send-1", "LINEAR_CREATE_LINEAR_ISSUE", "GMAIL_SEND_EMAIL");
         yield* Effect.promise(() =>
           vi.waitFor(() =>
             expect(events).toContainEqual(
               expect.objectContaining({
                 type: "request.opened",
-                requestId: "image-1",
+                requestId: "send-1",
                 payload: expect.objectContaining({
+                  action: "send",
                   options: [
                     { decision: "decline", label: "Never" },
                     { decision: "acceptAlways", label: "Always allow" },
@@ -220,23 +221,38 @@ describe("AgentControllerLive Always allow", () => {
             ),
           ),
         );
-        yield* allowAlways("image-1");
+        yield* allowAlways("send-1");
         expect(saved).toContainEqual(
           expect.objectContaining({
             type: "bot.update",
-            alwaysAllow: expect.objectContaining({ toolName: "image_create", action: null }),
+            alwaysAllow: expect.objectContaining({
+              toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+              action: "send",
+            }),
           }),
         );
 
-        generate("image-2");
+        batch("send-2", "GMAIL_SEND_EMAIL");
+        batch("send-delete", "GMAIL_SEND_EMAIL", "GITHUB_DELETE_A_REPOSITORY");
         yield* Effect.promise(() =>
           vi.waitFor(() =>
             expect(mastra.session.respondToToolApproval).toHaveBeenCalledWith({
-              toolCallId: "image-2",
+              toolCallId: "send-2",
               decision: "approve",
             }),
           ),
         );
+        yield* Effect.promise(() =>
+          vi.waitFor(() =>
+            expect(events).toContainEqual(
+              expect.objectContaining({ type: "request.opened", requestId: "send-delete" }),
+            ),
+          ),
+        );
+        expect(mastra.session.respondToToolApproval).not.toHaveBeenCalledWith({
+          toolCallId: "send-delete",
+          decision: "approve",
+        });
         mastra.finishSend();
       }),
       bridge.service,

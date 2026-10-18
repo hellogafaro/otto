@@ -1,8 +1,5 @@
-import type { decodeOttoToolInput } from "./otto-tools/inputs.ts";
-import * as Predicate from "effect/Predicate";
 import { OTTO_DELEGATION_MAX_CONCURRENCY, OTTO_DELEGATION_MAX_DEPTH } from "./otto-delegation.ts";
 import {
-  OttoToolApprovalClass,
   OttoProtectedApprovalClass,
   OTTO_PROTECTED_APPROVAL_CLASSES,
   OttoToolCapability,
@@ -47,72 +44,22 @@ export function classifyOttoSensitivePath(path: string): OttoProtectedApprovalCl
     : undefined;
 }
 
-export function classifyOttoExternalCommand(
-  command: string,
-): OttoProtectedApprovalClass | undefined {
-  if (/\b(stripe|checkout|payment|purchase|buy)\b/i.test(command)) return "pay";
-
-  if (/\b(rm|rmdir|unlink|trash|delete|drop|destroy|wipe)\b/i.test(command)) return "delete";
-
-  if (/\b(secret|credential|token|password|keychain|\.env)\b/i.test(command)) return "secrets";
-
-  if (
-    /\b(deploy|release|publish|production|kubectl|terraform\s+apply|git\s+push|gh\s+pr\s+(?:create|merge))\b/i.test(
-      command,
-    )
-  )
-    return "production";
-
-  if (
-    /\b(send|post|comment|message|mail|curl\b[^\n]*(?:-X\s*POST|--request\s+POST|-d\b|--data(?:-raw|-binary|-urlencode)?\b))\b/i.test(
-      command,
-    )
-  )
-    return "send";
-
-  return undefined;
-}
-
-export function ottoToolApprovalForInput(
-  tool: OttoToolDefinition,
-  input: Parameters<typeof decodeOttoToolInput>[1],
-  context?: { readonly workspaceType?: OttoToolWorkspaceType },
-): OttoToolApprovalClass {
-  if (!Predicate.isObjectOrArray(input)) return tool.approval;
-
-  if (tool.id === "shell" && "command" in input && Predicate.isString(input.command)) {
-    const protectedClass = classifyOttoExternalCommand(input.command);
-
-    if (protectedClass) return protectedClass;
-  }
-
-  if (tool.id === "shell" && context?.workspaceType === "local") return "user-computer";
-
-  return tool.approval;
-}
-
+/**
+ * A cloud sandbox contains whatever a bot runs in it, so its commands never ask. Without one, a
+ * bot's shell runs on the server host and asks every time. Other tools ask by their risk class.
+ */
 export function ottoToolRequiresApproval(
   tool: OttoToolDefinition,
-  context: Pick<OttoToolAvailabilityContext, "localFullAccess"> & {
-    readonly workspaceType?: OttoToolWorkspaceType;
-  },
-  input?: Parameters<typeof decodeOttoToolInput>[1],
+  context: { readonly workspaceType?: OttoToolWorkspaceType },
 ): boolean {
-  const approval = ottoToolApprovalForInput(tool, input, context);
-
-  if (tool.id === "shell" && context.workspaceType === "local") return true;
+  if (tool.id === "shell") return context.workspaceType === "local";
 
   // A skill proposal is saved as the person who approves it.
   if (tool.id === "skill_create" || tool.id === "skill_update") return true;
 
-  if (
-    Array.from(OTTO_PROTECTED_APPROVAL_CLASSES).some(
-      (protectedClass) => protectedClass === approval,
-    )
-  )
-    return true;
-
-  return approval === "user-computer" && !(context.localFullAccess && input !== undefined);
+  return Array.from(OTTO_PROTECTED_APPROVAL_CLASSES).some(
+    (protectedClass) => protectedClass === tool.approval,
+  );
 }
 
 export {

@@ -5,7 +5,6 @@ import {
   OTTO_DELEGATION_CONTEXT_MAX_CHARS,
   OTTO_TOOL_CATALOG,
   OttoToolReceipt,
-  ottoToolApprovalForInput,
   ottoToolRequiresApproval,
   decodeOttoToolInput,
   filterOttoTools,
@@ -64,7 +63,7 @@ describe("Otto tool contracts", () => {
     expect(approval("connection_read")).toBe("none");
     expect(approval("connection_create")).toBe("secrets");
     expect(approval("connection_update")).toBe("secrets");
-    expect(approval("connection_check")).toBe("production");
+    expect(approval("connection_check")).toBe("none");
     expect(approval("connection_delete")).toBe("delete");
   });
 
@@ -138,7 +137,7 @@ describe("Otto tool contracts", () => {
     );
   });
 
-  it("types durable bot management without bypassing send or cancellation approval", () => {
+  it("types durable bot management", () => {
     expect(decodeOttoToolInput("bot_create", { name: "Research" })).toEqual({
       name: "Research",
     });
@@ -148,8 +147,6 @@ describe("Otto tool contracts", () => {
     expect(decodeOttoToolInput("delegate_stop", { botId: "bot-research" })).toEqual({
       botId: "bot-research",
     });
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate")?.approval).toBe("none");
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "delegate_stop")?.approval).toBe("delete");
   });
 
   it("decodes message_post input and posts without approval", () => {
@@ -187,27 +184,38 @@ describe("Otto tool contracts", () => {
     ).toThrow();
   });
 
-  it("validates message reactions and keeps them approval-gated", () => {
+  it("validates message reactions", () => {
     const input = { messageId: "message-1", emoji: "👍", action: "add" as const };
     expect(decodeOttoToolInput("message_react", input)).toEqual(input);
     expect(() => decodeOttoToolInput("message_react", { ...input, action: "toggle" })).toThrow();
-    expect(OTTO_TOOL_CATALOG.find((tool) => tool.id === "message_react")?.approval).toBe("send");
   });
 
-  it("never lets full access bypass protected commands or paths", () => {
-    const shell = OTTO_TOOL_CATALOG.find((tool) => tool.id === "shell")!;
+  it("asks only for shell on the server host, and for risky tools and proposals", () => {
+    const tool = (id: string) => OTTO_TOOL_CATALOG.find((entry) => entry.id === id)!;
 
-    expect(ottoToolApprovalForInput(shell, { command: "git push origin main" })).toBe("production");
-    expect(
-      ottoToolRequiresApproval(
-        shell,
-        { localFullAccess: true },
-        { command: "git push origin main" },
-      ),
-    ).toBe(true);
-    expect(
-      ottoToolRequiresApproval(shell, { localFullAccess: true }, { command: "rm -rf build" }),
-    ).toBe(true);
+    expect(ottoToolRequiresApproval(tool("shell"), { workspaceType: "cloud" })).toBe(false);
+    expect(ottoToolRequiresApproval(tool("shell"), { workspaceType: "local" })).toBe(true);
+
+    for (const id of [
+      "connection_create",
+      "connection_update",
+      "connection_delete",
+      "skill_create",
+    ]) {
+      expect(ottoToolRequiresApproval(tool(id), { workspaceType: "cloud" })).toBe(true);
+    }
+
+    for (const id of [
+      "message_post",
+      "message_react",
+      "image_create",
+      "connection_check",
+      "delegate_stop",
+      "task_update",
+      "library_update",
+    ]) {
+      expect(ottoToolRequiresApproval(tool(id), { workspaceType: "cloud" })).toBe(false);
+    }
   });
 
   it("decodes non-fatal typed receipts", () => {
