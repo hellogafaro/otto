@@ -150,6 +150,22 @@ If you ask a bot to create a routine in chat, review its proposed name, schedule
 instructions before selecting **Create routine**. If those details are missing, the review card says
 so instead of guessing a name or schedule.
 
+### Start a routine on an app event
+
+A routine can start when something happens in a connected app instead of on a schedule, for example
+"when a new email arrives in my Gmail, label it". Ask the bot in chat. It proposes the routine with
+the app event, and the review card shows **When** the event happens **in** the app, with the account
+it watches, before you select **Create routine**. The app must be connected under **Settings >
+Integrations**, with an account the bot may use. An app's page in **Customize** lists the events it
+offers under **Triggers**.
+
+Each event starts one run, which posts in the chat you picked for the routine and gives the bot the
+event's details. If the bot is still busy in that chat, the run waits until it finishes. A paused
+routine ignores events, and an event that waits while you pause the routine is dropped. The routine's
+page shows **Trigger** and **Account** in place of its schedule. **Not live** next to the trigger
+means the server is not receiving events yet: whoever runs Otto must set its public https address.
+To watch a different event or account, ask the bot for a new routine and delete the old one.
+
 If a required connector, provider, bot, or workspace is unavailable, Otto pauses the routine and
 adds one item to the bot inbox, which you can open from **Settings > Advanced > Bot inbox**. The routine card
 says it was paused and points you to the bot inbox. Fix the dependency, then resume the routine. Restoring an archived bot does not resume its routines.

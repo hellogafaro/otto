@@ -28,6 +28,10 @@ files are deprecated, so the template is set up once in Railway's template compo
    the address Railway's edge forwards. Bots' computers (Boat and the other sandboxes) are added in
    Settings → Computer.
 
+   `COMPOSIO_API_KEY` connects one Composio project to this server. Use a Composio project only for
+   this server; dev and staging need their own. Routines that start on app events receive them at
+   `<OTTO_PUBLIC_URL>/webhooks/composio`, which Otto registers with that project itself.
+
 7. Publish the template and add its Deploy on Railway button here.
 
 Railway allows outbound SMTP only on paid plans; without mail, people sign in with their password and
