@@ -17,18 +17,15 @@ const FOLD_AT_PX = 480;
 export function FoldedMessage({
   children,
   className,
-  startExpanded = false,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
-  /** A reply that mounts while streaming stays open, so it never folds under its reader. */
-  readonly startExpanded?: boolean;
 }) {
   const { t } = useI18n();
   const contentRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const [long, setLong] = useState(false);
-  const [expanded, setExpanded] = useState(startExpanded);
+  const [expanded, setExpanded] = useState(false);
 
   useLayoutEffect(() => {
     const content = contentRef.current;

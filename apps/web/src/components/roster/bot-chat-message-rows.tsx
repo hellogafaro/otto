@@ -177,9 +177,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   const label = author?.name ?? t("Unavailable bot");
 
   const markdown = (
-    <FoldedMessage className="mt-1" startExpanded={message.streaming}>
-      <ChatMarkdown cwd={cwd} text={message.text} threadRef={threadRef} />
-    </FoldedMessage>
+    <ChatMarkdown className="mt-1" cwd={cwd} text={message.text} threadRef={threadRef} />
   );
 
   if (!author) {
