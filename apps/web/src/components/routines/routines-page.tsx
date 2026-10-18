@@ -7,10 +7,12 @@ import { BotId, type Routine, type RoutineThreadMode, type Visibility } from "@o
 import { useAtomValue } from "@effect/atom-react";
 import { RiAddLine, RiTimeLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import { useCreateRequest } from "../../create-request-store";
 import { useI18n } from "../../i18n";
+import { usePageActions, type PageAction } from "../../page-actions-registry";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentSnapshotAtom } from "../../state/shell";
 import { PromptDialog } from "../prompt-dialog";
@@ -90,6 +92,25 @@ export function RoutinesPage() {
   const bots = useRosterStore((state) => state.bots);
   const [creating, setCreating] = useState(false);
   const routines = (snapshot?.routines ?? []).filter((routine) => routine.lifecycle !== "deleted");
+  const openNewRoutine = useCallback(() => setCreating(true), []);
+
+  useCreateRequest("routine", Boolean(snapshot), openNewRoutine);
+
+  const pageActions = useMemo(
+    (): PageAction[] => [
+      {
+        id: "new-routine",
+        title: t("New routine"),
+        icon: RiAddLine,
+        searchTerms: ["new routine", "create", "schedule", "automation"],
+        shortcutCommand: "item.new",
+        run: openNewRoutine,
+      },
+    ],
+    [openNewRoutine, t],
+  );
+
+  usePageActions(t("Routines"), pageActions);
 
   const statusLabel = useRoutineStatusLabel();
 

@@ -501,4 +501,9 @@ export const commonLabelsCatalog = {
   Tabs: "标签页",
   "New tab": "新建标签页",
   "Close tab": "关闭标签页",
+  "Go to": "前往",
+  "New…": "新建…",
+  "Snooze…": "延后…",
+  "This task": "此任务",
+  "This routine": "此例行任务",
 } as const;

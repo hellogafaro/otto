@@ -10,7 +10,7 @@ import {
 } from "@remixicon/react";
 import * as Match from "effect/Match";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import { DetailsRow, DetailsTabs } from "../details-aside";
@@ -51,6 +51,7 @@ export function ProjectPage({
   const updateProject = useAtomCommand(projectEnvironment.update);
   const { environmentId, loaded, projects, tasks, participants } = useWorkData();
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const openNewTask = useCallback(() => setNewTaskOpen(true), []);
   const project = projects.find((candidate) => candidate.id === projectId);
   const back = { label: t("Projects"), onBack: () => void navigate({ to: "/projects" }) };
 
@@ -140,6 +141,8 @@ export function ProjectPage({
           <>
             {tabAction}
             <WorkMoreActions
+              label={t("This project")}
+              onNewTask={openNewTask}
               path={`/projects/${project.id}`}
               id={project.id}
               status={status}

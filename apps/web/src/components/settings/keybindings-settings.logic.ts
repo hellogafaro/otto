@@ -187,7 +187,13 @@ export function buildKeybindingRows(
   return rowsWithConflicts;
 }
 
-export type KeybindingGroupId = "general" | "navigation" | "chats" | "composer" | "layout";
+export type KeybindingGroupId =
+  | "general"
+  | "navigation"
+  | "items"
+  | "chats"
+  | "composer"
+  | "layout";
 
 export const KEYBINDING_GROUPS: ReadonlyArray<{
   readonly id: KeybindingGroupId;
@@ -195,6 +201,7 @@ export const KEYBINDING_GROUPS: ReadonlyArray<{
 }> = [
   { id: "general", title: "General" },
   { id: "navigation", title: "Go to" },
+  { id: "items", title: "This page" },
   { id: "chats", title: "Chats" },
   { id: "composer", title: "Composer & models" },
   { id: "layout", title: "Layout" },
@@ -213,7 +220,15 @@ const COMMAND_META: ReadonlyArray<readonly [string, string, KeybindingGroupId]> 
   ["navigation.tasks", "Tasks", "navigation"],
   ["navigation.projects", "Projects", "navigation"],
   ["navigation.library", "Library", "navigation"],
-  ["chat.new", "New chat", "chats"],
+  ["item.new", "New", "items"],
+  ["item.rename", "Rename", "items"],
+  ["item.pin", "Pin or unpin", "items"],
+  ["item.markUnread", "Mark unread", "items"],
+  ["item.snooze", "Snooze or wake", "items"],
+  ["item.archive", "Archive", "items"],
+  ["item.delete", "Delete", "items"],
+  ["item.copyLink", "Copy link", "items"],
+  ["item.copyId", "Copy ID", "items"],
   ["thread.next", "Next chat", "chats"],
   ["thread.previous", "Previous chat", "chats"],
   ["thread.jump", "Jump to chat", "chats"],
@@ -247,7 +262,8 @@ function seriesParts(command: KeybindingCommand): { id: string; index: number } 
  * Commands for surfaces Otto no longer has: the terminal drawer, diff panel,
  * file browser, project scripts, preview-panel shortcuts, local-versus-
  * worktree new chats, and chat settling. They still decode from older keybindings files, but
- * nothing handles them, so settings hides them.
+ * nothing handles them, so settings hides them. New chat still runs as the page-wide New
+ * (item.new), so settings lists only New.
  */
 const RETIRED_COMMAND_PREFIXES = ["terminal.", "diff.", "preview.", "script."] as const;
 
@@ -259,6 +275,7 @@ const RETIRED_COMMANDS = new Set([
   "rightPanel.toggleMaximized",
   "chat.newLocal",
   "thread.settle",
+  "chat.new",
 ]);
 
 export function isRetiredCommand(command: KeybindingCommand): boolean {
@@ -481,11 +498,7 @@ export function keybindingDisplayParts(value: string, platform: string): Readonl
 }
 
 /** Commands the app handles that ship without a default shortcut, so users can bind them. */
-const UNBOUND_COMMANDS: ReadonlyArray<KeybindingCommand> = [
-  "chat.new",
-  "thread.previous",
-  "thread.next",
-];
+const UNBOUND_COMMANDS: ReadonlyArray<KeybindingCommand> = ["thread.previous", "thread.next"];
 
 export function buildKeybindingCommandOptions(
   keybindings: ResolvedKeybindingsConfig,
