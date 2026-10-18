@@ -1,6 +1,8 @@
 import {
   type OrchestrationProjectShell,
-  type OrchestrationTask,
+  type TaskListItem,
+  type TaskListResult,
+  WORK_STATUS_ORDER,
   workParticipantKey,
 } from "@otto/contracts";
 import { RiBox3Line, RiCalendarLine, RiRepeatLine } from "@remixicon/react";
@@ -8,8 +10,12 @@ import { RiBox3Line, RiCalendarLine, RiRepeatLine } from "@remixicon/react";
 import { useI18n } from "../../i18n";
 import { formatRelativeTime, localDateKey } from "../../timestamp-format";
 import type { Bot } from "../roster/types";
-import { DataTable, DataTableChip, type DataTableColumn } from "../ui/data-table";
-import { WORK_STATUS_ORDER } from "./work.logic";
+import {
+  DataTable,
+  DataTableChip,
+  type DataTableColumn,
+  type DataTablePaging,
+} from "../ui/data-table";
 import { useTaskRepeatLabel } from "./task-repeat";
 import { ParticipantStack } from "./work-participants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
@@ -35,7 +41,7 @@ function taskColumns({
   readonly projects: readonly OrchestrationProjectShell[];
   readonly bots: readonly Bot[];
   readonly showProject: boolean;
-}): DataTableColumn<OrchestrationTask>[] {
+}): DataTableColumn<TaskListItem>[] {
   const today = localDateKey(new Date());
 
   return [
@@ -106,23 +112,30 @@ function taskColumns({
 }
 
 /**
- * Tasks on the shared DataTable, grouped by status; a row opens its task. The group header
- * carries the status icon, so rows do not repeat it.
+ * Tasks on the shared DataTable, grouped by status unless they come in another order; a row
+ * opens its task. The group header carries the status icon, so rows do not repeat it. A paged
+ * list passes `paging` and the full status counts, since its rows are only the pages so far.
  */
 export function TasksTable({
   tasks,
   projects,
   bots,
   showProject,
+  grouped = true,
+  statusCounts,
+  paging,
   highlightedKey = null,
   onOpenTask,
 }: {
-  readonly tasks: readonly OrchestrationTask[];
+  readonly tasks: readonly TaskListItem[];
   readonly projects: readonly OrchestrationProjectShell[];
   readonly bots: readonly Bot[];
   readonly showProject: boolean;
+  readonly grouped?: boolean;
+  readonly statusCounts?: TaskListResult["statusCounts"];
+  readonly paging?: DataTablePaging;
   readonly highlightedKey?: string | null;
-  readonly onOpenTask: (task: OrchestrationTask) => void;
+  readonly onOpenTask: (task: TaskListItem) => void;
 }) {
   const { t } = useI18n();
   const statusLabel = useWorkStatusLabel();
@@ -136,14 +149,25 @@ export function TasksTable({
       getRowLabel={(task) => `${task.title}, ${statusLabel(task.status)}`}
       onRowClick={onOpenTask}
       highlightedKey={highlightedKey}
-      groupBy={{
-        groups: WORK_STATUS_ORDER.map((status) => ({
-          id: status,
-          label: statusLabel(status),
-          icon: <WorkStatusIcon status={status} />,
-        })),
-        getGroupId: (task) => task.status,
-      }}
+      {...(paging ? { paging } : {})}
+      {...(grouped
+        ? {
+            groupBy: {
+              groups: WORK_STATUS_ORDER.map((status) => ({
+                id: status,
+                label: statusLabel(status),
+                icon: <WorkStatusIcon status={status} />,
+              })),
+              getGroupId: (task: TaskListItem) => task.status,
+              ...(statusCounts
+                ? {
+                    getGroupCount: (status: string) =>
+                      statusCounts.find((entry) => entry.status === status)?.count ?? 0,
+                  }
+                : {}),
+            },
+          }
+        : {})}
     />
   );
 }

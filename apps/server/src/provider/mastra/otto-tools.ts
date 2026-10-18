@@ -71,7 +71,7 @@ export async function resolveOttoTools(
     ? createTool({
         id: OTTO_CREATE_ROUTINE_TOOL_NAME,
         description:
-          "Create a routine that runs instructions on a schedule in this chat. The person approves it in the app, so do not ask separately. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time. threadMode is where runs post: target (default) is this chat, per-run starts a new chat every run, single starts one new chat on the first run and posts every later run there. Returns the routine id.",
+          "Create a routine that runs instructions on a schedule in this chat. The person approves it in the app, so do not ask separately. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time. threadMode is where runs post: target (default) is this chat, per-run starts a new chat every run, single starts one new chat on the first run and posts every later run there; a group chat's routines use single unless per-run is asked for. Returns the routine id.",
         inputSchema: routineToolInputSchema,
         requireApproval: false,
         execute: async ({ threadMode, ...input }) =>

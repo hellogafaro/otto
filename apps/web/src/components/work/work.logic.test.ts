@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  duePresetOf,
+  duePresetRange,
+  encodeTaskSearch,
   formatDuration,
   parseDuration,
   parseProjectSearch,
@@ -10,7 +13,31 @@ import {
   projectCover,
 } from "./work.logic";
 
+describe("duePresetRange", () => {
+  it("turns each due filter into a date range and reads it back", () => {
+    expect(duePresetRange("overdue", "2026-10-01")).toEqual({ dueTo: "2026-09-30" });
+    expect(duePresetRange("today", "2026-10-18")).toEqual({
+      dueFrom: "2026-10-18",
+      dueTo: "2026-10-18",
+    });
+    expect(duePresetRange("week", "2026-12-29")).toEqual({
+      dueFrom: "2026-12-29",
+      dueTo: "2027-01-04",
+    });
+    expect(duePresetOf({ dueFrom: "2026-10-18", dueTo: "2026-10-24" }, "2026-10-18")).toBe("week");
+    expect(duePresetOf({ dueFrom: "2026-10-01" }, "2026-10-18")).toBeUndefined();
+  });
+});
+
 describe("parseTaskSearch", () => {
+  it("reads the sort and order, and writes statuses back as one comma list", () => {
+    expect(parseTaskSearch({ sort: "due", order: "desc" })).toEqual({ sort: "due", order: "desc" });
+    expect(parseTaskSearch({ sort: "priority" })).toEqual({});
+    expect(encodeTaskSearch({ status: ["pending", "in_progress"] })).toEqual({
+      status: "pending,in_progress",
+    });
+  });
+
   it("reads every filter from the URL", () => {
     expect(
       parseTaskSearch({

@@ -20,6 +20,10 @@ export function useTaskRepeatLabel(): (repeat: TaskRepeat | null) => string {
         return t("Weekly");
       case "monthly":
         return t("Monthly");
+      case "quarterly":
+        return t("Quarterly");
+      case "yearly":
+        return t("Yearly");
     }
   };
 }

@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1720,
+  "directMessageCount": 1741,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -361,6 +361,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/library/library-share-dialog.tsx",
     "apps/web/src/components/library/shared-file-page.tsx",
     "apps/web/src/components/library/use-library.ts",
+    "apps/web/src/components/list-toolbar.tsx",
     "apps/web/src/components/markdown/generative/generative-choices.tsx",
     "apps/web/src/components/markdown/markdown-code-block.tsx",
     "apps/web/src/components/markdown/markdown-file-link.tsx",
@@ -437,6 +438,8 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/routines/routine-chat-options.tsx",
     "apps/web/src/components/routines/routine-history.tsx",
     "apps/web/src/components/routines/routine-page.tsx",
+    "apps/web/src/components/routines/routine-schedule.tsx",
+    "apps/web/src/components/routines/routine-status.ts",
     "apps/web/src/components/routines/routines-page.tsx",
     "apps/web/src/components/settings/api-key-dialog.tsx",
     "apps/web/src/components/settings/archived-bots-settings.tsx",

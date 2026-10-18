@@ -38,7 +38,12 @@ import { WorkColumn, WorkEmpty, WorkHeaderAction, WorkPage } from "../work/work-
 import { VisibilityComposerControl } from "../roster/visibility-composer-control";
 import { RoutineChatControl } from "./routine-chat-options";
 import { useRoutineDeleteAction } from "./routine-page";
-import { ROUTINE_STATUS_ICON, routineStatus, type RoutineStatus } from "./routine-status";
+import {
+  ROUTINE_STATUSES,
+  ROUTINE_STATUS_ICON,
+  routineStatus,
+  useRoutineStatusLabel,
+} from "./routine-status";
 
 function routineColumns({
   i18n,
@@ -80,7 +85,7 @@ function routineColumns({
 }
 
 /**
- * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Paused, Failed),
+ * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Draft, Paused, Failed),
  * each row the job with its bot's avatar after it, then two chips, how often and at what time; a row opens the
  * routine's page.
  * New routine is a conversation: the prompt opens a fresh chat with the chosen bot, which sets
@@ -124,11 +129,7 @@ export function RoutinesPage() {
 
   usePageActions(t("Routines"), pageActions);
 
-  const statusLabel: Record<RoutineStatus, string> = {
-    active: t("Active"),
-    paused: t("Paused"),
-    failed: t("Failed"),
-  };
+  const statusLabel = useRoutineStatusLabel();
 
   const schedule = (routine: Routine) =>
     toRoutinePanelItem(
@@ -174,13 +175,13 @@ export function RoutinesPage() {
             rows={routines}
             columns={routineColumns({ i18n, bots, schedule })}
             getRowKey={(routine) => routine.id}
-            getRowLabel={(routine) => `${routine.job}, ${statusLabel[routineStatus(routine)]}`}
+            getRowLabel={(routine) => `${routine.job}, ${statusLabel(routineStatus(routine))}`}
             onRowClick={openRoutine}
             highlightedKey={highlighted?.id ?? null}
             groupBy={{
-              groups: (["active", "paused", "failed"] as const).map((status) => ({
+              groups: ROUTINE_STATUSES.map((status) => ({
                 id: status,
-                label: statusLabel[status],
+                label: statusLabel(status),
                 icon: <StatusIcon status={ROUTINE_STATUS_ICON[status]} />,
               })),
               getGroupId: routineStatus,
