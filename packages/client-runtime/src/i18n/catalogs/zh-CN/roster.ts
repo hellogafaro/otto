@@ -95,10 +95,13 @@ export const rosterCatalog = {
   "Could not delete routine": "无法删除例行任务",
   "New chat every run": "每次运行新建聊天",
   "Same chat": "同一个聊天",
+  "New single chat": "新建一个专用聊天",
   "Routine title": "例行任务标题",
   "Set up a routine called \u201c{title}\u201d: {prompt}":
     "设置一个名为\u201c{title}\u201d的例行任务：{prompt}",
   "Start a new chat for every run.": "每次运行都新建一个聊天。",
+  "Start one new chat for this routine and post every run there.":
+    "为这个例行任务新建一个聊天，之后每次运行都发在那里。",
   "Could not enable routine": "无法启用例行任务",
   "Could not open Routines": "无法打开例行任务",
   "Could not pause routine": "无法暂停例行任务",

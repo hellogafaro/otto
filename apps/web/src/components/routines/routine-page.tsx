@@ -335,7 +335,7 @@ function RoutineDetail({
               />
             </DetailsRow>
             <DetailsRow label={t("Project")}>
-              {routine.threadMode === "per-run" ? (
+              {routine.threadMode !== "target" ? (
                 <ProjectSelect
                   variant="ghost"
                   value={routine.projectId}
