@@ -403,11 +403,20 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         });
       }
 
+      const schedule = command.schedule ?? existing.schedule;
+      const timezone = command.timezone ?? existing.timezone;
+
       const routine = {
         ...existing,
         job: command.job ?? existing.job,
         threadMode,
         projectId,
+        schedule,
+        timezone,
+        nextRunAt:
+          existing.enabled && (command.schedule !== undefined || command.timezone !== undefined)
+            ? nextScheduledFor(schedule, timezone, Date.parse(command.createdAt))
+            : existing.nextRunAt,
         visibility: command.visibility ?? existing.visibility,
         updatedAt: command.createdAt,
       };

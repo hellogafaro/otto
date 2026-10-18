@@ -10,6 +10,7 @@ import {
   type EnvironmentId,
   type ProjectId,
   type Routine,
+  type RoutineSchedule,
   type RoutineThreadMode,
   type Visibility,
 } from "@otto/contracts";
@@ -53,13 +54,15 @@ import { ProjectSelect } from "../work/work-dialogs";
 import { WorkEmpty, WorkPage, useWorkData } from "../work/work-pages";
 import { RoutineChatSelect } from "./routine-chat-options";
 import { RoutineHistory } from "./routine-history";
+import { RoutineScheduleEdit } from "./routine-schedule";
 
 /**
  * Otto: A routine's own page, the task/project pattern: its title (edited in place; a
  * cleared title is generated again from the instructions) and instructions in the main
  * column, then its run history; bot, chat, project, schedule, status and run times in the
- * details sidebar. Instructions and schedule change through the bot: Edit asks for one,
- * then opens the routine's chat with the request sent, and the bot answers with a review card.
+ * details sidebar, where the schedule is edited in place. Instructions change through the bot:
+ * Edit asks for one, then opens the routine's chat with the request sent, and the bot answers
+ * with a review card.
  */
 export function RoutinePage({ routineId }: { readonly routineId: RoutineId }) {
   const { t } = useI18n();
@@ -181,6 +184,8 @@ function RoutineDetail({
     readonly threadMode?: RoutineThreadMode;
     readonly projectId?: ProjectId;
     readonly visibility?: Visibility;
+    readonly schedule?: RoutineSchedule;
+    readonly timezone?: string;
   }) =>
     act(
       update({
@@ -386,9 +391,12 @@ function RoutineDetail({
               />
             </DetailsRow>
             <DetailsRow label={t("Schedule")}>
-              <span className="px-2.5 text-end text-sm">
-                {routineScheduleLabel(item.schedule, i18n)}
-              </span>
+              <RoutineScheduleEdit
+                schedule={routine.schedule}
+                timezone={routine.timezone}
+                label={routineScheduleLabel(item.schedule, i18n)}
+                onSave={(next) => void save(next)}
+              />
             </DetailsRow>
             <DetailsRow label={t("Next run")}>
               <span className="px-2.5 text-sm tabular-nums">

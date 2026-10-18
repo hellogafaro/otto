@@ -46,6 +46,8 @@ export interface RoutineAdapterSchedule {
   readonly time: string;
   readonly timezone: string;
   readonly weekday: number | null;
+  /** Every day a weekly routine runs on, Sunday as 0. */
+  readonly weekdays?: readonly number[];
   /** Hours between runs of an hourly routine. */
   readonly everyHours?: RoutineHourInterval | null;
 }
@@ -149,6 +151,9 @@ function toAdapterSchedule(routine: Routine): RoutineAdapterSchedule {
       routine.schedule.kind === "weekly"
         ? WEEKDAY_IDS.indexOf(routine.schedule.weekdays[0] ?? "monday")
         : null,
+    ...(routine.schedule.kind === "weekly"
+      ? { weekdays: routine.schedule.weekdays.map((day) => WEEKDAY_IDS.indexOf(day)) }
+      : {}),
     ...(routine.schedule.kind === "hourly" ? { everyHours: routine.schedule.everyHours } : {}),
   };
 }
@@ -297,7 +302,11 @@ export function routineFrequencyLabel(
     ),
     Match.when("daily", () => i18n.t("Daily")),
     Match.when("weekdays", () => i18n.t("Weekdays")),
-    Match.orElse(() => i18n.t(WEEKDAY_LABELS[schedule.weekday ?? 1] ?? "Monday")),
+    Match.orElse(() =>
+      (schedule.weekdays ?? [schedule.weekday ?? 1])
+        .map((day) => i18n.t(WEEKDAY_LABELS[day] ?? "Monday"))
+        .join(", "),
+    ),
   );
 }
 

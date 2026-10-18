@@ -20,6 +20,7 @@ import {
   botRoutinesView,
   routineApprovalSummary,
   routineLifecycleAction,
+  routineScheduleLabel,
   routineStateNote,
   runStatusTone,
   toRoutinePanelItem,
@@ -120,11 +121,28 @@ describe("toRoutinePanelItem", () => {
       time: "09:00",
       timezone: "America/New_York",
       weekday: 5,
+      weekdays: [5],
     });
     expect(item.runHistory.map((entry) => entry.id)).toEqual(["run-new", "run-old"]);
     expect(item.latestRun).toMatchObject({ id: "run-new", error: "Provider timed out" });
     expect(item.runHistory[1]?.startedAt).toBe("2026-09-19T09:00:00.000Z");
     expect(item.delegateToBotId).toBeNull();
+  });
+
+  it("names every day a weekly routine runs on", () => {
+    const item = toRoutinePanelItem(
+      {
+        ...routine,
+        schedule: { kind: "weekly", weekdays: ["monday", "wednesday"], time: "07:30" },
+      },
+      [],
+      [],
+      [],
+    );
+
+    expect(routineScheduleLabel(item.schedule)).toBe(
+      "Monday, Wednesday at 07:30 (America/New_York)",
+    );
   });
 
   it("carries the bot a routine hands its work to", () => {

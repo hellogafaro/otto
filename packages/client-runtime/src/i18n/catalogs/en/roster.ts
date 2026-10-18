@@ -189,6 +189,9 @@ export const rosterCatalog = {
   "Stable details this bot has learned about you.":
     "Stable details this bot has learned about you.",
   "Not scheduled": "Not scheduled",
+  "Edit schedule": "Edit schedule",
+  Days: "Days",
+  "Time zone": "Time zone",
   Skills: "Skills",
   "Draft. Approve its procedure to schedule it.": "Draft. Approve its procedure to schedule it.",
   "Loading routines": "Loading routines",
