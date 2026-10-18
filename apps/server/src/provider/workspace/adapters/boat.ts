@@ -3,8 +3,12 @@ import * as Predicate from "effect/Predicate";
 import { type OttoRemoteSession } from "../bot-workspace-types.ts";
 import { quote, commandLine } from "../bot-workspace-lifecycle.ts";
 
-/** Boat stops a computer by itself this long after Otto last used it, even if Otto is down. */
-export const BOAT_TTL_SECONDS = 1800;
+/**
+ * Boat stops a computer by itself this long after Otto last used it, even if Otto is down. Its
+ * disk is kept and it resumes on the next turn; running turns push this back well before it
+ * runs out (see `COMPUTER_KEEP_AWAKE_INTERVAL`).
+ */
+export const BOAT_TTL_SECONDS = 300;
 
 /** Boat's SDK reports every HTTP failure as "Response returned an error code"; surface its message. */
 export async function boatFailure(cause: unknown): Promise<Error> {

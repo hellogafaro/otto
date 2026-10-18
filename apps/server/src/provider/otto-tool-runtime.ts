@@ -33,6 +33,7 @@ import {
   executable,
   withCommandEnvironment,
 } from "./tools/otto-workspace-tools.ts";
+import { CHAT_FOLDER_VARIABLE } from "./bot-computer-setup.ts";
 
 const isDelegationContextTooLong = Schema.is(OttoDelegationContextTooLongError);
 
@@ -418,11 +419,21 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           result = await session.reactToMessage(execution.input, input.toolCallId);
         } else {
           const secrets = (await options?.secrets?.(input.threadId)) ?? {};
-          const environment = { ...secrets, ...session.commandEnvironment };
+
+          const chatFolder =
+            execution.toolId === "shell"
+              ? await session.chatFolder?.catch(() => undefined)
+              : undefined;
+
+          const environment = {
+            ...secrets,
+            ...session.commandEnvironment,
+            ...(chatFolder ? { [CHAT_FOLDER_VARIABLE]: chatFolder } : {}),
+          };
 
           const workspace =
             execution.toolId === "shell" && session.workspace && Object.keys(environment).length > 0
-              ? withCommandEnvironment(session.workspace, environment)
+              ? withCommandEnvironment(session.workspace, environment, chatFolder)
               : session.workspace;
 
           const backends = await toolsForWorkspace(workspace);

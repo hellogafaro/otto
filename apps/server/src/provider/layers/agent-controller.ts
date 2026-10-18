@@ -84,6 +84,9 @@ import {
 import { toMcpServerConfigs } from "./agent-controller/mcp-configuration.ts";
 import { storeChatFile } from "../tools/otto-chat-files.ts";
 
+/** How often running turns push back their computer's auto-stop; well inside Boat's 5 minutes. */
+export const COMPUTER_KEEP_AWAKE_INTERVAL = "2 minutes";
+
 const APPROVAL_FREE_MASTRA_TOOL_NAMES: ReadonlySet<string> = new Set(["ask_user"]);
 
 const make = (options?: AgentControllerLiveOptions) =>
@@ -538,15 +541,20 @@ const make = (options?: AgentControllerLiveOptions) =>
       Effect.forkScoped,
     );
 
-    // Otto: one sweep at startup and every 10 minutes keeps the computers of running turns from
-    // auto-stopping and deletes the ones no bot owns anymore. Idle computers stop on their own.
-    const sweepComputers = Effect.gen(function* () {
-      yield* runMastra("resources.keepComputersAwake", () =>
-        sessionResources.keepComputersAwake(
-          [...sessions].flatMap(([threadId, active]) => (active.activeTurn ? [threadId] : [])),
-        ),
-      );
+    // Otto: computers of running turns are pushed back well inside Boat's 5 minute auto-stop,
+    // so a long turn never loses its computer. Idle computers stop on their own.
+    yield* runMastra("resources.keepComputersAwake", () =>
+      sessionResources.keepComputersAwake(
+        [...sessions].flatMap(([threadId, active]) => (active.activeTurn ? [threadId] : [])),
+      ),
+    ).pipe(
+      Effect.ignoreCause({ log: true }),
+      Effect.repeat(Schedule.spaced(COMPUTER_KEEP_AWAKE_INTERVAL)),
+      Effect.forkScoped,
+    );
 
+    // Otto: one sweep at startup and every 10 minutes deletes the computers no bot owns anymore.
+    const sweepComputers = Effect.gen(function* () {
       if (Option.isNone(projectionSnapshotQuery) || Option.isNone(serverSettings)) return;
       const readModel = yield* projectionSnapshotQuery.value.getCommandReadModel();
       const settings = yield* serverSettings.value.getSettings;
