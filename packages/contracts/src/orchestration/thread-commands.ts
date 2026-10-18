@@ -16,7 +16,7 @@ import {
   Visibility,
 } from "../base-schemas.ts";
 import { DelegationIdSchema } from "./identities.ts";
-import { ApprovalResponder, TaskWake } from "./work.ts";
+import { ApprovalResponder, RoutineWake, TaskWake } from "./work.ts";
 import {
   ModelSelection,
   RuntimeMode,
@@ -226,6 +226,8 @@ export const ThreadTurnStartCommand = Schema.Struct({
   timezone: Schema.optional(TrimmedNonEmptyString),
   /** The task event this turn answers; the bot gets it instead of the message's text. */
   taskWake: Schema.optional(TaskWake),
+  /** The routine run this turn carries out; the bot gets it instead of the message's text. */
+  routineWake: Schema.optional(RoutineWake),
   createdAt: IsoDateTime,
 });
 

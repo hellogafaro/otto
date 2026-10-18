@@ -4,6 +4,7 @@ import {
   type ProjectionDependencies,
   type ProjectorDefinition,
   encodeRoutineSchedule,
+  encodeRoutineTrigger,
   encodeSkillAssignmentIds,
   encodeMcpServerIds,
   encodeRoutineResult,
@@ -63,7 +64,7 @@ export function createRoutines({ sql }: Pick<ProjectionDependencies, "sql">) {
     yield* sql`
         INSERT INTO projection_routines (
           routine_id, bot_id, target_thread_id, thread_mode, project_id, job, procedure, procedure_version,
-          approval_version, schedule_json, timezone, skill_assignment_ids_json,
+          approval_version, schedule_json, timezone, trigger_json, skill_assignment_ids_json,
           connector_dependencies_json, sandbox, approval_policy, delegate_to_bot_id, created_by, visibility, enabled,
           lifecycle, next_run_at, last_run_at, latest_result_json, latest_failure_json,
           created_at, updated_at, deleted_at
@@ -71,6 +72,7 @@ export function createRoutines({ sql }: Pick<ProjectionDependencies, "sql">) {
           ${routine.id}, ${routine.botId}, ${routine.targetThreadId}, ${routine.threadMode}, ${routine.projectId}, ${routine.job},
           ${routine.procedure}, ${routine.procedureVersion}, ${routine.approvalVersion},
           ${encodeRoutineSchedule(routine.schedule)}, ${routine.timezone},
+          ${routine.trigger === undefined ? null : encodeRoutineTrigger(routine.trigger)},
           ${encodeSkillAssignmentIds(routine.skillAssignmentIds)},
           ${encodeMcpServerIds(routine.connectorDependencies)}, ${routine.sandbox},
           ${routine.approvalPolicy}, ${routine.delegateToBotId}, ${routine.createdBy}, ${routine.visibility}, ${routine.enabled ? 1 : 0},
@@ -90,6 +92,7 @@ export function createRoutines({ sql }: Pick<ProjectionDependencies, "sql">) {
           approval_version = excluded.approval_version,
           schedule_json = excluded.schedule_json,
           timezone = excluded.timezone,
+          trigger_json = excluded.trigger_json,
           skill_assignment_ids_json = excluded.skill_assignment_ids_json,
           connector_dependencies_json = excluded.connector_dependencies_json,
           sandbox = excluded.sandbox,

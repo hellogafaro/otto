@@ -537,6 +537,7 @@ export const buildAppUnderTest = (options?: {
               runDue: Effect.void,
               canRunNow: () => Effect.succeed(true),
               runNow: () => Effect.succeed(null),
+              runEvent: () => Effect.void,
               recover: Effect.void,
               start: Effect.void,
               ...options?.layers?.routineRuntime,

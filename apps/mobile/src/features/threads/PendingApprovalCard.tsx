@@ -62,9 +62,9 @@ export function PendingApprovalCard(props: PendingApprovalCardProps) {
           <Text className="font-ottoLegacy-bold text-base text-neutral-950 dark:text-neutral-50">
             {routine.name}
           </Text>
-          {routine.schedule ? (
+          {(routine.trigger ?? routine.schedule) ? (
             <Text className="font-sans text-sm text-neutral-600 dark:text-neutral-400">
-              {routine.schedule}
+              {routine.trigger ?? routine.schedule}
             </Text>
           ) : null}
           {routine.instructions ? (

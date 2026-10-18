@@ -14,6 +14,7 @@ import {
   ThreadId,
   type AuthSessionId,
   type OrchestrationReadModel,
+  type RoutineWake,
   type TaskWake,
 } from "@otto/contracts";
 import * as Deferred from "effect/Deferred";
@@ -81,6 +82,8 @@ export interface PendingTurn {
   readonly turnNote: string;
   /** The task event this turn answers, sent as signals instead of `message`. */
   readonly taskWake: TaskWake | undefined;
+  /** The routine run this turn carries out, sent as a signal instead of `message`. */
+  readonly routineWake?: RoutineWake | undefined;
 }
 
 export interface ActiveSession {

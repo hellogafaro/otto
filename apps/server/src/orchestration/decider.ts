@@ -173,6 +173,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "routine.enable":
     case "routine.pause":
     case "routine.update":
+    case "routine.trigger.bind":
     case "routine.run":
     case "routine.run.scheduled":
     case "routine.run.start":

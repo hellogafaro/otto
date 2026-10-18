@@ -1,5 +1,6 @@
 import {
   ApprovalResponder,
+  RoutineWake,
   TaskWake,
   WorkDescription,
   WorkParticipant,
@@ -513,6 +514,8 @@ export const ThreadTurnStartRequestedPayload = Schema.Struct({
   ),
   /** A task event, sent to the bot as signals instead of the message's own text. */
   taskWake: Schema.optional(TaskWake),
+  /** A routine run, sent to the bot as a signal instead of the message's own text. */
+  routineWake: Schema.optional(RoutineWake),
   timezone: Schema.optional(TrimmedNonEmptyString),
   /**
    * Finished child delegations acknowledged by this turn start. The same

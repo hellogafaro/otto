@@ -21,6 +21,7 @@ import type {
   ProviderUploadFeedbackResult,
   OrchestrationBot,
   OrchestrationCommand,
+  RoutineWake,
   TaskWake,
   OrchestrationReadModel,
   OrchestrationThread,
@@ -61,6 +62,8 @@ export type AgentControllerSendTurnInput = ProviderSendTurnInput & {
   readonly authorPersonId?: AuthSessionId | null;
   /** The task event this turn answers, sent as signals instead of `input`. */
   readonly taskWake?: TaskWake;
+  /** The routine run this turn carries out, sent as a signal instead of `input`. */
+  readonly routineWake?: RoutineWake;
   /** The person the bot acts for on GitHub this turn: the author, else the task or chat owner. */
   readonly askerPersonId?: AuthSessionId | null;
 };

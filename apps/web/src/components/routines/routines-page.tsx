@@ -85,6 +85,10 @@ function routineColumns({
       id: "schedule",
       type: "chips",
       cell: (routine) => {
+        if (routine.trigger?.type === "app") {
+          return <DataTableChip>{routine.trigger.title}</DataTableChip>;
+        }
+
         const routineSchedule = schedule(routine);
 
         return (
@@ -113,7 +117,8 @@ const nextRoutineCursor = (page: RoutineListResult) => page.nextCursor;
 
 /**
  * Otto: Routines, the Tasks page pattern: one table grouped by status (Active, Draft, Paused, Failed),
- * each row the job with its bot's avatar after it, then two chips, how often and at what time; a row opens the
+ * each row the job with its bot's avatar after it, then two chips, how often and at what time (an app routine
+ * has one chip, its app event, and sorts after scheduled ones by next run); a row opens the
  * routine's page. It is a bounded server list like Tasks: Filter (status, bot) and Sort live in the URL,
  * the server answers 100 routines a page, and the table loads the next page near the end.
  * New routine is a conversation: the prompt opens a fresh chat with the chosen bot, which sets

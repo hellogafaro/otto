@@ -87,15 +87,26 @@ export async function resolveOttoTools(
     ? createTool({
         id: OTTO_CREATE_ROUTINE_TOOL_NAME,
         description:
-          "Create a routine that runs instructions on a schedule in this chat. The person approves it in the app, so do not ask separately. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time; monthly runs on day of the month, quarterly on day in January, April, July and October, yearly on month and day (a shorter month uses its last day). threadMode is where runs post: target (default) is this chat, per-run starts a new chat every run, single starts one new chat on the first run and posts every later run there; a group chat's routines use single unless per-run is asked for. Returns the routine id.",
+          "Create a routine that runs instructions on a schedule, or each time an event happens in a connected app, in this chat. The person approves it in the app, so do not ask separately. Give schedule or trigger, not both. trigger names the app (such as gmail), its event (the event's slug or name; a wrong one returns the app's events), account when the person has several accounts for that app (its label or address), and config with the settings the event needs; each event starts one run, which gets the event's data. Hourly runs every everyHours hours lined up with time; daily, weekdays and weekly run once at time; monthly runs on day of the month, quarterly on day in January, April, July and October, yearly on month and day (a shorter month uses its last day). threadMode is where runs post: target (default) is this chat, per-run starts a new chat every run, single starts one new chat on the first run and posts every later run there; a group chat's routines use single unless per-run is asked for. Returns the routine id.",
         inputSchema: routineToolInputSchema,
         requireApproval: false,
-        execute: async ({ threadMode, ...input }) =>
+        execute: async ({ threadMode, schedule, trigger, ...input }) =>
           options.createRoutine!(
             threadId,
             await decodeCreateRoutineInput(
               {
                 ...input,
+                ...(schedule ? { schedule } : {}),
+                ...(trigger
+                  ? {
+                      trigger: {
+                        app: trigger.app,
+                        event: trigger.event,
+                        ...(trigger.account ? { account: trigger.account } : {}),
+                        ...(trigger.config ? { config: trigger.config } : {}),
+                      },
+                    }
+                  : {}),
                 ...(threadMode ? { threadMode } : {}),
               },
               {
