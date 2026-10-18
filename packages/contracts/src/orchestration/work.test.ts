@@ -3,12 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { AuthSessionId, BotId, ProjectId, TaskId } from "../base-schemas.ts";
 import * as Schema from "effect/Schema";
 
-import {
-  matchesTaskFilter,
-  OrchestrationTask as TaskSchema,
-  type OrchestrationTask,
-  WorkResources,
-} from "./work.ts";
+import { OrchestrationTask as TaskSchema, type OrchestrationTask, WorkResources } from "./work.ts";
 
 const decodeResources = Schema.decodeUnknownSync(WorkResources);
 
@@ -33,30 +28,6 @@ const task = (overrides: Partial<OrchestrationTask> = {}): OrchestrationTask => 
   createdAt: "2026-03-01T00:00:00.000Z",
   updatedAt: "2026-03-01T00:00:00.000Z",
   ...overrides,
-});
-
-describe("matchesTaskFilter", () => {
-  it("hides archived tasks unless the status asks for them", () => {
-    expect(matchesTaskFilter(task({ status: "archived" }), {})).toBe(false);
-    expect(matchesTaskFilter(task({ status: "archived" }), { status: ["archived"] })).toBe(true);
-    expect(matchesTaskFilter(task(), { status: ["completed", "cancelled"] })).toBe(false);
-  });
-
-  it("narrows by project, owner and assignee keys", () => {
-    expect(matchesTaskFilter(task(), { project: ProjectId.make("launch") })).toBe(true);
-    expect(matchesTaskFilter(task(), { project: ProjectId.make("other") })).toBe(false);
-    expect(matchesTaskFilter(task(), { owner: "person:ada" })).toBe(true);
-    expect(matchesTaskFilter(task({ owner: null }), { owner: "person:ada" })).toBe(false);
-    expect(matchesTaskFilter(task(), { assignee: "bot:scout" })).toBe(true);
-    expect(matchesTaskFilter(task(), { assignee: "person:ada" })).toBe(false);
-  });
-
-  it("treats due bounds as inclusive and skips undated tasks", () => {
-    expect(matchesTaskFilter(task(), { dueTo: "2026-03-10" })).toBe(true);
-    expect(matchesTaskFilter(task(), { dueTo: "2026-03-09" })).toBe(false);
-    expect(matchesTaskFilter(task(), { dueFrom: "2026-03-10" })).toBe(true);
-    expect(matchesTaskFilter(task({ dueDate: null }), { dueFrom: "2026-01-01" })).toBe(false);
-  });
 });
 
 describe("work resources", () => {

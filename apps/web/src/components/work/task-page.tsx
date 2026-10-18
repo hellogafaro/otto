@@ -26,7 +26,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "../../i18n";
 import { cn, randomUUID } from "../../lib/utils";
 import type { PageAction } from "../../page-actions-registry";
-import { taskEnvironment } from "../../state/tasks";
+import { taskEnvironment, useTask } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { DetailsGroup, DetailsRow } from "../details-aside";
 import { Button } from "../ui/button";
@@ -59,11 +59,13 @@ type TaskFields = Omit<UpdateTaskInput, "taskId">;
 export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { environmentId, loaded, tasks } = useWorkData();
-  const task = tasks.find((candidate) => candidate.id === taskId);
+  const { environmentId, loaded } = useWorkData();
+  const { task, missing } = useTask(environmentId, taskId);
   const back = { label: t("Tasks"), onBack: () => void navigate({ to: "/tasks" }) };
 
-  if (!loaded) return <WorkPage back={back}>{null}</WorkPage>;
+  if (!loaded || (!task && !missing && environmentId !== null)) {
+    return <WorkPage back={back}>{null}</WorkPage>;
+  }
 
   if (!task || environmentId === null) {
     return (

@@ -16,6 +16,10 @@ vi.mock("../state/queries", () => ({
   useThreadSearch: () => ({ matches: [], isPending: false }),
 }));
 
+vi.mock("../state/tasks", () => ({
+  useTaskPages: () => ({ pages: [], status: "ready", hasMore: false, loadMore: () => undefined }),
+}));
+
 vi.mock("../hooks/use-theme", () => ({
   useTheme: () => ({ resolvedTheme: "dark", setAppearanceMode: () => undefined }),
 }));

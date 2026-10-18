@@ -32,7 +32,6 @@ export function createShellSnapshots({
   listGroupRows,
   listShellDelegationRows,
   projectionMcpServerRepository,
-  projectionTaskRepository,
   listActiveThreadRows,
   listActiveThreadSessionRows,
   listActiveLatestTurnRows,
@@ -53,7 +52,6 @@ export function createShellSnapshots({
   | "listGroupRows"
   | "listShellDelegationRows"
   | "projectionMcpServerRepository"
-  | "projectionTaskRepository"
   | "listActiveThreadRows"
   | "listActiveThreadSessionRows"
   | "listActiveLatestTurnRows"
@@ -102,7 +100,6 @@ export function createShellSnapshots({
             ),
           ),
           projectionMcpServerRepository.listAll(),
-          projectionTaskRepository.listAll(),
           listActiveThreadRows(undefined).pipe(
             Effect.mapError(
               toPersistenceSqlOrDecodeError(
@@ -145,7 +142,6 @@ export function createShellSnapshots({
             groupRows,
             delegationRows,
             mcpServers,
-            tasks,
             threadRows,
             sessionRows,
             latestTurnRows,
@@ -222,7 +218,6 @@ export function createShellSnapshots({
                 groups: groupRows.map(mapGroupRow),
                 delegations: delegationRows.map((row) => toShellDelegation(row.delegation)),
                 mcpServers,
-                tasks,
                 threads: Arr.filterMap(threadRows, (row) =>
                   row.deletedAt === null
                     ? Result.succeed({

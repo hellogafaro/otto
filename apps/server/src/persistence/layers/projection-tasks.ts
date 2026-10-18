@@ -1,6 +1,7 @@
 import {
   OrchestrationTask,
   TaskAssignees,
+  TaskId,
   type TaskListQuery,
   type TaskListSort,
   TaskTimeEntry,
@@ -11,6 +12,7 @@ import {
 } from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -124,6 +126,18 @@ function taskFilterSql(query: TaskListQuery) {
     params.push(query.dueTo);
   }
 
+  if (query.title !== undefined) {
+    conditions.push("instr(lower(title), lower(?)) > 0");
+    params.push(query.title);
+  }
+
+  if (query.search !== undefined) {
+    conditions.push(
+      "(instr(lower(title), lower(?)) > 0 OR instr(lower(description), lower(?)) > 0)",
+    );
+    params.push(query.search, query.search);
+  }
+
   return { conditions, params };
 }
 
@@ -217,6 +231,47 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
       `,
   });
 
+  const getRow = SqlSchema.findOneOption({
+    Request: TaskId,
+    Result: ProjectionTaskDbRow,
+    execute: (taskId) =>
+      sql`
+        SELECT
+          task_id AS id,
+          project_id AS "projectId",
+          title,
+          description,
+          owner_json AS owner,
+          assignees_json AS assignees,
+          resources_json AS resources,
+          due_date AS "dueDate",
+          repeat,
+          status,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM projection_tasks
+        WHERE task_id = ${taskId}
+      `,
+  });
+
+  const listTaskEntryRows = SqlSchema.findAll({
+    Request: TaskId,
+    Result: TaskTimeEntry,
+    execute: (taskId) =>
+      sql`
+        SELECT
+          entry_id AS id,
+          task_id AS "taskId",
+          duration_ms AS duration,
+          description,
+          created_by AS "createdBy",
+          created_at AS "createdAt"
+        FROM projection_timesheets
+        WHERE task_id = ${taskId}
+        ORDER BY created_at ASC, entry_id ASC
+      `,
+  });
+
   const insertEntryRow = SqlSchema.void({
     Request: TaskTimeEntry,
     execute: (entry) =>
@@ -251,6 +306,12 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
         })),
       ),
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.listAll:query")),
+    );
+
+  const get: ProjectionTaskRepositoryShape["get"] = (taskId) =>
+    Effect.all([getRow(taskId), listTaskEntryRows(taskId)]).pipe(
+      Effect.map(([task, timeEntries]) => Option.map(task, (row) => ({ ...row, timeEntries }))),
+      Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.get:query")),
     );
 
   const list: ProjectionTaskRepositoryShape["list"] = ({ query, limit, after }) => {
@@ -329,6 +390,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
   return {
     upsert,
     listAll,
+    get,
     list,
     insertTimeEntry,
     deleteTimeEntry,

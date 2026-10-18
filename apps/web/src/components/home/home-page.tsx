@@ -1,5 +1,5 @@
 import { scopedThreadKey, scopeThreadRef } from "@otto/client-runtime/environment";
-import { BotId } from "@otto/contracts";
+import { BotId, type WorkStatus } from "@otto/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   RiChat1Line,
@@ -16,6 +16,7 @@ import { useI18n } from "../../i18n";
 import { useListPages } from "../../hooks/use-list-pages";
 import { routineChangesAtom, routineEnvironment } from "../../state/routines";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { useTaskPages } from "../../state/tasks";
 import { useThreadShells } from "../../state/entities";
 import { formatRelativeTimeLabel, localDateKey } from "../../timestamp-format";
 import { useUiStateStore } from "../../ui-state-store";
@@ -34,6 +35,8 @@ import { HomeDither } from "./home-dither";
 import { pickGreeting, routinesToday, routineTime, tasksDue } from "./home.logic";
 
 type ChatState = "needs" | "working" | "ready";
+
+const OPEN_STATUSES: readonly WorkStatus[] = ["backlog", "pending", "in_progress"];
 
 const CHAT_STATE_ORDER: Record<ChatState, number> = { needs: 0, ready: 1, working: 2 };
 
@@ -73,7 +76,7 @@ const firstPageOnly = () => null;
 export function HomePage() {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const { environmentId, loaded, projects, tasks, participants, currentPersonId } = useWorkData();
+  const { environmentId, loaded, projects, participants, currentPersonId } = useWorkData();
   // SAFETY: the empty environment ID is an inactive-query sentinel; the atom sends no request until an environment exists.
   const routineChanges = useAtomValue(routineChangesAtom(environmentId ?? ("" as never)));
   const listRoutines = useAtomCommand(routineEnvironment.list, { reportFailure: false });
@@ -90,6 +93,20 @@ export function HomePage() {
       ? t(greeting, { name: firstName })
       : t("Welcome back")
     : t(greeting);
+
+  const dueQuery = { status: OPEN_STATUSES, dueTo: today, sort: "due" as const };
+  const myKey = currentPersonId ? `person:${currentPersonId}` : null;
+  const owned = useTaskPages(environmentId, myKey ? { ...dueQuery, owner: myKey } : null);
+  const assigned = useTaskPages(environmentId, myKey ? { ...dueQuery, assignee: myKey } : null);
+  const mine = [...owned.pages, ...assigned.pages].flatMap((page) => page.tasks);
+
+  const tasksLoading = [owned, assigned].some(
+    (list) => list.status === "loading" && list.pages.length === 0,
+  );
+
+  const due = currentPersonId
+    ? tasksDue([...new Map(mine.map((task) => [task.id, task])).values()], currentPersonId, today)
+    : [];
 
   // Otto: Routines asks the server for the routines that run, or ran, today: the first page.
   const routineList = useListPages({
@@ -110,7 +127,6 @@ export function HomePage() {
     },
   });
 
-  const due = currentPersonId ? tasksDue(tasks, currentPersonId, today) : [];
   const routines = routinesToday(routineList.pages[0]?.routines ?? [], today);
 
   const chatState = (shell: (typeof shells)[number]): ChatState | null => {
@@ -166,7 +182,9 @@ export function HomePage() {
             })}
           </p>
         </div>
-        {!loaded || (routineList.status === "loading" && routineList.pages.length === 0) ? (
+        {!loaded ||
+        (currentPersonId !== null && tasksLoading) ||
+        (routineList.status === "loading" && routineList.pages.length === 0) ? (
           <SkeletonTableRows label={t("Loading…")} />
         ) : (
           <div className="flex flex-col gap-10">

@@ -95,7 +95,8 @@ function DocumentEditor({
   readonly back: { readonly label: string; readonly onBack: () => void };
 }) {
   const { t } = useI18n();
-  const links = useEntities();
+  const [linkQuery, setLinkQuery] = useState<string | null>(null);
+  const links = useEntities(linkQuery);
   const download = useLibraryDownload();
   const readDocument = useAtomCommand(libraryEnvironment.readDocument, { reportFailure: false });
   const saveDocument = useAtomCommand(libraryEnvironment.saveDocument, { reportFailure: false });
@@ -309,6 +310,7 @@ function DocumentEditor({
                   placeholder={editable ? t("Start writing…") : t("This document is empty.")}
                   ariaLabel={t("Document")}
                   links={links}
+                  onLinkQueryChange={setLinkQuery}
                   editable={editable}
                   onChange={(body) => onChange({ body })}
                   onBlur={() => void flush()}

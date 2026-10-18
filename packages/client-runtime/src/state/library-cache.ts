@@ -7,7 +7,7 @@ import {
   libraryFolderPath,
   type OrchestrationShellStreamItem,
 } from "@otto/contracts";
-import { Atom } from "effect/unstable/reactivity";
+import { Atom, type AtomRegistry } from "effect/unstable/reactivity";
 
 /**
  * Otto: The Library folders and files this client has read, by id. Lists and gets fill it; the
@@ -25,14 +25,14 @@ const EMPTY_LIBRARY_CACHE: LibraryCache = { folders: new Map(), files: new Map()
 export const libraryCacheAtom = Atom.family((environmentId: EnvironmentId) =>
   Atom.make(EMPTY_LIBRARY_CACHE).pipe(
     Atom.keepAlive,
-    Atom.withLabel(`library-cache:${environmentId}`),
+    Atom.withLabel(`environment-data:library:cache:${environmentId}`),
   ),
 );
 
 /** Moves on with every Library change the shell stream brings. */
 export const libraryRevisionAtom = Atom.family((environmentId: EnvironmentId) =>
   Atom.make((get) => get(libraryCacheAtom(environmentId)).revision).pipe(
-    Atom.withLabel(`library-revision:${environmentId}`),
+    Atom.withLabel(`environment-data:library:revision:${environmentId}`),
   ),
 );
 
@@ -101,4 +101,13 @@ export function applyLibraryShellItem(
     default:
       return cache;
   }
+}
+
+/** Applies one shell stream item to the environment's Library cache. */
+export function recordLibraryShellItem(
+  registry: AtomRegistry.AtomRegistry,
+  environmentId: EnvironmentId,
+  item: OrchestrationShellStreamItem,
+) {
+  registry.update(libraryCacheAtom(environmentId), (cache) => applyLibraryShellItem(cache, item));
 }

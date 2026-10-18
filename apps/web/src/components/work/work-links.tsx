@@ -2,6 +2,7 @@ import { RiBox3Line, RiListCheck3, RiRobot3Line, RiTeamLine } from "@remixicon/r
 import { useMemo, type ReactNode } from "react";
 
 import { useI18n } from "../../i18n";
+import { usePickerTasks } from "../../state/tasks";
 import { projectStatus } from "./work.logic";
 import { useWorkData } from "./work-pages";
 
@@ -30,10 +31,15 @@ export function entityIcon(type: EntityType): ReactNode {
   }
 }
 
-/** Everything an @ or a resource can point at inside Otto: open tasks, projects, bots and groups. */
-export function useEntities(): ReadonlyArray<Entity> {
+/**
+ * Everything an @ or a resource can point at inside Otto: open tasks, projects, bots and groups.
+ * Tasks come from the server for `taskQuery`, the text typed so far, and only while a picker
+ * asks; null leaves them out.
+ */
+export function useEntities(taskQuery: string | null): ReadonlyArray<Entity> {
   const { t } = useI18n();
-  const { tasks, projects, groups, participants } = useWorkData();
+  const { environmentId, projects, groups, participants } = useWorkData();
+  const tasks = usePickerTasks(environmentId, taskQuery);
 
   return useMemo(() => {
     const entity = (type: EntityType, id: string, label: string, href: string, hint: string) => ({
@@ -47,9 +53,7 @@ export function useEntities(): ReadonlyArray<Entity> {
     });
 
     return [
-      ...tasks
-        .filter((task) => task.status !== "archived")
-        .map((task) => entity("task", task.id, task.title, `/tasks/${task.id}`, t("Task"))),
+      ...tasks.map((task) => entity("task", task.id, task.title, `/tasks/${task.id}`, t("Task"))),
       ...projects
         .filter((project) => projectStatus(project) !== "archived")
         .map((project) =>

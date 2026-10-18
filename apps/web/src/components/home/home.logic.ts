@@ -1,4 +1,4 @@
-import type { OrchestrationTask, Routine } from "@otto/contracts";
+import type { Routine, TaskListItem } from "@otto/contracts";
 
 import { localDateKey } from "../../timestamp-format";
 
@@ -45,20 +45,20 @@ export function pickGreeting(hour: number, random: number): Greeting {
   return greetings[Math.floor(random * greetings.length)] ?? greetings[0];
 }
 
-const isOpen = (task: OrchestrationTask) =>
+const isOpen = (task: TaskListItem) =>
   task.status !== "completed" && task.status !== "cancelled" && task.status !== "archived";
 
-const involves = (task: OrchestrationTask, personId: string) =>
+const involves = (task: TaskListItem, personId: string) =>
   [task.owner, ...task.assignees].some(
     (participant) => participant?.kind === "person" && participant.personId === personId,
   );
 
 /** A person's open tasks due today or earlier, the most overdue first. */
 export function tasksDue(
-  tasks: readonly OrchestrationTask[],
+  tasks: readonly TaskListItem[],
   personId: string,
   today: string,
-): OrchestrationTask[] {
+): TaskListItem[] {
   return tasks
     .filter(
       (task) =>

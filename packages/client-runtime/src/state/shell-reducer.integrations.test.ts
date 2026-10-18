@@ -49,7 +49,7 @@ describe("applyShellStreamEvent", () => {
   });
 
   describe("task-upserted", () => {
-    it("adds a task and replaces it on update", () => {
+    it("only advances the sequence, since tasks live in the task cache", () => {
       const task = {
         id: TaskId.make("task-1"),
         projectId: ProjectId.make("project-1"),
@@ -78,8 +78,7 @@ describe("applyShellStreamEvent", () => {
         task: { ...task, status: "in_progress" },
       });
 
-      expect(updated.tasks).toEqual([{ ...task, status: "in_progress" }]);
-      expect(updated.snapshotSequence).toBe(8);
+      expect(updated).toEqual({ ...baseSnapshot, snapshotSequence: 8 });
     });
   });
 
