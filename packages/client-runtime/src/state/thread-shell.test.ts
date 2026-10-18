@@ -18,7 +18,7 @@ const ENVIRONMENT_ID = EnvironmentId.make("environment-1");
 
 function thread(
   id: string,
-  updatedAt: string,
+  activityAt: string,
   owner: { readonly botId?: string; readonly groupId?: string; readonly archived?: boolean },
 ): OrchestrationThreadShell {
   return {
@@ -34,10 +34,10 @@ function thread(
     worktreePath: null,
     latestTurn: null,
     createdAt: "2026-06-01T00:00:00.000Z",
-    updatedAt,
-    archivedAt: owner.archived ? updatedAt : null,
+    updatedAt: activityAt,
+    archivedAt: owner.archived ? activityAt : null,
     session: null,
-    latestUserMessageAt: null,
+    latestUserMessageAt: activityAt,
     hasPendingApprovals: false,
     hasPendingUserInput: false,
     hasActionableProposedPlan: false,

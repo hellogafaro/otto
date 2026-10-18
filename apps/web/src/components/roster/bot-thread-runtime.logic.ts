@@ -1,4 +1,8 @@
 import { Predicate } from "effect";
+import {
+  compareThreadActivity,
+  type ThreadActivityInput,
+} from "@otto/client-runtime/state/thread-sort";
 import type { StartThreadTurnInput } from "@otto/client-runtime/state/threads";
 import {
   type BotId,
@@ -107,12 +111,10 @@ export function buildGroupTurnStartInput(input: {
   };
 }
 
-type BotChatCandidate = {
+type BotChatCandidate = ThreadActivityInput & {
   environmentId: string;
-  id: string;
   botId?: string | null | undefined;
   parentThreadId?: string | null | undefined;
-  updatedAt: string;
   archivedAt: string | null;
   deletedAt?: string | null | undefined;
 };
@@ -127,11 +129,7 @@ function isActiveBotChat(botId: string, environmentId: string, thread: BotChatCa
   );
 }
 
-function compareNewestFirst(left: BotChatCandidate, right: BotChatCandidate): number {
-  return right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id);
-}
-
-/** The bot's own active chats in one environment, newest first. Child work is left out. */
+/** The bot's own active chats in one environment, latest activity first. Child work is left out. */
 export function listBotChats<TThread extends BotChatCandidate>(
   botId: string,
   environmentId: string,
@@ -139,7 +137,7 @@ export function listBotChats<TThread extends BotChatCandidate>(
 ): TThread[] {
   return threads
     .filter((thread) => isActiveBotChat(botId, environmentId, thread))
-    .toSorted(compareNewestFirst);
+    .toSorted(compareThreadActivity);
 }
 
 export function findLatestBotThreadTarget(
@@ -152,7 +150,7 @@ export function findLatestBotThreadTarget(
   for (const thread of threads) {
     if (!isActiveBotChat(botId, environmentId, thread)) continue;
 
-    if (latest === undefined || compareNewestFirst(thread, latest) < 0) {
+    if (latest === undefined || compareThreadActivity(thread, latest) < 0) {
       latest = thread;
     }
   }
@@ -160,12 +158,10 @@ export function findLatestBotThreadTarget(
   return latest ? { environmentId: latest.environmentId, threadId: latest.id } : null;
 }
 
-type GroupThreadShell = {
+type GroupThreadShell = ThreadActivityInput & {
   environmentId: string;
-  id: string;
   groupId?: string | null | undefined;
   parentThreadId?: string | null | undefined;
-  updatedAt: string;
   archivedAt: string | null;
   deletedAt?: string | null | undefined;
 };
@@ -177,8 +173,7 @@ const isActiveGroupChat = (thread: GroupThreadShell) =>
   thread.deletedAt == null;
 
 const isNewerThread = (thread: GroupThreadShell, than: GroupThreadShell | undefined) =>
-  than === undefined ||
-  (thread.updatedAt.localeCompare(than.updatedAt) || thread.id.localeCompare(than.id)) > 0;
+  than === undefined || compareThreadActivity(thread, than) < 0;
 
 export function findLatestGroupThreadTarget(
   groupId: string,

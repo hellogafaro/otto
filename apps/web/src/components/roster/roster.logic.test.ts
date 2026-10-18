@@ -36,7 +36,7 @@ describe("resolveLatestOpenChatId", () => {
   const chat = (
     id: string,
     botId: string | null,
-    updatedAt: string,
+    activityAt: string,
     groupId: string | null = null,
   ) => ({
     id,
@@ -45,7 +45,7 @@ describe("resolveLatestOpenChatId", () => {
     groupId,
     parentThreadId: null,
     archivedAt: null,
-    updatedAt,
+    createdAt: activityAt,
   });
 
   it("skips chats with an archived bot or a missing group, which would bounce back to Chats", () => {

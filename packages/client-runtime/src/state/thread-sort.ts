@@ -1,4 +1,4 @@
-import type { ProjectId } from "@otto/contracts";
+import type { OrchestrationLatestTurn, ProjectId } from "@otto/contracts";
 import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "@otto/contracts/settings";
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
@@ -59,6 +59,48 @@ function getLatestUserMessageTimestamp(thread: ThreadSortInput): number {
   }
 
   return getFirstSortableTimestamp(thread.updatedAt, thread.createdAt) ?? Number.NEGATIVE_INFINITY;
+}
+
+export interface ThreadActivityInput {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly latestUserMessageAt?: string | null | undefined;
+  readonly latestTurn?:
+    | Pick<OrchestrationLatestTurn, "state" | "requestedAt" | "completedAt">
+    | null
+    | undefined;
+}
+
+const later = (current: string, candidate: string | null | undefined) =>
+  candidate != null && candidate > current ? candidate : current;
+
+/**
+ * When a chat last moved for the people in it: a message sent, a turn started or a turn finished.
+ * Unlike `updatedAt`, which every streamed message and tool step bumps, it holds still while a
+ * turn runs, so lists ordered by it keep their places until the model is done. A turn's start
+ * counts so a turn no one asked for in the chat (a routine, say) cannot sink the chat below its
+ * last finished turn while it runs. A running turn's `completedAt` can hold a mid-turn checkpoint
+ * time, so only a settled turn's counts.
+ */
+export function threadActivityAt(thread: ThreadActivityInput): string {
+  const turn = thread.latestTurn;
+  const settledAt = turn?.state === "running" ? null : turn?.completedAt;
+
+  return later(
+    later(later(thread.createdAt, thread.latestUserMessageAt), turn?.requestedAt),
+    settledAt,
+  );
+}
+
+/** Newest activity first; ties break on id so the order is stable. */
+export function compareThreadActivity(
+  left: ThreadActivityInput,
+  right: ThreadActivityInput,
+): number {
+  const leftAt = threadActivityAt(left);
+  const rightAt = threadActivityAt(right);
+
+  return leftAt === rightAt ? right.id.localeCompare(left.id) : leftAt > rightAt ? -1 : 1;
 }
 
 export function getThreadSortTimestamp(

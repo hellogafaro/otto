@@ -2,6 +2,10 @@ import { Match } from "effect";
 import type { OrchestrationThreadShell } from "@otto/contracts";
 import { isGroupBotMember, isGroupPersonMember, type GroupPersonMembership } from "@otto/contracts";
 import { createTranslator } from "@otto/client-runtime/i18n";
+import {
+  compareThreadActivity,
+  type ThreadActivityInput,
+} from "@otto/client-runtime/state/thread-sort";
 import type { TimestampFormat } from "@otto/contracts/settings";
 import { threadJumpIndexFromCommand } from "../../keybindings";
 import { formatShortTimestamp, parseTimestampDate } from "../../timestamp-format";
@@ -93,15 +97,15 @@ export function rosterChatStatus(
  * its page back to Chats, so opening it again would bounce between the two forever.
  */
 export function resolveLatestOpenChatId(
-  shells: ReadonlyArray<{
-    readonly id: string;
-    readonly environmentId: string;
-    readonly botId?: string | null | undefined;
-    readonly groupId?: string | null | undefined;
-    readonly parentThreadId?: string | null | undefined;
-    readonly archivedAt: string | null;
-    readonly updatedAt: string;
-  }>,
+  shells: ReadonlyArray<
+    ThreadActivityInput & {
+      readonly environmentId: string;
+      readonly botId?: string | null | undefined;
+      readonly groupId?: string | null | undefined;
+      readonly parentThreadId?: string | null | undefined;
+      readonly archivedAt: string | null;
+    }
+  >,
   environmentId: string | null,
   bots: ReadonlyArray<Pick<Bot, "id" | "archivedAt">>,
   groups: ReadonlyArray<Pick<Group, "id">>,
@@ -117,7 +121,7 @@ export function resolveLatestOpenChatId(
             ? groups.some((group) => group.id === shell.groupId)
             : bots.some((bot) => bot.id === shell.botId && bot.archivedAt === null)),
       )
-      .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.id ?? null
+      .toSorted(compareThreadActivity)[0]?.id ?? null
   );
 }
 

@@ -17,12 +17,13 @@ describe.each([
   { name: "bot", findLatest: findLatestBotThreadTarget, ownerKey: "botId" as const },
   { name: "group", findLatest: findLatestGroupThreadTarget, ownerKey: "groupId" as const },
 ])("latest $name thread selection", ({ findLatest, ownerKey }) => {
-  const thread = (id: string, updatedAt = "2026-08-27T00:00:00.000Z") => ({
+  const thread = (id: string, activityAt = "2026-08-27T00:00:00.000Z") => ({
     environmentId: "env-a",
     id,
     botId: "owner",
     groupId: "owner",
-    updatedAt,
+    createdAt: "2026-08-01T00:00:00.000Z",
+    latestUserMessageAt: activityAt,
     archivedAt: null as string | null,
     deletedAt: null as string | null | undefined,
   });
@@ -77,7 +78,7 @@ describe.each([
     }
   });
 
-  it("matches filter-sort selection with only 2,046 locale comparisons for 1,024 ties", () => {
+  it("matches filter-sort selection with only 1,023 locale comparisons for 1,024 ties", () => {
     const candidates = Array.from({ length: 1_024 }, (_, index) =>
       thread(`thread-${String((index * 317) % 1_024).padStart(4, "0")}`),
     );
@@ -97,7 +98,8 @@ describe.each([
         )
         .toSorted(
           (left, right) =>
-            right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id),
+            right.latestUserMessageAt.localeCompare(left.latestUserMessageAt) ||
+            right.id.localeCompare(left.id),
         )[0];
 
       oldComparisons = compare.mock.calls.length;
@@ -105,7 +107,7 @@ describe.each([
       const latest = findLatest("owner", "env-a", candidates);
       newComparisons = compare.mock.calls.length;
       expect(latest).toEqual({ environmentId: oldLatest?.environmentId, threadId: oldLatest?.id });
-      expect(newComparisons).toBe(2 * (candidates.length - 1));
+      expect(newComparisons).toBe(candidates.length - 1);
       expect(oldComparisons).toBeGreaterThan(newComparisons);
     } finally {
       compare.mockRestore();
@@ -245,7 +247,8 @@ describe("bot thread runtime", () => {
           environmentId: "env-a",
           id: "thread-old",
           botId: "bot-otto",
-          updatedAt: "2026-08-26T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-26T00:00:00.000Z",
           archivedAt: null,
           deletedAt: null,
         },
@@ -253,7 +256,8 @@ describe("bot thread runtime", () => {
           environmentId: "env-a",
           id: "thread-other",
           botId: "bot-other",
-          updatedAt: "2026-08-28T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-28T00:00:00.000Z",
           archivedAt: null,
           deletedAt: null,
         },
@@ -262,7 +266,8 @@ describe("bot thread runtime", () => {
           id: "delegated-child",
           botId: "bot-otto",
           parentThreadId: "parent-thread",
-          updatedAt: "2026-08-29T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-29T00:00:00.000Z",
           archivedAt: null,
           deletedAt: null,
         },
@@ -270,7 +275,8 @@ describe("bot thread runtime", () => {
           environmentId: "env-b",
           id: "thread-new",
           botId: "bot-otto",
-          updatedAt: "2026-08-27T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-27T00:00:00.000Z",
           archivedAt: null,
           deletedAt: null,
         },
@@ -286,7 +292,8 @@ describe("bot thread runtime", () => {
           id: "delegated-child",
           botId: "bot-otto",
           parentThreadId: "parent-thread",
-          updatedAt: "2026-08-29T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-29T00:00:00.000Z",
           archivedAt: null,
         },
       ]),
@@ -300,14 +307,16 @@ describe("bot thread runtime", () => {
           environmentId: "env-a",
           id: "thread-old",
           groupId: "group-product",
-          updatedAt: "2026-08-26T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-26T00:00:00.000Z",
           archivedAt: null,
         },
         {
           environmentId: "env-a",
           id: "thread-new",
           groupId: "group-product",
-          updatedAt: "2026-08-27T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-27T00:00:00.000Z",
           archivedAt: null,
         },
         {
@@ -315,7 +324,8 @@ describe("bot thread runtime", () => {
           id: "delegated-child",
           groupId: "group-product",
           parentThreadId: "parent-thread",
-          updatedAt: "2026-08-28T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-28T00:00:00.000Z",
           archivedAt: null,
         },
       ]),
@@ -323,11 +333,12 @@ describe("bot thread runtime", () => {
   });
 
   it("finds every group's latest chat in one pass, per environment", () => {
-    const shell = (id: string, groupId: string | null, updatedAt: string, extra = {}) => ({
+    const shell = (id: string, groupId: string | null, activityAt: string, extra = {}) => ({
       environmentId: "env-a",
       id,
       groupId,
-      updatedAt,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      latestUserMessageAt: activityAt,
       archivedAt: null as string | null,
       ...extra,
     });
@@ -374,7 +385,8 @@ describe("bot thread runtime", () => {
           id: "delegated-child",
           groupId: "group-product",
           parentThreadId: "parent-thread",
-          updatedAt: "2026-08-28T00:00:00.000Z",
+          createdAt: "2026-08-01T00:00:00.000Z",
+          latestUserMessageAt: "2026-08-28T00:00:00.000Z",
           archivedAt: null,
         },
       ]),
