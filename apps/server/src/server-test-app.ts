@@ -8,6 +8,7 @@ import {
   ProjectionLibraryRepository,
   type ProjectionLibraryRepositoryShape,
 } from "./persistence/services/projection-library.ts";
+import { ProjectionProjectRepository } from "./persistence/services/projection-projects.ts";
 import { ProjectionTaskRepository } from "./persistence/services/projection-tasks.ts";
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
@@ -601,6 +602,7 @@ export const buildAppUnderTest = (options?: {
             ...options?.layers?.projectionLibrary,
           } satisfies ProjectionLibraryRepositoryShape),
           Layer.mock(ProjectionTaskRepository)({}),
+          Layer.mock(ProjectionProjectRepository)({}),
           Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
             getCommandReadModel: () => Effect.succeed(defaultOrchestrationReadModel()),
             getSnapshot: () => Effect.succeed(defaultOrchestrationReadModel()),

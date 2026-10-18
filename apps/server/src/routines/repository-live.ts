@@ -27,7 +27,7 @@ import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { toPersistenceSqlError } from "../persistence/errors.ts";
-import { listKeyset, type ListSortSpec } from "../persistence/list-keyset.ts";
+import { listPageSql, type ListSortSql } from "../persistence/list-sql.ts";
 import { RoutineRepository, type RoutineClaim, type RoutineRepositoryShape } from "./repository.ts";
 
 const RoutineRow = Schema.Struct({
@@ -161,7 +161,7 @@ const STATUS_RANK = `CASE ${STATUS_SQL} ${ROUTINE_STATUSES.map(
 ).join(" ")} END`;
 
 /** Each sort's natural order and its keys; the routine id breaks ties so every row has a place. */
-const ROUTINE_SORTS: Record<RoutineListSort, ListSortSpec> = {
+const ROUTINE_SORTS: Record<RoutineListSort, ListSortSql> = {
   status: {
     natural: "asc",
     keys: [
@@ -275,9 +275,9 @@ const make = Effect.gen(function* () {
   );
 
   const list: RoutineRepositoryShape["list"] = ({ query, viewer, limit, after }) => {
-    const keyset = listKeyset(ROUTINE_SORTS[query.sort ?? "status"], query.order, after);
+    const keyset = listPageSql(ROUTINE_SORTS[query.sort ?? "status"], query.order, after);
     const filter = routineFilterSql(query, viewer);
-    const conditions = [...filter.conditions, ...(keyset.after ? [keyset.after.sql] : [])];
+    const conditions = [...filter.conditions, ...(keyset.after ? [keyset.after.condition] : [])];
     const params = [...filter.params, ...(keyset.after?.params ?? [])];
 
     const rows = sql.unsafe(
@@ -294,10 +294,10 @@ const make = Effect.gen(function* () {
           next_run_at AS "nextRunAt", last_run_at AS "lastRunAt",
           latest_result_json AS "latestResult", latest_failure_json AS "latestFailure",
           created_at AS "createdAt", updated_at AS "updatedAt", deleted_at AS "deletedAt",
-          ${keyset.sortKeySql} AS "sortKey"
+          ${keyset.sortKey} AS "sortKey"
         FROM projection_routines
         WHERE ${conditions.join(" AND ")}
-        ORDER BY ${keyset.orderBySql}
+        ORDER BY ${keyset.orderBy}
         LIMIT ?
       `,
       [...params, limit + 1],

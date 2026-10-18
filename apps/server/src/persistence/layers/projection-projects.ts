@@ -5,8 +5,18 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 
-import { ModelSelection, ProjectScript, WorkParticipant, WorkResources } from "@otto/contracts";
+import {
+  GENERAL_PROJECT_ID,
+  ModelSelection,
+  ProjectListItem,
+  type ProjectListQuery,
+  type ProjectListSort,
+  ProjectScript,
+  WorkParticipant,
+  WorkResources,
+} from "@otto/contracts";
 import { toPersistenceSqlError } from "../errors.ts";
+import { type ListSortSql, listPageSql, participantKeySql } from "../list-sql.ts";
 import {
   DeleteProjectionProjectInput,
   GetProjectionProjectInput,
@@ -25,6 +35,64 @@ const ProjectionProjectDbRow = ProjectionProject.mapFields(
 );
 
 type ProjectionProjectDbRow = typeof ProjectionProjectDbRow.Type;
+
+const ProjectListDbRow = ProjectListItem.mapFields(
+  Struct.assign({
+    owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
+    sortKey: Schema.fromJsonString(Schema.Array(Schema.Union([Schema.String, Schema.Number]))),
+  }),
+);
+
+/** Each sort's natural order and its keys; the project id breaks ties so every row has a place. */
+const PROJECT_SORTS: Record<ProjectListSort, ListSortSql> = {
+  updated: {
+    natural: "desc",
+    keys: [
+      { sql: "updated_at", direction: "desc" },
+      { sql: "project_id", direction: "desc" },
+    ],
+  },
+  created: {
+    natural: "desc",
+    keys: [
+      { sql: "created_at", direction: "desc" },
+      { sql: "project_id", direction: "desc" },
+    ],
+  },
+  title: {
+    natural: "asc",
+    keys: [
+      { sql: "lower(title)", direction: "asc" },
+      { sql: "project_id", direction: "asc" },
+    ],
+  },
+};
+
+/**
+ * The filter as SQL conditions and their parameters. The list never holds deleted projects or
+ * the General project; no status means everything but archived, and a project saved before
+ * statuses existed counts as in progress.
+ */
+function projectFilterSql(query: ProjectListQuery) {
+  const conditions = ["deleted_at IS NULL", "project_id <> ?"];
+  const params: Array<string | number> = [GENERAL_PROJECT_ID];
+
+  if (query.owner !== undefined) {
+    conditions.push(`owner_json IS NOT NULL AND ${participantKeySql("owner_json")} = ?`);
+    params.push(query.owner);
+  }
+
+  if (query.status !== undefined && query.status.length > 0) {
+    conditions.push(
+      `COALESCE(status, 'in_progress') IN (${query.status.map(() => "?").join(", ")})`,
+    );
+    params.push(...query.status);
+  } else {
+    conditions.push("COALESCE(status, 'in_progress') <> 'archived'");
+  }
+
+  return { conditions, params };
+}
 
 const makeProjectionProjectRepository = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
@@ -162,6 +230,48 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
       Effect.mapError(toPersistenceSqlError("ProjectionProjectRepository.listAll:query")),
     );
 
+  const list: ProjectionProjectRepositoryShape["list"] = ({ query, limit, after }) => {
+    const page = listPageSql(PROJECT_SORTS[query.sort ?? "updated"], query.order, after);
+    const filter = projectFilterSql(query);
+
+    const conditions = page.after
+      ? [...filter.conditions, page.after.condition]
+      : filter.conditions;
+
+    const params = page.after ? [...filter.params, ...page.after.params] : filter.params;
+
+    const rows = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: ProjectListDbRow,
+      execute: () =>
+        sql.unsafe(
+          `
+            SELECT
+              project_id AS id,
+              title,
+              owner_json AS owner,
+              COALESCE(status, 'in_progress') AS status,
+              cover_file_id AS "coverFileId",
+              created_at AS "createdAt",
+              updated_at AS "updatedAt",
+              ${page.sortKey} AS "sortKey"
+            FROM projection_projects
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY ${page.orderBy}
+            LIMIT ?
+          `,
+          [...params, limit + 1],
+        ),
+    });
+
+    return rows().pipe(
+      Effect.map((projectRows) =>
+        projectRows.map(({ sortKey, ...project }) => ({ project, key: sortKey })),
+      ),
+      Effect.mapError(toPersistenceSqlError("ProjectionProjectRepository.list:query")),
+    );
+  };
+
   const deleteById: ProjectionProjectRepositoryShape["deleteById"] = (input) =>
     deleteProjectionProjectRow(input).pipe(
       Effect.mapError(toPersistenceSqlError("ProjectionProjectRepository.deleteById:query")),
@@ -171,6 +281,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
     upsert,
     getById,
     listAll,
+    list,
     deleteById,
   } satisfies ProjectionProjectRepositoryShape;
 });

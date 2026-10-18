@@ -22,7 +22,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
 import { toPersistenceSqlError } from "../errors.ts";
-import { listKeyset, type ListSortSpec } from "../list-keyset.ts";
+import { listPageSql, type ListSortSql, participantKeySql } from "../list-sql.ts";
 import {
   ProjectionLibraryRepository,
   type ProjectionLibraryRepositoryShape,
@@ -57,7 +57,7 @@ const LibraryListDbRow = Schema.Union([
 ]);
 
 /** Folders first in either order, then each sort's key; the id breaks ties. */
-const LIBRARY_SORTS: Record<LibraryListSort, ListSortSpec> = {
+const LIBRARY_SORTS: Record<LibraryListSort, ListSortSql> = {
   updated: {
     natural: "desc",
     keys: [
@@ -256,7 +256,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
   });
 
   const list: ProjectionLibraryRepositoryShape["list"] = ({ query, personId, limit, after }) => {
-    const keyset = listKeyset(LIBRARY_SORTS[query.sort ?? "updated"], query.order, after);
+    const keyset = listPageSql(LIBRARY_SORTS[query.sort ?? "updated"], query.order, after);
     const conditions: string[] = [];
     const params: Array<string | number> = [];
 
@@ -274,14 +274,12 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
     }
 
     if (query.creator !== undefined) {
-      conditions.push(
-        "json_extract(created_by_json, '$.kind') || ':' || COALESCE(json_extract(created_by_json, '$.personId'), json_extract(created_by_json, '$.botId')) = ?",
-      );
+      conditions.push(`${participantKeySql("created_by_json")} = ?`);
       params.push(query.creator);
     }
 
     if (keyset.after) {
-      conditions.push(keyset.after.sql);
+      conditions.push(keyset.after.condition);
       params.push(...keyset.after.params);
     }
 
@@ -348,10 +346,10 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
               created_at AS "createdAt",
               updated_by_json AS "updatedBy",
               updated_at AS "updatedAt",
-              ${keyset.sortKeySql} AS "sortKey"
+              ${keyset.sortKey} AS "sortKey"
             FROM items
             ${conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""}
-            ORDER BY ${keyset.orderBySql}
+            ORDER BY ${keyset.orderBy}
             LIMIT ?
           `,
           [personId, ...params, limit + 1],

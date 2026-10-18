@@ -17,7 +17,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
 import { toPersistenceSqlError } from "../errors.ts";
-import { listKeyset, type ListSortSpec } from "../list-keyset.ts";
+import { type ListSortSql, listPageSql, participantKeySql } from "../list-sql.ts";
 import {
   ProjectionTask,
   ProjectionTaskRepository,
@@ -45,7 +45,7 @@ const STATUS_RANK = `CASE status ${WORK_STATUS_ORDER.map(
 ).join(" ")} END`;
 
 /** Each sort's natural order and its keys; the task id breaks ties so every row has a place. */
-const TASK_SORTS: Record<TaskListSort, ListSortSpec> = {
+const TASK_SORTS: Record<TaskListSort, ListSortSql> = {
   status: {
     natural: "asc",
     keys: [
@@ -84,10 +84,6 @@ const TASK_SORTS: Record<TaskListSort, ListSortSpec> = {
     ],
   },
 };
-
-/** The `bot:<id>` or `person:<id>` key of a participant stored as JSON. */
-const participantKeySql = (json: string) =>
-  `CASE json_extract(${json}, '$.kind') WHEN 'bot' THEN 'bot:' || json_extract(${json}, '$.botId') ELSE 'person:' || json_extract(${json}, '$.personId') END`;
 
 /** The filter as SQL conditions and their parameters; no status means everything but archived. */
 function taskFilterSql(query: TaskListQuery) {
@@ -258,11 +254,14 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
     );
 
   const list: ProjectionTaskRepositoryShape["list"] = ({ query, limit, after }) => {
-    const keyset = listKeyset(TASK_SORTS[query.sort ?? "status"], query.order, after);
+    const page = listPageSql(TASK_SORTS[query.sort ?? "status"], query.order, after);
     const filter = taskFilterSql(query);
-    const conditions = [...filter.conditions, ...(keyset.after ? [keyset.after.sql] : [])];
-    const params = [...filter.params, ...(keyset.after?.params ?? [])];
-    const where = `WHERE ${conditions.join(" AND ")}`;
+
+    const conditions = page.after
+      ? [...filter.conditions, page.after.condition]
+      : filter.conditions;
+
+    const params = page.after ? [...filter.params, ...page.after.params] : filter.params;
 
     const rows = SqlSchema.findAll({
       Request: Schema.Void,
@@ -283,10 +282,10 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
               status,
               created_at AS "createdAt",
               updated_at AS "updatedAt",
-              ${keyset.sortKeySql} AS "sortKey"
+              ${page.sortKey} AS "sortKey"
             FROM projection_tasks
-            ${where}
-            ORDER BY ${keyset.orderBySql}
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY ${page.orderBy}
             LIMIT ?
           `,
           [...params, limit + 1],

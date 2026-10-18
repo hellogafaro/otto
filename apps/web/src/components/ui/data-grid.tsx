@@ -2,14 +2,14 @@ import { useEffect, useRef } from "react";
 import type * as React from "react";
 
 import { cn } from "~/lib/utils";
-
 import { type DataTablePaging, scrollParent } from "./data-table";
 
 /**
  * Otto: The shared card gallery. One column on phones, two from `sm`, three
  * from `lg`, with 16px gutters and 24px between rows. It only lays items
- * out; `renderItem` draws each card. A paged grid asks for its next page
- * once its end comes within one screen of the view.
+ * out; `renderItem` draws each card. A gallery read page by page from the
+ * server passes `paging`, and the next page loads while the last card is
+ * less than a screen below the view.
  */
 export function DataGrid<T>({
   items,
@@ -24,40 +24,38 @@ export function DataGrid<T>({
   readonly paging?: DataTablePaging;
   readonly className?: string;
 }) {
-  const end = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const hasMore = paging?.hasMore ?? false;
   const loading = paging?.loading ?? false;
   const onLoadMore = paging?.onLoadMore;
 
   useEffect(() => {
-    const element = end.current;
+    const last = listRef.current?.lastElementChild;
 
-    if (!element || !hasMore || loading || !onLoadMore) return;
+    if (!last || !hasMore || loading || !onLoadMore) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+      ([entry]) => {
+        if (entry?.isIntersecting) onLoadMore();
       },
-      { root: scrollParent(element), rootMargin: "0px 0px 100% 0px" },
+      { root: scrollParent(listRef.current), rootMargin: "0px 0px 100% 0px" },
     );
 
-    observer.observe(element);
+    observer.observe(last);
 
     return () => observer.disconnect();
-  }, [hasMore, loading, onLoadMore]);
+  }, [hasMore, loading, onLoadMore, items.length]);
 
   return (
-    <>
-      <ul
-        className={cn("grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3", className)}
-      >
-        {items.map((item) => (
-          <li key={getItemKey(item)} className="min-w-0 list-none">
-            {renderItem(item)}
-          </li>
-        ))}
-      </ul>
-      {paging ? <div ref={end} aria-hidden /> : null}
-    </>
+    <ul
+      ref={listRef}
+      className={cn("grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3", className)}
+    >
+      {items.map((item) => (
+        <li key={getItemKey(item)} className="min-w-0 list-none">
+          {renderItem(item)}
+        </li>
+      ))}
+    </ul>
   );
 }

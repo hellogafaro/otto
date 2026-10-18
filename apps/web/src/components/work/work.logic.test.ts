@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   duePresetOf,
   duePresetRange,
+  encodeProjectSearch,
   encodeTaskSearch,
   formatDuration,
   parseDuration,
@@ -67,6 +68,17 @@ describe("parseTaskSearch", () => {
 });
 
 describe("parseProjectSearch", () => {
+  it("reads the sort and order, and writes statuses back as one comma list", () => {
+    expect(parseProjectSearch({ sort: "title", order: "desc" })).toEqual({
+      sort: "title",
+      order: "desc",
+    });
+    expect(parseProjectSearch({ sort: "status" })).toEqual({});
+    expect(encodeProjectSearch({ status: ["pending", "archived"] })).toEqual({
+      status: "pending,archived",
+    });
+  });
+
   it("keeps only owner and status", () => {
     expect(parseProjectSearch({ owner: "bot:scout", status: "archived", project: "x" })).toEqual({
       owner: "bot:scout",
