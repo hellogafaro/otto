@@ -1,9 +1,15 @@
 import * as Match from "effect/Match";
-import { type OrchestrationCommand, type OrchestrationReadModel } from "@otto/contracts";
+import {
+  canSeeDirectChat,
+  type OrchestrationCommand,
+  type OrchestrationReadModel,
+  type Routine,
+} from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
+import { canSeeThread } from "../group-visibility.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import { nextScheduledFor } from "../../routines/schedule.ts";
 import { withEventBase, type DecideOrchestrationCommandResult } from "./event-base.ts";
@@ -11,6 +17,7 @@ import { withEventBase, type DecideOrchestrationCommandResult } from "./event-ba
 export const decideRoutines = Effect.fn("decideRoutines")(function* ({
   command,
   readModel,
+  actor,
 }: {
   readonly command: Extract<
     OrchestrationCommand,
@@ -41,6 +48,70 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
   OrchestrationCommandInvariantError | PlatformError.PlatformError,
   Crypto.Crypto
 > {
+  const refuse = (detail: string) =>
+    new OrchestrationCommandInvariantError({ commandType: command.type, detail });
+
+  // Otto: A person acts only on routines they can see: a Team routine is everyone's, an
+  // Only me routine its creator's. Server work carries no actor and is trusted.
+  const existingRoutine =
+    "routineId" in command
+      ? (readModel.routines ?? []).find((routine) => routine.id === command.routineId)
+      : undefined;
+
+  if (
+    actor !== undefined &&
+    existingRoutine !== undefined &&
+    !canSeeDirectChat(existingRoutine, { kind: "person", personId: actor.personId })
+  ) {
+    return yield* refuse("This routine is private to the person who set it up.");
+  }
+
+  // Otto: A person's draft posts only into a chat they can see, as that chat's bot, with
+  // that chat's permissions; who set the routine up and who sees it stay the creator's.
+  const requireClientDraft = Effect.fnUntraced(function* (
+    draft: Extract<OrchestrationCommand, { type: "routine.draft" }>,
+    existing: Routine | undefined,
+    personId: NonNullable<typeof actor>["personId"],
+  ) {
+    const target = readModel.threads.find((thread) => thread.id === draft.targetThreadId);
+
+    if (
+      target === undefined ||
+      target.deletedAt !== null ||
+      target.archivedAt !== null ||
+      !canSeeThread(target, readModel.groups, personId)
+    ) {
+      return yield* refuse("A routine needs a chat you can see.");
+    }
+
+    if (!readModel.bots.some((bot) => bot.id === draft.botId && bot.archivedAt === null)) {
+      return yield* refuse("The routine's bot is unavailable.");
+    }
+
+    if (
+      draft.threadMode === "target" &&
+      (target.botId !== draft.botId || target.projectId !== draft.projectId)
+    ) {
+      return yield* refuse("A routine that posts in its chat runs as that chat's bot and project.");
+    }
+
+    if (draft.approvalPolicy !== target.runtimeMode) {
+      return yield* refuse("A routine runs with its chat's permissions.");
+    }
+
+    if (draft.delegateToBotId !== (existing?.delegateToBotId ?? null)) {
+      return yield* refuse("A routine's helper bot cannot be changed here.");
+    }
+
+    if (
+      existing !== undefined &&
+      draft.visibility !== existing.visibility &&
+      existing.createdBy !== personId
+    ) {
+      return yield* refuse("Only the person who set up this routine can change who sees it.");
+    }
+  });
+
   switch (command.type) {
     case "routine.create-approved": {
       const existing = (readModel.routines ?? []).find(
@@ -121,6 +192,8 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
 
       const procedureVersion = (existing?.procedureVersion ?? 0) + 1;
 
+      if (actor !== undefined) yield* requireClientDraft(command, existing, actor.personId);
+
       const routine = {
         id: command.routineId,
         botId: command.botId,
@@ -136,7 +209,8 @@ export const decideRoutines = Effect.fn("decideRoutines")(function* ({
         sandbox: command.sandbox,
         approvalPolicy: command.approvalPolicy,
         delegateToBotId: command.delegateToBotId,
-        createdBy: command.createdBy,
+        createdBy:
+          actor === undefined ? command.createdBy : (existing?.createdBy ?? actor.personId),
         visibility: command.visibility,
         procedureVersion,
         approvalVersion: null,

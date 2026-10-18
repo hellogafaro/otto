@@ -30,7 +30,6 @@ import {
 } from "./orchestration/normalizer.ts";
 import { readWorkflowScript } from "./orchestration/workflow-script-query.ts";
 import {
-  canSeeRoutine,
   canSeeThread,
   canSeeThreadById,
   visibleShellSnapshot,
@@ -186,19 +185,6 @@ export const createWsOrchestrationHandlers = ({
             return yield* new OrchestrationDispatchCommandError({
               message: "This chat is private to the person who started it.",
             });
-          }
-
-          // Otto: Nor on a routine kept private by the person who set it up.
-          if ("routineId" in actorCommand) {
-            const routine = (yield* projectionSnapshotQuery.getShellSnapshot()).routines?.find(
-              (candidate) => candidate.id === actorCommand.routineId,
-            );
-
-            if (routine !== undefined && !canSeeRoutine(routine, currentPersonId)) {
-              return yield* new OrchestrationDispatchCommandError({
-                message: "This routine is private to the person who set it up.",
-              });
-            }
           }
 
           if (commandNamesPeople(actorCommand)) {

@@ -1,4 +1,5 @@
 import {
+  type AuthSessionId,
   BotId,
   CommandId,
   PositiveInt,
@@ -17,6 +18,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { canSeeRoutine, chatPeople } from "../orchestration/group-visibility.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
 
@@ -50,12 +52,17 @@ export type OttoRoutineStatus = Pick<Routine, "id" | "enabled"> & {
   readonly lifecycle: Exclude<Routine["lifecycle"], "deleted">;
 };
 
+/** Otto: A bot's live routines that every person in its chat may see. */
 export function routineStatusesForBot(
   routines: ReadonlyArray<Routine>,
   botId: BotId,
+  people: ReadonlyArray<AuthSessionId>,
 ): ReadonlyArray<OttoRoutineStatus> {
   return routines.flatMap((routine) =>
-    routine.botId === botId && routine.lifecycle !== "deleted" && routine.deletedAt === null
+    routine.botId === botId &&
+    routine.lifecycle !== "deleted" &&
+    routine.deletedAt === null &&
+    people.every((personId) => canSeeRoutine(routine, personId))
       ? [
           {
             id: routine.id,
@@ -232,7 +239,11 @@ const make = Effect.gen(function* () {
 
       if (!bot) return yield* fail("The current bot is unavailable.");
 
-      return routineStatusesForBot(snapshot.routines ?? [], botId);
+      return routineStatusesForBot(
+        snapshot.routines ?? [],
+        botId,
+        chatPeople(thread, snapshot.groups),
+      );
     }).pipe(
       Effect.mapError((cause) =>
         isRoutineDraftError(cause)
@@ -270,7 +281,11 @@ const make = Effect.gen(function* () {
       }
 
       const availableRoutineIds = new Set(
-        routineStatusesForBot(snapshot.routines ?? [], botId).map((routine) => routine.id),
+        routineStatusesForBot(
+          snapshot.routines ?? [],
+          botId,
+          chatPeople(thread, snapshot.groups),
+        ).map((routine) => routine.id),
       );
 
       if (uniqueRoutineIds.some((routineId) => !availableRoutineIds.has(routineId))) {
@@ -305,7 +320,10 @@ const make = Effect.gen(function* () {
       ),
     );
 
-  /** The live routine a bot chat may change: owned by the chat's bot and not deleted. */
+  /**
+   * The live routine a bot chat may change: owned by the chat's bot, not deleted, and seen
+   * by everyone in the chat.
+   */
   const ownedRoutine = (threadId: ThreadId, routineId: RoutineId) =>
     Effect.gen(function* () {
       const thread = Option.getOrUndefined(yield* snapshots.getThreadDetailById(threadId));
@@ -322,12 +340,15 @@ const make = Effect.gen(function* () {
 
       const snapshot = yield* snapshots.getShellSnapshot();
 
+      const people = chatPeople(thread, snapshot.groups);
+
       const routine = (snapshot.routines ?? []).find(
         (candidate) =>
           candidate.id === routineId &&
           candidate.botId === botId &&
           candidate.lifecycle !== "deleted" &&
-          candidate.deletedAt === null,
+          candidate.deletedAt === null &&
+          people.every((personId) => canSeeRoutine(candidate, personId)),
       );
 
       if (!routine) return yield* fail("That routine is unavailable.");

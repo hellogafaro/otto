@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
+  AuthSessionId,
   BotId,
   IsoDateTime,
   type OrchestrationBot,
@@ -109,12 +110,22 @@ describe("routineStatusesForBot", () => {
           }),
         ],
         botId,
+        [],
       ),
     ).toEqual([
       { id: "enabled", name: "Routine enabled", enabled: true, lifecycle: "enabled" },
       { id: "disabled", name: "Routine disabled", enabled: false, lifecycle: "approved" },
       { id: "blocked", name: "Routine blocked", enabled: false, lifecycle: "blocked" },
     ]);
+  });
+
+  it("leaves out a private routine someone in the chat cannot see", () => {
+    const owner = AuthSessionId.make("person-owner");
+    const other = AuthSessionId.make("person-other");
+    const routines = [routine("private", { createdBy: owner, visibility: "user" })];
+
+    expect(routineStatusesForBot(routines, botId, [owner])).toHaveLength(1);
+    expect(routineStatusesForBot(routines, botId, [owner, other])).toEqual([]);
   });
 });
 
