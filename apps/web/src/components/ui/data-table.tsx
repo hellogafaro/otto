@@ -504,6 +504,7 @@ function DataTableRow<T>({
   );
 
   const cells = <RowGroups columns={columns} render={cell} />;
+
   const rowClassName = cn(
     ROW_CLASS,
     "h-11 text-sm text-foreground outline-none select-none",

@@ -6,6 +6,11 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 
 let mountedLists = 0;
 
+const ROW_STEPS = new Map([
+  ["thread.next", 1],
+  ["thread.previous", -1],
+]);
+
 /** True while an index page's rows own J and K, so the chat list leaves them alone. */
 export function isRowListMounted(): boolean {
   return mountedLists > 0;
@@ -25,6 +30,7 @@ export function useRowHighlight<T>(
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const pointer = useRef<{ readonly x: number; readonly y: number } | null>(null);
+  const held = useRef<string | null>(null);
   const highlighted = rows.find((row) => getKey(row) === highlightedKey) ?? null;
 
   useEffect(() => {
@@ -41,6 +47,7 @@ export function useRowHighlight<T>(
       const plain = !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
 
       if (highlighted && plain && event.key === "Escape") {
+        held.current = null;
         setHighlightedKey(null);
       } else if (
         highlighted &&
@@ -54,11 +61,11 @@ export function useRowHighlight<T>(
           context: { inputFocus: false },
         });
 
-        const step = command === "thread.next" ? 1 : command === "thread.previous" ? -1 : 0;
+        const step = ROW_STEPS.get(String(command)) ?? 0;
         const shown = [...document.querySelectorAll<HTMLElement>("[data-row-key]")];
 
         if (step === 0 || shown.length === 0) return;
-        const index = shown.findIndex((element) => element.dataset.rowKey === highlightedKey);
+        const index = shown.findIndex((element) => element.dataset.rowKey === held.current);
 
         const next =
           index === -1
@@ -69,7 +76,8 @@ export function useRowHighlight<T>(
 
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         next?.scrollIntoView({ block: "nearest" });
-        setHighlightedKey(next?.dataset.rowKey ?? null);
+        held.current = next?.dataset.rowKey ?? null;
+        setHighlightedKey(held.current);
       }
 
       event.preventDefault();
@@ -79,14 +87,16 @@ export function useRowHighlight<T>(
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [highlighted, highlightedKey, keybindings, onOpen]);
+  }, [highlighted, keybindings, onOpen]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
       const last = pointer.current;
       pointer.current = { x: event.clientX, y: event.clientY };
 
-      if (last && (last.x !== event.clientX || last.y !== event.clientY)) setHighlightedKey(null);
+      if (!last || (last.x === event.clientX && last.y === event.clientY)) return;
+      held.current = null;
+      setHighlightedKey(null);
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
