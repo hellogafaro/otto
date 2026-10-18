@@ -1,5 +1,6 @@
 import { RiArrowDownSLine } from "@remixicon/react";
-import { useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type * as React from "react";
 
 import { cn } from "~/lib/utils";
@@ -98,6 +99,7 @@ export function DataTable<T>({
   getRowLabel,
   onRowClick,
   groupBy,
+  paging,
   className,
 }: {
   readonly rows: readonly T[];
@@ -110,10 +112,29 @@ export function DataTable<T>({
   readonly groupBy?: {
     readonly groups: readonly DataTableGroup[];
     readonly getGroupId: (row: T) => string;
+    /** A group's full size when `rows` holds only the pages loaded so far. */
+    readonly getGroupCount?: (groupId: string) => number;
   };
+  /** A list read page by page from the server: its rows are virtualized and load as they near view. */
+  readonly paging?: DataTablePaging;
   readonly className?: string;
 }) {
   const hasHeader = columns.some((column) => column.header !== undefined);
+
+  if (paging) {
+    return (
+      <VirtualDataTable
+        rows={rows}
+        columns={columns}
+        getRowKey={getRowKey}
+        getRowLabel={getRowLabel}
+        onRowClick={onRowClick}
+        groupBy={groupBy}
+        paging={paging}
+        className={className}
+      />
+    );
+  }
 
   // Otto: rows sit 4px under a group band, but straight under a header band, whose own height
   // already spaces them; a header is part of its table, not a section of it.
@@ -180,6 +201,203 @@ export function DataTable<T>({
   );
 }
 
+export interface DataTablePaging {
+  readonly hasMore: boolean;
+  readonly loading: boolean;
+  readonly onLoadMore: () => void;
+}
+
+const ROW_HEIGHT = 44;
+
+const BAND_HEIGHT = 36;
+
+/** Rows sit 4px under their group's band, and groups 8px apart. */
+const BAND_GAP_BELOW = 4;
+
+const GROUP_GAP = 8;
+
+/** Start loading the next page while this many rows are still below the view. */
+const LOAD_AHEAD_ROWS = 20;
+
+type VirtualItem<T> =
+  | { readonly type: "group"; readonly group: DataTableGroup; readonly count: number }
+  | { readonly type: "row"; readonly row: T };
+
+function scrollParent(element: HTMLElement | null): HTMLElement | null {
+  for (let parent = element?.parentElement; parent; parent = parent.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) return parent;
+  }
+
+  return null;
+}
+
+/**
+ * Otto: The paged table renders only the rows near the view, inside the page's own scroll
+ * container, so a list of thousands costs what a screenful does. Bands and rows keep the plain
+ * table's geometry; the next page loads when fewer than 20 rows remain below the view.
+ */
+function VirtualDataTable<T>({
+  rows,
+  columns,
+  getRowKey,
+  getRowLabel,
+  onRowClick,
+  groupBy,
+  paging,
+  className,
+}: {
+  readonly rows: readonly T[];
+  readonly columns: readonly DataTableColumn<T>[];
+  readonly getRowKey: (row: T) => string;
+  readonly getRowLabel: (row: T) => string;
+  readonly onRowClick: ((row: T) => void) | undefined;
+  readonly groupBy:
+    | {
+        readonly groups: readonly DataTableGroup[];
+        readonly getGroupId: (row: T) => string;
+        readonly getGroupCount?: (groupId: string) => number;
+      }
+    | undefined;
+  readonly paging: DataTablePaging;
+  readonly className: string | undefined;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+
+  const items: VirtualItem<T>[] = groupBy
+    ? groupBy.groups.flatMap((group) => {
+        const inGroup = rows.filter((row) => groupBy.getGroupId(row) === group.id);
+
+        if (inGroup.length === 0) return [];
+
+        const band: VirtualItem<T> = {
+          type: "group",
+          group,
+          count: groupBy.getGroupCount?.(group.id) ?? inGroup.length,
+        };
+
+        return collapsed.has(group.id)
+          ? [band]
+          : [band, ...inGroup.map((row): VirtualItem<T> => ({ type: "row", row }))];
+      })
+    : rows.map((row) => ({ type: "row", row }));
+
+  useLayoutEffect(() => {
+    const element = listRef.current;
+    const parent = scrollParent(element);
+    setScroller(parent);
+
+    if (!element || !parent) return;
+
+    const measure = () =>
+      setScrollMargin(
+        element.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop,
+      );
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const groupSize = (index: number, item: VirtualItem<T>) =>
+    (index === 0 ? 0 : GROUP_GAP) +
+    BAND_HEIGHT +
+    (item.type === "group" && !collapsed.has(item.group.id) ? BAND_GAP_BELOW : 0);
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scroller,
+    estimateSize: (index) => {
+      const item = items[index]!;
+
+      return item.type === "group" ? groupSize(index, item) : ROW_HEIGHT;
+    },
+    getItemKey: (index) => {
+      const item = items[index]!;
+
+      return item.type === "group" ? `group:${item.group.id}` : getRowKey(item.row);
+    },
+    overscan: 10,
+    scrollMargin,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const lastIndex = virtualItems.at(-1)?.index ?? -1;
+  const { hasMore, loading, onLoadMore } = paging;
+
+  useEffect(() => {
+    if (hasMore && !loading && lastIndex >= items.length - LOAD_AHEAD_ROWS) onLoadMore();
+  }, [hasMore, loading, lastIndex, items.length, onLoadMore]);
+
+  useEffect(() => virtualizer.measure(), [virtualizer, collapsed]);
+
+  return (
+    <div className={cn("@container/list flex flex-col", className)}>
+      <div
+        ref={listRef}
+        role="list"
+        className="relative h-(--list-height) w-full"
+        style={{ "--list-height": `${virtualizer.getTotalSize()}px` }}
+      >
+        {virtualItems.map((virtualItem) => {
+          const item = items[virtualItem.index]!;
+
+          return (
+            <div
+              key={virtualItem.key}
+              role="listitem"
+              className="absolute inset-x-0 top-(--item-top) h-(--item-height)"
+              style={{
+                "--item-top": `${virtualItem.start - scrollMargin}px`,
+                "--item-height": `${virtualItem.size}px`,
+              }}
+            >
+              {item.type === "group" ? (
+                <div
+                  className={cn(
+                    "flex flex-col",
+                    virtualItem.index > 0 && "pt-2",
+                    !collapsed.has(item.group.id) && "pb-1",
+                  )}
+                >
+                  <DataTableGroupBand
+                    group={item.group}
+                    count={item.count}
+                    open={!collapsed.has(item.group.id)}
+                    onToggle={() =>
+                      setCollapsed((current) => {
+                        const next = new Set(current);
+
+                        if (!next.delete(item.group.id)) next.add(item.group.id);
+
+                        return next;
+                      })
+                    }
+                  />
+                </div>
+              ) : (
+                <ul className="flex flex-col">
+                  <DataTableRow
+                    row={item.row}
+                    columns={columns}
+                    label={getRowLabel(item.row)}
+                    onClick={onRowClick}
+                  />
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function DataTableSection({
   group,
   count,
@@ -193,31 +411,47 @@ function DataTableSection({
 
   return (
     <section className="flex flex-col">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md bg-foreground/[0.035] ps-3.5 pe-4 text-left text-13px font-medium tracking-title-sm text-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:shrink-0"
-      >
-        <span className="flex w-4 shrink-0 items-center justify-center">
-          <RiArrowDownSLine
-            aria-hidden
-            className={cn(
-              "size-3 text-foreground/38 transition-transform duration-100 motion-reduce:transition-none",
-              !open && "-rotate-90",
-            )}
-          />
-        </span>
-        {group.icon ? (
-          <span className="flex w-4 shrink-0 items-center justify-center [&_svg]:size-3.5">
-            {group.icon}
-          </span>
-        ) : null}
-        <span className="truncate">{group.label}</span>
-        <span className={cn("font-normal tabular-nums", SECONDARY_TEXT)}>{count}</span>
-      </button>
+      <DataTableGroupBand group={group} count={count} open={open} onToggle={() => setOpen(!open)} />
       {open ? children : null}
     </section>
+  );
+}
+
+function DataTableGroupBand({
+  group,
+  count,
+  open,
+  onToggle,
+}: {
+  readonly group: DataTableGroup;
+  readonly count: number;
+  readonly open: boolean;
+  readonly onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={onToggle}
+      className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-md bg-foreground/[0.035] ps-3.5 pe-4 text-left text-13px font-medium tracking-title-sm text-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:shrink-0"
+    >
+      <span className="flex w-4 shrink-0 items-center justify-center">
+        <RiArrowDownSLine
+          aria-hidden
+          className={cn(
+            "size-3 text-foreground/38 transition-transform duration-100 motion-reduce:transition-none",
+            !open && "-rotate-90",
+          )}
+        />
+      </span>
+      {group.icon ? (
+        <span className="flex w-4 shrink-0 items-center justify-center [&_svg]:size-3.5">
+          {group.icon}
+        </span>
+      ) : null}
+      <span className="truncate">{group.label}</span>
+      <span className={cn("font-normal tabular-nums", SECONDARY_TEXT)}>{count}</span>
+    </button>
   );
 }
 

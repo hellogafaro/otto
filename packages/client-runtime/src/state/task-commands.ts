@@ -1,3 +1,4 @@
+import { WS_METHODS } from "@otto/contracts";
 import * as Crypto from "effect/Crypto";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -12,7 +13,11 @@ import {
   type RemoveTaskTimeInput,
   type UpdateTaskInput,
 } from "../operations/commands.ts";
-import { createAtomCommandScheduler, createEnvironmentCommand } from "./runtime.ts";
+import {
+  createAtomCommandScheduler,
+  createEnvironmentCommand,
+  createEnvironmentRpcCommand,
+} from "./runtime.ts";
 
 export type {
   AddTaskTimeInput,
@@ -33,6 +38,11 @@ export function createTaskEnvironmentAtoms<R, E>(
   };
 
   return {
+    /** One page of the bounded task list; the Tasks page asks for each page as it scrolls. */
+    list: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:tasks:list",
+      tag: WS_METHODS.tasksList,
+    }),
     create: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:task:create",
       execute: (input: CreateTaskInput) => createTask(input),

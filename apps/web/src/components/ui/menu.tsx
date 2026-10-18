@@ -97,6 +97,16 @@ function MenuKey({ className }: { className?: string }) {
   );
 }
 
+// Otto: A checked choice row shows its check where the row's key would be, never both; the
+// number still picks the row.
+const MENU_CHECK_CLASS = "-me-0.5 sm:-me-1 ms-auto flex shrink-0 ps-4";
+
+const menuCheck = (
+  <span className="flex w-5 justify-center">
+    <RiCheckLine aria-hidden="true" />
+  </span>
+);
+
 function MenuPopup({
   children,
   className,
@@ -225,7 +235,7 @@ function MenuCheckboxItem({
         // Otto: the check sits at the right end of the row, so labels and avatars stay aligned.
         variant === "switch"
           ? "grid-cols-[1fr_auto_auto] gap-4 pe-1.5"
-          : "grid-cols-[1fr_1rem_auto] pe-2",
+          : "grid-cols-[1fr_auto] pe-2",
         className,
       )}
       data-slot="menu-checkbox-item"
@@ -244,12 +254,19 @@ function MenuCheckboxItem({
       ) : (
         <>
           <span className="col-start-1 min-w-0">{children}</span>
-          <MenuPrimitive.CheckboxItemIndicator className="col-start-2">
-            <RiCheckLine aria-hidden="true" />
+          <MenuPrimitive.CheckboxItemIndicator
+            className={cn(MENU_CHECK_CLASS, "col-start-2 row-start-1")}
+          >
+            {menuCheck}
           </MenuPrimitive.CheckboxItemIndicator>
         </>
       )}
-      <MenuKey className="col-start-3" />
+      <MenuKey
+        className={cn(
+          "row-start-1",
+          variant === "switch" ? "col-start-3" : "col-start-2 in-data-checked:hidden",
+        )}
+      />
     </MenuPrimitive.CheckboxItem>
   );
 }
@@ -261,7 +278,7 @@ function MenuRadioGroup(props: MenuPrimitive.RadioGroup.Props) {
 function MenuRadioItem({
   className,
   children,
-  hideIndicator: _hideIndicator = false,
+  hideIndicator = false,
   ...props
 }: MenuPrimitive.RadioItem.Props & {
   hideIndicator?: boolean;
@@ -269,14 +286,23 @@ function MenuRadioItem({
   return (
     <MenuPrimitive.RadioItem
       className={cn(
-        "[&_svg]:-mx-0.5 flex min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none data-checked:bg-foreground/[0.08] data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "[&_svg]:-mx-0.5 flex min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       data-slot="menu-radio-item"
       {...props}
     >
       <span className="min-w-0 flex-1">{children}</span>
-      <MenuKey />
+      {hideIndicator ? (
+        <MenuKey />
+      ) : (
+        <>
+          <MenuPrimitive.RadioItemIndicator className={MENU_CHECK_CLASS}>
+            {menuCheck}
+          </MenuPrimitive.RadioItemIndicator>
+          <MenuKey className="in-data-checked:hidden" />
+        </>
+      )}
     </MenuPrimitive.RadioItem>
   );
 }

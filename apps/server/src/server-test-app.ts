@@ -8,6 +8,7 @@ import {
   ProjectionLibraryRepository,
   type ProjectionLibraryRepositoryShape,
 } from "./persistence/services/projection-library.ts";
+import { ProjectionTaskRepository } from "./persistence/services/projection-tasks.ts";
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
 import { DEFAULT_SERVER_SETTINGS, type PreviewEvent } from "@otto/contracts";
@@ -597,6 +598,7 @@ export const buildAppUnderTest = (options?: {
             listChatThreads: () => Effect.succeed([]),
             ...options?.layers?.projectionLibrary,
           } satisfies ProjectionLibraryRepositoryShape),
+          Layer.mock(ProjectionTaskRepository)({}),
           Layer.mock(ProjectionSnapshotQuery.ProjectionSnapshotQuery)({
             getCommandReadModel: () => Effect.succeed(defaultOrchestrationReadModel()),
             getSnapshot: () => Effect.succeed(defaultOrchestrationReadModel()),

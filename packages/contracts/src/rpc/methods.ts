@@ -20,6 +20,9 @@ export const WS_METHODS = {
   activityCommentAdd: "activity.commentAdd",
   activityCommentRemove: "activity.commentRemove",
 
+  // Task methods
+  tasksList: "tasks.list",
+
   // Notification methods
   notificationsList: "notifications.list",
   notificationsMarkRead: "notifications.markRead",
