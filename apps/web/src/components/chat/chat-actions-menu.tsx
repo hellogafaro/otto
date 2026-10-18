@@ -25,7 +25,7 @@ import { registerChatPaletteActions } from "../../chat-actions-registry";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { useNowMinute } from "../../hooks/use-now-minute";
 import { useI18n } from "../../i18n";
-import { resolveShortcutCommand, shortcutLabelForCommand } from "../../keybindings";
+import { resolveShortcutCommand } from "../../keybindings";
 import { isModelPickerOpen } from "../../model-picker-visibility";
 import { useShortcutHintsVisible } from "../../shortcut-hints";
 import {
@@ -38,6 +38,7 @@ import {
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { useUiStateStore } from "../../ui-state-store";
 import { CopyMenuItems } from "../copy-menu-items";
+import { ShortcutKbd } from "../shortcut-kbd";
 import { AppIcon } from "../ui/app-icon";
 import { Button } from "../ui/button";
 import {
@@ -54,7 +55,6 @@ import {
   MenuItem,
   MenuPopup,
   MenuSeparator,
-  MenuShortcut,
   MenuSub,
   MenuSubPopup,
   MenuSubTrigger,
@@ -198,10 +198,6 @@ export function ChatActionsMenu({
 
   const snoozePresets = resolveSnoozePresets(new Date());
 
-  const settleShortcut = shortcutHintsVisible
-    ? shortcutLabelForCommand(keybindings, "thread.settle")
-    : null;
-
   const snoozedUntilLabel = state.snoozedUntil
     ? formatDate(new Date(state.snoozedUntil), {
         weekday: "short",
@@ -306,7 +302,9 @@ export function ChatActionsMenu({
               <MenuItem disabled={!state.canSettle} onClick={() => void actions.settle(threadRef)}>
                 <RiCheckDoubleLine />
                 {t("Settle chat")}
-                {settleShortcut ? <MenuShortcut>{settleShortcut}</MenuShortcut> : null}
+                {shortcutHintsVisible ? (
+                  <ShortcutKbd command="thread.settle" className="ms-auto" />
+                ) : null}
               </MenuItem>
             )
           ) : null}
