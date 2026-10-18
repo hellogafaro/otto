@@ -421,10 +421,8 @@ export const make = Effect.gen(function* () {
       }
     });
 
-    window.on("page-title-updated", (event) => {
-      event.preventDefault();
-      window.setTitle(environment.displayName);
-    });
+    // The renderer names each route (for example, "Tasks | Otto"). Let Electron
+    // use that document title for the native window and Window menu as well.
     window.on("resize", scheduleBoundsPersist);
     window.on("move", scheduleBoundsPersist);
     window.on("maximize", scheduleBoundsPersist);
@@ -506,7 +504,7 @@ export const make = Effect.gen(function* () {
 
       clearDevelopmentLoadRetry();
       developmentLoadRetryIndex = 0;
-      window.setTitle(environment.displayName);
+      window.setTitle(window.webContents.getTitle() || environment.displayName);
     });
     window.webContents.on(
       "did-fail-load",
