@@ -50,7 +50,6 @@ SDKROOT=$(xcrun --sdk macosx --show-sdk-path) pnpm dist:desktop:dmg:arm64`. The 
 - **More page actions**, for example Copy link and Copy ID on a task.
 - **"New single chat" in automations**: a run can start a fresh chat.
 - **Global search** in the command palette.
-- **Menus like Linear's**: every dropdown item shows a one-key shortcut, and typing filters the menu.
 
 ## Not verified yet
 

@@ -611,7 +611,7 @@ export function GroupThreadLanding({
                 />
               ) : null}
               <BotPromptComposer
-                typeToFocus={!waitingForUserInput}
+                focusOnEnter={!waitingForUserInput}
                 mentionScope={mentionScope}
                 commandCatalog={composerCatalog}
                 onAddressedBotChange={setAddressedBotId}

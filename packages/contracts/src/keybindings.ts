@@ -64,6 +64,18 @@ export const APPROVAL_KEYBINDING_COMMANDS = [
 
 export type ApprovalKeybindingCommand = (typeof APPROVAL_KEYBINDING_COMMANDS)[number];
 
+export const NAVIGATION_KEYBINDING_COMMANDS = [
+  "navigation.home",
+  "navigation.notifications",
+  "navigation.chats",
+  "navigation.routines",
+  "navigation.tasks",
+  "navigation.projects",
+  "navigation.library",
+] as const;
+
+export type NavigationKeybindingCommand = (typeof NAVIGATION_KEYBINDING_COMMANDS)[number];
+
 export const STATIC_KEYBINDING_COMMANDS = [
   "sidebar.toggle",
   "terminal.toggle",
@@ -91,6 +103,9 @@ export const STATIC_KEYBINDING_COMMANDS = [
   ...MODEL_PICKER_KEYBINDING_COMMANDS,
   ...THREAD_KEYBINDING_COMMANDS,
   ...APPROVAL_KEYBINDING_COMMANDS,
+  ...NAVIGATION_KEYBINDING_COMMANDS,
+  "settings.open",
+  "shortcuts.show",
 ] as const;
 
 export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([

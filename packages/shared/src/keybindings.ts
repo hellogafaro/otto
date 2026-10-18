@@ -5,6 +5,7 @@ import {
   MAX_KEYBINDINGS_COUNT,
   MAX_WHEN_EXPRESSION_DEPTH,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
+  NAVIGATION_KEYBINDING_COMMANDS,
   type ResolvedKeybindingRule,
   type ResolvedKeybindingsConfig,
   THREAD_JUMP_KEYBINDING_COMMANDS,
@@ -26,9 +27,21 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+enter", command: "approval.approve", when: "approvalPending" },
   { key: "mod+shift+enter", command: "approval.allowAll", when: "approvalPending" },
   { key: "mod+shift+backspace", command: "approval.deny", when: "approvalPending" },
+  // Browsers keep mod+, for their own settings, so the web app takes Option or Alt.
+  { key: "mod+,", command: "settings.open", when: "desktop" },
+  { key: "alt+,", command: "settings.open", when: "!desktop" },
+  { key: "?", command: "shortcuts.show", when: "!inputFocus" },
+  { key: "j", command: "thread.next", when: "!inputFocus" },
+  { key: "k", command: "thread.previous", when: "!inputFocus" },
+  ...NAVIGATION_KEYBINDING_COMMANDS.map((command, index) => ({
+    key: `alt+${index + 1}`,
+    command,
+  })),
+  // The desktop app's tabs own mod+1–9.
   ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `mod+${index + 1}`,
     command,
+    when: "!desktop",
   })),
   ...MODEL_PICKER_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `mod+${index + 1}`,

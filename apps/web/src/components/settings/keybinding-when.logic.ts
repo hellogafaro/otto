@@ -26,6 +26,8 @@ const WHEN_VARIABLE_PHRASES = {
   previewFocus: "the preview is focused",
   modelPickerOpen: "the model picker is open",
   approvalPending: "a bot is waiting for your answer",
+  desktop: "in the desktop app",
+  inputFocus: "a text field, menu or dialog has focus",
 } satisfies Readonly<Record<string, string>>;
 
 /**

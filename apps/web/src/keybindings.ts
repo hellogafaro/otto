@@ -10,6 +10,7 @@ import {
   type ThreadJumpKeybindingCommand,
 } from "@otto/contracts";
 import { recordLookup } from "./components/record-lookup";
+import { isElectron } from "./env";
 import { isMacPlatform } from "./lib/utils";
 
 export interface ShortcutEventLike {
@@ -47,10 +48,11 @@ interface ResolvedShortcutLabelOptions extends ShortcutMatchOptions {
 const EVENT_CODE_KEY_ALIASES = {
   BracketLeft: ["["],
   BracketRight: ["]"],
+  Comma: [","],
   Digit0: ["0"],
   Digit1: ["1"],
   Digit2: ["2"],
-  DigiottoLegacy: ["3"],
+  Digit3: ["3"],
   Digit4: ["4"],
   Digit5: ["5"],
   Digit6: ["6"],
@@ -116,7 +118,18 @@ function matchesShortcut(
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
 ): boolean {
-  if (!matchesShortcutModifiers(event, shortcut, platform)) return false;
+  // A symbol the layout itself typed, such as ?, needs Shift on some layouts and not on
+  // others, so Shift belongs to the symbol rather than to the shortcut.
+  const typedSymbol = /^[\p{P}\p{S}]$/u.test(shortcut.key) && event.key === shortcut.key;
+
+  const modifiers = {
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    shiftKey: typedSymbol ? shortcut.shiftKey : event.shiftKey,
+  };
+
+  if (!matchesShortcutModifiers(modifiers, shortcut, platform)) return false;
 
   return resolveEventKeys(event).has(shortcut.key);
 }
@@ -129,6 +142,7 @@ function resolveContext(options: ShortcutMatchOptions | undefined): ShortcutMatc
   return {
     previewFocus: false,
     previewOpen: false,
+    desktop: isElectron,
     ...options?.context,
   };
 }
@@ -244,6 +258,20 @@ function formatShortcutKeyLabel(key: string): string {
   if (key === "arrowright") return "Right";
 
   return key.slice(0, 1).toUpperCase() + key.slice(1);
+}
+
+/**
+ * Whether a key belongs to what has focus rather than to the app: a text field, or an
+ * open dialog, menu or list, which own their keys. Bare-key shortcuts wait for this to
+ * be false.
+ */
+export function isInputFocus(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-keybinding-capture]',
+    ) !== null
+  );
 }
 
 const MAC_KEY_GLYPHS = { enter: "\u21b5", backspace: "\u232b" } satisfies Readonly<

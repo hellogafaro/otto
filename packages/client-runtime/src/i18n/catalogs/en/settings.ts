@@ -95,7 +95,6 @@ export const settingsCatalog = {
     "Nothing stashed yet. Press {shortcut} with a prompt in the composer to stash it.",
   "Open keybindings.json": "Open keybindings.json",
   "Bot settings": "Bot settings",
-  "Collapse ({shortcut})": "Collapse ({shortcut})",
   "Update available": "Update available",
   "Downloading update…": "Downloading update…",
   "Restart to update": "Restart to update",
@@ -103,7 +102,8 @@ export const settingsCatalog = {
   "Couldn't log out": "Couldn't log out",
   "Dismiss provider update notice": "Dismiss provider update notice",
   "Dismiss until provider status changes": "Dismiss until provider status changes",
-  "Toggle main sidebar ({shortcut})": "Toggle main sidebar ({shortcut})",
+  "Leave the composer": "Leave the composer",
+  "Back to the composer": "Back to the composer",
   "Audio could not play. Retry, or check voice settings.":
     "Audio could not play. Retry, or check voice settings.",
   "No provider is ready for this bot": "No provider is ready for this bot",

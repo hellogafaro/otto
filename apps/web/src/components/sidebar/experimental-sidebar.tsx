@@ -8,6 +8,7 @@ import {
   RiListCheck3,
   type RemixiconComponentType,
 } from "@remixicon/react";
+import type { KeybindingCommand } from "@otto/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 
@@ -23,6 +24,7 @@ import BotRosterSidebar from "../roster/bot-roster-sidebar";
 import { resolveRosterListState } from "../roster/roster-route-selection";
 import { useRosterStore } from "../roster/roster-store";
 import { SettingsPanelNav } from "../settings/settings-sidebar-nav";
+import { ShortcutKbd } from "../shortcut-kbd";
 import { AppIcon } from "../ui/app-icon";
 import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -159,6 +161,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Home")}
             icon={RiHome5Line}
+            shortcut="navigation.home"
             active={onHome}
             onClick={() => {
               if (!onHome) void navigate({ to: "/" });
@@ -171,16 +174,24 @@ export function ExperimentalSidebar() {
                 : t("Notifications")
             }
             icon={RiInbox2Line}
+            shortcut="navigation.notifications"
             active={onNotifications}
             badge={unread > 0}
             onClick={() => {
               if (!onNotifications) void navigate({ to: "/notifications" });
             }}
           />
-          <RailButton label={t("Chats")} icon={RiChat1Line} active={!onPage} onClick={openChats} />
+          <RailButton
+            label={t("Chats")}
+            icon={RiChat1Line}
+            shortcut="navigation.chats"
+            active={!onPage}
+            onClick={openChats}
+          />
           <RailButton
             label={t("Routines")}
             icon={RiTimeLine}
+            shortcut="navigation.routines"
             active={onRoutines}
             onClick={() => {
               if (!onRoutines) void navigate({ to: "/routines" });
@@ -189,6 +200,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Tasks")}
             icon={RiListCheck3}
+            shortcut="navigation.tasks"
             active={onTasks}
             onClick={() => {
               if (!onTasks) void navigate({ to: "/tasks" });
@@ -197,6 +209,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Projects")}
             icon={RiBox3Line}
+            shortcut="navigation.projects"
             active={onProjects}
             onClick={() => {
               if (!onProjects) void navigate({ to: "/projects" });
@@ -205,6 +218,7 @@ export function ExperimentalSidebar() {
           <RailButton
             label={t("Library")}
             icon={RiBookShelfLine}
+            shortcut="navigation.library"
             active={onLibrary}
             onClick={() => {
               if (!onLibrary) void navigate({ to: "/library" });
@@ -255,12 +269,14 @@ export function ExperimentalSidebar() {
 function RailButton({
   label,
   icon,
+  shortcut,
   active = false,
   badge = false,
   onClick,
 }: {
   label: string;
   icon: RemixiconComponentType;
+  shortcut: KeybindingCommand;
   active?: boolean;
   /** Otto: A dot for something new behind this place, such as unread notifications. */
   badge?: boolean;
@@ -292,7 +308,12 @@ function RailButton({
           </button>
         }
       />
-      <TooltipPopup side="right">{label}</TooltipPopup>
+      <TooltipPopup side="right">
+        <span className="flex items-center gap-2">
+          {label}
+          <ShortcutKbd command={shortcut} variant="inline" />
+        </span>
+      </TooltipPopup>
     </Tooltip>
   );
 }

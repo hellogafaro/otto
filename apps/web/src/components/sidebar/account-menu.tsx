@@ -1,10 +1,9 @@
 import { RiContrastLine, RiLogoutBoxRLine, RiSettings3Line } from "@remixicon/react";
 import { toast } from "sonner";
 
-import { isElectron } from "../../env";
 import { useTheme } from "../../hooks/use-theme";
 import { useI18n } from "../../i18n";
-import { cn, isMacPlatform } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import { PersonAvatar } from "../roster/person-avatar";
 import { signOut, useOrganizationAccounts } from "../settings/use-organization-accounts";
 import {
@@ -14,18 +13,16 @@ import {
   MenuRadioGroup,
   MenuRadioItem,
   MenuSeparator,
-  MenuShortcut,
   MenuSub,
   MenuSubPopup,
   MenuSubTrigger,
   MenuTrigger,
 } from "../ui/menu";
+import { ShortcutKbd } from "../shortcut-kbd";
 import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 const COLOR_SCHEMES = ["system", "light", "dark"] as const;
-
-const SETTINGS_SHORTCUT = isMacPlatform(navigator.platform) ? "⌘," : "Ctrl+,";
 
 /** The person's picture, or their initials while they have none. */
 function AccountAvatar({
@@ -113,7 +110,7 @@ export function AccountMenu({
         <MenuItem onClick={onOpenSettings}>
           <RiSettings3Line aria-hidden />
           {t("Settings")}
-          {isElectron ? <MenuShortcut>{SETTINGS_SHORTCUT}</MenuShortcut> : null}
+          <ShortcutKbd command="settings.open" className="ms-auto" />
         </MenuItem>
         <MenuSub>
           <MenuSubTrigger>

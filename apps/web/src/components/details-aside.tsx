@@ -7,7 +7,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { useLocalStorage } from "../hooks/use-local-storage";
 import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
-import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
+import { resolveShortcutCommand } from "../keybindings";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../right-panel-layout";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { ShortcutHint } from "./shortcut-hint";
@@ -16,6 +16,7 @@ import { Button } from "./ui/button";
 import { Sheet, SheetClose, SheetPopup, SheetTitle } from "./ui/sheet";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { useDetailsPanelState } from "./roster/use-details-panel-state";
+import { ShortcutKbd } from "./shortcut-kbd";
 
 /**
  * Otto: The right details sidebar shared by chats and work pages. On desktop it
@@ -55,7 +56,6 @@ export function DetailsAside({
   const setDesktopOpen = onOpenChange;
   const [mobileOpen, setMobileOpen] = useState(false);
   const desktopPanel = useDetailsPanelState(desktopOpen);
-  const shortcutLabel = shortcutLabelForCommand(keybindings, "rightPanel.toggle");
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -134,9 +134,10 @@ export function DetailsAside({
                 }
               />
               <TooltipPopup side="left">
-                {shortcutLabel
-                  ? t("Collapse ({shortcut})", { shortcut: shortcutLabel })
-                  : t("Collapse")}
+                <span className="flex items-center gap-2">
+                  {t("Collapse")}
+                  <ShortcutKbd command="rightPanel.toggle" variant="inline" />
+                </span>
               </TooltipPopup>
             </Tooltip>,
           )}
