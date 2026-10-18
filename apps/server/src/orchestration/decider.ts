@@ -4,7 +4,11 @@ import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "./errors.ts";
 import type { OrchestrationDispatchActor } from "./services/orchestration-engine.ts";
-import { requireGroupOwnedThreadMutationAuthorized, requireThread } from "./command-invariants.ts";
+import {
+  requireGroupOwnedThreadMutationAuthorized,
+  requireGroupThreadArchiveAuthorized,
+  requireThread,
+} from "./command-invariants.ts";
 import { projectEvent } from "./projector.ts";
 import { decideProjects } from "./decider/projects.ts";
 import { decideBots } from "./decider/bots.ts";
@@ -99,6 +103,11 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     case "thread.session.stop": {
       const thread = yield* requireThread({ readModel, command, threadId: command.threadId });
       yield* requireGroupOwnedThreadMutationAuthorized({ readModel, thread, command, actor });
+
+      if (command.type === "thread.archive" || command.type === "thread.unarchive") {
+        yield* requireGroupThreadArchiveAuthorized({ readModel, thread, command, actor });
+      }
+
       break;
     }
   }

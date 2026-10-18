@@ -1,4 +1,4 @@
-import { isGroupBotMember } from "@otto/contracts";
+import { isGroupBotMember, isGroupPersonMember } from "@otto/contracts";
 import type {
   OttoDelegationRecord,
   BotId,
@@ -361,6 +361,34 @@ export function requireGroupOwnedThreadMutationAuthorized(input: {
   }
 
   return requireMutationActorAuthorized({ group, command: input.command, actor: input.actor });
+}
+
+/**
+ * Otto: Archiving or unarchiving a group chat takes the person who started it (the group's first
+ * person for a chat that predates its starter) or an admin; other members can still read it.
+ */
+export function requireGroupThreadArchiveAuthorized(input: {
+  readonly readModel: OrchestrationReadModel;
+  readonly thread: OrchestrationThread;
+  readonly command: OrchestrationCommand;
+  readonly actor: OrchestrationDispatchActor | undefined;
+}): Effect.Effect<void, OrchestrationCommandInvariantError> {
+  const { actor, thread } = input;
+
+  if (thread.groupId == null || actor === undefined || actor.canManageGroups) return Effect.void;
+
+  const starter =
+    thread.createdBy ??
+    findGroupById(input.readModel, thread.groupId)?.members.find(isGroupPersonMember)?.personId;
+
+  return starter === actor.personId
+    ? Effect.void
+    : Effect.fail(
+        invariantError(
+          input.command.type,
+          "Only the person who started this chat or an admin can archive it.",
+        ),
+      );
 }
 
 export function requireGroupAbsent(input: {

@@ -54,6 +54,7 @@ export function buildChatPaletteActions({
   openSnooze,
   copy,
   addMembers,
+  mayArchive,
 }: {
   readonly threadRef: ScopedThreadRef | null;
   readonly state: ChatMenuState | null;
@@ -66,6 +67,8 @@ export function buildChatPaletteActions({
   readonly copy: ReturnType<typeof useCopyPageActions> | null;
   /** Opens a group chat's Add members, in the details panel. */
   readonly addMembers: (() => void) | null;
+  /** False in a group chat someone else started: archiving it is theirs or an admin's. */
+  readonly mayArchive: boolean;
 }): PageAction[] {
   const list: PageAction[] = [];
 
@@ -177,8 +180,8 @@ export function buildChatPaletteActions({
 
   if (copy) list.push(copy.link, copy.id);
 
-  list.push(
-    {
+  if (mayArchive) {
+    list.push({
       id: "archive",
       title: t("Archive chat"),
       icon: RiArchiveLine,
@@ -188,18 +191,19 @@ export function buildChatPaletteActions({
       run: async () => {
         await actions.archive(threadRef);
       },
+    });
+  }
+
+  list.push({
+    id: "delete",
+    title: t("Delete chat"),
+    icon: RiDeleteBinLine,
+    searchTerms: ["delete", "remove"],
+    shortcutCommand: "item.delete",
+    run: async () => {
+      await actions.delete(threadRef);
     },
-    {
-      id: "delete",
-      title: t("Delete chat"),
-      icon: RiDeleteBinLine,
-      searchTerms: ["delete", "remove"],
-      shortcutCommand: "item.delete",
-      run: async () => {
-        await actions.delete(threadRef);
-      },
-    },
-  );
+  });
 
   return list;
 }

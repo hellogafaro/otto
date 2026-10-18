@@ -52,6 +52,8 @@ vi.mock("../../state/entities", () => ({
 
 vi.mock("../../hooks/use-chat-actions", () => ({ useChatActions: () => mocks.actions }));
 
+vi.mock("./use-can-archive-chat", () => ({ useCanArchiveChat: () => true }));
+
 vi.mock("../../hooks/use-now-minute", () => ({ useNowMinute: () => "2026-09-27T12:00" }));
 
 vi.mock("../../ui-state-store", () => ({
@@ -295,6 +297,7 @@ describe("buildChatPaletteActions", () => {
     overrides: Partial<OrchestrationThreadShell> = {},
     openSnooze = vi.fn(),
     addMembers: (() => void) | null = null,
+    mayArchive = true,
   ) {
     const state = resolveChatMenuState({
       shell: shell(overrides),
@@ -313,6 +316,7 @@ describe("buildChatPaletteActions", () => {
       openSnooze,
       copy: null,
       addMembers,
+      mayArchive,
     });
   }
 
@@ -329,6 +333,13 @@ describe("buildChatPaletteActions", () => {
       archive: "item.archive",
       delete: "item.delete",
     });
+  });
+
+  it("offers Archive chat only to whoever may archive it", () => {
+    expect(paletteActions().some((action) => action.id === "archive")).toBe(true);
+    expect(paletteActions({}, vi.fn(), null, false).some((action) => action.id === "archive")).toBe(
+      false,
+    );
   });
 
   it("adds members with M only in a group chat", async () => {
