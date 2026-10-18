@@ -24,8 +24,10 @@ curl -fsSL --proto '=https' https://github.com/hellogafaro/otto/releases/latest/
 # powershell -NoProfile -ExecutionPolicy Bypass -File .\install-remote.ps1
 ```
 
-Release archives are published for Linux x64, macOS arm64, and Windows x64. The installers refuse
-other platforms; use Docker or build from source there.
+The installers support Linux x64, macOS arm64, and Windows x64 and refuse other platforms; use
+Docker or build from source there. No published release carries the Remote archives today (see
+[Publishing a release](#publishing-a-release)), so the installers only work against a release that
+someone packaged by hand.
 
 The installer records the owned Tailscale Serve mapping and refuses to remove a handler graph that
 has changed. If installation or cleanup is interrupted, rerun the same command and inspect the
@@ -81,14 +83,17 @@ systemctl --user is-active otto.service otto-update.timer
 
 ## Publishing a release
 
-The `remote` job in `.github/workflows/release.yml` builds one archive per supported platform on a
-native runner, because the server ships native modules. `scripts/package-remote.ts archive` stages
-the `pnpm deploy --prod` runtime with the runner's Node binary, the `otto` launcher, and the admin
-helpers. The publish job then copies `install-remote.sh` and `install-remote.ps1` into the release
-and runs `scripts/package-remote.ts manifest`, which writes `OTTO-REMOTE-MANIFEST.txt` with SHA-256
-lines for the archives, the installers, and the pinned Tailscale package, and signs it.
+No workflow publishes Otto Remote. The retired release workflow attached the Remote archives,
+installers and signed manifest to each GitHub release;
+[Release macOS app](../../.github/workflows/release-mac.yml) publishes only the Mac app. To package
+Remote by hand, build each archive on its own platform, because the server ships native modules:
+`scripts/package-remote.ts archive` stages the `pnpm deploy --prod` runtime with that machine's
+Node binary, the `otto` launcher and the admin helpers. Then copy `scripts/install-remote.sh` and
+`scripts/install-remote.ps1` beside the archives and run `scripts/package-remote.ts manifest`,
+which writes `OTTO-REMOTE-MANIFEST.txt` with SHA-256 lines for the archives, the installers and
+the pinned Tailscale package, and signs it.
 
-Signing needs the `OTTO_REMOTE_MANIFEST_SIGNING_KEY` repository secret: the PKCS#8 PEM Ed25519
-private key that matches `scripts/otto-release-manifest.pub`. The step fails when the secret is
-missing or does not match the pinned public key. `scripts/verify-release-assets.ts` rejects a
-release that lacks any of these assets or contains extra files.
+Signing needs the PKCS#8 PEM Ed25519 private key that matches
+`scripts/otto-release-manifest.pub`; the manifest step fails when the key is missing or does not
+match. `scripts/verify-release-assets.ts` rejects a release that lacks any of these assets or
+contains extra files.
