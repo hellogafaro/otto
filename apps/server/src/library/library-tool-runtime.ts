@@ -48,7 +48,9 @@ import {
   readLibraryBytes,
   readLibraryDocument,
   saveLibraryDocument,
+  shareLibraryFile,
   storeLibraryFile,
+  unshareLibraryFile,
 } from "./library-store.ts";
 
 type Input<Name extends keyof typeof OttoToolInputSchemas> =
@@ -704,6 +706,19 @@ export const makeLibraryToolRuntime = Effect.gen(function* () {
       ),
     updateDocument: (caller: LibraryToolCaller, input: Input<"library_update">) =>
       run(updateDocument(caller, input)),
+    share: (caller: LibraryToolCaller, input: Input<"library_share">) =>
+      run(
+        requireFile(caller, input.fileId).pipe(
+          Effect.flatMap(({ file }) => shareLibraryFile({ fileId: file.id, by: by(caller) })),
+        ),
+      ),
+    unshare: (caller: LibraryToolCaller, input: Input<"library_unshare">) =>
+      run(
+        requireFile(caller, input.fileId).pipe(
+          Effect.flatMap(({ file }) => unshareLibraryFile({ fileId: file.id, by: by(caller) })),
+          Effect.as({ removed: true }),
+        ),
+      ),
     /** The skills this bot can use, one prompt line each; built-in ones even when the read fails. */
     skillsContext: (caller: LibraryToolCaller, options: { readonly computer: boolean }) =>
       listSkills(caller).pipe(

@@ -93,6 +93,8 @@ function RootRouteView() {
     };
   }, [pathname]);
 
+  if (pathname.startsWith("/s/")) return <Outlet />;
+
   if (
     ["/login", "/setup", "/reset-password"].includes(pathname) ||
     pathname.startsWith("/invite/")

@@ -34,6 +34,8 @@ export const WS_METHODS = {
   libraryReadDocument: "library.readDocument",
   librarySaveDocument: "library.saveDocument",
   libraryCreateFileUrl: "library.createFileUrl",
+  libraryShareFile: "library.shareFile",
+  libraryUnshareFile: "library.unshareFile",
 
   // Provider methods
   providerUploadFeedback: "provider.uploadFeedback",

@@ -4,6 +4,7 @@ import {
   BotId,
   CommandId,
   GroupId,
+  LibraryFileId,
   MessageId,
   ThreadId,
 } from "@otto/contracts";
@@ -27,6 +28,24 @@ const targetPerson = {
 };
 
 describe("authenticated orchestration commands", () => {
+  it("drops the server-only public link and document size from a client's file update", () => {
+    const command = applyAuthenticatedCommandActor(
+      {
+        type: "library.file.update",
+        commandId: CommandId.make("command-share"),
+        fileId: LibraryFileId.make("file-1"),
+        title: "Report",
+        sizeBytes: 1,
+        share: null,
+      },
+      { personId: currentPersonId, displayName: "Current person", canManageGroups: false },
+    );
+
+    expect(command).not.toHaveProperty("share");
+    expect(command).not.toHaveProperty("sizeBytes");
+    expect(command).toMatchObject({ title: "Report", by: { personId: currentPersonId } });
+  });
+
   it("replaces spoofed leave identity with the authenticated person", () => {
     const command = applyAuthenticatedCommandActor(
       {
