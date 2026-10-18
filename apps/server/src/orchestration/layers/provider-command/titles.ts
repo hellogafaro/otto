@@ -1,11 +1,21 @@
 import * as Data from "effect/Data";
-import { CommandId, PLACEHOLDER_THREAD_TITLE, ThreadId } from "@otto/contracts";
+import {
+  type ChatAttachment,
+  CommandId,
+  type MessageId,
+  type ModelSelection,
+  type OrchestrationThreadShell,
+  PLACEHOLDER_THREAD_TITLE,
+  ProviderInstanceId,
+  ThreadId,
+} from "@otto/contracts";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { makeDrainableWorker } from "@otto/shared/DrainableWorker";
 import { resolveThreadWorkspaceCwd } from "../../../checkpointing/utils.ts";
 import { DEFAULT_THREAD_TITLE } from "../../thread-titles.ts";
-import { type ProviderIntentEvent } from "./fields.ts";
+import { type ProviderIntentEvent, resolveControllerBotId } from "./fields.ts";
 import { formatThreadTitleContext } from "./title-context.ts";
 import type { createContext } from "./context.ts";
 import type { createWorkspace } from "./workspace.ts";
@@ -16,6 +26,36 @@ const TitleRegeneration = Data.taggedEnum<
   | { readonly _tag: "Completed"; readonly title: string | undefined }
 >();
 
+/** Hidden prompts (routine runs, a new bot's introduction) never name the chat. */
+const HIDDEN_PROMPT_MESSAGE_ID_PREFIXES = ["routine:", "intro:"] as const;
+
+function isHiddenPromptMessageId(messageId: MessageId): boolean {
+  return HIDDEN_PROMPT_MESSAGE_ID_PREFIXES.some((prefix) => messageId.startsWith(prefix));
+}
+
+const collapseWhitespace = (value: string) => value.trim().replace(/\s+/g, " ");
+
+/**
+ * Whether a chat still carries a title nobody chose: the placeholder, or the
+ * copy of the first message (or its first file's name) a client sets on send,
+ * cut short with an ellipsis when long.
+ */
+export function isAutomaticThreadTitle(
+  title: string,
+  messageText: string,
+  attachments: ReadonlyArray<ChatAttachment> | undefined,
+): boolean {
+  if (title === PLACEHOLDER_THREAD_TITLE || title === DEFAULT_THREAD_TITLE) return true;
+
+  const firstAttachment = attachments?.[0];
+
+  if (firstAttachment && title === `File: ${firstAttachment.name}`) return true;
+
+  const seed = collapseWhitespace(title.replace(/(…|\.\.\.)$/u, ""));
+
+  return seed.length > 0 && collapseWhitespace(messageText).startsWith(seed);
+}
+
 export const createTitles = Effect.fn("makeprovider-command-Titles")(function* ({
   resolveThreadDetail,
   resolveProject,
@@ -25,6 +65,7 @@ export const createTitles = Effect.fn("makeprovider-command-Titles")(function* (
   orchestrationEngine,
   serverCommandId,
   projectionSnapshotQuery,
+  projectionBotRepository,
 }: Pick<
   ReturnType<typeof createContext> &
     ReturnType<typeof createWorkspace> &
@@ -37,7 +78,64 @@ export const createTitles = Effect.fn("makeprovider-command-Titles")(function* (
   | "orchestrationEngine"
   | "serverCommandId"
   | "projectionSnapshotQuery"
+  | "projectionBotRepository"
 >) {
+  /**
+   * Models to write a title with, best first: the model the chat's bot answers with,
+   * then the text generation model from Settings. A provider that cannot write
+   * titles, or fails, falls through to the next one.
+   */
+  const titleModelSelections = Effect.fnUntraced(function* (
+    thread: Pick<OrchestrationThreadShell, "botId" | "respondingBotId">,
+  ) {
+    const { textGenerationModelSelection } = yield* serverSettingsService.getSettings;
+    const botId = resolveControllerBotId(thread);
+
+    const engine =
+      botId === null
+        ? null
+        : yield* projectionBotRepository.getById({ botId }).pipe(
+            Effect.map((bot) => Option.getOrUndefined(bot)?.engine ?? null),
+            Effect.orElseSucceed(() => null),
+          );
+
+    const botSelection: ModelSelection | null = engine
+      ? {
+          instanceId: ProviderInstanceId.make(engine.provider),
+          model: engine.model,
+          ...(engine.options ? { options: engine.options } : {}),
+        }
+      : null;
+
+    return botSelection === null ||
+      (botSelection.instanceId === textGenerationModelSelection.instanceId &&
+        botSelection.model === textGenerationModelSelection.model)
+      ? [textGenerationModelSelection]
+      : [botSelection, textGenerationModelSelection];
+  });
+
+  const generateTitle = Effect.fnUntraced(function* (
+    thread: Pick<OrchestrationThreadShell, "botId" | "respondingBotId">,
+    input: Omit<Parameters<typeof textGeneration.generateThreadTitle>[0], "modelSelection">,
+  ) {
+    const [first, ...rest] = yield* titleModelSelections(thread);
+
+    return yield* rest.reduce(
+      (attempt, modelSelection) =>
+        attempt.pipe(
+          Effect.catch((error) =>
+            Effect.logInfo("title generation falling back to the next model", {
+              instanceId: modelSelection.instanceId,
+              detail: error.detail,
+            }).pipe(
+              Effect.andThen(textGeneration.generateThreadTitle({ ...input, modelSelection })),
+            ),
+          ),
+        ),
+      textGeneration.generateThreadTitle({ ...input, modelSelection: first! }),
+    );
+  });
+
   const regenerateThreadTitle = Effect.fn("regenerateThreadTitle")(function* (
     event: Extract<ProviderIntentEvent, { type: "thread.meta-updated" }>,
     requestId: CommandId,
@@ -72,15 +170,11 @@ export const createTitles = Effect.fn("makeprovider-command-Titles")(function* (
         projects: project ? [project] : [],
       }) ?? process.cwd();
 
-    const { textGenerationModelSelection: modelSelection } =
-      yield* serverSettingsService.getSettings;
-
-    const generated = yield* textGeneration.generateThreadTitle({
+    const generated = yield* generateTitle(thread, {
       cwd,
       message,
       previousTitle,
       ...(attachments.length > 0 ? { attachments } : {}),
-      modelSelection,
     });
 
     if (
@@ -103,6 +197,78 @@ export const createTitles = Effect.fn("makeprovider-command-Titles")(function* (
 
     return TitleRegeneration.Completed({ title: generated.title });
   });
+
+  /**
+   * Names a chat from its first message. The chat keeps the client's copy of the
+   * message (or the placeholder) until the generated title is ready, and a title
+   * someone set by hand is never replaced.
+   */
+  const maybeGenerateThreadTitleForFirstTurn = Effect.fn("maybeGenerateThreadTitleForFirstTurn")(
+    function* (input: {
+      readonly threadId: ThreadId;
+      readonly messageId: MessageId;
+      readonly messageText: string;
+      readonly attachments?: ReadonlyArray<ChatAttachment>;
+    }) {
+      const thread = yield* resolveThreadShell(input.threadId);
+
+      if (
+        !thread ||
+        isHiddenPromptMessageId(input.messageId) ||
+        !isAutomaticThreadTitle(thread.title, input.messageText, input.attachments)
+      ) {
+        return;
+      }
+
+      const project = yield* resolveProject(thread.projectId);
+      const attachments = input.attachments ?? [];
+
+      const generated = yield* generateTitle(thread, {
+        cwd:
+          resolveThreadWorkspaceCwd({ thread, projects: project ? [project] : [] }) ??
+          process.cwd(),
+        message: input.messageText,
+        ...(attachments.length > 0 ? { attachments } : {}),
+      });
+
+      if (
+        generated.title === DEFAULT_THREAD_TITLE ||
+        generated.title === PLACEHOLDER_THREAD_TITLE
+      ) {
+        return;
+      }
+
+      // Generation takes seconds: write only if no one renamed the chat meanwhile.
+      const latest = yield* resolveThreadShell(input.threadId);
+
+      if (
+        !latest ||
+        latest.title === generated.title ||
+        latest.titleRegeneration != null ||
+        !isAutomaticThreadTitle(latest.title, input.messageText, input.attachments)
+      ) {
+        return;
+      }
+
+      yield* orchestrationEngine.dispatch({
+        type: "thread.meta.update",
+        commandId: yield* serverCommandId("first-turn-thread-title"),
+        threadId: input.threadId,
+        title: generated.title,
+      });
+    },
+    (effect, input) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.failCause(cause)
+            : Effect.logWarning("provider command reactor failed to generate a first-turn title", {
+                threadId: input.threadId,
+                cause: Cause.pretty(cause),
+              }),
+        ),
+      ),
+  );
 
   const dispatchThreadTitleRegenerationCompletion = Effect.fn(
     "dispatchThreadTitleRegenerationCompletion",
@@ -237,6 +403,7 @@ export const createTitles = Effect.fn("makeprovider-command-Titles")(function* (
   );
 
   return {
+    maybeGenerateThreadTitleForFirstTurn,
     regenerateThreadTitle,
     dispatchThreadTitleRegenerationCompletion,
     findInterruptedThreadTitleRegenerations,

@@ -98,6 +98,7 @@ const make = Effect.gen(function* () {
   });
 
   const {
+    maybeGenerateThreadTitleForFirstTurn,
     findInterruptedThreadTitleRegenerations,
     clearInterruptedThreadTitleRegenerations,
     threadTitleRegenerationWorker,
@@ -110,6 +111,7 @@ const make = Effect.gen(function* () {
     orchestrationEngine,
     serverCommandId,
     projectionSnapshotQuery,
+    projectionBotRepository,
   });
 
   const { dispatchDelegationRelease, releaseDelegationResults, readDelegationResults } =
@@ -176,6 +178,7 @@ const make = Effect.gen(function* () {
     failDelegation,
     ensureThreadWorktree,
     maybeGenerateAndRenameWorktreeBranchForFirstTurn,
+    maybeGenerateThreadTitleForFirstTurn,
     formatFailure,
     setThreadSessionErrorOnTurnStartFailure,
     failDelegationStart,

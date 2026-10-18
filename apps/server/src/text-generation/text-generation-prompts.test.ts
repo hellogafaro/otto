@@ -46,7 +46,7 @@ describe("buildThreadTitlePrompt", () => {
     expect(result.prompt).toContain("Investigate reconnect regressions after session restore");
     expect(result.prompt).not.toContain("Attachment metadata:");
     expect(result.prompt).toContain(
-      "Generate a title that will help the user recognize this Otto thread weeks later.",
+      "Write a title that will help the user find and recognize this Otto chat weeks later.",
     );
     expect(result.prompt).toContain(
       "Title the subject and outcome. Discard incidental instructions.",
@@ -57,6 +57,24 @@ describe("buildThreadTitlePrompt", () => {
     expect(result.prompt).not.toContain(
       "Title should summarize the user's request, not restate it verbatim.",
     );
+  });
+
+  it("asks both prompts for sentence case, searchable prose that keeps client names", () => {
+    const prompts = [
+      buildThreadTitlePrompt({ message: "Fix the login timeout bug" }).prompt,
+      buildThreadTitlePrompt({ message: "USER:\nFix the login timeout bug", previousTitle: "Old" })
+        .prompt,
+    ];
+
+    for (const prompt of prompts) {
+      expect(prompt).toContain("Sentence case: capitalize only the first word and proper nouns");
+      expect(prompt).toContain("Read like plain prose");
+      expect(prompt).toContain("4-10 words and at most 60 characters.");
+      expect(prompt).toContain("Optimize for search");
+      expect(prompt).toContain("Keep client, brand, project and product names.");
+      expect(prompt).not.toContain("fewer than 40 characters");
+      expect(prompt).not.toContain("Avoid project names");
+    }
   });
 
   it("includes attachment metadata when attachments are provided", () => {
@@ -86,17 +104,17 @@ describe("buildThreadTitlePrompt", () => {
     });
 
     expect(result.prompt).toContain(
-      "Regenerate the title for an existing Otto thread so the user can recognize it weeks later.",
+      "Rewrite the title for an existing Otto chat so the user can find and recognize it weeks later.",
     );
     expect(result.prompt).toContain('The previous title was "Investigate reconnect regressions".');
     expect(result.prompt).toContain(
       "Read the USER messages first. Identify the latest explicit durable goal.",
     );
     expect(result.prompt).toContain(
-      "Do not promote one assistant finding into the thread subject unless the user adopts it as a new goal.",
+      "Do not promote one assistant finding into the chat subject unless the user adopts it as a new goal.",
     );
     expect(result.prompt).toContain(
-      'A subagent-monitoring review that finds a Codex roster bug remains "Review Subagent Monitoring Risks,"',
+      'A subagent-monitoring review that finds a Codex roster bug remains "Review subagent monitoring risks"',
     );
     expect(result.prompt).toContain("Thread contents:");
     expect(result.prompt).toContain("The remaining issue is stale session state");
@@ -155,7 +173,14 @@ describe("sanitizeThreadTitle", () => {
       sanitizeThreadTitle(
         '{"title": "Reconnect failures after restart because the session state does not recover"}',
       ),
-    ).toBe("Reconnect failures after restart because the se...");
+    ).toBe("Reconnect failures after restart because the session state does not...");
+  });
+
+  it("keeps titles up to 70 characters whole", () => {
+    const title = "Shopify product titles for Google Shopping on the La Francia store";
+
+    expect(title.length).toBeLessThanOrEqual(70);
+    expect(sanitizeThreadTitle(title)).toBe(title);
   });
 
   it("truncates long titles with the shared sidebar-safe limit", () => {
@@ -163,7 +188,7 @@ describe("sanitizeThreadTitle", () => {
       sanitizeThreadTitle(
         '  "Reconnect failures after restart because the session state does not recover"  ',
       ),
-    ).toBe("Reconnect failures after restart because the se...");
+    ).toBe("Reconnect failures after restart because the session state does not...");
   });
 });
 
