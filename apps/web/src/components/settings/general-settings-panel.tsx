@@ -18,9 +18,10 @@ import { useI18n } from "../../i18n";
 import { usePrimarySettings, useUpdatePrimarySettings } from "../../hooks/use-settings";
 import { ensureLocalApi } from "../../local-api";
 import { useDesktopUpdateState } from "../../state/desktop-update";
-import { useNotificationPermission } from "../notifications/notification-permission";
+import { useDeviceNotifications } from "../notifications/notification-permission";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { Switch } from "../ui/switch";
 import { toast } from "sonner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
@@ -241,15 +242,20 @@ function UpdateChannelSetting() {
 
 /**
  * Otto: Whether this device shows Otto's notifications while Otto is in the background. The
- * desktop app always does; a browser does once allowed, and Turn on asks it again.
+ * switch starts on; turning it on asks a browser that has not decided yet, and a browser that
+ * blocks them leaves the switch off and disabled.
  */
 function DeviceNotificationsSetting() {
   const { t } = useI18n();
-  const { permission, request } = useNotificationPermission();
+  const { permission, on, setOn } = useDeviceNotifications();
+
+  const background = t(
+    "Show a notification when something needs you while Otto is in the background.",
+  );
 
   const description = {
-    granted: t("Otto shows a notification when something needs you while it is in the background."),
-    default: t("Allow Otto to notify you when something needs you while it is in the background."),
+    granted: background,
+    default: background,
     denied: t("Your browser blocks Otto's notifications. Allow them in its site settings."),
     unsupported: t("This browser can't show notifications."),
   }[permission];
@@ -259,16 +265,12 @@ function DeviceNotificationsSetting() {
       {...searchableSetting("device-notifications", t)}
       description={description}
       control={
-        {
-          default: (
-            <Button size="sm" variant="outline" onClick={() => void request()}>
-              {t("Turn on")}
-            </Button>
-          ),
-          granted: <span className="text-13px text-muted-foreground">{t("On")}</span>,
-          denied: <span className="text-13px text-muted-foreground">{t("Blocked")}</span>,
-          unsupported: null,
-        }[permission]
+        <Switch
+          checked={on}
+          disabled={permission === "denied" || permission === "unsupported"}
+          onCheckedChange={(checked) => void setOn(Boolean(checked))}
+          aria-label={t("Notifications on this device")}
+        />
       }
     />
   );

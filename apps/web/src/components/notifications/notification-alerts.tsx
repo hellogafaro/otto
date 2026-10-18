@@ -1,14 +1,15 @@
 import { useEffect, useRef } from "react";
 
 import { arrivedNotifications } from "./notification-alerts.logic";
-import { readNotificationPermission } from "./notification-permission";
+import { deviceNotificationsOn, readNotificationPermission } from "./notification-permission";
 import { useNotifications } from "./use-notifications";
 
 const inBackground = () => document.visibilityState === "hidden" || !document.hasFocus();
 
 /**
  * Otto: A notification that arrives while Otto is in the background also shows as an OS
- * notification: native in the desktop app, the browser's once the person allows it. A browser
+ * notification, unless the person turned them off for this device in Settings: native in the
+ * desktop app, the browser's once the person allows it. A browser
  * that has not been asked yet is asked when Otto opens, or on the person's first click where the
  * browser only asks after one. Clicking a notification brings Otto forward and opens what it is
  * about.
@@ -20,7 +21,7 @@ export function NotificationAlerts() {
   latest.current = notifications;
 
   useEffect(() => {
-    if (readNotificationPermission() !== "default") return;
+    if (!deviceNotificationsOn() || readNotificationPermission() !== "default") return;
 
     const ask = () => {
       if (readNotificationPermission() === "default") void window.Notification.requestPermission();
@@ -48,7 +49,7 @@ export function NotificationAlerts() {
     const arrived = arrivedNotifications(known.current, notifications.notifications);
     known.current = new Set(notifications.notifications.map((notification) => notification.id));
 
-    if (arrived.length === 0 || !inBackground()) return;
+    if (arrived.length === 0 || !inBackground() || !deviceNotificationsOn()) return;
 
     for (const notification of arrived) {
       const { text } = latest.current.describe(notification);
