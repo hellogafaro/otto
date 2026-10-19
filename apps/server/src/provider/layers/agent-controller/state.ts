@@ -61,8 +61,10 @@ export interface ActiveTurn {
   outputTokens: number;
   reasoningTokens: number;
   assistantText: string;
-  /** Set once message_post posts; the turn's remaining text then stays private. */
+  /** Set once message_post posts. Later text stays private until the turn completes. */
   posted: boolean;
+  /** The last message_post text, so a duplicate closing answer is not sent again. */
+  lastPostedText: string | null;
 }
 
 export interface PendingTurn {

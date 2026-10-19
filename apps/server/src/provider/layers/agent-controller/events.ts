@@ -1,4 +1,5 @@
 import { GROUP_NO_REPLY } from "../../../orchestration/group-responder.ts";
+import { withheldClosingText } from "./closing-text.ts";
 import { readSdkRecord } from "../protocol-json.ts";
 import * as Match from "effect/Match";
 import { omitNullToolFields } from "./policy.ts";
@@ -206,6 +207,7 @@ export function createEvents(deps: {
     active: ActiveSession,
     turn: ActiveTurn,
     message: ActiveAssistantMessage,
+    options?: { readonly releaseClosing?: boolean },
   ) => {
     // A group bot that passes answers only this word, and nobody sees it.
     if (message.text.trim() === GROUP_NO_REPLY) {
@@ -220,7 +222,17 @@ export function createEvents(deps: {
 
     if (text.length === 0) return;
 
-    if (turn.posted) {
+    // A progress post hides later thinking. The closing answer still goes out,
+    // unless it repeats what was already posted.
+    if (
+      turn.posted &&
+      (!options?.releaseClosing ||
+        withheldClosingText({
+          posted: true,
+          text,
+          lastPostedText: turn.lastPostedText,
+        }) === null)
+    ) {
       turn.assistantText += text;
       message.publishedText = message.text;
 
@@ -258,9 +270,10 @@ export function createEvents(deps: {
     threadId: ThreadId,
     active: ActiveSession,
     turn: ActiveTurn,
+    options?: { readonly releaseClosing?: boolean },
   ) => {
     for (const message of turn.assistantMessages.values()) {
-      completeAssistantMessage(threadId, active, turn, message);
+      completeAssistantMessage(threadId, active, turn, message, options);
     }
   };
 

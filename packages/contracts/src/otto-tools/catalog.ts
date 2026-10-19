@@ -165,8 +165,10 @@ export const OTTO_TOOL_CATALOG = [
     "message_post",
     "bot-workspace",
     "Post a message where you were asked: the chat, or the task's activity when a task woke you. " +
-      "Use it for the reply, a progress update or a question people should see; your final text stays private, " +
-      "and if you post nothing it is posted for you. Attach any file from your computer by path (images, videos, PDFs, office files, archives), up to 100 MB each. " +
+      "Use it for a short reply, a one-line status, or a question people should see. " +
+      "If you post an update, post the result before you stop. If you post nothing, the closing text is posted for you. " +
+      "A closing answer left unposted after an update is still sent when the turn completes. " +
+      "Attach any file from your computer by path (images, videos, PDFs, office files, archives), up to 100 MB each. " +
       "Returns the message id.",
     { promptSnippet: "post a reply, update or question where you were asked" },
   ),
