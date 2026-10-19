@@ -153,6 +153,33 @@ describe("bot conversation presentation", () => {
     expect(visibleBotChatMessages(messages).map((entry) => entry.id)).toEqual(["user", "final"]);
   });
 
+  it("keeps a posted message when a later line in the same turn is only a teaser", () => {
+    const messages = [
+      message("user", "user", false),
+      message("bot-message-table", "assistant", false, "turn-1"),
+      message("teaser", "assistant", false, "turn-1"),
+    ];
+
+    expect(visibleBotChatMessages(messages).map((entry) => entry.id)).toEqual([
+      "user",
+      "bot-message-table",
+      "teaser",
+    ]);
+  });
+
+  it("shows a posted message while that turn is still running", () => {
+    const messages = [
+      message("user", "user", false),
+      message("bot-message-table", "assistant", false, "turn-1"),
+      message("still-thinking", "assistant", false, "turn-1"),
+    ];
+
+    expect(visibleBotChatMessages(messages, "turn-1").map((entry) => entry.id)).toEqual([
+      "user",
+      "bot-message-table",
+    ]);
+  });
+
   it("hides assistant records from the active turn behind the working status", () => {
     const messages = [
       message("first-user", "user", false),

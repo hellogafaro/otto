@@ -177,12 +177,17 @@ export function buildBotConversationEntries(
   });
 }
 
+/** A chat message the bot posted on purpose. These stay visible even when a later line is only a teaser. */
+function isPostedChatMessage(id: string): boolean {
+  return id.startsWith("bot-message-");
+}
+
 /**
- * Bot chat shows each user message and one final assistant answer per turn.
- * Provider progress and intermediate assistant records of the running turn stay
- * behind the working status so one provider turn cannot appear as several bot
- * replies; answers from turns that already ended show at once, so in a group
- * each bot's reply lands while the next bot works.
+ * Bot chat shows each user message, every message the bot posted, and one
+ * final streamed answer per turn. Provider progress stays behind the working
+ * status so one turn is not a stack of replies. A posted message is the thing
+ * the person asked to see, so a later "I'll paste it" line cannot hide it,
+ * including while that turn is still running.
  */
 export function visibleBotChatMessages(
   messages: ReadonlyArray<OrchestrationMessage>,
@@ -202,7 +207,10 @@ export function visibleBotChatMessages(
       return;
     }
 
-    if (message.role !== "assistant" || message.streaming) return;
+    if (message.role !== "assistant" || message.streaming || isPostedChatMessage(message.id)) {
+      return;
+    }
+
     latestAssistantIndexByResponse.set(message.turnId ?? precedingUserId, index);
   });
 
@@ -216,6 +224,8 @@ export function visibleBotChatMessages(
 
       return true;
     }
+
+    if (message.role === "assistant" && isPostedChatMessage(message.id)) return true;
 
     if (message.role !== "assistant" || message.streaming) return false;
 
