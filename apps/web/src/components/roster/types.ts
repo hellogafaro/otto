@@ -6,6 +6,7 @@ import type {
   ImageProviderId,
   LibraryFolderId,
   McpServerId,
+  SandboxSize,
   Visibility,
   WorkParticipant,
 } from "@otto/contracts";
@@ -50,6 +51,8 @@ export interface Bot {
   avatar: BotAvatar;
   engine: BotEngine | null;
   sandbox: "local" | "boat" | null;
+  /** Boat size override. Null or absent uses the global default. Local ignores it. */
+  sandboxSize?: SandboxSize | null;
   runtimeMode: "approval-required" | "auto-accept-edits" | "auto" | "full-access";
   /** What this bot should do and how it should work; the server adds it to every chat. */
   instructions: string | null;

@@ -305,6 +305,7 @@ function makeBot(
     sandbox: "local",
     runtimeMode: "full-access",
     imageProvider: null,
+    sandboxSize: null,
     voiceEnabled: false,
     channelBindings: input.channelBindings ?? [],
     groupId: null,

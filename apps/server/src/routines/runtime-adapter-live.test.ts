@@ -97,6 +97,7 @@ const bot = (botId: string, name: string, provider: string): ProjectionBot => ({
   sandbox: "local",
   runtimeMode: "approval-required",
   imageProvider: null,
+  sandboxSize: null,
   voiceEnabled: false,
   groupId: null,
   createdAt: NOW,

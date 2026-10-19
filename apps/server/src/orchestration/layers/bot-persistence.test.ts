@@ -178,6 +178,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
           ],
         },
         sandbox: null,
+        sandboxSize: null,
         runtimeMode: "approval-required",
         imageProvider: "chatgpt",
         visibility: "organization",

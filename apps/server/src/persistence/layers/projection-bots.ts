@@ -49,7 +49,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
       INSERT INTO projection_bots (
         bot_id, name, title, label, description, instructions, disabled_mcp_server_ids_json,
         disabled_skill_ids_json, always_allowed_json, owner_json, visibility,
-        avatar_json, engine_json, sandbox, runtime_mode, image_provider,
+        avatar_json, engine_json, sandbox, sandbox_size, runtime_mode, image_provider,
         voice_enabled, channel_bindings_json,
         group_id, archived_at, created_at, updated_at
       ) VALUES (
@@ -60,7 +60,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         ${row.owner ? JSON.stringify(row.owner) : null}, ${row.visibility ?? "organization"},
         ${JSON.stringify(row.avatar)},
         ${row.engine === null ? null : JSON.stringify(row.engine)}, ${row.sandbox},
-        ${row.runtimeMode}, ${row.imageProvider},
+        ${row.sandboxSize}, ${row.runtimeMode}, ${row.imageProvider},
         ${row.voiceEnabled ? 1 : 0},
         ${JSON.stringify(row.channelBindings ?? [])}, ${row.groupId},
         ${row.archivedAt}, ${row.createdAt},
@@ -80,6 +80,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         avatar_json = excluded.avatar_json,
         engine_json = excluded.engine_json,
         sandbox = excluded.sandbox,
+        sandbox_size = excluded.sandbox_size,
         runtime_mode = excluded.runtime_mode,
         image_provider = excluded.image_provider,
         voice_enabled = excluded.voice_enabled,
@@ -98,7 +99,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
       SELECT
         bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", visibility, avatar_json AS "avatar",
-        engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
+        engine_json AS "engine", sandbox, sandbox_size AS "sandboxSize", runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"
@@ -114,7 +115,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
       SELECT
         bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", visibility, avatar_json AS "avatar",
-        engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
+        engine_json AS "engine", sandbox, sandbox_size AS "sandboxSize", runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"

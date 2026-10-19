@@ -13,6 +13,9 @@ export const connectionsCatalog = {
   "Data portability": "Data portability",
   "Default browser viewport": "Default browser viewport",
   "Default sandbox": "Default sandbox",
+  "Default sandbox size": "Default sandbox size",
+  "Default sandbox size couldn't be saved": "Default sandbox size couldn't be saved",
+  "Default size": "Default size",
   "Desktop-managed pairing and one-time pairing tokens are both accepted for this environment.":
     "Desktop-managed pairing and one-time pairing tokens are both accepted for this environment.",
   Disconnect: "Disconnect",
@@ -626,4 +629,12 @@ export const connectionsCatalog = {
     "Pick a configuration, or create one. Composio keeps the credentials. Otto does not store them.",
   "Composio did not list a way to connect this app.":
     "Composio did not list a way to connect this app.",
+  "Boat small is 4 GB, medium is 8 GB, and large is 16 GB. Local ignores this.":
+    "Boat small is 4 GB, medium is 8 GB, and large is 16 GB. Local ignores this.",
+  Large: "Large",
+  Medium: "Medium",
+  "Sandbox size": "Sandbox size",
+  "Size of this bot's Boat computer. Default uses the global size. Local ignores it.":
+    "Size of this bot's Boat computer. Default uses the global size. Local ignores it.",
+  Small: "Small",
 } as const;

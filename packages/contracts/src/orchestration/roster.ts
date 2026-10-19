@@ -150,6 +150,14 @@ export const BotSandbox = Schema.Literals(["local", "boat"]);
 
 export type BotSandbox = typeof BotSandbox.Type;
 
+/** Abstract computer size. Each sandbox provider maps these to its own machines. */
+export const SandboxSize = Schema.Literals(["small", "medium", "large"]);
+
+export type SandboxSize = typeof SandboxSize.Type;
+
+/** Matches Boat's current default machine, so existing computers stay the same size. */
+export const DEFAULT_SANDBOX_SIZE = "medium" satisfies SandboxSize;
+
 /** Retired sandboxes: Ascii Box became Boat; the rest fall back to the default sandbox. */
 const RetiredBotSandbox = Schema.Literals([
   "otto-cloud",
@@ -342,6 +350,11 @@ export const OrchestrationBot = Schema.Struct({
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,
+  /**
+   * Boat machine size for this bot. `null` means the global default. Local
+   * computers ignore it. Missing on bots saved before the field existed.
+   */
+  sandboxSize: Schema.NullOr(SandboxSize).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   runtimeMode: RuntimeMode.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_RUNTIME_MODE))),
   /**
    * The bot's image provider, independent of its chat engine (a Claude bot may

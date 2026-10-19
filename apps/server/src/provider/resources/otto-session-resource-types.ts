@@ -1,7 +1,7 @@
 import type { BotWorkspaceIO } from "../workspace/bot-workspace-io.ts";
 import { createMcpManager, type McpServerConfig } from "@mastra/code-sdk/mcp/index";
 import type { Workspace } from "@mastra/core/workspace";
-import type { BotSandbox, McpServer } from "@otto/contracts";
+import type { BotSandbox, McpServer, SandboxSize } from "@otto/contracts";
 import type * as Duration from "effect/Duration";
 import {
   type OttoBotWorkspace,
@@ -14,6 +14,8 @@ export interface OttoSessionResourceInput {
   readonly workspaceResourceKey: string;
   readonly workspaceId: string;
   readonly botSandbox?: BotSandbox | null;
+  /** Resolved Boat size. Local computers ignore it. */
+  readonly sandboxSize?: SandboxSize;
   readonly sandboxEnvironment?: Readonly<Record<string, string>>;
   readonly mcpServers: readonly McpServer[];
 }

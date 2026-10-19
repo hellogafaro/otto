@@ -80,6 +80,7 @@ export function createOttoDelegationControls(
       sandbox: parentBot.sandbox,
       runtimeMode: parent.access.runtimeMode,
       imageProvider: null,
+      sandboxSize: null,
       voiceEnabled: false,
       groupId: parentThread.groupId ?? null,
       createdAt: now(),

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
-import { BotSandbox } from "../orchestration/roster.ts";
+import { BotSandbox, DEFAULT_SANDBOX_SIZE, SandboxSize } from "../orchestration/roster.ts";
 import { ProviderInstanceEnvironmentVariable } from "../provider-instance.ts";
 
 export const SandboxProvider = BotSandbox;
@@ -55,6 +55,8 @@ export const SandboxSettings = Schema.Struct({
   defaultProvider: PersistedSandboxProvider.pipe(
     Schema.withDecodingDefault(Effect.succeed("local" as const)),
   ),
+  /** Boat size for bots without their own. Local computers ignore it. */
+  defaultSize: SandboxSize.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_SANDBOX_SIZE))),
   autoIdle: Schema.Literal(true).pipe(Schema.withDecodingDefault(Effect.succeed(true as const))),
   providers: Schema.Struct({
     boat: SandboxProviderConnection,
@@ -69,6 +71,7 @@ const SandboxProviderConnectionPatch = Schema.Struct({
 
 export const SandboxSettingsPatch = Schema.Struct({
   defaultProvider: Schema.optionalKey(SandboxProvider),
+  defaultSize: Schema.optionalKey(SandboxSize),
   autoIdle: Schema.optionalKey(Schema.Literal(true)),
   providers: Schema.optionalKey(
     Schema.Struct({

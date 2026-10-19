@@ -4,6 +4,7 @@ import {
   isImageProviderId,
   type BotEngine,
   type ImageProviderId,
+  type SandboxSize,
 } from "@otto/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -49,6 +50,7 @@ export interface BotProfileUpdate {
   readonly description: string | null;
   readonly engine: Bot["engine"];
   readonly sandbox: Bot["sandbox"];
+  readonly sandboxSize: SandboxSize | null;
   readonly instructions: string | null;
   readonly voiceEnabled: boolean;
   readonly imageProvider: ImageProviderId | null;
@@ -80,6 +82,7 @@ export function useBotProfileDraft(
   const [description, setDescription] = useState(bot.description ?? "");
   const [instructions, setInstructions] = useState(bot.instructions ?? "");
   const [sandbox, setSandbox] = useState<BotSandboxChoice>(() => botSandboxChoice(bot.sandbox));
+  const [sandboxSize, setSandboxSize] = useState<SandboxSize | null>(bot.sandboxSize ?? null);
 
   const [voiceEnabled, setVoiceEnabled] = useState(bot.voiceEnabled);
 
@@ -189,6 +192,9 @@ export function useBotProfileDraft(
         botSandboxChoice(bot.sandbox),
       ),
     );
+    setSandboxSize((current) =>
+      rebaseUneditedValue(current, previous.sandboxSize ?? null, bot.sandboxSize ?? null),
+    );
     setInstructions((current) =>
       rebaseUneditedValue(current, previous.instructions ?? "", bot.instructions ?? ""),
     );
@@ -229,6 +235,7 @@ export function useBotProfileDraft(
     normalizedDescription !== bot.description ||
     engineChanged ||
     sandboxDirty ||
+    sandboxSize !== (bot.sandboxSize ?? null) ||
     normalizedInstructions !== bot.instructions ||
     voiceEnabled !== bot.voiceEnabled ||
     imageProvider !== (bot.imageProvider ?? null);
@@ -244,6 +251,7 @@ export function useBotProfileDraft(
       description: normalizedDescription,
       engine: nextEngine,
       sandbox: sandbox === "default" ? null : sandbox,
+      sandboxSize,
       instructions: normalizedInstructions,
       voiceEnabled,
       imageProvider,
@@ -275,6 +283,8 @@ export function useBotProfileDraft(
     setDescription,
     sandbox,
     setSandbox,
+    sandboxSize,
+    setSandboxSize,
     instructions,
     setInstructions,
     voiceEnabled,

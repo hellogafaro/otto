@@ -10,7 +10,7 @@ import {
   ThreadId,
   TurnId,
 } from "./base-schemas.ts";
-import { PersistedBotSandbox, BotInstructions } from "./orchestration/roster.ts";
+import { PersistedBotSandbox, BotInstructions, SandboxSize } from "./orchestration/roster.ts";
 import { ApprovalResponder } from "./orchestration/work.ts";
 import {
   ChatAttachment,
@@ -73,6 +73,8 @@ export const ProviderSessionStartInput = Schema.Struct({
   botName: Schema.optional(TrimmedNonEmptyString),
   botInstructions: Schema.optional(BotInstructions),
   botSandbox: Schema.optional(PersistedBotSandbox),
+  /** Resolved Boat size for this computer. Local sessions ignore it. */
+  botSandboxSize: Schema.optional(SandboxSize),
   botSandboxEnvironment: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   mcpServers: Schema.optional(Schema.Array(McpServer)),
   /** Server-owned system context fixed when the native provider session starts. */

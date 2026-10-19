@@ -106,6 +106,7 @@ export const stubBot = {
   sandbox: "local" as const,
   runtimeMode: "full-access" as const,
   imageProvider: null,
+  sandboxSize: null,
   voiceEnabled: false,
   channelBindings: [],
   groupId: null,

@@ -145,6 +145,7 @@ function makeBot(overrides: Partial<Bot> = {}): Bot {
     instructions: null,
     voiceEnabled: false,
     imageProvider: null,
+    sandboxSize: null,
     groupId: null,
     pinned: false,
     archivedAt: null,
