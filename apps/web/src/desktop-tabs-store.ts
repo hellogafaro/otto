@@ -4,14 +4,21 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { recordTabHistory, stepTabHistory, tabHistoryOf } from "./desktop-tab-history";
 import { isElectron } from "./env";
 import { randomUUID } from "./lib/utils";
 
 /**
- * Otto: The desktop app's titlebar tabs. Each tab holds one route; the router stays the
- * source of truth for the open one, so the active tab follows every navigation.
+ * Otto: The desktop app's titlebar tabs. Each tab holds one route and its own history;
+ * the router stays the source of truth for the open one, so the active tab follows every
+ * navigation. Back and forward walk that tab, not the shared window history.
  */
-const DesktopTab = Schema.Struct({ id: Schema.String, href: Schema.String });
+const DesktopTab = Schema.Struct({
+  id: Schema.String,
+  href: Schema.String,
+  history: Schema.optional(Schema.Array(Schema.String)),
+  index: Schema.optional(Schema.Number),
+});
 
 export type DesktopTab = typeof DesktopTab.Type;
 
@@ -21,7 +28,7 @@ const PersistedDesktopTabs = Schema.Struct({
   titles: Schema.Record(Schema.String, Schema.String),
 });
 
-const decodePersistedDesktopTabs = Schema.decodeUnknownOption(PersistedDesktopTabs);
+export const decodePersistedDesktopTabs = Schema.decodeUnknownOption(PersistedDesktopTabs);
 
 interface DesktopTabsState {
   readonly tabs: readonly DesktopTab[];
@@ -54,7 +61,19 @@ export const useDesktopTabs = create<DesktopTabsState>()(
 );
 
 function createTab(href: string): DesktopTab {
-  return { id: randomUUID(), href };
+  return { id: randomUUID(), href, history: [href], index: 0 };
+}
+
+function writeTabHistory(
+  tab: DesktopTab,
+  history: { readonly entries: readonly string[]; readonly index: number },
+): DesktopTab {
+  return {
+    ...tab,
+    href: history.entries[history.index] ?? tab.href,
+    history: [...history.entries],
+    index: history.index,
+  };
 }
 
 /** Inserts a tab after the open one and opens it. */
@@ -88,8 +107,31 @@ export function syncDesktopTab(href: string): void {
   }
 
   useDesktopTabs.setState(({ tabs }) => ({
-    tabs: tabs.map((tab) => (tab.id === active.id ? { ...tab, href } : tab)),
+    tabs: tabs.map((tab) => {
+      if (tab.id !== active.id) return tab;
+
+      return writeTabHistory(tab, recordTabHistory(tabHistoryOf(tab), href));
+    }),
   }));
+}
+
+/** Moves within the open tab's history. Returns the route to show, or null at the end. */
+export function goDesktopTabHistory(direction: "back" | "forward"): string | null {
+  const active = activeDesktopTab();
+
+  if (!active) return null;
+
+  const next = stepTabHistory(tabHistoryOf(active), direction);
+
+  if (!next) return null;
+
+  const href = next.entries[next.index] ?? active.href;
+
+  useDesktopTabs.setState(({ tabs }) => ({
+    tabs: tabs.map((tab) => (tab.id === active.id ? writeTabHistory(tab, next) : tab)),
+  }));
+
+  return href;
 }
 
 /** Opens a new tab after the open one; returns the route to show. */

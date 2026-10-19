@@ -87,6 +87,15 @@ describe("ChatMarkdown settings chips", () => {
     expect(html).toContain("Open Settings &gt; Channels");
     expect(html).not.toContain('target="_blank"');
   });
+
+  it("keeps an in-app task link in the page instead of a new browser window", () => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown cwd={undefined} text="[Review](/tasks/task-1)" />,
+    );
+
+    expect(html).toContain('href="/tasks/task-1"');
+    expect(html).not.toContain('target="_blank"');
+  });
 });
 
 describe("ChatMarkdown rich formatting", () => {

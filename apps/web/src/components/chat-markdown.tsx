@@ -16,6 +16,8 @@ import "katex/dist/katex.min.css";
 import { memo, Suspense, use } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import { isAppRouteHref } from "../app-routes";
+import { isElectron } from "../env";
 import { writeTextToClipboard } from "../hooks/use-copy-to-clipboard";
 import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
@@ -260,7 +262,12 @@ const CHAT_MARKDOWN_COMPONENTS: Components = {
 
     if (!fileLinkMeta) {
       const faviconHost = resolveExternalWebLinkHost(href);
-      const isSameDocumentLink = href?.startsWith("#") ?? false;
+      const inApp = Boolean(href && isAppRouteHref(href));
+      // A #/tasks/id hash is a route, not a fragment on this message.
+      const isSameDocumentLink = Boolean(href?.startsWith("#")) && !inApp;
+      // In the desktop app the click handler navigates. target=_blank keeps a missed
+      // click from loading otto://app/tasks/id as a real path and dropping the hash route.
+      const openInPage = isSameDocumentLink || (inApp && !isElectron);
       const onClick = props.onClick;
       const canOpenInPreview = Boolean(threadRef) && isPreviewSupportedInRuntime();
 
@@ -268,8 +275,8 @@ const CHAT_MARKDOWN_COMPONENTS: Components = {
         <a
           {...props}
           href={href}
-          target={isSameDocumentLink ? undefined : "_blank"}
-          rel={isSameDocumentLink ? undefined : "noopener noreferrer"}
+          target={openInPage ? undefined : "_blank"}
+          rel={openInPage ? undefined : "noopener noreferrer"}
           onClick={(event) => {
             onClick?.(event);
 

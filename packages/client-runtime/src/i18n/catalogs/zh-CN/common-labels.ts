@@ -84,6 +84,7 @@ export const commonLabelsCatalog = {
   "Word wrap": "自动换行",
   About: "关于",
   Back: "返回",
+  Forward: "前进",
   Continue: "继续",
   Host: "主机",
   Implement: "实现",

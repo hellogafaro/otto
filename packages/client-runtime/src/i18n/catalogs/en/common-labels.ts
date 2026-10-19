@@ -84,6 +84,7 @@ export const commonLabelsCatalog = {
   "Word wrap": "Word wrap",
   About: "About",
   Back: "Back",
+  Forward: "Forward",
   Continue: "Continue",
   Host: "Host",
   Implement: "Implement",
