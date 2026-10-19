@@ -338,6 +338,7 @@ export const rosterCatalog = {
   "Used an app": "已使用应用",
   "Asked you a question": "向你提了问题",
   "Worked for {duration}": "工作了 {duration}",
+  "New message from {name}": "来自 {name} 的新消息",
   "Thought for {duration}": "思考了 {duration}",
   "Used {name}": "已使用 {name}",
   Failed: "失败",

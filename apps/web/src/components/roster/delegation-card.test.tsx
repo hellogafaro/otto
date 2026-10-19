@@ -98,9 +98,7 @@ vi.mock("./roster-store", () => ({
 import { DelegationCard, delegationUsageTokens } from "./delegation-card";
 import { DelegationDetail } from "./delegation-detail";
 import { delegationClockState } from "./delegation-clock";
-import { StatusIcon } from "../status-icon";
 import { visitElements } from "../test-support/react-tree";
-import { TraceCollapsibleContent, TraceCollapsibleTrigger } from "../ui/trace";
 import type { Bot } from "./types";
 
 const decodeDelegationRecord = Schema.decodeUnknownSync(OttoDelegationRecord);
@@ -294,20 +292,6 @@ function findByLabel(node: TestValue, label: string): ReactElement<TestProps> | 
   return found;
 }
 
-/** The card's trace line, which stays on the face and opens the details. */
-function traceLineMarkup(card: ReactElement<TestProps>) {
-  const trigger = visitElements(card, (element) => element.type === TraceCollapsibleTrigger);
-
-  return trigger ? renderToStaticMarkup(<>{trigger.props.children as ReactElement}</>) : "";
-}
-
-/** What the trace line's disclosure holds; it renders only once opened. */
-function detailsMarkup(card: ReactElement<TestProps>) {
-  const content = visitElements(card, (element) => element.type === TraceCollapsibleContent);
-
-  return content ? renderToStaticMarkup(<>{content.props.children as ReactElement}</>) : "";
-}
-
 function detailElement(bot: Bot | null = childBot, onOpenChange = vi.fn()) {
   return DelegationDetail({
     delegation: delegation("running"),
@@ -315,6 +299,21 @@ function detailElement(bot: Bot | null = childBot, onOpenChange = vi.fn()) {
     parentBot,
     onOpenChange,
   });
+}
+
+/** The detail dialog's text, read from its element tree; Base UI parts need a live dialog to render. */
+function detailMarkup(bot: Bot | null = childBot): string {
+  const parts: string[] = [];
+
+  visitElements(detailElement(bot) as TestValue, (element) => {
+    for (const child of [element.props.children].flat()) {
+      if (Predicate.isString(child) || Predicate.isNumber(child)) parts.push(String(child));
+    }
+
+    return false;
+  });
+
+  return parts.join(" ");
 }
 
 describe("DelegationCard", () => {
@@ -331,135 +330,39 @@ describe("DelegationCard", () => {
     mocks.clockCleanups = null;
   });
 
-  it.each([
-    ["queued", "Queued", "pending"],
-    ["running", "Running", "in_progress"],
-    ["blocked", "Blocked", "waiting"],
-    ["failed", "Failed", "error"],
-    ["canceled", "Cancelled", "cancelled"],
-    ["completed", "Completed", "completed"],
-  ] as const)("shows the %s state with the shared status icon and label", (state, label, icon) => {
-    const card = cardElement(state);
-    const line = traceLineMarkup(card);
-    expect(line).toContain(`aria-live="polite">${label}</span>`);
-    expect(visitElements(card, (element) => element.type === StatusIcon)?.props.status).toBe(icon);
-    expect(renderCard(state)).not.toContain("rounded-full");
-  });
+  it.each(["queued", "running", "blocked", "failed", "canceled", "completed"] as const)(
+    "marks the %s state on the receipt line",
+    (state) => {
+      expect(renderCard(state)).toContain(`data-delegation-state="${state}"`);
+    },
+  );
 
-  it("shimmers the trace line only while the work runs", () => {
-    expect(traceLineMarkup(cardElement("running"))).toContain('data-status="running"');
+  it("shimmers only while the work runs", () => {
+    for (const state of ["queued", "running", "blocked"] as const) {
+      const markup = renderCard(state);
+      expect(markup).toContain("shimmer");
+      expect(markup).toContain("Working for");
+    }
 
-    for (const state of ["queued", "blocked", "failed", "canceled", "completed"] as const) {
-      expect(traceLineMarkup(cardElement(state))).not.toContain("data-status");
+    for (const state of ["failed", "canceled", "completed"] as const) {
+      const markup = renderCard(state);
+      expect(markup).not.toContain("shimmer");
+      expect(markup).toContain("New message from Mori");
     }
   });
 
-  it("shows result and failure text without mixing them", () => {
-    const complete = renderCard("completed");
-    expect(complete).toContain("Release comparison complete.");
-    expect(complete).not.toContain("The provider stopped.");
-
-    const failed = renderCard("failed");
-    expect(failed).toContain("The provider stopped.");
-    expect(failed).not.toContain("Release comparison complete.");
+  it("keeps the result and failure text off the receipt line", () => {
+    expect(renderCard("completed")).not.toContain("Release comparison complete.");
+    expect(renderCard("failed")).not.toContain("The provider stopped.");
+    expect(renderCard("blocked")).not.toContain("The provider is blocked.");
   });
 
-  it("shows why blocked work is waiting", () => {
-    expect(renderCard("blocked")).toContain("The provider is blocked.");
-  });
-
-  it("shows whether the parent bot has received a finished result", () => {
-    expect(renderCard("completed")).toContain("Result waiting for the next reply");
-    expect(renderCard("failed")).toContain("Result waiting for the next reply");
-    expect(renderCard("running")).not.toContain("Result waiting");
-    expect(renderCard("canceled")).not.toContain("Result");
-
-    const completed = delegation("completed");
-
-    if (!Predicate.isTagged(completed.phase, "Completed"))
-      throw new Error("Expected a completed delegation");
-    expect(
-      renderToStaticMarkup(
-        <DelegationCard
-          delegation={{
-            ...completed,
-            phase: { ...completed.phase, acknowledgedAt: "2026-08-31T00:02:00.000Z" },
-          }}
-          delegations={[]}
-          childBot={childBot}
-          parentBot={parentBot}
-        />,
-      ),
-    ).toContain("Result delivered to Mira");
-  });
-
-  it("shows fallback text when terminal details are missing", () => {
-    const completed = delegation("completed");
-    const failed = delegation("failed");
-
-    if (
-      !Predicate.isTagged(completed.phase, "Completed") ||
-      !Predicate.isTagged(failed.phase, "Failed")
-    ) {
-      throw new Error("Expected completed and failed delegations");
-    }
-
-    expect(
-      renderToStaticMarkup(
-        <DelegationCard
-          delegation={{ ...completed, phase: { ...completed.phase, result: null as never } }}
-          delegations={[]}
-          childBot={childBot}
-          parentBot={parentBot}
-        />,
-      ),
-    ).toContain("Result unavailable");
-    expect(
-      renderToStaticMarkup(
-        <DelegationCard
-          delegation={{ ...failed, phase: { ...failed.phase, failure: null as never } }}
-          delegations={[]}
-          childBot={childBot}
-          parentBot={parentBot}
-        />,
-      ),
-    ).toContain("Failure details unavailable");
-  });
-
-  it("shows a start failure as the bot-named readable line", () => {
-    const failed = delegation("failed");
-
-    if (!Predicate.isTagged(failed.phase, "Failed"))
-      throw new Error("Expected a failed delegation");
-
-    const message = "Ren could not start: Provider instance 'codex' is disabled in Otto settings.";
-
-    const markup = renderToStaticMarkup(
-      <DelegationCard
-        delegation={{
-          ...failed,
-          phase: { ...failed.phase, failure: { failureCode: "child_failed", message } },
-        }}
-        delegations={[]}
-        childBot={childBot}
-        parentBot={parentBot}
-      />,
-    );
-
-    expect(markup).toContain(
-      "Ren could not start: Provider instance &#x27;codex&#x27; is disabled",
-    );
-    expect(markup).not.toContain("ProviderValidationError");
-    expect(markup).not.toContain("file://");
-  });
-
-  it("shows elapsed time on the trace line and the child bot's settings behind it", () => {
-    const card = cardElement("completed");
-    expect(traceLineMarkup(card)).toContain(">50s</span>");
-    expect(renderCard("completed")).not.toContain("Expected result");
-    const details = detailsMarkup(card);
-    expect(details).toContain("A short comparison.");
-    expect(details).toContain("approval required · local sandbox · MCP servers: 0");
+  it("shows the elapsed time on the receipt and keeps the brief off it", () => {
+    const markup = renderCard("completed");
+    expect(markup).toContain("New message from Mori");
+    expect(markup).toContain("50s");
+    expect(markup).not.toContain("A short comparison.");
+    expect(markup).not.toContain("MCP servers");
   });
 
   it("shows hours for work that ran an hour or more", () => {
@@ -480,15 +383,13 @@ describe("DelegationCard", () => {
       />,
     );
 
-    expect(markup).toContain(">7h 48m</span>");
+    expect(markup).toContain("7h 48m");
   });
 
   it("uses only the delegated child turn usage", () => {
     expect(delegationUsageTokens(delegation("completed"), mocks.activities)).toBe(1_234);
     expect(delegationUsageTokens(delegation("queued"), mocks.activities)).toBeNull();
-    const markup = traceLineMarkup(cardElement("completed"));
-    expect(markup).toContain('aria-label="1,234 tokens billed to Mori"');
-    expect(markup).not.toContain("100K");
+    expect(renderCard("completed")).not.toContain("tokens");
   });
 
   it("cancels through the delegation command with keep disabled", async () => {
@@ -604,32 +505,25 @@ describe("DelegationCard", () => {
     expect(renderCard("queued")).toMatch(/aria-label="View Mori&#x27;s work" disabled=""/);
   });
 
-  it("opens the child bot's own chat, not the child work thread, from the work view", () => {
-    const onOpenChange = vi.fn();
-    const open = findByLabel(detailElement(childBot, onOpenChange), "Open Mori chat");
-    (open?.props.onClick as (() => void) | undefined)?.();
-    expect(mocks.recordChatPath).not.toHaveBeenCalled();
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(mocks.navigate).toHaveBeenCalledWith({
-      to: "/bots/$botId",
-      params: { botId: "bot-child" },
-    });
+  it("opens a read-only chat with both bots in the header and no footer", () => {
+    const markup = detailMarkup();
+    expect(markup).toContain("Mira");
+    expect(markup).toContain("Mori");
+    expect(markup).toContain("Compare the release options.");
+    expect(markup).not.toContain("Open chat");
+    expect(markup).not.toContain("Expected result");
   });
 
-  it("handles a missing child without enabling a false route", () => {
+  it("handles a missing child", () => {
     mocks.thread = null;
-    const markup = renderCard("running", null);
-    expect(markup).toContain("Unknown bot");
-    expect(markup).not.toContain("tokens billed");
-    expect(findByLabel(detailElement(null), "Open Unknown bot chat")?.props.disabled).toBe(true);
+    expect(renderCard("running", null)).toContain("Unknown bot");
+    expect(detailMarkup(null)).toContain("Unknown bot");
   });
 
   it("treats an archived child as unavailable", () => {
     const archived = { ...childBot, archivedAt: "2026-08-31T00:02:00.000Z" };
     expect(renderCard("running", archived)).toContain("Unknown bot");
-    expect(findByLabel(detailElement(archived), "Open Unknown bot chat")?.props.disabled).toBe(
-      true,
-    );
+    expect(detailMarkup(archived)).toContain("Unknown bot");
   });
 
   it("names both actions for assistive technology", () => {
@@ -638,7 +532,7 @@ describe("DelegationCard", () => {
     expect(markup).toContain('aria-label="View Mori&#x27;s work"');
   });
 
-  it("keeps MCP counts off the card face", () => {
+  it("keeps access details off the receipt", () => {
     const record = delegation("running", {
       access: {
         sandbox: "local",
@@ -658,12 +552,10 @@ describe("DelegationCard", () => {
     );
 
     expect(face).not.toContain("MCP servers");
-    expect(face).toContain('aria-expanded="false"');
-    const card = DelegationCard({ delegation: record, delegations: [], childBot, parentBot });
-    expect(detailsMarkup(card as ReactElement<TestProps>)).toContain("MCP servers: 2");
+    expect(face).not.toContain("sandbox");
   });
 
-  it("names the asking bot on group cards", () => {
+  it("keeps the same short line in group chats", () => {
     const group = renderToStaticMarkup(
       <DelegationCard
         delegation={delegation("running")}
@@ -674,38 +566,9 @@ describe("DelegationCard", () => {
       />,
     );
 
-    expect(group).toContain("Mira asked Mori");
-    expect(renderCard("running")).not.toContain("asked");
-    expect(
-      renderToStaticMarkup(
-        <DelegationCard
-          delegation={delegation("running")}
-          delegations={[]}
-          childBot={childBot}
-          parentBot={null}
-          variant="group"
-        />,
-      ),
-    ).toContain("Unknown bot asked Mori");
-  });
-
-  it("labels scheduled and retried work", () => {
-    expect(renderCard("running")).not.toMatch(/>Scheduled<|>Retried</);
-
-    const markup = renderToStaticMarkup(
-      <DelegationCard
-        delegation={delegation("running", {
-          trigger: "scheduled",
-          retryOfDelegationId: "delegation-earlier",
-        })}
-        delegations={[]}
-        childBot={childBot}
-        parentBot={parentBot}
-      />,
-    );
-
-    expect(markup).toContain(">Scheduled</span>");
-    expect(markup).toContain(">Retried</span>");
+    expect(group).toContain('data-variant="group"');
+    expect(group).toContain("Mori");
+    expect(group).not.toContain("asked");
   });
 
   it("lets the actions slot replace the default cancel control", () => {

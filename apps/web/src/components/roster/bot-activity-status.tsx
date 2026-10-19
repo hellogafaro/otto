@@ -166,6 +166,8 @@ export function BotActivityStatus({
           <TraceCollapsibleTrigger className="min-h-7">
             <TraceLine>
               <TraceTitle data-testid="bot-activity-time">
+                <span className="font-medium text-foreground">{bot.name}</span>
+                <span> · </span>
                 {Number.isFinite(started) ? <WorkingFor startedAt={started} /> : t("Working")}
               </TraceTitle>
             </TraceLine>

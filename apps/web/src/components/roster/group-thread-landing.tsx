@@ -297,6 +297,20 @@ export function GroupThreadLanding({
     [activities, messages],
   );
 
+  // Otto: A turn's clock rides on its first reply only, so a turn with four replies shows one line.
+  const firstReplyOfTurn = useMemo(() => {
+    const seen = new Set<string>();
+    const ids = new Set<string>();
+
+    for (const message of messages) {
+      if (message.role !== "assistant" || !message.turnId || seen.has(message.turnId)) continue;
+      seen.add(message.turnId);
+      ids.add(message.id);
+    }
+
+    return ids;
+  }, [messages]);
+
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
 
   const today = useLocalDay();
@@ -534,7 +548,11 @@ export function GroupThreadLanding({
                         stepMeter={
                           message.turnId === null ? undefined : stepMeters.get(message.turnId)
                         }
-                        trace={message.turnId === null ? undefined : turnTraces.get(message.turnId)}
+                        trace={
+                          message.turnId === null || !firstReplyOfTurn.has(message.id)
+                            ? undefined
+                            : turnTraces.get(message.turnId)
+                        }
                         environmentId={environmentId ?? null}
                         currentPersonId={currentPersonId}
                         playback={replyPlayback}
