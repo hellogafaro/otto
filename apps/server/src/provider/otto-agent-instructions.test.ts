@@ -76,7 +76,7 @@ describe("Otto bot instructions", () => {
 
     expect(instructions).toContain("Direct and friendly, never performative");
     expect(instructions).toContain("NO_REPLY");
-    expect(instructions).toContain("uses the loaded skill");
+    expect(instructions).toContain("Markdown renders, including tables");
     expect(instructions).toContain("Never invent a skill name");
     expect(instructions).not.toContain("visualize");
     expect(instructions).not.toContain("Write skill");
