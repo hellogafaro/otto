@@ -34,7 +34,7 @@ export interface OttoToolSession {
   readonly workspace?: Workspace;
   /** Path-only environment this turn's shell commands get, such as the asker's GitHub login folder. */
   readonly commandEnvironment?: Readonly<Record<string, string>>;
-  /** The chat's own folder on the computer, where its shell starts; made while the turn runs. */
+  /** The computer's root, where its shell starts; resolved while the turn runs. */
   readonly chatFolder?: Promise<string | undefined>;
   readonly delegation?: {
     readonly depth: number;

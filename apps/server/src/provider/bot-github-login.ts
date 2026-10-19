@@ -9,7 +9,7 @@ const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
 const configValue = (value: string) =>
   `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", " ")}"`;
 
-/** The chat's own folder, so two chats on one bot computer each keep their own person's login. */
+/** One chat's GitHub login folder on its computer. */
 const loginFolder = (threadId: string) =>
   `"$PWD/.otto/github/${NodeCrypto.createHash("sha256").update(threadId).digest("hex").slice(0, 16)}"`;
 

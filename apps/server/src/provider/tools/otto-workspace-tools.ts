@@ -62,7 +62,7 @@ function bound<T extends object, K extends keyof T>(target: T, key: K): T[K] {
 
 /**
  * The workspace as one turn's shell sees it: every command also gets `environment`, and one
- * that names no folder, or a relative one, runs in or under `cwd`, the chat's own folder.
+ * that names no folder, or a relative one, runs in or under `cwd`, the computer's root.
  */
 export function withCommandEnvironment(
   workspace: Workspace,

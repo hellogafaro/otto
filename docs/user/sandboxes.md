@@ -6,8 +6,8 @@ always available.
 Every chat gets its own computer. A chat's sandbox is keyed to the bot and the chat, so two
 chats of the same bot never share files, processes or browser logins.
 
-Each computer still keeps a `chats/<chat id>` folder. The chat's shell starts there, and each
-repository linked in the project gets its own git worktree there.
+The chat's shell starts at the computer root. Repositories linked in the project are cloned
+into `repos/` on that computer.
 
 Select **Connect** and enter the Boat API key. The environment stores secret values outside
 `settings.json`. Clients receive only a redacted marker after a secret is saved.

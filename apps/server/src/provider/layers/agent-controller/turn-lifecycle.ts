@@ -286,8 +286,8 @@ export function createTurnLifecycle(deps: {
           deps.runPromise(Effect.logWarning("bot computer wake failed", { threadId, cause })),
         );
 
-      // Otto: the chat's own folder on the awake computer, where its shell starts; the turn does
-      // not wait for it, only its first command does.
+      // Otto: the computer's root, where its shell starts; the turn does not wait for it, only
+      // its first command does.
       const chatFolder = deps.computerSetup.folder(String(threadId));
       const toolSession = chatFolder ? { ...pending.toolSession, chatFolder } : pending.toolSession;
 

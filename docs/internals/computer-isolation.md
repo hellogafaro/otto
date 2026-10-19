@@ -12,7 +12,7 @@ Each chat gets its own computer on both Local and Boat.
 Bot
   └── Computer  (one per chat)
         files, processes, ports, browser, Watch target
-        still uses chats/<chat id>/ for the shell and git worktrees
+        shell starts at the computer root; project repos live in repos/
 ```
 
 There is no shared per-bot home. The first turn in a chat pays for toolbox and clone; later turns
@@ -69,4 +69,4 @@ A later turn in the same chat resumes the existing VM. A new chat creates a new 
 - Slot cap if 5–10 concurrent Local chats oversubscribe the host.
 - cgroup / memory limits on Local.
 - Optional bot-home snapshot that new chat computers fork from, if toolbox/clone cost becomes the
-  pain. Flatten `chats/<id>/` on a per-chat computer at the same time.
+  pain.
