@@ -21,6 +21,7 @@ import type { createWorkspace } from "./workspace.ts";
 import type { createDelegations } from "./delegations.ts";
 import type { createSession } from "./session.ts";
 import type { createMentions } from "./mentions.ts";
+import type { createTitles } from "./titles.ts";
 
 export function createTurns({
   hasHandledTurnRequestRecently,
@@ -30,6 +31,7 @@ export function createTurns({
   failDelegation,
   ensureThreadWorktree,
   maybeGenerateAndRenameWorktreeBranchForFirstTurn,
+  maybeGenerateThreadTitleForFirstTurn,
   formatFailure,
   setThreadSessionErrorOnTurnStartFailure,
   failDelegationStart,
@@ -49,7 +51,8 @@ export function createTurns({
     ReturnType<typeof createWorkspace> &
     ReturnType<typeof createDelegations> &
     ReturnType<typeof createSession> &
-    ReturnType<typeof createMentions>,
+    ReturnType<typeof createMentions> &
+    Effect.Success<ReturnType<typeof createTitles>>,
   | "hasHandledTurnRequestRecently"
   | "resolveThreadShell"
   | "projectionSnapshotQuery"
@@ -57,6 +60,7 @@ export function createTurns({
   | "failDelegation"
   | "ensureThreadWorktree"
   | "maybeGenerateAndRenameWorktreeBranchForFirstTurn"
+  | "maybeGenerateThreadTitleForFirstTurn"
   | "formatFailure"
   | "setThreadSessionErrorOnTurnStartFailure"
   | "failDelegationStart"
@@ -185,6 +189,18 @@ export function createTurns({
         ...generationInput,
         ...(respondingBot ? { botName: respondingBot.name } : {}),
       }).pipe(Effect.forkScoped);
+
+      if (
+        event.payload.hiddenWake !== true &&
+        event.payload.routineWake === undefined &&
+        event.payload.taskWake === undefined
+      ) {
+        yield* maybeGenerateThreadTitleForFirstTurn({
+          threadId: event.payload.threadId,
+          messageId: message.id,
+          ...generationInput,
+        }).pipe(Effect.forkScoped);
+      }
     }
 
     const handleTurnStartFailure = (cause: Cause.Cause<unknown>) => {

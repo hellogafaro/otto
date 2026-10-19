@@ -1,50 +1,170 @@
-import { CommandId, DEFAULT_PROVIDER_INTERACTION_MODE, ThreadId } from "@otto/contracts";
+import {
+  CommandId,
+  DEFAULT_PROVIDER_INTERACTION_MODE,
+  TextGenerationError,
+  ThreadId,
+} from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   asMessageId,
   createProviderCommandHarness,
 } from "./test-support/provider-command-harness.ts";
+import { isAutomaticThreadTitle } from "./provider-command/titles.ts";
+
+describe("isAutomaticThreadTitle", () => {
+  const message = "Please investigate reconnect failures after restarting the session.";
+
+  it.each([
+    "New chat",
+    message,
+    "Please investigate reconnect failures after restar…",
+    "Please investigate reconnect failures after restar...",
+  ])("treats %s as a title nobody chose", (title) => {
+    expect(isAutomaticThreadTitle(title, message, [])).toBe(true);
+  });
+
+  it("treats a file-only send's title as automatic", () => {
+    expect(
+      isAutomaticThreadTitle("File: invoice.pdf", "", [
+        {
+          type: "file",
+          id: "file-1",
+          name: "invoice.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1,
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps a title someone chose", () => {
+    expect(isAutomaticThreadTitle("Keep this custom title", message, [])).toBe(false);
+  });
+});
 
 describe("ProviderCommandReactor", () => {
   const testScope = createProviderCommandHarness();
   const { createHarness } = testScope;
   afterEach(testScope.dispose);
-  it("keeps the existing title on the first turn", async () => {
+
+  const startFirstTurn = (
+    harness: Awaited<ReturnType<typeof createHarness>>,
+    input: { readonly title: string; readonly messageId?: string; readonly hiddenWake?: true },
+  ) =>
+    harness
+      .run(
+        harness.engine.dispatch({
+          type: "thread.meta.update",
+          commandId: CommandId.make("cmd-thread-title-seed"),
+          threadId: ThreadId.make("thread-1"),
+          title: input.title,
+        }),
+      )
+      .then(() =>
+        harness.run(
+          harness.engine.dispatch({
+            type: "thread.turn.start",
+            commandId: CommandId.make("cmd-turn-start-title"),
+            threadId: ThreadId.make("thread-1"),
+            message: {
+              messageId: asMessageId(input.messageId ?? "user-message-title"),
+              role: "user",
+              text: "Please investigate reconnect failures after restarting the session.",
+              attachments: [],
+            },
+            interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+            runtimeMode: "approval-required",
+            ...(input.hiddenWake ? { hiddenWake: true } : {}),
+            createdAt: "2026-01-01T00:00:00.000Z",
+          }),
+        ),
+      );
+
+  const readTitle = async (harness: Awaited<ReturnType<typeof createHarness>>) => {
+    const readModel = await harness.readModel();
+
+    return readModel.threads.find((entry) => entry.id === ThreadId.make("thread-1"))?.title;
+  };
+
+  it("replaces the first message's copy with a generated title on the first turn", async () => {
     const harness = await createHarness();
-    const now = "2026-01-01T00:00:00.000Z";
-    const seededTitle = "Please investigate reconnect failures after restar...";
-    await harness.run(
-      harness.engine.dispatch({
-        type: "thread.meta.update",
-        commandId: CommandId.make("cmd-thread-title-seed"),
-        threadId: ThreadId.make("thread-1"),
-        title: seededTitle,
-      }),
+    harness.generateThreadTitle.mockReturnValue(
+      Effect.succeed({ title: "Reconnect failures after session restart" }),
     );
 
-    await harness.run(
-      harness.engine.dispatch({
-        type: "thread.turn.start",
-        commandId: CommandId.make("cmd-turn-start-title"),
-        threadId: ThreadId.make("thread-1"),
-        message: {
-          messageId: asMessageId("user-message-title"),
-          role: "user",
-          text: "Please investigate reconnect failures after restarting the session.",
-          attachments: [],
-        },
-        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
-        runtimeMode: "approval-required",
-        createdAt: now,
-      }),
+    await startFirstTurn(harness, {
+      title: "Please investigate reconnect failures after restar…",
+    });
+
+    await harness.waitFor(
+      async () => (await readTitle(harness)) === "Reconnect failures after session restart",
     );
+    expect(harness.generateThreadTitle).toHaveBeenCalledTimes(1);
+    expect(harness.generateThreadTitle.mock.calls[0]?.[0]).toMatchObject({
+      message: "Please investigate reconnect failures after restarting the session.",
+    });
+    expect(harness.generateThreadTitle.mock.calls[0]?.[0].previousTitle).toBeUndefined();
+  });
+
+  it("names a placeholder chat on the first turn", async () => {
+    const harness = await createHarness();
+    harness.generateThreadTitle.mockReturnValue(
+      Effect.succeed({ title: "Reconnect failures after session restart" }),
+    );
+
+    await startFirstTurn(harness, { title: "New chat" });
+
+    await harness.waitFor(
+      async () => (await readTitle(harness)) === "Reconnect failures after session restart",
+    );
+  });
+
+  it("tries the bot's model first, then the Settings model", async () => {
+    const harness = await createHarness({ botEngine: { provider: "claudeAgent", model: "opus" } });
+    harness.generateThreadTitle.mockImplementation((input) =>
+      input.modelSelection.instanceId === "claudeAgent"
+        ? Effect.fail(
+            new TextGenerationError({
+              operation: "generateThreadTitle",
+              detail: "Provider instance 'claudeAgent' does not support text generation.",
+            }),
+          )
+        : Effect.succeed({ title: "Reconnect failures after session restart" }),
+    );
+
+    await startFirstTurn(harness, { title: "New chat" });
+
+    await harness.waitFor(
+      async () => (await readTitle(harness)) === "Reconnect failures after session restart",
+    );
+    expect(
+      harness.generateThreadTitle.mock.calls.map(([input]) => input.modelSelection.instanceId),
+    ).toEqual(["claudeAgent", "codex"]);
+  });
+
+  it("keeps the copy when generation fails", async () => {
+    const harness = await createHarness();
+    const seededTitle = "Please investigate reconnect failures after restar…";
+
+    await startFirstTurn(harness, { title: seededTitle });
 
     await harness.waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    await harness.waitFor(() => harness.generateThreadTitle.mock.calls.length === 1);
+    await harness.drain();
+    expect(await readTitle(harness)).toBe(seededTitle);
+  });
+
+  it("does not name a chat from a hidden prompt", async () => {
+    const harness = await createHarness();
+    harness.generateThreadTitle.mockReturnValue(Effect.succeed({ title: "Should not apply" }));
+
+    await startFirstTurn(harness, { title: "New chat", messageId: "intro:hidden-intro" });
+
+    await harness.waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    await harness.drain();
     expect(harness.generateThreadTitle).not.toHaveBeenCalled();
-    const readModel = await harness.readModel();
-    const thread = readModel.threads.find((entry) => entry.id === ThreadId.make("thread-1"));
-    expect(thread?.title).toBe(seededTitle);
+    expect(await readTitle(harness)).toBe("New chat");
   });
 
   it("regenerates a thread title from the current conversation", async () => {

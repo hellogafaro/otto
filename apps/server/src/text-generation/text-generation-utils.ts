@@ -27,6 +27,9 @@ export function limitSection(value: string, maxChars: number): string {
   return `${truncated}\n\n[truncated]`;
 }
 
+/** Longest title kept whole; the prompt asks for 60 characters, so this only catches overruns. */
+const MAX_THREAD_TITLE_LENGTH = 70;
+
 /** Normalise a raw thread title to a compact single-line sidebar-safe label. */
 export function sanitizeThreadTitle(raw: string): string {
   // Unwrap a JSON-formatted title before truncation can cut off the closing brace.
@@ -45,11 +48,11 @@ export function sanitizeThreadTitle(raw: string): string {
     return PLACEHOLDER_THREAD_TITLE;
   }
 
-  if (normalized.length <= 50) {
+  if (normalized.length <= MAX_THREAD_TITLE_LENGTH) {
     return normalized;
   }
 
-  return `${normalized.slice(0, 47).trimEnd()}...`;
+  return `${normalized.slice(0, MAX_THREAD_TITLE_LENGTH - 3).trimEnd()}...`;
 }
 
 /** CLI name to human-readable label, e.g. "codex" → "Codex CLI (`codex`)" */
