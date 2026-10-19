@@ -60,6 +60,7 @@ const make = Effect.gen(function* () {
   const {
     silenceWatchdogs,
     silenceWaitingRequests,
+    silenceWaitingWork,
     stopSilenceWatchdog,
     stopAllSilenceWatchdogs,
     silenceReportWorker,
@@ -137,6 +138,7 @@ const make = Effect.gen(function* () {
     resolveSilenceIncidents,
     stopSilenceWatchdog,
     silenceWaitingRequests,
+    silenceWaitingWork,
     channelRuntime,
     channelWaitingRequests,
     channelStatusWorker,

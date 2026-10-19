@@ -214,6 +214,39 @@ describe("AcpRuntimeModel", () => {
       },
     ]);
   });
+
+  it("treats a thought chunk as provider activity, not assistant text", () => {
+    const notification = {
+      sessionId: "session-1",
+      update: {
+        sessionUpdate: "agent_thought_chunk",
+        content: { type: "text", text: "still thinking" },
+      },
+    } satisfies EffectAcpSchema.SessionNotification;
+
+    const result = parseSessionUpdateEvent(notification);
+
+    expect(result.events).toEqual([
+      {
+        _tag: "ProviderActivity",
+        text: "still thinking",
+        rawPayload: notification,
+      },
+    ]);
+  });
+
+  it("treats a usage update as provider activity", () => {
+    const result = parseSessionUpdateEvent({
+      sessionId: "session-1",
+      update: {
+        sessionUpdate: "usage_update",
+        size: 1_000,
+        used: 10,
+      },
+    } satisfies EffectAcpSchema.SessionNotification);
+
+    expect(result.events[0]?._tag).toBe("ProviderActivity");
+  });
 });
 
 describe("AcpRuntimeModel", () => {

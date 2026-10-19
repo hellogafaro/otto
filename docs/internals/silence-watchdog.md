@@ -11,8 +11,8 @@ The timer itself is `startSilenceWatchdog` in `apps/server/src/orchestration/sil
 ## Lifecycle
 
 1. `turn.started` starts one watchdog for the thread and turn. A newer turn on the same thread stops the previous watchdog first.
-2. Every other runtime event for the turn counts as output and restarts the countdown. `turn.completed` and `turn.aborted` do not; they end the turn instead.
-3. `request.opened` and `user-input.requested` pause the countdown while the bot waits on the user. The matching `request.resolved` and `user-input.resolved` resume it with a fresh countdown, so time spent waiting on the user never counts as silence.
+2. Every other runtime event for the turn counts as output and restarts the countdown. That includes reasoning and thought deltas, which are not shown as assistant text. `turn.completed` and `turn.aborted` do not count; they end the turn instead.
+3. `request.opened` and `user-input.requested` pause the countdown while the bot waits on the user. An in-progress tool item or task pauses it the same way, until that tool or task finishes. The matching `request.resolved` and `user-input.resolved` resume it with a fresh countdown, so time spent waiting on the user, thinking, or running a tool never counts as silence.
 4. After 90 seconds without output, the watchdog appends a `turn.silent` activity with a `ThreadSilentRunActivityPayload` (`provider`, `lastActivityAt`) and opens a `silence-watchdog-failure` inbox item for the bot.
 5. When output resumes, it appends `turn.silent.cleared` and resolves the inbox item. The countdown starts again, so a later quiet stretch opens a new silent window.
 6. `turn.completed`, `turn.aborted`, and an interrupted turn stop the watchdog and resolve the inbox item. `session.exited` stops every watchdog for the thread. Stopping never appends `turn.silent.cleared`, because the turn ending already clears the state on clients.
@@ -26,6 +26,6 @@ The incident key is `silence:<threadId>:<turnId>`, so a turn has at most one inb
 
 ## Clients
 
-`packages/client-runtime/src/silent-run.ts` exports `threadSilentRun(activities, turnId)`. It returns the provider, its display name, and the last output time when the latest silent-run activity for the running turn is `turn.silent`, and `null` otherwise. Web passes the result to `BotActivityStatus`, which replaces the working shimmer with "No response from <provider>" and a timer counted from the last output. Mobile shows the same state in the working row of the thread feed. Both clients keep silent-run activities out of the work log.
+`packages/client-runtime/src/silent-run.ts` exports `threadSilentRun(activities, turnId)`. It returns the provider, its display name, and the last output time when the latest silent-run activity for the running turn is `turn.silent`, and `null` otherwise. Web keeps the working line and shows the inbox card below. Mobile replaces the working row with "No response from <provider>" and a timer counted from the last output. Both clients keep silent-run activities out of the work log.
 
 The inbox card is separate. Web shows an open `silence-watchdog-failure` only in the chat named by `silence:<threadId>:<turnId>`. Dismiss resolves the item and refreshes the subscription inbox the chat reads. `botInbox.list` alone does not update the card.

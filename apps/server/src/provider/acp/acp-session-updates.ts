@@ -93,6 +93,11 @@ export const handleSessionUpdate = ({
         });
 
         if (!decision.emit) {
+          // Coalesced redraws are not shown, but they are still provider output.
+          yield* Queue.offer(
+            queue,
+            sessionEvents.ProviderActivity({ text: "", rawPayload: event.rawPayload }),
+          );
           continue;
         }
 

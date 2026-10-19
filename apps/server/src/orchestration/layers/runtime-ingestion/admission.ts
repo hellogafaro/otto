@@ -1,4 +1,4 @@
-import { type ProviderRuntimeEvent } from "@otto/contracts";
+import { isToolLifecycleItemType, type ProviderRuntimeEvent } from "@otto/contracts";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -18,6 +18,56 @@ import type { createDependencies } from "./dependencies.ts";
 import type { createChannels } from "./channels.ts";
 import type { createPlans } from "./plans.ts";
 
+const TERMINAL_TOOL_STATUS = new Set(["completed", "failed", "declined"]);
+
+const ACTIVE_TASK_STATUS = new Set(["pending", "running"]);
+
+function taskWork(taskId: string, status: string | undefined, started: boolean) {
+  return {
+    key: `task:${taskId}`,
+    finished: !started && (status === undefined || !ACTIVE_TASK_STATUS.has(status)),
+  };
+}
+
+/** A tool or task the silence watchdog should ignore until it finishes. */
+function inProgressWork(
+  event: ProviderRuntimeEvent,
+): { readonly key: string; readonly finished: boolean } | undefined {
+  if (
+    (event.type === "item.started" ||
+      event.type === "item.updated" ||
+      event.type === "item.completed") &&
+    isToolLifecycleItemType(event.payload.itemType) &&
+    event.itemId !== undefined
+  ) {
+    const status = event.payload.status;
+
+    return {
+      key: `tool:${String(event.itemId)}`,
+      finished:
+        event.type === "item.completed" ||
+        (status !== undefined && TERMINAL_TOOL_STATUS.has(status)),
+    };
+  }
+
+  if (event.type === "task.started") {
+    return taskWork(String(event.payload.taskId), "running", true);
+  }
+
+  if (event.type === "task.completed") {
+    return taskWork(String(event.payload.taskId), event.payload.status, false);
+  }
+
+  if (
+    (event.type === "task.updated" || event.type === "task.progress") &&
+    event.payload.status !== undefined
+  ) {
+    return taskWork(String(event.payload.taskId), event.payload.status, false);
+  }
+
+  return undefined;
+}
+
 export function createAdmission({
   resolveThreadRuntimeContextForEvent,
   silenceWatchdogs,
@@ -26,6 +76,7 @@ export function createAdmission({
   resolveSilenceIncidents,
   stopSilenceWatchdog,
   silenceWaitingRequests,
+  silenceWaitingWork,
   channelRuntime,
   channelWaitingRequests,
   channelStatusWorker,
@@ -51,6 +102,7 @@ export function createAdmission({
   | "resolveSilenceIncidents"
   | "stopSilenceWatchdog"
   | "silenceWaitingRequests"
+  | "silenceWaitingWork"
   | "channelRuntime"
   | "channelWaitingRequests"
   | "channelStatusWorker"
@@ -138,6 +190,24 @@ export function createAdmission({
           silenceWaitingRequests.get(watchedTurnKey)?.delete(requestId) === true
         ) {
           yield* activeWatchdog.resume;
+        }
+      }
+
+      // A running tool or task is the bot working. Pause until it finishes so a
+      // long shell, file read, or subagent is not reported as a dead provider.
+      const work = inProgressWork(event);
+
+      if (watchedTurnKey && activeWatchdog && work) {
+        const running = silenceWaitingWork.get(watchedTurnKey) ?? new Set<string>();
+        silenceWaitingWork.set(watchedTurnKey, running);
+
+        if (work.finished) {
+          if (running.delete(work.key)) {
+            yield* activeWatchdog.resume;
+          }
+        } else if (!running.has(work.key)) {
+          running.add(work.key);
+          yield* activeWatchdog.suspend;
         }
       }
 

@@ -401,6 +401,17 @@ describe("AcpRuntimeModel", () => {
 
 describe("AcpRuntimeModel", () => {
   describe("decideToolCallUpdateEmission", () => {
+    it("emits the opening tool update even when it has no detail yet", () => {
+      expect(
+        decideToolCallUpdateEmission({
+          previous: undefined,
+          next: { toolCallId: "tool-1", status: "inProgress", title: "shell", data: {} },
+          lastEmittedDetailLength: undefined,
+          skippedSinceEmit: 0,
+        }),
+      ).toEqual({ emit: true, skippedSinceEmit: 0 });
+    });
+
     it("always emits terminal (completed/failed) status updates regardless of growth", () => {
       expect(
         decideToolCallUpdateEmission({

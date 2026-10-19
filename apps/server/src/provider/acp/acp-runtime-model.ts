@@ -132,8 +132,18 @@ export function parseSessionUpdateEvent(params: EffectAcpSchema.SessionNotificat
       break;
     }
 
-    default:
+    case "agent_thought_chunk": {
+      const text = upd.content.type === "text" ? upd.content.text : "";
+      events.push(parsedEvents.ProviderActivity({ text, rawPayload: params }));
       break;
+    }
+
+    default: {
+      // usage_update, session_info_update, and the other updates we do not project
+      // still mean the provider process is alive.
+      events.push(parsedEvents.ProviderActivity({ text: "", rawPayload: params }));
+      break;
+    }
   }
 
   return { ...(modeId !== undefined ? { modeId } : {}), events };
