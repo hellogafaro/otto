@@ -88,7 +88,7 @@ export async function fetchGrok(accessToken: string): Promise<UsageProviderPlanL
   if (credits.status < 200 || credits.status >= 300) return null;
   const parsed = parseGrokUsage(credits.body);
 
-  if (parsed.windows.length === 0) return null;
+  if (parsed === null) return null;
 
   const plan =
     parsed.plan ??

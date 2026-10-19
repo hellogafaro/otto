@@ -117,7 +117,8 @@ function cached<
  * Lays out every bot request so that it caches: the static prompt, then the chat context,
  * then history with context updates where they were first sent, then this turn's block.
  * Only the turn block changes from one request to the next. Anthropic requests also mark
- * the system prompt, the last tool and the last history message for its cache.
+ * the system prompt, the last tool and the last history message for its cache. Grok requests
+ * send `x-grok-conv-id` so xAI keeps that prefix on one server.
  */
 export function withOttoPrompt(
   model: MastraModelConfig,
@@ -129,6 +130,7 @@ export function withOttoPrompt(
   if (!isV3Model(model)) return model;
 
   const anthropic = model.provider.startsWith("anthropic");
+  const xai = model.provider.startsWith("xai");
   const bot = controllerContext(requestContext)?.state;
   const botConversation = Predicate.isObject(bot) && bot["botConversation"] === true;
 
@@ -248,11 +250,17 @@ export function withOttoPrompt(
           );
 
     // Each bot of a group has its own prompt prefix, so it gets its own OpenAI prompt cache.
+    // xAI stores a chat's prefix on one server; the header is what keeps later turns there.
+    const grokConversationId = threadId ? (botId ? `${threadId}:${botId}` : threadId) : undefined;
+
     if (!anthropic)
       return {
         ...params,
         maxOutputTokens,
         prompt: [...system, ...conversation, turn],
+        ...(xai && grokConversationId
+          ? { headers: { ...params.headers, "x-grok-conv-id": grokConversationId } }
+          : {}),
         ...(threadId && botId
           ? {
               providerOptions: {

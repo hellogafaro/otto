@@ -32,7 +32,7 @@ import {
   type ProviderMaintenanceCapabilities,
 } from "../provider-maintenance.ts";
 import { sessionModelStateFromInitialize } from "../acp/acp-session-model.ts";
-import { discoverGrokSkills } from "../drivers/grok-skills.ts";
+import { discoverGrokSkills, grokProbeEnvironment } from "../drivers/grok-skills.ts";
 import {
   GROK_DEFAULT_MODEL_SLUG,
   makeGrokAcpRuntime,
@@ -273,10 +273,13 @@ export const checkGrokProviderStatus = Effect.fn("checkGrokProviderStatus")(func
     });
   }
 
-  const versionResult = yield* runGrokCliCommand(grokSettings, ["--version"], environment).pipe(
-    Effect.timeoutOption(VERSION_PROBE_TIMEOUT_MS),
-    Effect.result,
-  );
+  const probeEnvironment = grokProbeEnvironment(environment);
+
+  const versionResult = yield* runGrokCliCommand(
+    grokSettings,
+    ["--version"],
+    probeEnvironment,
+  ).pipe(Effect.timeoutOption(VERSION_PROBE_TIMEOUT_MS), Effect.result);
 
   if (Result.isFailure(versionResult)) {
     const error = versionResult.failure;
@@ -343,7 +346,7 @@ export const checkGrokProviderStatus = Effect.fn("checkGrokProviderStatus")(func
   }
 
   // `grok models` reports login state and model slugs without starting the agent.
-  const modelsResult = yield* runGrokCliCommand(grokSettings, ["models"], environment).pipe(
+  const modelsResult = yield* runGrokCliCommand(grokSettings, ["models"], probeEnvironment).pipe(
     Effect.timeoutOption(AUTH_PROBE_TIMEOUT_MS),
     Effect.result,
   );
@@ -379,12 +382,12 @@ export const checkGrokProviderStatus = Effect.fn("checkGrokProviderStatus")(func
         ? { status: "unauthenticated" }
         : { status: "unknown" };
 
-  const skills = yield* discoverGrokSkills(grokSettings, environment).pipe(
+  const skills = yield* discoverGrokSkills(grokSettings, probeEnvironment).pipe(
     Effect.tapError((cause) => Effect.logDebug("Grok skill discovery failed.", { cause })),
     Effect.orElseSucceed(() => []),
   );
 
-  const acpExit = yield* discoverGrokModelsViaAcpInitialize(grokSettings, environment).pipe(
+  const acpExit = yield* discoverGrokModelsViaAcpInitialize(grokSettings, probeEnvironment).pipe(
     Effect.timeoutOption(GROK_ACP_INITIALIZE_TIMEOUT_MS),
     Effect.exit,
   );

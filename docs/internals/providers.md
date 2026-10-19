@@ -296,7 +296,9 @@ health-test inputs accept an `accountId` or `addAccount`.
 ### Legacy Grok CLI probe
 
 `checkGrokProviderStatus` is retained for legacy probe tests and is not used by `GrokDriver`.
-It never opens an ACP session. It runs `grok --version`, then `grok models`
+It never opens an ACP session. Background probes set `GROK_DISABLE_AUTOUPDATER=1` so
+`grok --version`, `grok models`, `grok inspect --json`, and ACP `initialize` do not start
+Grok's updater. The probe runs `grok --version`, then `grok models`
 for login state and model slugs, then a single ACP `initialize` and reads models from
 `_meta.modelState`. `authenticate` and `session/new` are skipped on purpose: `authenticate` can open
 a browser login and `session/new` boots every configured MCP server, both of which made background

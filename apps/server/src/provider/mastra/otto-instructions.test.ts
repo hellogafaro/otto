@@ -279,6 +279,22 @@ describe("withOttoPrompt", () => {
     expect(JSON.stringify(calls[2]?.prompt)).not.toContain("<secrets>");
   });
 
+  it("sticks each Grok chat to one cache server", async () => {
+    const { model, calls } = recordingModel("xai.chat");
+    const chats = inMemoryChats();
+
+    await send(withOttoPrompt(model, context({}), chats, now), [user("a")]);
+    await send(
+      withOttoPrompt(model, context({ botConversation: true, botId: "bot-mina" }), chats, now),
+      [user("a"), assistant("b")],
+    );
+
+    expect(calls.map((call) => call.headers?.["x-grok-conv-id"])).toEqual([
+      "thread-1",
+      "thread-1:bot-mina",
+    ]);
+  });
+
   it("keeps each group bot's prefix and OpenAI prompt cache apart", async () => {
     const { model, calls } = recordingModel("openai.responses");
     const chats = inMemoryChats();

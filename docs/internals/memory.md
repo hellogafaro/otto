@@ -121,6 +121,8 @@ read. Each word matches as a prefix and results come newest first.
 each run and sends it whole: every complete turn, verbatim, with only per-message transforms (files no
 model reads are dropped, group passes are dropped, other bots' replies read as theirs). Each request
 therefore starts with the previous request's history, so providers serve it from their prompt cache.
+Grok chat requests also send `x-grok-conv-id` — the thread id, plus the bot id in a group — so
+xAI routes that prefix to one server.
 The same processor stores the run's new messages, except a group turn sent as its hidden note alone
 (`(Group: …)`): the note starts the run, so the model sees it, but it is never stored. Older stored
 notes and `NO_REPLY` passes are still dropped when the history is read.

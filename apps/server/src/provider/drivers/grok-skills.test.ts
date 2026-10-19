@@ -6,7 +6,7 @@ import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
-import { discoverGrokSkills, parseGrokInspectSkills } from "./grok-skills.ts";
+import { discoverGrokSkills, grokProbeEnvironment, parseGrokInspectSkills } from "./grok-skills.ts";
 
 const inspectPayload = (skills: ReadonlyArray<unknown>) => JSON.stringify({ skills });
 
@@ -115,14 +115,28 @@ describe("parseGrokInspectSkills", () => {
   });
 });
 
+describe("grokProbeEnvironment", () => {
+  it("suppresses the CLI updater without dropping the caller's variables", () => {
+    expect(grokProbeEnvironment({ HOME: "/home/dev", XAI_API_KEY: "key" })).toEqual({
+      HOME: "/home/dev",
+      XAI_API_KEY: "key",
+      GROK_DISABLE_AUTOUPDATER: "1",
+    });
+  });
+});
+
 describe("discoverGrokSkills", () => {
   it.effect("spawns in the configured cwd and rejects a failed probe", () => {
     const spawnCwds: Array<string | undefined> = [];
+    const spawnEnvs: Array<NodeJS.ProcessEnv | undefined> = [];
     let exitCode = 0;
 
     const spawner = ChildProcessSpawner.make((command) => {
       spawnCwds.push(
         Predicate.isTagged(command, "StandardCommand") ? command.options.cwd : undefined,
+      );
+      spawnEnvs.push(
+        Predicate.isTagged(command, "StandardCommand") ? command.options.env : undefined,
       );
 
       return Effect.succeed(
@@ -157,6 +171,7 @@ describe("discoverGrokSkills", () => {
       );
 
       expect(spawnCwds).toEqual(["/workspaces/demo"]);
+      expect(spawnEnvs[0]?.GROK_DISABLE_AUTOUPDATER).toBe("1");
       expect(skills.map((skill) => skill.name)).toEqual(["kept"]);
 
       exitCode = 1;

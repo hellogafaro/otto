@@ -27,6 +27,14 @@ import { spawnAndCollect } from "../provider-snapshot.ts";
 
 const GROK_SKILLS_PROBE_TIMEOUT_MS = 4_000;
 
+/**
+ * Grok checks for a newer CLI on launch. Probes run in the background, so an
+ * update they start is invisible. Sessions keep the caller's environment.
+ */
+export function grokProbeEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { ...environment, GROK_DISABLE_AUTOUPDATER: "1" };
+}
+
 export class GrokSkillsProbeError extends Schema.TaggedErrorClass<GrokSkillsProbeError>()(
   "GrokSkillsProbeError",
   {
@@ -122,17 +130,18 @@ export const discoverGrokSkills = Effect.fn("discoverGrokSkills")(function* (
   cwd?: string,
 ) {
   const command = grokSettings.binaryPath || "grok";
+  const probeEnvironment = grokProbeEnvironment(environment);
 
   const inspectResult = yield* Effect.gen(function* () {
     const spawnCommand = yield* resolveSpawnCommand(command, ["inspect", "--json"], {
-      env: environment,
+      env: probeEnvironment,
     });
 
     return yield* spawnAndCollect(
       command,
       ChildProcess.make(spawnCommand.command, spawnCommand.args, {
         ...(cwd ? { cwd } : {}),
-        env: environment,
+        env: probeEnvironment,
         shell: spawnCommand.shell,
       }),
     );

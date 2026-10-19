@@ -180,7 +180,7 @@ export const UsagePricing = Schema.Struct({
 
 export type UsagePricing = typeof UsagePricing.Type;
 
-export const UsagePlanWindowKind = Schema.Literals(["session", "weekly", "model"]);
+export const UsagePlanWindowKind = Schema.Literals(["session", "weekly", "monthly", "model"]);
 
 export type UsagePlanWindowKind = typeof UsagePlanWindowKind.Type;
 

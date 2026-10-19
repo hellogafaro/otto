@@ -6,6 +6,7 @@ import * as TestClock from "effect/testing/TestClock";
 import {
   parseClaudeUsage,
   parseCodexUsage,
+  parseGrokUsage,
   readPlanLimitsEffect,
   planLimitsReader,
 } from "./usage-plan-limits.ts";
@@ -45,6 +46,54 @@ describe("parseClaudeUsage", () => {
         resetsAt: "2026-08-31T08:00:00.000Z",
       },
     ]);
+  });
+});
+
+describe("parseGrokUsage", () => {
+  it("reads a weekly credit meter", () => {
+    expect(
+      parseGrokUsage({
+        config: {
+          creditUsagePercent: 37,
+          currentPeriod: { type: "USAGE_PERIOD_TYPE_WEEKLY", end: "2026-10-26T00:00:00.000Z" },
+        },
+      }),
+    ).toEqual({
+      plan: null,
+      windows: [
+        {
+          kind: "weekly",
+          label: "Weekly",
+          usedPercent: 37,
+          resetsAt: "2026-10-26T00:00:00.000Z",
+        },
+      ],
+    });
+  });
+
+  it("reads a monthly meter and treats a missing percent as an empty meter", () => {
+    expect(
+      parseGrokUsage({
+        config: {
+          creditUsagePercent: 12.4,
+          currentPeriod: { type: "USAGE_PERIOD_TYPE_MONTHLY", end: "2026-11-01T00:00:00.000Z" },
+        },
+      })?.windows,
+    ).toEqual([
+      {
+        kind: "monthly",
+        label: "Monthly",
+        usedPercent: 12.4,
+        resetsAt: "2026-11-01T00:00:00.000Z",
+      },
+    ]);
+    expect(
+      parseGrokUsage({ config: { currentPeriod: { type: "USAGE_PERIOD_TYPE_WEEKLY" } } }),
+    ).toEqual({
+      plan: null,
+      windows: [],
+    });
+    expect(parseGrokUsage({})).toBeNull();
   });
 });
 

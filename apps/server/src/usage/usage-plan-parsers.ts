@@ -297,22 +297,37 @@ export function formatCodexPlan(value: Schema.Json | undefined): string | null {
   }
 }
 
-export function parseGrokUsage(body: Schema.Json): ParsedPlanUsage {
+function grokPeriodWindow(
+  periodType: string,
+): { readonly kind: "weekly" | "monthly"; readonly label: string } | undefined {
+  if (periodType === "WEEKLY") return { kind: "weekly", label: "Weekly" };
+
+  if (periodType === "MONTHLY") return { kind: "monthly", label: "Monthly" };
+
+  return undefined;
+}
+
+/** Null when billing has no `config`. A missing percent is an empty meter, not a failed read. */
+export function parseGrokUsage(body: Schema.Json): ParsedPlanUsage | null {
   const config = asRecord(asRecord(body)?.config);
 
-  if (config === null) return { plan: null, windows: [] };
-  const period = asRecord(config.currentPeriod);
-  const periodType = asString(period?.type);
-  const used = asNumber(config.creditUsagePercent) ?? 0;
+  if (config === null) return null;
+  const used = asNumber(config.creditUsagePercent);
 
-  if (periodType !== "USAGE_PERIOD_TYPE_WEEKLY") return { plan: null, windows: [] };
+  if (used === null) return { plan: null, windows: [] };
+  const period = asRecord(config.currentPeriod);
+  const periodType = asString(period?.type)?.replace(/^USAGE_PERIOD_TYPE_/, "") ?? "";
+
+  const windowKind = grokPeriodWindow(periodType);
+
+  if (windowKind === undefined) return { plan: null, windows: [] };
 
   return {
     plan: null,
     windows: [
       {
-        kind: "weekly",
-        label: "Weekly",
+        kind: windowKind.kind,
+        label: windowKind.label,
         usedPercent: clampPercent(used),
         resetsAt: isoFromUnknown(period?.end),
       },
