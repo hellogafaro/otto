@@ -96,6 +96,8 @@ export function fakeClient(input?: {
     readonly id: string;
     readonly redirectUrl?: string;
   }>;
+  readonly toolkitAuth?: unknown;
+  readonly authConfigs?: unknown;
   readonly deleteSession?: () => Promise<void>;
   readonly sessionCreationGate?: Promise<void>;
   readonly sessionCreationGates?: readonly Promise<void>[];
@@ -140,11 +142,39 @@ export function fakeClient(input?: {
   };
 
   const client = {
-    toolkits: { get: vi.fn(async () => input?.toolkits ?? []) },
+    toolkits: {
+      get: vi.fn(async () => input?.toolkits ?? []),
+      getBySlug: vi.fn(
+        async () =>
+          input?.toolkitAuth ?? {
+            composioManagedAuthSchemes: ["OAUTH2"],
+            authConfigDetails: [],
+          },
+      ),
+    },
     tools: { getRawComposioTools: vi.fn(async () => input?.tools ?? []) },
     connectedAccounts: {
       list: vi.fn(async () => ({ items: input?.accounts ?? [], totalPages: 1 })),
       delete: vi.fn(async () => ({})),
+      initiate: vi.fn(
+        async (): Promise<{
+          id: string;
+          redirectUrl?: string | null;
+          status?: string | null;
+        }> => ({
+          id: "connection-initiated",
+          redirectUrl: "https://connect.composio.dev/link",
+          status: "INITIATED",
+        }),
+      ),
+      link: vi.fn(async () => ({
+        id: "connection-linked",
+        redirectUrl: "https://connect.composio.dev/link",
+      })),
+    },
+    authConfigs: {
+      list: vi.fn(async () => input?.authConfigs ?? { items: [] }),
+      create: vi.fn(async () => ({ id: "ac_created" })),
     },
     triggers: {
       listTypes: vi.fn(async () => ({ items: input?.triggerTypes ?? [] })),

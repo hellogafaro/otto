@@ -413,6 +413,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.composioGetToolkit,
       staleTimeMs: 300_000,
     }),
+    composioAuthSetup: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:composio-auth-setup",
+      tag: WS_METHODS.composioGetAuthSetup,
+      staleTimeMs: 5_000,
+    }),
     mcpServerTools: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:mcp-server-tools",
       tag: WS_METHODS.mcpServerListTools,
@@ -502,6 +507,10 @@ export function createServerEnvironmentAtoms<R, E>(
     authorizeComposio: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:composio-authorize",
       tag: WS_METHODS.composioAuthorize,
+    }),
+    createComposioAuthConfig: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:server:composio-create-auth-config",
+      tag: WS_METHODS.composioCreateAuthConfig,
     }),
     disconnectComposio: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:composio-disconnect",

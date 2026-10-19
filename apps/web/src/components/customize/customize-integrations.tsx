@@ -34,6 +34,9 @@ export function useComposio(environmentId: EnvironmentId) {
   );
 
   const authorize = useAtomCommand(serverEnvironment.authorizeComposio, { reportFailure: false });
+  const createAuthConfig = useAtomCommand(serverEnvironment.createComposioAuthConfig, {
+    reportFailure: false,
+  });
   const disconnect = useAtomCommand(serverEnvironment.disconnectComposio, { reportFailure: false });
 
   const update = useAtomCommand(serverEnvironment.updateComposioConnection, {
@@ -51,7 +54,7 @@ export function useComposio(environmentId: EnvironmentId) {
     return true;
   };
 
-  return { status, authorize, disconnect, update, failed };
+  return { status, authorize, createAuthConfig, disconnect, update, failed };
 }
 
 /** An app's logo from Composio's catalog, or its first letter on a quiet tile. */

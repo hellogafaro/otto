@@ -45,6 +45,8 @@ const harness = (
     getStatus: unused,
     searchToolkits: unused,
     getToolkit: unused,
+    getAuthSetup: unused,
+    createAuthConfig: unused,
     authorize: unused,
     disconnect: unused,
     updateConnection: unused,

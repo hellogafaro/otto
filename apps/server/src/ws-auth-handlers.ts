@@ -132,6 +132,16 @@ export const createWsAuthHandlers = ({
         "rpc.aggregate": "composio",
       }),
 
+    [WS_METHODS.composioGetAuthSetup]: (input) =>
+      observeRpcEffect(WS_METHODS.composioGetAuthSetup, composio.getAuthSetup(input.slug), {
+        "rpc.aggregate": "composio",
+      }),
+
+    [WS_METHODS.composioCreateAuthConfig]: (input) =>
+      observeRpcEffect(WS_METHODS.composioCreateAuthConfig, composio.createAuthConfig(input), {
+        "rpc.aggregate": "composio",
+      }),
+
     [WS_METHODS.composioAuthorize]: (input) =>
       observeRpcEffect(
         WS_METHODS.composioAuthorize,
@@ -479,6 +489,8 @@ export const createWsAuthHandlers = ({
     | typeof WS_METHODS.composioGetStatus
     | typeof WS_METHODS.composioSearchToolkits
     | typeof WS_METHODS.composioGetToolkit
+    | typeof WS_METHODS.composioGetAuthSetup
+    | typeof WS_METHODS.composioCreateAuthConfig
     | typeof WS_METHODS.composioAuthorize
     | typeof WS_METHODS.composioDisconnect
     | typeof WS_METHODS.composioUpdateConnection

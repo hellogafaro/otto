@@ -576,4 +576,14 @@ export const connectionsCatalog = {
   "GitHub couldn't be disconnected": "无法断开 GitHub",
   "Disconnect GitHub? Bots can no longer push or open pull requests for you. To revoke Otto on GitHub too, visit {url}.":
     "断开 GitHub？机器人将无法再以你的身份推送代码或创建拉取请求。如需在 GitHub 上也撤销 Otto 的授权，请访问 {url}。",
+  "New configuration": "新建配置",
+  Scheme: "方案",
+  OAuth: "OAuth",
+  "Server credentials": "服务器凭据",
+  "{name} is connected": "已连接 {name}",
+  "Composio keeps these credentials. Otto does not store them.":
+    "凭据由 Composio 保存，Otto 不存储。",
+  "Pick a configuration, or create one. Composio keeps the credentials. Otto does not store them.":
+    "选择一个配置，或新建一个。凭据由 Composio 保存，Otto 不存储。",
+  "Composio did not list a way to connect this app.": "Composio 没有列出连接此应用的方式。",
 } as const;

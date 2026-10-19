@@ -178,8 +178,11 @@ import {
   RoutineThreadReadError,
 } from "../routines.ts";
 import {
+  ComposioAuthSetup,
   ComposioAuthorizeInput,
   ComposioAuthorizeResult,
+  ComposioCreateAuthConfigInput,
+  ComposioCreateAuthConfigResult,
   ComposioDisconnectInput,
   ComposioUpdateConnectionInput,
   ComposioLabelTakenError,
@@ -286,6 +289,18 @@ export const WsComposioSearchToolkitsRpc = Rpc.make(WS_METHODS.composioSearchToo
 export const WsComposioGetToolkitRpc = Rpc.make(WS_METHODS.composioGetToolkit, {
   payload: ComposioGetToolkitInput,
   success: ComposioToolkitDetail,
+  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsComposioGetAuthSetupRpc = Rpc.make(WS_METHODS.composioGetAuthSetup, {
+  payload: ComposioGetToolkitInput,
+  success: ComposioAuthSetup,
+  error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
+});
+
+export const WsComposioCreateAuthConfigRpc = Rpc.make(WS_METHODS.composioCreateAuthConfig, {
+  payload: ComposioCreateAuthConfigInput,
+  success: ComposioCreateAuthConfigResult,
   error: Schema.Union([ComposioOperationError, EnvironmentAuthorizationError]),
 });
 

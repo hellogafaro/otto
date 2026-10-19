@@ -14,8 +14,6 @@ import {
   RiToolsLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
-import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
-import { Predicate } from "effect";
 import { type ReactNode, useDeferredValue, useEffect, useState } from "react";
 
 import { useI18n } from "../../i18n";
@@ -27,20 +25,8 @@ import { openSettings } from "../../settings-dialog-store";
 import { LibraryVisibilitySelect } from "../library/library-actions";
 import { SettingsCard } from "../settings/settings-layout";
 import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
-import { Field, FieldError } from "../ui/field";
-import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
-import { Spinner } from "../ui/spinner";
 import { SkeletonSettingsSections } from "../ui/skeleton";
-import { toast } from "sonner";
 import { SettingsPageContainer } from "../settings/settings-layout";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PageTitle } from "../workspace-page-container";
@@ -48,6 +34,7 @@ import { WorkEmpty } from "../work/work-pages";
 import { CustomizeGroup, CustomizeItem, CustomizeRow, LogoTile } from "./customize-group";
 import { DetailHeader } from "./customize-detail";
 import { AppLogo, ConnectionStatus, useComposio } from "./customize-integrations";
+import { ConnectAppDialog } from "./connect-app-dialog";
 
 /** Shown instead of the catalog until someone adds a Composio key. */
 function NotConfigured({ environmentId }: { readonly environmentId: EnvironmentId }) {
@@ -183,121 +170,6 @@ export function CustomizeAppsPage({
         <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
       ) : null}
     </SettingsPageContainer>
-  );
-}
-
-/**
- * Starts a sign-in for one app, with its required label and the group the account joins. The
- * server knows every account the person owns, including private ones, so it judges whether a
- * label is taken.
- */
-function ConnectDialog({
-  environmentId,
-  toolkit,
-  visibility,
-  onClose,
-}: {
-  readonly environmentId: EnvironmentId;
-  readonly toolkit: ComposioToolkit;
-  readonly visibility: ComposioVisibility;
-  readonly onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const composio = useComposio(environmentId);
-  const [alias, setAlias] = useState("");
-  const [owner, setOwner] = useState<LibraryVisibility>(visibility);
-  const [connecting, setConnecting] = useState(false);
-  const [takenLabel, setTakenLabel] = useState<string | null>(null);
-
-  const connect = async () => {
-    if (!alias.trim() || takenLabel !== null) return;
-    setConnecting(true);
-
-    const result = await composio.authorize({
-      environmentId,
-      input: { toolkitSlug: toolkit.slug, visibility: owner, alias: alias.trim() },
-    });
-
-    setConnecting(false);
-
-    if (Predicate.isTagged(result, "Failure")) {
-      const error = squashAtomCommandFailure(result);
-
-      if (Predicate.isTagged(error, "ComposioLabelTakenError")) {
-        setTakenLabel(alias.trim());
-
-        return;
-      }
-
-      composio.failed(t("{name} couldn't be connected", { name: toolkit.name }), result);
-
-      return;
-    }
-
-    const url = new URL(result.value.redirectUrl);
-
-    if (url.protocol !== "https:") {
-      toast.error(t("{name} couldn't be connected", { name: toolkit.name }));
-
-      return;
-    }
-
-    composio.status.refresh();
-    onClose();
-    void ensureLocalApi()
-      .shell.openExternal(url.toString())
-      .catch(() => toast.error(t("{name} sign-in couldn't be opened", { name: toolkit.name })));
-  };
-
-  return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogPopup className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("Connect {name}", { name: toolkit.name })}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="contents"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void connect();
-          }}
-        >
-          <DialogPanel>
-            <Field>
-              <div className="flex w-full items-center gap-2">
-                <Input
-                  autoFocus
-                  aria-label={t("Label")}
-                  value={alias}
-                  placeholder={t("Label, like Work or Personal")}
-                  onChange={(event) => {
-                    setAlias(event.currentTarget.value);
-                    setTakenLabel(null);
-                  }}
-                />
-                <div className="shrink-0">
-                  <LibraryVisibilitySelect value={owner} editable onChange={setOwner} />
-                </div>
-              </div>
-              {takenLabel !== null ? (
-                <FieldError match>
-                  {t("You already have an account called {label}.", { label: takenLabel })}
-                </FieldError>
-              ) : null}
-            </Field>
-          </DialogPanel>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              {t("Cancel")}
-            </Button>
-            <Button type="submit" disabled={connecting || !alias.trim() || takenLabel !== null}>
-              {connecting ? <Spinner /> : null}
-              {t("Connect")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogPopup>
-    </Dialog>
   );
 }
 
@@ -496,7 +368,7 @@ function AppBody({
         ))}
       </CustomizeGroup>
       {connecting ? (
-        <ConnectDialog
+        <ConnectAppDialog
           environmentId={environmentId}
           toolkit={toolkit}
           visibility={visibility}
@@ -512,8 +384,10 @@ function AppBody({
  * the 22px name and the app's description, then its Accounts card (count, an outline Connect
  * button, one row per account managed in place: label or signed-in account, status pill, owner
  * select and a trash glyph; there is no account page or dialog), then the
- * tools it gives bots and the triggers (app events) that can start a routine, each in a card row. Connect opens a small dialog: one label field (required,
- * unique among the person's own accounts for the app) with the owner select to its right.
+ * tools it gives bots and the triggers (app events) that can start a routine, each in a card row. Connect opens a small dialog: a label (required,
+ * unique among the person's own accounts for the app) and Yours or Team. Apps Composio hosts stop there.
+ * Apps it does not host also ask for an existing auth config or a new one, as choice cards, using the fields Composio lists.
+ * Otto forwards those fields and does not store them.
  */
 export function CustomizeAppPage({
   slug,
