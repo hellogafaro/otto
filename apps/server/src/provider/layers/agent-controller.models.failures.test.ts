@@ -78,6 +78,48 @@ describe("provider access health", () => {
   });
 });
 
+describe("request rejections", () => {
+  const failedTurn = (errorMessage: string): ProviderRuntimeEvent => ({
+    provider: ProviderDriverKind.make("claudeAgent"),
+    providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+    threadId: ThreadId.make("thread-rejected"),
+    turnId: TurnId.make("turn-rejected"),
+    type: "turn.completed",
+    eventId: EventId.make("evt-rejected"),
+    createdAt: "2026-10-19T18:00:00.000Z",
+    payload: { state: "failed", stopReason: null, errorMessage },
+  });
+
+  it("leaves the provider healthy when it refused one chat's request, and not an account failure", async () => {
+    const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-access-rejected-"));
+
+    try {
+      const service = await makeTestSubscriptionAuthService(
+        NodePath.join(directory, "subscription-auth.json"),
+      );
+
+      for (const message of [
+        "messages.1.content.64.image.source.base64.data: At least one of the image dimensions exceed max allowed size for many-image requests: 3000 pixels (api.anthropic.com)",
+        "prompt is too long: 2757747 tokens > 1000000 maximum (api.anthropic.com)",
+      ]) {
+        recordProviderAccessHealth(service, failedTurn(message));
+      }
+
+      expect(
+        service.providerInstanceRequestHealth("claudeAgent")?.lastFailedRequest,
+      ).toBeUndefined();
+
+      recordProviderAccessHealth(service, failedTurn("invalid x-api-key (api.anthropic.com)"));
+
+      expect(service.providerInstanceRequestHealth("claudeAgent")?.lastFailedRequest?.message).toBe(
+        "invalid x-api-key (api.anthropic.com)",
+      );
+    } finally {
+      NodeFS.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("AgentControllerLive", () => {
   it.effect("runs Codex turns through Mastra Session.sendMessage and normalizes events", () => {
     const bridge = makeBridge();
