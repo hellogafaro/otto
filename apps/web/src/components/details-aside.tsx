@@ -7,7 +7,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { useLocalStorage } from "../hooks/use-local-storage";
 import { useI18n } from "../i18n";
 import { cn } from "../lib/utils";
-import { resolveShortcutCommand } from "../keybindings";
+import { isInputFocus, resolveShortcutCommand } from "../keybindings";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../right-panel-layout";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { AppIcon } from "./ui/app-icon";
@@ -67,7 +67,14 @@ export function DetailsAside({
         return;
       }
 
-      if (resolveShortcutCommand(event, keybindings) !== "rightPanel.toggle") return;
+      if (
+        resolveShortcutCommand(event, keybindings, {
+          context: { inputFocus: isInputFocus(event.target) },
+        }) !== "rightPanel.toggle"
+      ) {
+        return;
+      }
+
       event.preventDefault();
       event.stopPropagation();
 

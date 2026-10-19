@@ -54,7 +54,9 @@ successful pick; its hover glow and badge preview the element and color family t
 **Cancel** or `Escape` exits Inspect and clears its selection and spotlight.
 
 `thread.jump.1` through `thread.jump.9` switch to the matching bot and default to `alt+1` through
-`alt+9` (Option on macOS), even while you type in the composer. Pinned bots come first. Other bots
+`alt+9` (Option on macOS), including from the composer. On a Mac, Option types a character, so that
+character is typed while a text field has focus and the jump does not run. Pinned bots come first.
+Other bots
 follow their section and roster order. Groups do not take a shortcut number. Hold Option on its own
 to see each row's number in the sidebar.
 

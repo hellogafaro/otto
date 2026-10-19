@@ -9,7 +9,12 @@ import {
   threadJumpIndexFromCommand,
 } from "./keybindings";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@otto/shared/keybindings";
-import { event, DEFAULT_BINDINGS, isOpenFavoriteEditorShortcut } from "./keybindings.test-support";
+import {
+  event,
+  DEFAULT_BINDINGS,
+  compile,
+  isOpenFavoriteEditorShortcut,
+} from "./keybindings.test-support";
 
 describe("thread navigation helpers", () => {
   it("maps jump commands to visible thread indices", () => {
@@ -168,7 +173,7 @@ describe("app-wide default shortcuts", () => {
     ] as const;
 
     for (const [key, code, command] of rows) {
-      for (const context of [{}, { desktop: true }, { inputFocus: true }]) {
+      for (const context of [{}, { desktop: true }]) {
         assert.strictEqual(
           resolveShortcutCommand(event({ key, code, altKey: true }), DEFAULT_RESOLVED_KEYBINDINGS, {
             ...mac,
@@ -177,7 +182,81 @@ describe("app-wide default shortcuts", () => {
           command,
         );
       }
+
+      assert.isNull(
+        resolveShortcutCommand(event({ key, code, altKey: true }), DEFAULT_RESOLVED_KEYBINDINGS, {
+          ...mac,
+          context: { inputFocus: true },
+        }),
+      );
     }
+  });
+
+  it("types the Option character in a text field and keeps the jump elsewhere", () => {
+    const optionTwo = event({ key: "™", code: "Digit2", altKey: true });
+    const optionL = event({ key: "¬", code: "KeyL", altKey: true });
+    const optionB = event({ key: "∫", code: "KeyB", altKey: true, metaKey: true });
+
+    assert.isNull(
+      resolveShortcutCommand(optionTwo, DEFAULT_RESOLVED_KEYBINDINGS, {
+        ...mac,
+        context: { inputFocus: true },
+      }),
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(optionTwo, DEFAULT_RESOLVED_KEYBINDINGS, mac),
+      "thread.jump.2",
+    );
+    assert.isNull(
+      resolveShortcutCommand(
+        optionL,
+        compile([
+          {
+            shortcut: {
+              key: "l",
+              metaKey: false,
+              ctrlKey: false,
+              shiftKey: false,
+              altKey: true,
+              modKey: false,
+            },
+            command: "item.archive",
+          },
+        ]),
+        { ...mac, context: { inputFocus: true } },
+      ),
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(
+        optionB,
+        compile([
+          {
+            shortcut: {
+              key: "b",
+              metaKey: false,
+              ctrlKey: false,
+              shiftKey: false,
+              altKey: true,
+              modKey: true,
+            },
+            command: "rightPanel.toggle",
+          },
+        ]),
+        { ...mac, context: { inputFocus: true } },
+      ),
+      "rightPanel.toggle",
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(
+        event({ key: "2", code: "Digit2", altKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        {
+          platform: "Win32",
+          context: { inputFocus: true },
+        },
+      ),
+      "thread.jump.2",
+    );
   });
 
   it("opens settings on mod+comma in the desktop app and Option+comma in a browser", () => {

@@ -51,8 +51,9 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "b", command: "property.bot", when: "!inputFocus" },
   { key: "v", command: "property.visibility", when: "!inputFocus" },
   { key: "m", command: "property.members", when: "!inputFocus" },
-  // Option 1–9 opens the sidebar's rows, pinned first, even from the composer. The desktop
-  // app's tabs own mod+1–9; the web leaves it to the browser.
+  // Option 1–9 opens the sidebar's rows, pinned first, even from the composer. On a Mac
+  // the typed character wins while a text field has focus. The desktop app's tabs own
+  // mod+1–9; the web leaves it to the browser.
   ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
     key: `alt+${index + 1}`,
     command,
