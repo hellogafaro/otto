@@ -451,6 +451,86 @@ describe("startupRecoveryInput", () => {
     expect(input).toContain('"What time each day?" -> 9:00 AM');
   });
 
+  const message = (
+    id: string,
+    role: "user" | "assistant",
+    text: string,
+    createdAt: string,
+    streaming = false,
+  ) => ({
+    id: asMessageId(id),
+    role,
+    text,
+    turnId: null,
+    streaming,
+    createdAt,
+    updatedAt: createdAt,
+  });
+
+  it("repeats the request and the last finished update", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [
+        message("user-old", "user", "rename the chats", "2026-10-13T11:00:00.000Z"),
+        message("bot-old", "assistant", "Renamed them.", "2026-10-13T11:01:00.000Z"),
+        message("user-now", "user", "fix the dictation limit", "2026-10-13T11:50:00.000Z"),
+        message("bot-now", "assistant", "Raising it to 15 minutes.", "2026-10-13T11:55:00.000Z"),
+        message("bot-live", "assistant", "Half writ", "2026-10-13T11:56:00.000Z", true),
+      ],
+      activities: [],
+    });
+
+    expect(input).toContain("server restarted");
+    expect(input).toContain("<request>\nfix the dictation limit\n</request>");
+    expect(input).toContain("<update>\nRaising it to 15 minutes.\n</update>");
+    expect(input).not.toContain("rename the chats");
+    expect(input).not.toContain("Renamed them.");
+    expect(input).not.toContain("Half writ");
+  });
+
+  it("skips an update from before the request", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [
+        message("bot-old", "assistant", "Renamed them.", "2026-10-13T11:01:00.000Z"),
+        message("user-now", "user", "fix the dictation limit", "2026-10-13T11:50:00.000Z"),
+      ],
+      activities: [],
+    });
+
+    expect(input).toContain("fix the dictation limit");
+    expect(input).not.toContain("<update>");
+  });
+
+  it("does not mistake a question answer for the request", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [
+        message("user-now", "user", "set up the daily report", "2026-10-13T11:50:00.000Z"),
+        answer(turnId),
+      ],
+      activities: [question],
+    });
+
+    expect(input).toContain("<request>\nset up the daily report\n</request>");
+    expect(input).toContain('"What time each day?" -> 9:00 AM');
+  });
+
+  it("clips a very long request", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [message("user-now", "user", "x".repeat(10_000), "2026-10-13T11:50:00.000Z")],
+      activities: [],
+    });
+
+    expect(input).toContain("[truncated]");
+    expect(input.length).toBeLessThan(7_000);
+  });
+
   it("leaves answers from earlier turns to the durable history", () => {
     const input = startupRecoveryInput({
       threadId,

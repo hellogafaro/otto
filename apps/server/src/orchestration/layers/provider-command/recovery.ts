@@ -25,7 +25,8 @@ import type { createFailures } from "./failures.ts";
 /**
  * A question answered while a turn was still running lives only in Otto's
  * projection until the turn reaches a durable point. The recovery prompt
- * repeats those answers so the restarted turn does not ask them again.
+ * repeats those answers so the restarted turn does not ask them again, and
+ * repeats the request itself so the turn cannot lose track of its job.
  */
 export function startupRecoveryInput(input: {
   readonly threadId: ThreadId;
@@ -57,9 +58,52 @@ export function startupRecoveryInput(input: {
     return [question ? `"${question}" -> ${message.text}` : message.text];
   });
 
-  if (answers.length === 0) return STARTUP_RECOVERY_INPUT;
+  const parts = [STARTUP_RECOVERY_INPUT];
 
-  return `${STARTUP_RECOVERY_INPUT} The user already answered these questions in this request, so use the answers instead of asking again: ${answers.join("; ")}.`;
+  if (answers.length > 0) {
+    parts.push(
+      `The user already answered these questions in this request, so use the answers instead of asking again: ${answers.join("; ")}.`,
+    );
+  }
+
+  // Compaction can fold the original request into a summary, so the restarted
+  // turn reads it here word for word, with the last update it gave.
+  const request = input.messages.findLast(
+    (message) =>
+      message.role === "user" && !message.id.startsWith(answerPrefix) && message.text.trim() !== "",
+  );
+
+  if (request) {
+    parts.push(
+      `The request you were working on:\n<request>\n${clip(request.text, RECOVERY_REQUEST_CHARS)}\n</request>`,
+    );
+
+    const update = input.messages.findLast(
+      (message) =>
+        message.role === "assistant" &&
+        !message.streaming &&
+        message.text.trim() !== "" &&
+        message.createdAt >= request.createdAt,
+    );
+
+    if (update) {
+      parts.push(
+        `Your last update on it:\n<update>\n${clip(update.text, RECOVERY_UPDATE_CHARS)}\n</update>`,
+      );
+    }
+  }
+
+  return parts.join("\n\n");
+}
+
+const RECOVERY_REQUEST_CHARS = 6_000;
+
+const RECOVERY_UPDATE_CHARS = 2_000;
+
+function clip(text: string, limit: number): string {
+  const trimmed = text.trim();
+
+  return trimmed.length <= limit ? trimmed : `${trimmed.slice(0, limit)}\n[truncated]`;
 }
 
 export function createRecovery({
