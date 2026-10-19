@@ -121,5 +121,36 @@ describe("desktopHistoryShortcut", () => {
         "MacIntel",
       ),
     ).toBeNull();
+    expect(
+      desktopHistoryShortcut(
+        { key: "ArrowLeft", metaKey: true, ctrlKey: false, altKey: false, shiftKey: false },
+        "MacIntel",
+      ),
+    ).toBe("back");
+    expect(
+      desktopHistoryShortcut(
+        { key: "ArrowRight", metaKey: true, ctrlKey: false, altKey: false, shiftKey: false },
+        "MacIntel",
+      ),
+    ).toBe("forward");
+    expect(
+      desktopHistoryShortcut(
+        { key: "ArrowLeft", metaKey: true, ctrlKey: false, altKey: false, shiftKey: false },
+        "MacIntel",
+        { typing: true },
+      ),
+    ).toBeNull();
+    expect(
+      desktopHistoryShortcut(
+        { key: "ArrowLeft", metaKey: true, ctrlKey: false, altKey: false, shiftKey: true },
+        "MacIntel",
+      ),
+    ).toBeNull();
+    expect(
+      desktopHistoryShortcut(
+        { key: "ArrowLeft", metaKey: false, ctrlKey: true, altKey: false, shiftKey: false },
+        "Win32",
+      ),
+    ).toBeNull();
   });
 });

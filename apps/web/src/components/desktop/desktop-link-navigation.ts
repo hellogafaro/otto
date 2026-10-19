@@ -70,12 +70,17 @@ export function desktopLinkAction(input: {
 }
 
 /**
- * Back and forward. ⌘ < and ⌘ > are the asked-for keys (< needs Shift on a US
- * keyboard, so Shift belongs to the symbol). ⌘ [ and ⌘ ] are the Mac browser keys.
+ * Back and forward.
+ *
+ * ⌘← and ⌘→ match Chrome. Arrow keys are the same on an English or Spanish
+ * keyboard, so one binding covers both. They wait while a text field has focus,
+ * where they move the caret. ⌘[ and ⌘] are the US browser keys. ⌘< and ⌘> are
+ * the Spanish <> key (< is unshifted there; on a US keyboard it is Shift+,).
  */
 export function desktopHistoryShortcut(
   event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">,
   platform: string,
+  options?: { readonly typing?: boolean },
 ): "back" | "forward" | null {
   if (event.altKey) return null;
 
@@ -83,6 +88,11 @@ export function desktopHistoryShortcut(
   const mod = mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 
   if (!mod) return null;
+
+  if (mac && !options?.typing && !event.shiftKey) {
+    if (event.key === "ArrowLeft") return "back";
+    if (event.key === "ArrowRight") return "forward";
+  }
 
   if (event.key === "<" || (event.key === "[" && !event.shiftKey)) return "back";
 

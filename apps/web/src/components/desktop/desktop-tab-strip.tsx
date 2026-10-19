@@ -1,8 +1,8 @@
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import {
   RiAddLine,
-  RiArrowLeftLine,
-  RiArrowRightLine,
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
@@ -36,6 +36,7 @@ import {
   type DesktopTab,
 } from "../../desktop-tabs-store";
 import { useI18n } from "../../i18n";
+import { isInputFocus } from "../../keybindings";
 import { cn, isMacPlatform } from "../../lib/utils";
 import { readLocalApi } from "../../local-api";
 import { desktopHistoryShortcut, desktopLinkAction } from "./desktop-link-navigation";
@@ -159,7 +160,9 @@ export function DesktopTabStrip() {
         return;
       }
 
-      const direction = desktopHistoryShortcut(event, navigator.platform);
+      const direction = desktopHistoryShortcut(event, navigator.platform, {
+        typing: isInputFocus(event.target),
+      });
 
       if (direction) {
         event.preventDefault();
@@ -288,17 +291,17 @@ export function DesktopTabStrip() {
       <div className="flex shrink-0 items-center gap-panel-gap">
         <HistoryButton
           label={t("Back")}
-          shortcut="<"
+          shortcut={isMac ? "←" : "<"}
           disabled={!history || !canGoBack(history)}
           onClick={() => show(goDesktopTabHistory("back"))}
-          icon={RiArrowLeftLine}
+          icon={RiArrowLeftSLine}
         />
         <HistoryButton
           label={t("Forward")}
-          shortcut=">"
+          shortcut={isMac ? "→" : ">"}
           disabled={!history || !canGoForward(history)}
           onClick={() => show(goDesktopTabHistory("forward"))}
-          icon={RiArrowRightLine}
+          icon={RiArrowRightSLine}
         />
       </div>
       <div
