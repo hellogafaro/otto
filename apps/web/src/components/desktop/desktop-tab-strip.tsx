@@ -1,6 +1,8 @@
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import {
   RiAddLine,
+  RiArrowLeftLine,
+  RiArrowRightLine,
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
@@ -19,11 +21,13 @@ import { scopeThreadRef } from "@otto/client-runtime/environment";
 import { ThreadId } from "@otto/contracts";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
+import { canGoBack, canGoForward, tabHistoryOf } from "../../desktop-tab-history";
 import {
   activateDesktopTab,
   activeDesktopTab,
   closeDesktopTab,
   desktopTabPathname,
+  goDesktopTabHistory,
   moveDesktopTab,
   openDesktopTab,
   openNextNavigationInNewTab,
@@ -33,6 +37,8 @@ import {
 } from "../../desktop-tabs-store";
 import { useI18n } from "../../i18n";
 import { cn, isMacPlatform } from "../../lib/utils";
+import { readLocalApi } from "../../local-api";
+import { desktopHistoryShortcut, desktopLinkAction } from "./desktop-link-navigation";
 import { isModelPickerOpen } from "../../model-picker-visibility";
 import { useShortcutHintsVisible } from "../../shortcut-hints";
 import { useThreadShell } from "../../state/entities";
@@ -153,6 +159,16 @@ export function DesktopTabStrip() {
         return;
       }
 
+      const direction = desktopHistoryShortcut(event, navigator.platform);
+
+      if (direction) {
+        event.preventDefault();
+        event.stopPropagation();
+        showRoute(router, goDesktopTabHistory(direction));
+
+        return;
+      }
+
       const { tabs: open, activeId: openId } = useDesktopTabs.getState();
       const index = open.findIndex((tab) => tab.id === openId);
       const mod = isMac ? event.metaKey : event.ctrlKey;
@@ -191,7 +207,76 @@ export function DesktopTabStrip() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [router]);
 
+  useEffect(() => {
+    const onMouse = (event: globalThis.MouseEvent) => {
+      if (event.defaultPrevented) return;
+
+      if (event.type === "click" && event.button !== 0) return;
+
+      if (event.type === "auxclick" && event.button !== 1) return;
+
+      const target = event.target;
+
+      if (!(target instanceof Element)) return;
+
+      const anchor = target.closest("a");
+
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+
+      if (anchor.classList.contains("chat-markdown-file-link")) return;
+
+      if (anchor.closest("[contenteditable='true'], [contenteditable='']")) return;
+
+      const result = desktopLinkAction({
+        href: anchor.getAttribute("href"),
+        baseHref: window.location.href,
+        target: anchor.target,
+        download: anchor.hasAttribute("download"),
+        editable: false,
+        electron: true,
+        click: {
+          button: event.button,
+          metaKey: event.metaKey,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          platform: navigator.platform,
+        },
+      });
+
+      if (result.type === "ignore") return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (result.type === "same-tab") {
+        showRoute(router, result.route);
+
+        return;
+      }
+
+      if (result.type === "new-tab") {
+        showRoute(router, openDesktopTab(result.route));
+
+        return;
+      }
+
+      void readLocalApi()
+        ?.shell.openExternal(result.url)
+        .catch(() => undefined);
+    };
+
+    document.addEventListener("click", onMouse, true);
+    document.addEventListener("auxclick", onMouse, true);
+
+    return () => {
+      document.removeEventListener("click", onMouse, true);
+      document.removeEventListener("auxclick", onMouse, true);
+    };
+  }, [router]);
+
   const show = (next: string | null) => showRoute(router, next);
+  const openTab = tabs.find((tab) => tab.id === activeId) ?? null;
+  const history = openTab ? tabHistoryOf(openTab) : null;
 
   return (
     <div
@@ -200,6 +285,22 @@ export function DesktopTabStrip() {
         trafficLights ? "pl-22" : "pl-2",
       )}
     >
+      <div className="flex shrink-0 items-center gap-panel-gap">
+        <HistoryButton
+          label={t("Back")}
+          shortcut="<"
+          disabled={!history || !canGoBack(history)}
+          onClick={() => show(goDesktopTabHistory("back"))}
+          icon={RiArrowLeftLine}
+        />
+        <HistoryButton
+          label={t("Forward")}
+          shortcut=">"
+          disabled={!history || !canGoForward(history)}
+          onClick={() => show(goDesktopTabHistory("forward"))}
+          icon={RiArrowRightLine}
+        />
+      </div>
       <div
         role="tablist"
         aria-label={t("Tabs")}
@@ -301,6 +402,50 @@ export function DesktopTabStrip() {
         </TooltipPopup>
       </Tooltip>
     </div>
+  );
+}
+
+/** Otto: A 28px titlebar history button, the same quiet control as New tab. */
+function HistoryButton({
+  label,
+  shortcut,
+  disabled,
+  onClick,
+  icon: Icon,
+}: {
+  readonly label: string;
+  readonly shortcut: string;
+  readonly disabled: boolean;
+  readonly onClick: () => void;
+  readonly icon: RemixiconComponentType;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span className="app-region-no-drag inline-flex">
+            <Button
+              variant="ghost-muted"
+              size="icon-sm"
+              aria-label={label}
+              disabled={disabled}
+              onClick={onClick}
+            >
+              <Icon aria-hidden />
+            </Button>
+          </span>
+        }
+      />
+      <TooltipPopup side="bottom">
+        <span className="flex items-center gap-2">
+          {label}
+          <KbdGroup>
+            <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
+            <Kbd>{shortcut}</Kbd>
+          </KbdGroup>
+        </span>
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 

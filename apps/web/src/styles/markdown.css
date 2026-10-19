@@ -81,6 +81,16 @@
   text-decoration: none;
 }
 
+/* Otto: typeset paints every link at weight 500 with a solid underline. Chat links
+   stay at body weight; the color is the affordance, and a dotted line appears on hover.
+   A bold markdown wrapper does not thicken them. File chips keep their own weight. */
+.chat-markdown.typeset a:not(.chat-markdown-file-link),
+.chat-markdown.typeset a:not(.chat-markdown-file-link) :is(strong, b),
+.chat-markdown.typeset :is(strong, b) a:not(.chat-markdown-file-link) {
+  font-weight: 400;
+  text-decoration-line: none;
+}
+
 .chat-markdown a:not(.chat-markdown-file-link):hover,
 .chat-markdown a:not(.chat-markdown-file-link):focus-visible {
   background-image: radial-gradient(circle, currentcolor 0.75px, transparent 1px);
