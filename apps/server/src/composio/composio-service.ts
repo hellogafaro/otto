@@ -340,19 +340,25 @@ export function make(
 
       if (!query) return toolkits.slice(0, limit);
 
-      const matches = toolkits.filter((toolkit) =>
-        [toolkit.name, toolkit.slug, toolkit.description ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(query),
-      );
+      const rank = (toolkit: ComposioToolkit) => {
+        const name = toolkit.name.toLowerCase();
+        const slug = toolkit.slug.toLowerCase();
 
-      return matches
-        .toSorted(
-          (left, right) =>
-            Number(!left.name.toLowerCase().startsWith(query)) -
-            Number(!right.name.toLowerCase().startsWith(query)),
+        if (name.startsWith(query) || slug.startsWith(query)) return 0;
+
+        if (name.includes(query) || slug.includes(query)) return 1;
+
+        return 2;
+      };
+
+      return toolkits
+        .filter((toolkit) =>
+          [toolkit.name, toolkit.slug, toolkit.description ?? ""]
+            .join(" ")
+            .toLowerCase()
+            .includes(query),
         )
+        .toSorted((left, right) => rank(left) - rank(right))
         .slice(0, limit);
     });
 

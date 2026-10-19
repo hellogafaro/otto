@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "../../i18n";
 import type { ApprovalRecord } from "../../session-logic";
 import { ComposerPendingApprovalActions } from "../chat/composer-pending-approval-actions";
+import { connectionCreateTarget } from "../chat/connection-create-target";
 import {
   ComposerPendingApprovalPanel,
   proposedInstructions,
@@ -50,6 +51,12 @@ function approvalHeading(approval: ApprovalRecord, delegateTo: string | null, t:
       : t("Hand this to another bot?");
   }
 
+  if (approval.toolName === "connection_create") {
+    const name = connectionCreateTarget(approval.args)?.name;
+
+    return name ? t("Connect {name}?", { name }) : t("Allow app access?");
+  }
+
   if (approval.requestKind === "command") {
     return approval.toolName && argsCommand(approval) === null
       ? t("Allow {tool}?", { tool: approval.toolName })
@@ -69,6 +76,10 @@ function approvalHeading(approval: ApprovalRecord, delegateTo: string | null, t:
 /** What an answered approval was about, in a few words after its outcome. */
 function approvalSubject(approval: ApprovalRecord, delegateTo: string | null) {
   if (approval.toolName === "delegate") return delegateTo;
+
+  if (approval.toolName === "connection_create") {
+    return connectionCreateTarget(approval.args)?.name ?? null;
+  }
 
   if (approval.toolName === OTTO_CREATE_ROUTINE_TOOL_NAME) {
     return routineProposalDetails(approval.args)?.name ?? null;
@@ -175,7 +186,10 @@ export function InlineApproval({
     const allowed = approval.resolution.decision?.startsWith("accept") ?? false;
 
     // Only a command or tool reads as code; a routine, skill or bot keeps its plain name.
-    const code = !isProposal(approval) && approval.toolName !== "delegate";
+    const code =
+      !isProposal(approval) &&
+      approval.toolName !== "delegate" &&
+      approval.toolName !== "connection_create";
 
     return grouped(
       undefined,

@@ -6,6 +6,9 @@ import { createTranslator } from "@otto/client-runtime/i18n";
 import { hourlyScheduleText, routineTriggerProposalText } from "@otto/client-runtime/routines";
 import { OTTO_CREATE_ROUTINE_TOOL_NAME } from "@otto/contracts";
 import { type PendingApproval } from "../../session-logic";
+import { AppLogo } from "../customize/customize-integrations";
+import { LogoTile } from "../customize/customize-group";
+import { connectionCreateTarget } from "./connection-create-target";
 import { describeCommandApproval } from "~/lib/command-approval-details";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useLibraryFolder } from "../library/use-library";
@@ -575,6 +578,28 @@ export const ComposerPendingApprovalPanel = memo(function ComposerPendingApprova
   // Only hide detail behind a disclosure when there is more than one screenful
   // of it. A one-line path behind "Expand" wastes a click.
   const detailFitsInline = detailLineCount <= 4 && (detail?.length ?? 0) <= 400;
+
+  if (approval.toolName === "connection_create") {
+    const target = connectionCreateTarget(approval.args);
+
+    if (target) {
+      return (
+        <div className={cn("flex min-w-0 items-center gap-3", className)}>
+          <LogoTile>
+            <AppLogo className="size-4" name={target.name} src={target.logoUrl} />
+          </LogoTile>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-13px font-medium text-foreground">
+              {target.name}
+            </span>
+            {target.detail ? (
+              <span className="block truncate text-xs text-muted-foreground">{target.detail}</span>
+            ) : null}
+          </span>
+        </div>
+      );
+    }
+  }
 
   if (approval.toolName === "skill_create" || approval.toolName === "skill_update") {
     return (

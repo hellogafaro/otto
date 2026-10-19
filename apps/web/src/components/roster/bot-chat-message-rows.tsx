@@ -19,7 +19,6 @@ import {
 } from "../chat/message-controls";
 import { FoldedMessage } from "../chat/folded-message";
 import { MessageReactions } from "../chat/message-reactions";
-import { PluginSearchResultCard } from "../chat/plugin-search-result-card";
 import { SentMessageText } from "../chat/sent-message-text";
 import { UserInputAnswerCard } from "../chat/user-input-answer-card";
 import { Button } from "../ui/button";
@@ -164,7 +163,6 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   stepMeter,
   trace,
   environmentId,
-  pluginResults,
   currentPersonId,
   playback,
   channelApproval,
@@ -256,9 +254,6 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
             ) : null}
           </div>
         </div>
-        {pluginResults?.map(({ id, result }) => (
-          <PluginSearchResultCard className="mt-3" key={id} result={result} />
-        ))}
         <MessageReactions
           reactions={message.reactions ?? []}
           selectedEmoji={selectedReaction}

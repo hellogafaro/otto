@@ -17,10 +17,6 @@ const message: OrchestrationMessage = {
 
 const engine = { provider: "codex", model: "gpt" } as const;
 
-const result = { kind: "plugin-search-results" } as NonNullable<
-  RowProps["pluginResults"]
->[number]["result"];
-
 function props(overrides: Partial<RowProps> = {}): RowProps {
   return {
     message,
@@ -29,7 +25,6 @@ function props(overrides: Partial<RowProps> = {}): RowProps {
     cwd: "/work",
     threadRef: { environmentId: EnvironmentId.make("env"), threadId: ThreadId.make("thread") },
     stepMeter: { engine, tokens: 10, costUsd: null },
-    pluginResults: [{ id: "entry-1", result }],
     currentPersonId: "person",
     playback: null,
     playbackKey: "env/thread",
@@ -47,7 +42,6 @@ describe("assistant row memoization", () => {
     const next = {
       ...previous,
       stepMeter: { ...previous.stepMeter!, engine: { ...engine } },
-      pluginResults: previous.pluginResults!.map((entry) => ({ ...entry })),
     };
 
     expect(assistantRowPropsEqual(previous, next)).toBe(true);

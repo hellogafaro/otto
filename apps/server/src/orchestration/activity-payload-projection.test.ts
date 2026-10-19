@@ -440,7 +440,7 @@ describe("projectActivityPayload", () => {
     expect(projected.payload).toEqual(source.payload);
   });
 
-  it("keeps bounded plugin recommendations for the chat card", () => {
+  it("does not ship plugin search results as a chat card", () => {
     const projected = projectActivityPayload({
       ...activity({
         itemType: "dynamic_tool_call",
@@ -466,15 +466,7 @@ describe("projectActivityPayload", () => {
       summary: "connection_search",
     });
 
-    const data = (projected.payload as Record<string, Schema.Json>).data as Record<
-      string,
-      Schema.Json
-    >;
-
-    expect(data.result).toMatchObject({
-      kind: "plugin-search-results",
-      recommendations: [expect.objectContaining({ id: "composio:gmail" })],
-    });
-    expect(JSON.stringify(projected.payload).length).toBeLessThan(2_000);
+    expect(JSON.stringify(projected.payload)).not.toContain("plugin-search-results");
+    expect(JSON.stringify(projected.payload)).not.toContain("composio:gmail");
   });
 });

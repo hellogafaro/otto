@@ -165,6 +165,63 @@ describe("Otto catalog MCP tool handlers", () => {
     );
   });
 
+  it("ranks a name match ahead of a description hit and ignores an empty query", async () => {
+    const base = JSON.parse(
+      NodeFS.readFileSync(
+        new URL("../../../../plugins/entries/exa/plugin.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const ready = {
+      ...base,
+      connection: { type: "ready" },
+      catalogStatus: "available",
+    };
+    const catalog = loadManifestCatalog({
+      "./entries/notes/plugin.json": {
+        ...ready,
+        id: "notes",
+        name: "Notes",
+        description: "Keeps adobe files.",
+      },
+      "./entries/adobe/plugin.json": {
+        ...ready,
+        id: "adobe",
+        name: "Adobe",
+        description: "Design tools.",
+      },
+    });
+    const runtime = createOttoPluginRuntime(
+      {
+        readSnapshot: async () => snapshot(),
+        dispatch: async () => undefined,
+        searchComposioToolkits: async () => ({
+          status: "available" as const,
+          toolkits: [
+            {
+              slug: "notes-cloud",
+              name: "Notes Cloud",
+              description: "adobe storage",
+              categories: [],
+              toolsCount: 1,
+            },
+          ],
+        }),
+      } as never,
+      catalog,
+    );
+
+    const ranked = await runtime.search({ query: "adobe", limit: 5 });
+
+    expect(ranked.recommendations[0]?.name).toBe("Adobe");
+    expect(ranked.recommendations.map((item) => item.name)).not.toEqual(["Notes", "Adobe"]);
+
+    const empty = await runtime.search({ query: "   " });
+
+    expect(empty.recommendations).toEqual([]);
+    expect(empty.plugins).toEqual([]);
+  });
+
   it("installs catalog-owned recipes and enables an existing disabled plugin", async () => {
     const dispatch = vi.fn<(command: OrchestrationCommand) => Promise<void>>(async () => undefined);
 

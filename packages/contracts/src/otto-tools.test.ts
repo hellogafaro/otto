@@ -78,6 +78,8 @@ describe("Otto tool contracts", () => {
       }),
     ).toThrow();
     expect(() => decodeOttoToolInput("connection_search", { query: "web", limit: 51 })).toThrow();
+    expect(() => decodeOttoToolInput("connection_search", {})).toThrow();
+    expect(() => decodeOttoToolInput("connection_search", { query: "  " })).toThrow();
   });
 
   it("hides delegate at delegation limits", () => {

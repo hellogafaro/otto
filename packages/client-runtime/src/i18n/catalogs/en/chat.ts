@@ -223,6 +223,7 @@ export const chatCatalog = {
   "Retry readout": "Retry readout",
   "Run this command?": "Run this command?",
   "Allow {tool}?": "Allow {tool}?",
+  "Connect {name}?": "Connect {name}?",
   "Delegate to {name}?": "Delegate to {name}?",
   "Hand this to another bot?": "Hand this to another bot?",
   "Done when": "Done when",
