@@ -1,8 +1,9 @@
 import { type RefObject, useEffect } from "react";
 
-import { isCommandPaletteOpen } from "../../command-palette-bus";
-import { resolveShortcutCommand } from "../../keybindings";
 import type { ResolvedKeybindingsConfig } from "@otto/contracts";
+
+import { isCommandPaletteOpen } from "../../command-palette-bus";
+import { isInputFocus, resolveShortcutCommand } from "../../keybindings";
 import { shouldFocusBotPromptOnEnter } from "./bot-prompt-composer.logic";
 
 /**
@@ -26,6 +27,7 @@ export function useBotComposerKeyboard(input: {
       const shortcutCommand = resolveShortcutCommand(event, keybindings, {
         context: {
           modelPickerOpen: false,
+          inputFocus: isInputFocus(event.target),
         },
       });
 

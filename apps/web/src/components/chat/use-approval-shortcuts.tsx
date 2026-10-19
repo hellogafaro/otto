@@ -3,7 +3,7 @@ import { APPROVAL_KEYBINDING_COMMANDS, type ApprovalKeybindingCommand } from "@o
 import { useEffect, useRef } from "react";
 
 import { isCommandPaletteOpen } from "../../command-palette-bus";
-import { resolveShortcutCommand, shortcutPartsForCommand } from "../../keybindings";
+import { isInputFocus, resolveShortcutCommand, shortcutPartsForCommand } from "../../keybindings";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { Kbd, KbdGroup } from "../ui/kbd";
 
@@ -35,7 +35,10 @@ export function useApprovalShortcuts(enabled: boolean, handlers: ApprovalShortcu
         return;
       }
 
-      const resolved = resolveShortcutCommand(event, keybindings, APPROVAL_SHORTCUT_OPTIONS);
+      const resolved = resolveShortcutCommand(event, keybindings, {
+        context: { ...APPROVAL_SHORTCUT_OPTIONS.context, inputFocus: isInputFocus(event.target) },
+      });
+
       const command = APPROVAL_KEYBINDING_COMMANDS.find((candidate) => candidate === resolved);
       const run = command ? handlersRef.current[command] : undefined;
 

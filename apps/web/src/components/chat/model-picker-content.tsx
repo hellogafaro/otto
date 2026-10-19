@@ -13,6 +13,7 @@ import { useClientSettings, useUpdateClientSettings } from "~/hooks/use-settings
 import { useI18n } from "~/i18n";
 import { cn } from "~/lib/utils";
 import {
+  isInputFocus,
   modelPickerJumpCommandForIndex,
   modelPickerJumpIndexFromCommand,
   resolveShortcutCommand,
@@ -599,7 +600,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
 
       const command = resolveShortcutCommand(event, keybindings, {
         platform: navigator.platform,
-        context: modelJumpShortcutContext,
+        context: { ...modelJumpShortcutContext, inputFocus: isInputFocus(event.target) },
       });
 
       const jumpIndex = modelPickerJumpIndexFromCommand(command ?? "");
