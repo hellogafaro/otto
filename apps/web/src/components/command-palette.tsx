@@ -63,7 +63,7 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 import { allEnvironmentRostersAtom } from "../state/bots";
 import { useThreadShells } from "../state/entities";
 import { environmentSnapshotAtom } from "../state/shell";
-import { useTaskPages } from "../state/tasks";
+import { useMyTasksSearch, useTaskPages } from "../state/tasks";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useThreadSearch } from "../state/queries";
 import { findLatestGroupThreadIds, latestGroupThreadKey } from "./roster/bot-thread-runtime.logic";
@@ -439,6 +439,7 @@ function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => 
 function useCreateItems(): CommandPaletteActionItem[] {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const myTasks = useMyTasksSearch();
 
   const create = (
     kind: CreateKind,
@@ -453,7 +454,9 @@ function useCreateItems(): CommandPaletteActionItem[] {
     run: async () => {
       requestCreate(kind);
 
-      if (window.location.pathname !== to) await navigate({ to });
+      if (window.location.pathname !== to) {
+        await navigate(to === "/tasks" ? { to, search: myTasks } : { to });
+      }
     },
   });
 
@@ -490,6 +493,7 @@ const GO_TO_PLACES: ReadonlyArray<readonly [NavigationKeybindingCommand, Remixic
 function useGoToItems(): CommandPaletteActionItem[] {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const myTasks = useMyTasksSearch();
 
   const titles: Record<NavigationKeybindingCommand, string> = {
     "navigation.home": t("Home"),
@@ -508,7 +512,9 @@ function useGoToItems(): CommandPaletteActionItem[] {
     icon: <Icon className={ITEM_ICON_CLASS} />,
     shortcutCommand: place,
     run: async () => {
-      await navigate({ to: NAVIGATION_PATHS[place] });
+      const to = NAVIGATION_PATHS[place];
+
+      await navigate(to === "/tasks" ? { to, search: myTasks } : { to });
     },
   }));
 }

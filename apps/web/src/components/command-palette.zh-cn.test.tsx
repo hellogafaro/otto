@@ -17,6 +17,7 @@ vi.mock("../state/queries", () => ({
 }));
 
 vi.mock("../state/tasks", () => ({
+  useMyTasksSearch: () => ({}),
   useTaskPages: () => ({ pages: [], status: "ready", hasMore: false, loadMore: () => undefined }),
 }));
 
