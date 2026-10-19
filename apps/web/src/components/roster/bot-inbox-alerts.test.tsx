@@ -1,8 +1,8 @@
+import { selectOpenBotInboxItems } from "@otto/client-runtime/bot-inbox";
+import { BotId, type SubscriptionAuthStatuses } from "@otto/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { BotId, type SubscriptionAuthStatuses } from "@otto/contracts";
 
-import { selectOpenBotInboxItems } from "../../bot-inbox";
 import { BotInboxAlerts } from "./bot-inbox-alerts";
 
 type BotInboxItem = SubscriptionAuthStatuses["inbox"][number];

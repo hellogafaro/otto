@@ -1,11 +1,11 @@
 import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
+import { selectOpenBotInboxItems } from "@otto/client-runtime/bot-inbox";
 import { presentThreadError } from "@otto/client-runtime/errors";
 import { BotId, type EnvironmentId, type ScopedThreadRef, type TurnId } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
 
-import { selectOpenBotInboxItems } from "../../bot-inbox";
 import { canManageChannels, connectedChannelBinding } from "../../channel-access";
 import { useI18n } from "../../i18n";
 import { usePrimaryEnvironmentId } from "../../state/environments";
@@ -369,7 +369,11 @@ export function BotThreadLanding({
         : null,
   );
 
-  const inboxItems = selectOpenBotInboxItems(inboxQuery.data?.inbox ?? [], new Set([bot.id]));
+  const inboxItems = selectOpenBotInboxItems(
+    inboxQuery.data?.inbox ?? [],
+    new Set([bot.id]),
+    runtime.linkedThreadRef?.threadId ?? null,
+  );
 
   const activeBot = (id: string) =>
     bots.find((candidate) => candidate.id === id && candidate.archivedAt === null) ?? null;
@@ -682,7 +686,11 @@ export function BotThreadLanding({
                   title={presentThreadError(runtime.turnFailure.message, failureContext, t).title}
                 />
               ) : null}
-              <BotInboxAlerts items={inboxItems} environmentId={environmentId} />
+              <BotInboxAlerts
+                items={inboxItems}
+                environmentId={environmentId}
+                onResolved={inboxQuery.refresh}
+              />
               {waitingOnChildren && !working ? (
                 <p className="ml-10 text-xs text-muted-foreground" aria-live="polite">
                   {t("Waiting on delegated work")}

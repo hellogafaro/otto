@@ -42,6 +42,32 @@ describe("selectOpenBotInboxItems", () => {
 
     expect(selected.map((item) => item.id)).toEqual(["newer", "older"]);
   });
+
+  it("keeps a silence item in the chat it names, and out of a chat with no thread", () => {
+    const silence = incident({
+      id: "quiet",
+      incidentKey: "silence:thread-1:turn-1",
+      kind: "silence-watchdog-failure",
+    });
+
+    const connector = incident({ id: "connector" });
+
+    expect(
+      selectOpenBotInboxItems([silence, connector], new Set(["bot-1"]), "thread-1").map(
+        (item) => item.id,
+      ),
+    ).toEqual(["quiet", "connector"]);
+    expect(
+      selectOpenBotInboxItems([silence, connector], new Set(["bot-1"]), "thread-2").map(
+        (item) => item.id,
+      ),
+    ).toEqual(["connector"]);
+    expect(
+      selectOpenBotInboxItems([silence, connector], new Set(["bot-1"]), null).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["connector"]);
+  });
 });
 
 describe("botInboxItemCopy", () => {

@@ -280,6 +280,32 @@ export class BotInboxService {
     return changed;
   }
 
+  /** Close silence items left open when the process died mid-turn. A click does the same. */
+  resolveOpenSilence(): number {
+    this.reload();
+    const resolvedAt = this.now();
+    let resolved = 0;
+    this.items = this.items.map((item) => {
+      if (item.kind !== "silence-watchdog-failure" || item.status !== "open") {
+        return item;
+      }
+
+      resolved += 1;
+
+      return {
+        ...item,
+        status: "resolved",
+        resolvedAt,
+        lastSeenAt: resolvedAt,
+        acknowledgedAt: resolvedAt,
+      };
+    });
+
+    if (resolved > 0) this.save();
+
+    return resolved;
+  }
+
   resolveById(id: string): boolean {
     this.reload();
     const resolvedAt = this.now();

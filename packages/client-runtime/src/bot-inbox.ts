@@ -4,13 +4,28 @@ import type { MessageKey, TranslationParams } from "./i18n/index.ts";
 
 export type BotInboxItem = SubscriptionAuthStatuses["inbox"][number];
 
+/** A silence item belongs to one chat. `null` means this chat has no server thread yet. */
+export function botInboxItemInThread(item: BotInboxItem, threadId: string | null): boolean {
+  if (item.kind !== "silence-watchdog-failure") return true;
+
+  if (threadId === null) return false;
+
+  return item.incidentKey.startsWith(`silence:${threadId}:`);
+}
+
 export function selectOpenBotInboxItems(
   inbox: ReadonlyArray<BotInboxItem>,
   botIds?: ReadonlySet<string>,
+  threadId?: string | null,
 ): ReadonlyArray<BotInboxItem> {
   // .sort() on a copy, not .toSorted(): Hermes lacks ES2023 change-by-copy.
   return [...inbox]
-    .filter((item) => item.status === "open" && (botIds === undefined || botIds.has(item.botId)))
+    .filter(
+      (item) =>
+        item.status === "open" &&
+        (botIds === undefined || botIds.has(item.botId)) &&
+        (threadId === undefined || botInboxItemInThread(item, threadId)),
+    )
     .sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt));
 }
 

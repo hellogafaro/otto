@@ -31,6 +31,7 @@ import {
 } from "./startup-command-gate.ts";
 import { archivedBotRetentionLoop } from "./archived-bot-retention.ts";
 import { dailyBackupLoop } from "./backup.ts";
+import { BotInboxService } from "./bot-inbox/service.ts";
 import { reconcileDelegations, reconcileProviderSessions } from "./startup-reconciliation.ts";
 import {
   resolveWelcomeBase,
@@ -99,6 +100,14 @@ export const make = (options?: StartupOptions) =>
       // Before the reactors start, so no delegation this process creates can be mistaken for an
       // orphan, and startup recovery sees the settled records.
       yield* runStartupPhase("delegations.reconcile", reconcileDelegations);
+
+      // The silence watchdog dies with the process, so a deploy cannot close its own card.
+      yield* runStartupPhase(
+        "inbox.resolve-silence",
+        Effect.sync(() => {
+          BotInboxService.forSecretsDir(serverConfig.secretsDir).resolveOpenSilence();
+        }),
+      );
 
       yield* Effect.logDebug("startup phase: parking orchestration roots at activation");
       yield* runStartupPhase(
