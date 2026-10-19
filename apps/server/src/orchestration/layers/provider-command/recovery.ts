@@ -9,9 +9,18 @@ import {
 } from "@otto/contracts";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
+import {
+  RECOVERY_ATTEMPT_KIND,
+  RECOVERY_BACKOFF_MS,
+  RECOVERY_GIVE_UP_DETAIL,
+  countRecoveryAttempts,
+  recoveryBackoffDelayMs,
+  recoveryFailureDetail,
+} from "./recovery-backoff.ts";
 import { forkParked, ServerActivation } from "../../../server-activation.ts";
 import type { ProviderIntentEvent } from "./fields.ts";
 import { startupRecoveryInput } from "./recovery-input.ts";
@@ -32,7 +41,11 @@ export function createRecovery({
   resumeInterruptedTurn,
   setThreadSessionErrorOnTurnStartFailure,
   formatFailureDetail,
-}: Pick<
+  recoveryBackoffSchedule: schedule = RECOVERY_BACKOFF_MS,
+}: {
+  /** Delays between automatic wakes; tests pass zeros. */
+  readonly recoveryBackoffSchedule?: ReadonlyArray<number>;
+} & Pick<
   Effect.Success<ReturnType<typeof createDependencies>> &
     ReturnType<typeof createDelegations> &
     Effect.Success<ReturnType<typeof createRouting>> &
@@ -347,62 +360,156 @@ export function createRecovery({
           thread.session.activeTurnId !== null),
     );
 
+    const recordRecoveryAttempt = (input: {
+      readonly threadId: ThreadId;
+      readonly turnId: TurnId | null;
+      readonly detail: string;
+      readonly createdAt: string;
+    }) =>
+      serverEventId().pipe(
+        Effect.flatMap((eventId) =>
+          orchestrationEngine.dispatch({
+            type: "thread.activity.append",
+            commandId: CommandId.make(`server:recovery-attempt:${eventId}`),
+            threadId: input.threadId,
+            activity: {
+              id: eventId,
+              tone: "info",
+              kind: RECOVERY_ATTEMPT_KIND,
+              summary: "Retrying after the run stopped",
+              payload: { detail: input.detail },
+              turnId: input.turnId,
+              createdAt: input.createdAt,
+            },
+            createdAt: input.createdAt,
+          }),
+        ),
+      );
+
+    const giveUpRecovery = (input: {
+      readonly threadId: ThreadId;
+      readonly detail: string;
+      readonly createdAt: string;
+    }) =>
+      setThreadSessionErrorOnTurnStartFailure({
+        threadId: input.threadId,
+        detail: input.detail,
+        createdAt: input.createdAt,
+      });
+
     const resumeInterrupted = Effect.forEach(
       interrupted,
       (thread) =>
         Effect.gen(function* () {
-          const recoveredAt = DateTime.formatIso(yield* DateTime.now);
+          const turnId = thread.latestTurn?.turnId ?? null;
+          let attempt = countRecoveryAttempts(
+            (
+              yield* projectionSnapshotQuery
+                .getThreadDetailById(thread.id)
+                .pipe(Effect.map(Option.getOrUndefined))
+            )?.activities ?? [],
+            turnId,
+          );
 
-          const threadDetail = yield* projectionSnapshotQuery
-            .getThreadDetailById(thread.id)
-            .pipe(Effect.map(Option.getOrUndefined));
+          while (true) {
+            const delay = recoveryBackoffDelayMs(attempt, schedule);
 
-          yield* settleStalePendingRequests({
-            threadId: thread.id,
-            activities: threadDetail?.activities ?? [],
-            createdAt: recoveredAt,
-          });
-          yield* resumeInterruptedTurn({
-            threadId: thread.id,
-            messageText: startupRecoveryInput({
+            if (delay === null) {
+              const createdAt = DateTime.formatIso(yield* DateTime.now);
+              const prior = recoveryFailureDetail(
+                (
+                  yield* projectionSnapshotQuery
+                    .getThreadDetailById(thread.id)
+                    .pipe(Effect.map(Option.getOrUndefined))
+                )?.activities
+                  ?.slice()
+                  .reverse()
+                  .find(
+                    (activity) =>
+                      activity.kind === RECOVERY_ATTEMPT_KIND &&
+                      (turnId === null || activity.turnId === turnId),
+                  )?.payload,
+              );
+              yield* giveUpRecovery({
+                threadId: thread.id,
+                detail: prior ? `${RECOVERY_GIVE_UP_DETAIL} ${prior}` : RECOVERY_GIVE_UP_DETAIL,
+                createdAt,
+              });
+              return;
+            }
+
+            if (delay > 0) {
+              yield* Effect.sleep(Duration.millis(delay));
+            }
+
+            const recoveredAt = DateTime.formatIso(yield* DateTime.now);
+            const threadDetail = yield* projectionSnapshotQuery
+              .getThreadDetailById(thread.id)
+              .pipe(Effect.map(Option.getOrUndefined));
+            const lastDetail = recoveryFailureDetail(
+              [...(threadDetail?.activities ?? [])]
+                .reverse()
+                .find(
+                  (activity) =>
+                    activity.kind === RECOVERY_ATTEMPT_KIND &&
+                    (turnId === null || activity.turnId === turnId),
+                )?.payload,
+            );
+            const recoveryLead = startupRecoveryInput({
               threadId: thread.id,
-              turnId: thread.latestTurn?.turnId ?? null,
+              turnId,
               requestMessageId: thread.latestTurn?.requestMessageId ?? null,
               requestedAt: thread.latestTurn?.requestedAt ?? null,
               respondingBotId: thread.latestTurn?.respondingBotId ?? null,
               messages: threadDetail?.messages ?? [],
               activities: threadDetail?.activities ?? [],
-            }),
-            createdAt: recoveredAt,
-          }).pipe(
-            Effect.tap(() =>
-              Effect.logInfo("provider command reactor resumed interrupted turn", {
-                threadId: thread.id,
-                previousTurnId: thread.latestTurn?.turnId,
-              }),
-            ),
-            Effect.catchCause((cause) =>
-              Cause.hasInterruptsOnly(cause)
-                ? Effect.interrupt
-                : setThreadSessionErrorOnTurnStartFailure({
-                    threadId: thread.id,
-                    detail: `Automatic recovery failed. Use Resume to continue. ${formatFailureDetail(cause)}`,
-                    createdAt: recoveredAt,
-                  }).pipe(
-                    Effect.andThen(
-                      Effect.logWarning(
-                        "provider command reactor could not resume interrupted turn",
-                        {
-                          threadId: thread.id,
-                          cause: Cause.pretty(cause),
-                        },
-                      ),
-                    ),
-                  ),
-            ),
-          );
+            });
+
+            yield* settleStalePendingRequests({
+              threadId: thread.id,
+              activities: threadDetail?.activities ?? [],
+              createdAt: recoveredAt,
+            });
+
+            const failure = yield* resumeInterruptedTurn({
+              threadId: thread.id,
+              messageText: lastDetail
+                ? `${recoveryLead} The last wake failed: ${lastDetail}. Say that simply, then continue.`
+                : recoveryLead,
+              createdAt: recoveredAt,
+            }).pipe(
+              Effect.as(null),
+              Effect.tap(() =>
+                Effect.logInfo("provider command reactor resumed interrupted turn", {
+                  threadId: thread.id,
+                  previousTurnId: turnId,
+                  attempt,
+                }),
+              ),
+              Effect.catchCause((cause) =>
+                Cause.hasInterruptsOnly(cause)
+                  ? Effect.failCause(cause)
+                  : Effect.succeed(formatFailureDetail(cause)),
+              ),
+            );
+
+            if (failure === null) return;
+
+            yield* Effect.logWarning("provider command reactor could not resume interrupted turn", {
+              threadId: thread.id,
+              attempt,
+              cause: failure,
+            });
+            yield* recordRecoveryAttempt({
+              threadId: thread.id,
+              turnId,
+              detail: failure,
+              createdAt: recoveredAt,
+            });
+            attempt += 1;
+          }
         }),
-      { discard: true },
+      { concurrency: "unbounded", discard: true },
     );
 
     // A provider may wait indefinitely for a tool approval. Keep startup
