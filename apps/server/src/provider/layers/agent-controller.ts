@@ -134,6 +134,12 @@ const make = (options?: AgentControllerLiveOptions) =>
       forkPromise,
     } = yield* createControllerState(options);
 
+    /** Threads whose turn is working now; a turn waiting on a person is not. */
+    const workingThreadIds = () =>
+      [...sessions].flatMap(([threadId, active]) =>
+        active.activeTurn && !active.activeTurn.waiting ? [threadId] : [],
+      );
+
     // A turn waits on the user while any tool approval, question, or routine review
     // it opened is unanswered, or an accepted routine is still being created.
     const {
@@ -164,6 +170,7 @@ const make = (options?: AgentControllerLiveOptions) =>
       sessionResources,
       computerSetup,
       turnUsageByThread,
+      workingThreadIds: () => workingThreadIds(),
       get publishSessionState() {
         return publishSessionState;
       },
@@ -541,12 +548,12 @@ const make = (options?: AgentControllerLiveOptions) =>
       Effect.forkScoped,
     );
 
-    // Otto: computers of running turns are pushed back well inside Boat's 5 minute auto-stop,
-    // so a long turn never loses its computer. Idle computers stop on their own.
+    // Otto: computers of working turns are pushed back well inside Boat's 5 minute auto-stop,
+    // so a long turn never loses its computer. Idle computers, and those of turns waiting on a
+    // person, stop on their own.
     yield* runMastra("resources.keepComputersAwake", () =>
-      sessionResources.keepComputersAwake(
-        [...sessions].flatMap(([threadId, active]) => (active.activeTurn ? [threadId] : [])),
-      ),
+      // A turn waiting on a person lets its computer stop; the answer wakes it again.
+      sessionResources.keepComputersAwake(workingThreadIds()),
     ).pipe(
       Effect.ignoreCause({ log: true }),
       Effect.repeat(Schedule.spaced(COMPUTER_KEEP_AWAKE_INTERVAL)),

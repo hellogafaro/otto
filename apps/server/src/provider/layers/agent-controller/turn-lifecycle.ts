@@ -75,9 +75,11 @@ export function createTurnLifecycle(deps: {
     createdAt: string;
   };
   readonly toolRuntime: OttoToolRuntime;
-  readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake">;
+  readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake" | "idleComputer">;
   readonly computerSetup: ReturnType<typeof createBotComputerSetup>;
   readonly turnUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
+  /** Threads whose turn is working now, not waiting on a person. */
+  readonly workingThreadIds: () => readonly string[];
   readonly publishSessionState: (
     threadId: ThreadId,
     active: ActiveSession,
@@ -477,6 +479,17 @@ export function createTurnLifecycle(deps: {
         deps.runPromise(Effect.logWarning("bot GitHub login cleanup failed", { threadId, cause })),
       );
     const nextTurn = active.pendingTurns.shift();
+
+    // Otto: with nothing queued, the computer stops soon after this turn instead of running
+    // out its full auto-stop; the next turn wakes it.
+    const idleComputer = nextTurn
+      ? undefined
+      : deps.sessionResources.idleComputer(String(threadId), deps.workingThreadIds());
+
+    if (idleComputer)
+      void idleComputer().catch((cause: unknown) =>
+        deps.runPromise(Effect.logWarning("bot computer idle failed", { threadId, cause })),
+      );
 
     if (nextTurn) {
       deps.startPendingTurn(active, nextTurn);

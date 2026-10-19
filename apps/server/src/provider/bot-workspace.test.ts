@@ -285,6 +285,8 @@ describe("Boat", () => {
       timedOut: false,
     });
 
+    const writeFile = vi.spyOn(client, "writeFile").mockResolvedValue({} as never);
+
     expect(
       await session.run("printf", ["a'b"], {
         cwd: "/workspace/my files",
@@ -292,13 +294,28 @@ describe("Boat", () => {
         timeout: 1501,
       }),
     ).toEqual({ exitCode: 7, stdout: "out", stderr: "err" });
-    expect(command).toHaveBeenCalledWith({
-      sandboxId: "boat-id",
-      commandRequest: {
-        command: "export 'VALUE=x; echo unsafe'; cd '/workspace/my files' && printf 'a'\\''b'",
-        timeoutSeconds: 2,
-      },
-    });
+    // Values go in a file through the file API; the command, which Boat keeps, names its path.
+    expect(writeFile).toHaveBeenCalledOnce();
+
+    const { fileWriteRequest } = writeFile.mock
+      .calls[0]![0] as import("@boatdev/sdk").WriteFileRequest;
+
+    expect(fileWriteRequest.path).toMatch(/^\/home\/user\/\.otto\/env\/[0-9a-f-]{36}$/);
+    expect(Buffer.from(fileWriteRequest.content, "base64").toString()).toBe(
+      "export 'VALUE=x; echo unsafe'\n",
+    );
+
+    const sent = (command.mock.calls[0]![0] as import("@boatdev/sdk").CommandOperationRequest)
+      .commandRequest;
+
+    expect(sent.command).not.toContain("unsafe");
+    expect(sent.command).toBe(
+      `if [ -r '${fileWriteRequest.path}' ]; then . '${fileWriteRequest.path}'; else echo 'otto: environment file missing' >&2; exit 125; fi; cd '/workspace/my files' && printf 'a'\\''b'`,
+    );
+    expect(sent.timeoutSeconds).toBe(2);
+    // The same values reuse their file.
+    await session.run("true", [], { env: { VALUE: "x; echo unsafe" } });
+    expect(writeFile).toHaveBeenCalledOnce();
     command.mockResolvedValue({
       ok: true,
       type: "command.finished",
@@ -327,6 +344,99 @@ describe("Boat", () => {
         timeoutSeconds: 600,
       },
     });
+  });
+
+  it("writes an environment file again when the computer lost it", async () => {
+    const { client, session } = await setup();
+    const writeFile = vi.spyOn(client, "writeFile").mockResolvedValue({} as never);
+
+    const finished = {
+      ok: true,
+      type: "command.finished",
+      success: true,
+      timedOut: false,
+    } as const;
+
+    const command = vi
+      .spyOn(client, "command")
+      .mockResolvedValueOnce({ ...finished, exitCode: 0, stdout: "", stderr: "" })
+      .mockResolvedValueOnce({
+        ...finished,
+        success: false,
+        exitCode: 125,
+        stdout: "",
+        stderr: "otto: environment file missing\n",
+      })
+      .mockResolvedValueOnce({ ...finished, exitCode: 0, stdout: "ok", stderr: "" });
+
+    await session.run("true", [], { env: { TOKEN: "t" } });
+    expect(await session.run("true", [], { env: { TOKEN: "t" } })).toEqual({
+      exitCode: 0,
+      stdout: "ok",
+      stderr: "",
+    });
+    expect(writeFile).toHaveBeenCalledTimes(2);
+    expect(command).toHaveBeenCalledTimes(3);
+  });
+
+  it("resumes a computer Boat stopped while its turn waited, then sends the command again", async () => {
+    const { ResponseError } = await import("@boatdev/sdk");
+    const { client, get, session } = await setup();
+    const current = await client.get({ sandboxId: "boat-id" });
+    const archived = { ...current, sandbox: { ...current.sandbox, state: "archived" as const } };
+
+    const resume = vi
+      .spyOn(client, "resume")
+      .mockResolvedValue({ ok: true, type: "sandbox.resumed", id: "boat-id", status: "ready" });
+
+    const command = vi
+      .spyOn(client, "command")
+      .mockRejectedValueOnce(new ResponseError(new Response(null, { status: 409 })))
+      .mockResolvedValue({
+        ok: true,
+        type: "command.finished",
+        success: true,
+        exitCode: 0,
+        stdout: "done",
+        stderr: "",
+        timedOut: false,
+      });
+
+    get.mockResolvedValueOnce(archived).mockResolvedValueOnce(archived);
+    expect((await session.run("true", [])).stdout).toBe("done");
+    expect(resume).toHaveBeenCalledOnce();
+    expect(command).toHaveBeenCalledTimes(2);
+
+    // A conflict on a running computer is Boat's answer, not a stop: it is not retried.
+    command.mockRejectedValueOnce(new ResponseError(new Response(null, { status: 409 })));
+    await expect(session.run("true", [])).rejects.toBeInstanceOf(ResponseError);
+    expect(resume).toHaveBeenCalledOnce();
+  });
+
+  it("lets an idle computer stop soon, in order with the next turn's keep-alive", async () => {
+    const { client, get, session } = await setup();
+    const current = await client.get({ sandboxId: "boat-id" });
+    const update = vi.spyOn(client, "update").mockResolvedValue({} as never);
+    let answer = (_: typeof current) => undefined as void;
+    get.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+
+    const idle = session.idle!();
+    const keepAlive = session.keepAlive!();
+    await Promise.resolve();
+    expect(update).not.toHaveBeenCalled();
+    answer(current);
+    await Promise.all([idle, keepAlive]);
+    expect(
+      update.mock.calls.map(
+        ([request]) => (request as import("@boatdev/sdk").UpdateRequest).updateSandboxRequest,
+      ),
+    ).toEqual([{ ttlSeconds: 120 }, { ttlSeconds: 300 }]);
+
+    // A computer that already stopped has nothing to shorten.
+    update.mockClear();
+    get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
+    await session.idle!();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it.each([900_000, 0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
@@ -393,6 +503,8 @@ describe("Boat", () => {
       timedOut: false,
     });
 
+    const update = vi.spyOn(BoatApi.prototype, "update").mockResolvedValue({} as never);
+
     try {
       const input = {
         io: workspaceIO,
@@ -413,12 +525,24 @@ describe("Boat", () => {
         "Bearer configured-key",
       );
       expect(first.providerId).toBe("boat-id");
+      // Boat's dashboard names the computer after its owner.
+      expect(update).toHaveBeenCalledWith({
+        sandboxId: "boat-id",
+        updateSandboxRequest: { name: "thread" },
+      });
       get.mockRejectedValueOnce(new Error("VM unavailable"));
       await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
       expect(create).toHaveBeenCalledOnce();
       const second = await createRemoteBotWorkspace(input);
       expect(create).toHaveBeenCalledOnce();
       expect(get).toHaveBeenCalledWith({ sandboxId: "boat-id" });
+      // A computer from before names existed gets its name when it reconnects; a failed rename
+      // never blocks it.
+      expect(update).toHaveBeenCalledTimes(2);
+      update.mockRejectedValueOnce(new Error("rename refused"));
+      await expect(createRemoteBotWorkspace(input)).resolves.toMatchObject({
+        providerId: "boat-id",
+      });
       await second.wake();
       remove.mockRejectedValueOnce(new Error("Boat is unavailable."));
       await expect(second.destroy()).rejects.toThrow("Boat is unavailable.");
@@ -437,6 +561,7 @@ describe("Boat", () => {
       get.mockRestore();
       remove.mockRestore();
       command.mockRestore();
+      update.mockRestore();
       await NodeFS.promises.rm(root, { recursive: true, force: true });
     }
   });
@@ -466,6 +591,8 @@ describe("Boat", () => {
           snapshotAvailable: false,
         },
       });
+
+      const update = vi.spyOn(BoatApi.prototype, "update").mockResolvedValue({} as never);
 
       try {
         await NodeFS.promises.writeFile(identityFile, JSON.stringify(previous));
@@ -512,6 +639,7 @@ describe("Boat", () => {
       } finally {
         get.mockRestore();
         create.mockRestore();
+        update.mockRestore();
         await NodeFS.promises.rm(root, { recursive: true, force: true });
       }
     },

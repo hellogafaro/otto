@@ -104,8 +104,13 @@ export async function createRemoteBotWorkspace(
   try {
     const opened = input.openSession
       ? await input.openSession(persisted?.providerId)
-      : await connect(input.sandbox, input.workspaceId, input.environment, persisted, (createKey) =>
-          writeIdentity(input.io, identityFile, { ...owner, createKey }),
+      : await connect(
+          input.sandbox,
+          input.workspaceId,
+          input.environment,
+          persisted,
+          (createKey) => writeIdentity(input.io, identityFile, { ...owner, createKey }),
+          { replaceMissing: true, scope: input.threadId },
         );
 
     if (!opened) throw new Error(`Remote ${input.sandbox} workspace is missing.`);
@@ -152,6 +157,7 @@ export async function createRemoteBotWorkspace(
     inspect: session.inspect,
     ...(session.desktopUrl ? { desktopUrl: session.desktopUrl } : {}),
     ...(session.keepAlive ? { keepAlive: session.keepAlive } : {}),
+    ...(session.idle ? { idle: session.idle } : {}),
     ...(session.writePrivateFile ? { writePrivateFile: session.writePrivateFile } : {}),
     wake: () => workspace.init(),
     sleep: () => workspace.stop(),
@@ -195,13 +201,20 @@ export async function destroyRemoteComputer(input: {
   }
 }
 
+/** A name is only a label: failing to set one never stops the computer from opening. */
+async function rename(client: import("@boatdev/sdk").BoatApi, sandboxId: string, name: string) {
+  await client.update({ sandboxId, updateSandboxRequest: { name } }).catch(() => undefined);
+}
+
 async function connect(
   provider: RemoteBotSandbox,
   id: string,
   environment: Readonly<Record<string, string>> = {},
   persisted: BotWorkspaceRecord | undefined,
   saveCreateKey: (createKey: string) => Promise<void>,
-  options: { readonly replaceMissing: boolean } = { replaceMissing: true },
+  options: { readonly replaceMissing: boolean; readonly scope?: string } = {
+    replaceMissing: true,
+  },
 ): Promise<OttoRemoteSession | undefined> {
   const providerId = persisted?.providerId;
 
@@ -268,9 +281,14 @@ async function connect(
     new Configuration({ accessToken: credential(environment, "BOAT_API_KEY") }),
   );
 
+  // Boat shows the owner's id as the name, so a computer in its dashboard leads back to its bot.
+  const name = options.scope;
+
   if (providerId) {
     try {
-      await client.get({ sandboxId: providerId });
+      const { sandbox } = await client.get({ sandboxId: providerId });
+
+      if (name && sandbox.name !== name) await rename(client, providerId, name);
 
       return boat(client, providerId);
     } catch (cause) {
@@ -295,6 +313,8 @@ async function connect(
     .catch(async (cause: unknown) => {
       throw await boatFailure(cause);
     });
+
+  if (name) await rename(client, sandbox.id, name);
 
   return boat(client, sandbox.id);
 }
