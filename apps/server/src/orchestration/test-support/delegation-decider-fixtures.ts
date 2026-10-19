@@ -101,7 +101,7 @@ export function makeDelegation(
     task: "Compare three flights.",
     expectedResult: "A short comparison with sources.",
     access: {
-      sandbox: "daytona",
+      sandbox: "boat",
       runtimeMode: "approval-required",
       enabledMcpServerIds: [],
       disabledMcpServerIds: [],

@@ -52,7 +52,7 @@ The guide calls access ready only when `health` is `healthy` or `recovered`, mea
 
 ## Sandbox boundary
 
-Do not store OAuth refresh tokens in an E2B sandbox, project workspace, checkpoint, event, database projection, log, or client persistence.
+Do not store OAuth refresh tokens in a sandbox, project workspace, checkpoint, event, database projection, log, or client persistence.
 
 When a run starts:
 

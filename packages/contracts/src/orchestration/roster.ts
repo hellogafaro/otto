@@ -146,12 +146,21 @@ export const BotEngine = Schema.Struct({
 
 export type BotEngine = typeof BotEngine.Type;
 
-export const BotSandbox = Schema.Literals(["local", "e2b", "daytona", "vercel", "railway", "boat"]);
+export const BotSandbox = Schema.Literals(["local", "boat"]);
 
 export type BotSandbox = typeof BotSandbox.Type;
 
 /** Retired sandboxes: Ascii Box became Boat; the rest fall back to the default sandbox. */
-const RetiredBotSandbox = Schema.Literals(["otto-cloud", "upstash", "tenki", "ascii"]);
+const RetiredBotSandbox = Schema.Literals([
+  "otto-cloud",
+  "upstash",
+  "tenki",
+  "ascii",
+  "e2b",
+  "daytona",
+  "vercel",
+  "railway",
+]);
 
 const isRetiredBotSandbox = Schema.is(RetiredBotSandbox);
 

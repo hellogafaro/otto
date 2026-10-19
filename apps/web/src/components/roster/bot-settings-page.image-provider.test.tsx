@@ -342,7 +342,7 @@ describe("bot settings image provider", () => {
   });
 
   it("can restore the default sandbox from an explicit choice", async () => {
-    state.bots = [makeBot({ sandbox: "railway" })];
+    state.bots = [makeBot({ sandbox: "boat" })];
     const tree = renderForm();
 
     const select = visitElements(

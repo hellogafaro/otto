@@ -2,7 +2,6 @@ import { DEFAULT_SERVER_SETTINGS } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  applyRailwayConnectionChange,
   canSaveSandboxProviderConnection,
   disconnectSandboxProvider,
   isSandboxProviderConnected,
@@ -11,60 +10,6 @@ import {
 } from "./sandbox-settings-panel.logic";
 
 describe("sandbox settings", () => {
-  it("applies pending Railway actions to the latest settings without reverting another client", () => {
-    const latest = {
-      ...saveSandboxProviderConnection({
-        settings: DEFAULT_SERVER_SETTINGS.sandbox,
-        provider: "e2b",
-        draft: { E2B_API_KEY: "new-e2b-key" },
-      }),
-      defaultProvider: "e2b" as const,
-    };
-
-    for (const change of [
-      { kind: "disconnect" },
-      { kind: "save", draft: { RAILWAY_API_TOKEN: "rotated", RAILWAY_ENVIRONMENT_ID: "env" } },
-    ] as const) {
-      const next = applyRailwayConnectionChange(latest, change);
-      expect(next.defaultProvider).toBe("e2b");
-      expect(next.providers.e2b).toEqual(latest.providers.e2b);
-      expect(next.providers.railway.environment).toEqual(
-        change.kind === "disconnect"
-          ? []
-          : [
-              { name: "RAILWAY_API_TOKEN", value: "rotated", sensitive: true },
-              { name: "RAILWAY_ENVIRONMENT_ID", value: "env", sensitive: false },
-            ],
-      );
-    }
-  });
-  it("requires Railway credentials and resets the default on disconnect", () => {
-    expect(
-      canSaveSandboxProviderConnection({
-        settings: DEFAULT_SERVER_SETTINGS.sandbox,
-        provider: "railway",
-        draft: { RAILWAY_API_TOKEN: "token" },
-      }),
-    ).toBe(false);
-
-    const connected = saveSandboxProviderConnection({
-      settings: DEFAULT_SERVER_SETTINGS.sandbox,
-      provider: "railway",
-      draft: { RAILWAY_API_TOKEN: " token ", RAILWAY_ENVIRONMENT_ID: " env " },
-    });
-
-    expect(isSandboxProviderConnected(connected, "railway")).toBe(true);
-    expect(selectableSandboxProviders(connected)).toEqual(["local", "railway"]);
-
-    const disconnected = disconnectSandboxProvider(
-      { ...connected, defaultProvider: "railway" },
-      "railway",
-    );
-
-    expect(disconnected.defaultProvider).toBe("local");
-    expect(isSandboxProviderConnected(disconnected, "railway")).toBe(false);
-  });
-
   it("offers only local until a cloud provider is connected", () => {
     expect(selectableSandboxProviders(DEFAULT_SERVER_SETTINGS.sandbox)).toEqual(["local"]);
   });
@@ -74,27 +19,6 @@ describe("sandbox settings", () => {
       "local",
       "boat",
     ]);
-  });
-
-  it("connects E2B and makes it available as a default", () => {
-    const sandbox = saveSandboxProviderConnection({
-      settings: DEFAULT_SERVER_SETTINGS.sandbox,
-      provider: "e2b",
-      draft: { E2B_API_KEY: " e2b-secret " },
-    });
-
-    expect(isSandboxProviderConnected(sandbox, "e2b")).toBe(true);
-    expect(selectableSandboxProviders(sandbox)).toEqual(["local", "e2b"]);
-  });
-
-  it("requires all Vercel credentials", () => {
-    expect(
-      canSaveSandboxProviderConnection({
-        settings: DEFAULT_SERVER_SETTINGS.sandbox,
-        provider: "vercel",
-        draft: { VERCEL_TOKEN: "token", VERCEL_TEAM_ID: "team", VERCEL_PROJECT_ID: "" },
-      }),
-    ).toBe(false);
   });
 
   it("connects Boat with a sensitive key and clears the default on disconnect", () => {
@@ -110,7 +34,8 @@ describe("sandbox settings", () => {
     expect(connected.providers.boat.environment).toEqual([
       { name: "BOAT_API_KEY", value: "boat-secret", sensitive: true },
     ]);
-    expect(selectableSandboxProviders(connected)).toContain("boat");
+    expect(isSandboxProviderConnected(connected, "boat")).toBe(true);
+    expect(selectableSandboxProviders(connected)).toEqual(["local", "boat"]);
 
     const disconnected = disconnectSandboxProvider(
       { ...connected, defaultProvider: "boat" },
@@ -121,28 +46,33 @@ describe("sandbox settings", () => {
     expect(selectableSandboxProviders(disconnected)).not.toContain("boat");
   });
 
-  it("keeps a redacted key and falls back to local on disconnect", () => {
+  it("keeps a redacted Boat key and falls back to local on disconnect", () => {
     const connected = {
       ...saveSandboxProviderConnection({
         settings: DEFAULT_SERVER_SETTINGS.sandbox,
-        provider: "e2b",
-        draft: { E2B_API_KEY: "secret" },
+        provider: "boat",
+        draft: { BOAT_API_KEY: "secret" },
       }),
-      defaultProvider: "e2b" as const,
+      defaultProvider: "boat" as const,
     };
 
     const redacted = {
       ...connected,
       providers: {
         ...connected.providers,
-        e2b: {
-          environment: [{ name: "E2B_API_KEY", value: "", sensitive: true, valueRedacted: true }],
+        boat: {
+          environment: [{ name: "BOAT_API_KEY", value: "", sensitive: true, valueRedacted: true }],
         },
       },
     };
 
-    const saved = saveSandboxProviderConnection({ settings: redacted, provider: "e2b", draft: {} });
-    expect(saved.providers.e2b.environment[0]?.valueRedacted).toBe(true);
-    expect(disconnectSandboxProvider(saved, "e2b").defaultProvider).toBe("local");
+    const saved = saveSandboxProviderConnection({
+      settings: redacted,
+      provider: "boat",
+      draft: {},
+    });
+
+    expect(saved.providers.boat.environment[0]?.valueRedacted).toBe(true);
+    expect(disconnectSandboxProvider(saved, "boat").defaultProvider).toBe("local");
   });
 });

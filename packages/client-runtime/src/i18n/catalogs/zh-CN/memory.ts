@@ -1,6 +1,4 @@
 export const memoryCatalog = {
-  "Run bots in a durable Railway VM. Idle VMs keep running and can incur charges. Previews require a Railway CLI tunnel.":
-    "在持久化的 Railway 虚拟机中运行机器人。空闲虚拟机会继续运行并可能产生费用。预览需要 Railway CLI 隧道。",
   "Approval needed": "需要批准",
   "Load older routine notes": "加载更早的例行任务记录",
   "Loading older routine notes…": "正在加载更早的例行任务记录…",

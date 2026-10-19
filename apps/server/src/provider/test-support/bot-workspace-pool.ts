@@ -12,7 +12,7 @@ export function makebotWorkspacePoolTestSupport() {
   function remoteWorkspace(overrides: Partial<OttoBotWorkspace> = {}): OttoBotWorkspace {
     return {
       id: "otto-persistent",
-      provider: "e2b",
+      provider: "boat",
       workspace: localWorkspace(),
       inspect: vi.fn(async () => "running" as const),
       wake: vi.fn(async () => undefined),

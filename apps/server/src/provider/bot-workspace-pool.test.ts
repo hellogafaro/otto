@@ -6,11 +6,13 @@ import * as Effect from "effect/Effect";
 import * as TestClock from "effect/testing/TestClock";
 import { expect, it, vi } from "vite-plus/test";
 import {
+  botIdFromResourceScope,
   botRuntimeResourceScope,
   BotWorkspacePool,
   botWorkspaceCredentialFingerprint,
   botWorkspaceIdentity,
   defaultBotSandbox,
+  isLegacyBotComputerScope,
 } from "./bot-workspace-pool.ts";
 import { makebotWorkspacePoolTestSupport } from "./test-support/bot-workspace-pool.ts";
 
@@ -23,32 +25,33 @@ describe("BotWorkspacePool", () => {
     expect(defaultBotSandbox(sandbox, undefined)).toBe("local");
     expect(defaultBotSandbox(sandbox, "server-boat-key")).toBe("boat");
 
-    const railway = {
-      ...DEFAULT_SERVER_SETTINGS.sandbox,
-      defaultProvider: "railway" as const,
-      providers: {
-        ...DEFAULT_SERVER_SETTINGS.sandbox.providers,
-        railway: {
-          environment: [
-            { name: "RAILWAY_API_TOKEN", value: "token", sensitive: true },
-            { name: "RAILWAY_ENVIRONMENT_ID", value: "", sensitive: false },
-          ],
+    expect(
+      defaultBotSandbox(
+        {
+          ...DEFAULT_SERVER_SETTINGS.sandbox,
+          defaultProvider: "boat",
+          providers: { boat: { environment: [] } },
         },
-      },
-    };
-
-    expect(defaultBotSandbox(railway, undefined)).toBe("local");
+        undefined,
+      ),
+    ).toBe("local");
   });
 
   effectIt.effect("derives workspace identities", () =>
     Effect.sync(() => {
       expect(
         botRuntimeResourceScope({ botId: BotId.make("bot-one"), threadId: "thread-one" }),
-      ).toBe("bot-one");
+      ).toBe("bot-one_thread-one");
       expect(botRuntimeResourceScope({ threadId: "thread-one" })).toBe("thread-thread-one");
+      expect(botIdFromResourceScope("bot-one_thread-one", ["bot-one", "bot"])).toBe("bot-one");
+      expect(botIdFromResourceScope("bot-one", ["bot-one"])).toBe("bot-one");
+      expect(botIdFromResourceScope("thread-thread-one", ["bot-one"])).toBeUndefined();
+      expect(isLegacyBotComputerScope("bot-one", "bot-one")).toBe(true);
+      expect(isLegacyBotComputerScope("bot-bot-one", "bot-one")).toBe(true);
+      expect(isLegacyBotComputerScope("bot-one_thread-one", "bot-one")).toBe(false);
       expect(botWorkspaceIdentity("local:/private:bot-one")).not.toContain("private");
-      expect(botWorkspaceCredentialFingerprint({ E2B_API_KEY: "first" })).not.toBe(
-        botWorkspaceCredentialFingerprint({ E2B_API_KEY: "second" }),
+      expect(botWorkspaceCredentialFingerprint({ BOAT_API_KEY: "first" })).not.toBe(
+        botWorkspaceCredentialFingerprint({ BOAT_API_KEY: "second" }),
       );
     }),
   );

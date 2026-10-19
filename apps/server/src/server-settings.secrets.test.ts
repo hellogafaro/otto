@@ -348,14 +348,14 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
       yield* fileSystem.writeFileString(
         serverConfig.settingsPath,
-        '{"sandbox":{"providers":{"e2b":{"environment":[{"name":"E2B_API_KEY","value":"plaintext-key","sensitive":true}]}}}}',
+        '{"sandbox":{"providers":{"boat":{"environment":[{"name":"BOAT_API_KEY","value":"plaintext-key","sensitive":true}]}}}}',
       );
 
       const error = yield* Effect.flip(serverSettings.getSettings);
       assert.deepInclude(error, {
         operation: "validate-sandbox",
-        providerInstanceId: "sandbox:e2b",
-        environmentVariable: "E2B_API_KEY",
+        providerInstanceId: "sandbox:boat",
+        environmentVariable: "BOAT_API_KEY",
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
@@ -367,14 +367,14 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
       yield* fileSystem.writeFileString(
         serverConfig.settingsPath,
-        '{"sandbox":{"providers":{"e2b":{"environment":[{"name":"E2B_API_KEY","value":"","sensitive":true,"valueRedacted":true},{"name":"E2B_API_KEY","value":"plaintext-key","sensitive":true}]}}}}',
+        '{"sandbox":{"providers":{"boat":{"environment":[{"name":"BOAT_API_KEY","value":"","sensitive":true,"valueRedacted":true},{"name":"BOAT_API_KEY","value":"plaintext-key","sensitive":true}]}}}}',
       );
 
       const error = yield* Effect.flip(serverSettings.getSettings);
       assert.deepInclude(error, {
         operation: "validate-sandbox",
-        providerInstanceId: "sandbox:e2b",
-        environmentVariable: "E2B_API_KEY",
+        providerInstanceId: "sandbox:boat",
+        environmentVariable: "BOAT_API_KEY",
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
@@ -387,9 +387,9 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         serverSettings.updateSettings({
           sandbox: {
             providers: {
-              e2b: {
+              boat: {
                 environment: [
-                  { name: "E2B_API_KEY", value: "", sensitive: true, valueRedacted: true },
+                  { name: "BOAT_API_KEY", value: "", sensitive: true, valueRedacted: true },
                 ],
               },
             },
@@ -399,8 +399,8 @@ it.layer(NodeServices.layer)("server settings", (it) => {
 
       assert.deepInclude(error, {
         operation: "validate-sandbox",
-        providerInstanceId: "sandbox:e2b",
-        environmentVariable: "E2B_API_KEY",
+        providerInstanceId: "sandbox:boat",
+        environmentVariable: "BOAT_API_KEY",
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
@@ -413,17 +413,8 @@ it.layer(NodeServices.layer)("server settings", (it) => {
 
       const next = yield* serverSettings.updateSettings({
         sandbox: {
-          defaultProvider: "e2b",
+          defaultProvider: "boat",
           providers: {
-            e2b: {
-              environment: [{ name: "E2B_API_KEY", value: "e2b-secret", sensitive: true }],
-            },
-            railway: {
-              environment: [
-                { name: "RAILWAY_API_TOKEN", value: "railway-secret", sensitive: true },
-                { name: "RAILWAY_ENVIRONMENT_ID", value: "environment-id", sensitive: false },
-              ],
-            },
             boat: {
               environment: [{ name: "BOAT_API_KEY", value: "boat-secret", sensitive: true }],
             },
@@ -431,28 +422,11 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         },
       });
 
-      assert.equal(next.sandbox.providers.e2b.environment[0]?.value, "e2b-secret");
-      assert.equal(next.sandbox.providers.railway.environment[0]?.value, "railway-secret");
-      assert.equal(next.sandbox.providers.railway.environment[1]?.value, "environment-id");
       assert.equal(next.sandbox.providers.boat.environment[0]?.value, "boat-secret");
       const raw = yield* fileSystem.readFileString(serverConfig.settingsPath);
-      assert.notInclude(raw, "e2b-secret");
-      assert.notInclude(raw, "railway-secret");
       assert.notInclude(raw, "boat-secret");
 
       const clientSettings = ServerSettingsModule.redactServerSettingsForClient(next);
-      assert.deepInclude(clientSettings.sandbox.providers.e2b.environment[0], {
-        value: "",
-        valueRedacted: true,
-      });
-      assert.deepInclude(clientSettings.sandbox.providers.railway.environment[0], {
-        value: "",
-        valueRedacted: true,
-      });
-      assert.deepInclude(clientSettings.sandbox.providers.railway.environment[1], {
-        value: "environment-id",
-        sensitive: false,
-      });
       assert.deepInclude(clientSettings.sandbox.providers.boat.environment[0], {
         value: "",
         valueRedacted: true,
@@ -462,9 +436,6 @@ it.layer(NodeServices.layer)("server settings", (it) => {
         sandbox: clientSettings.sandbox,
       });
 
-      assert.equal(roundTripped.sandbox.providers.e2b.environment[0]?.value, "e2b-secret");
-      assert.equal(roundTripped.sandbox.providers.railway.environment[0]?.value, "railway-secret");
-      assert.equal(roundTripped.sandbox.providers.railway.environment[1]?.value, "environment-id");
       assert.equal(roundTripped.sandbox.providers.boat.environment[0]?.value, "boat-secret");
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
