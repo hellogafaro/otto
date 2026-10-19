@@ -11,6 +11,7 @@ import {
   ProjectId,
   ThreadId,
   TrimmedNonEmptyString,
+  Visibility,
 } from "../base-schemas.ts";
 import {
   McpServerId,
@@ -89,6 +90,7 @@ export const BotCreateCommand = Schema.Struct({
   instructions: Schema.optional(Schema.NullOr(BotInstructions)),
   disabledMcpServerIds: Schema.optional(Schema.Array(McpServerId)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  visibility: Schema.optional(Visibility),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: Schema.NullOr(BotSandbox),
@@ -117,6 +119,8 @@ export const BotUpdateCommand = Schema.Struct({
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   /** Filled in by the server; only the owner hands a bot to someone else. */
   by: Schema.optional(WorkParticipant),
+  /** Only the owner changes who sees the bot. */
+  visibility: Schema.optional(Visibility),
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),
   sandbox: Schema.optional(Schema.NullOr(BotSandbox)),
@@ -143,6 +147,8 @@ export const ClientBotUpdateCommand = Schema.Struct({
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
   /** Filled in by the server; only the owner hands a bot to someone else. */
   by: Schema.optional(WorkParticipant),
+  /** Only the owner changes who sees the bot. */
+  visibility: Schema.optional(Visibility),
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),
   sandbox: Schema.optional(Schema.NullOr(BotSandbox)),

@@ -38,6 +38,7 @@ export function projectBotsAndGroups(
             disabledMcpServerIds: payload.disabledMcpServerIds,
             ...(payload.disabledSkillIds ? { disabledSkillIds: payload.disabledSkillIds } : {}),
             owner: payload.owner,
+            ...(payload.visibility !== undefined ? { visibility: payload.visibility } : {}),
             avatar: payload.avatar,
             engine: payload.engine,
             sandbox: payload.sandbox,
@@ -81,6 +82,7 @@ export function projectBotsAndGroups(
               ? { alwaysAllowed: payload.alwaysAllowed }
               : {}),
             ...(payload.owner !== undefined ? { owner: payload.owner } : {}),
+            ...(payload.visibility !== undefined ? { visibility: payload.visibility } : {}),
             ...(payload.avatar !== undefined ? { avatar: payload.avatar } : {}),
             ...(payload.engine !== undefined ? { engine: payload.engine } : {}),
             ...(payload.sandbox !== undefined ? { sandbox: payload.sandbox } : {}),

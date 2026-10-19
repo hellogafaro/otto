@@ -46,7 +46,7 @@ import {
 } from "../auth/http.ts";
 import { OrchestrationEngineService } from "./services/orchestration-engine.ts";
 import { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
-import { canSeeThreadById, visibleShellSnapshot } from "./group-visibility.ts";
+import { canSeeCommandBots, canSeeThreadById, visibleShellSnapshot } from "./group-visibility.ts";
 import { ProjectionSnapshotQuery } from "./services/projection-snapshot-query.ts";
 
 export const orchestrationHttpApiLayer = HttpApiBuilder.group(
@@ -254,6 +254,16 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             : actorCommand;
 
           if (!normalizedCommand) {
+            return yield* failEnvironmentInvalidRequest("invalid_command");
+          }
+
+          if (
+            !(yield* canSeeCommandBots(
+              { projectionBots, projectionGroups },
+              normalizedCommand,
+              personId,
+            ))
+          ) {
             return yield* failEnvironmentInvalidRequest("invalid_command");
           }
 

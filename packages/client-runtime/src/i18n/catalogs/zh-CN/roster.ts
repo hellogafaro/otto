@@ -224,6 +224,9 @@ export const rosterCatalog = {
   "Turn on {name} for this bot": "为此机器人开启 {name}",
   "Name your bot": "为你的机器人命名",
   "Set up how this bot works with you.": "设置这个机器人与你协作的方式。",
+  "Only me hides this bot from everyone except you and the people in its groups.":
+    "仅自己：除你和它所在群组中的成员外，其他人都看不到这个机器人。",
+  "Only the bot's owner can change who sees it.": "只有机器人的所有者可以更改谁能看到它。",
   "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.":
     "Otto 暂时无法识别此条件。它仍然可以保存，但除非运行时提供该条件，否则可能不会匹配。",
   "Negate group": "取反条件组",

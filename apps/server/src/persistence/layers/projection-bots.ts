@@ -48,7 +48,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     execute: (row) => sql`
       INSERT INTO projection_bots (
         bot_id, name, title, label, description, instructions, disabled_mcp_server_ids_json,
-        disabled_skill_ids_json, always_allowed_json, owner_json,
+        disabled_skill_ids_json, always_allowed_json, owner_json, visibility,
         avatar_json, engine_json, sandbox, runtime_mode, image_provider,
         voice_enabled, channel_bindings_json,
         group_id, archived_at, created_at, updated_at
@@ -57,7 +57,8 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         ${row.instructions},
         ${JSON.stringify(row.disabledMcpServerIds)}, ${JSON.stringify(row.disabledSkillIds ?? [])},
         ${JSON.stringify(row.alwaysAllowed ?? [])},
-        ${row.owner ? JSON.stringify(row.owner) : null}, ${JSON.stringify(row.avatar)},
+        ${row.owner ? JSON.stringify(row.owner) : null}, ${row.visibility ?? "organization"},
+        ${JSON.stringify(row.avatar)},
         ${row.engine === null ? null : JSON.stringify(row.engine)}, ${row.sandbox},
         ${row.runtimeMode}, ${row.imageProvider},
         ${row.voiceEnabled ? 1 : 0},
@@ -75,6 +76,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
         disabled_skill_ids_json = excluded.disabled_skill_ids_json,
         always_allowed_json = excluded.always_allowed_json,
         owner_json = excluded.owner_json,
+        visibility = excluded.visibility,
         avatar_json = excluded.avatar_json,
         engine_json = excluded.engine_json,
         sandbox = excluded.sandbox,
@@ -95,7 +97,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     execute: ({ botId }) => sql`
       SELECT
         bot_id AS "botId", name, title, label, description, instructions,
-        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", avatar_json AS "avatar",
+        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", visibility, avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
@@ -111,7 +113,7 @@ const makeProjectionBotRepository = Effect.gen(function* () {
     execute: () => sql`
       SELECT
         bot_id AS "botId", name, title, label, description, instructions,
-        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", avatar_json AS "avatar",
+        disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", visibility, avatar_json AS "avatar",
         engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",

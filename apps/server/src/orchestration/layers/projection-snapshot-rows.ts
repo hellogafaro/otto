@@ -510,6 +510,7 @@ export function mapBotRow(
     ...(row.disabledSkillIds?.length ? { disabledSkillIds: row.disabledSkillIds } : {}),
     ...(row.alwaysAllowed?.length ? { alwaysAllowed: row.alwaysAllowed } : {}),
     owner: row.owner,
+    ...(row.visibility !== undefined ? { visibility: row.visibility } : {}),
     avatar: row.avatar,
     engine: row.engine,
     sandbox: row.sandbox,

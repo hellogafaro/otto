@@ -303,6 +303,7 @@ export const createWsOrchestrationStreams = ({
                     ? { alwaysAllowed: nextBot.alwaysAllowed }
                     : {}),
                   ...(nextBot.owner !== undefined ? { owner: nextBot.owner } : {}),
+                  ...(nextBot.visibility !== undefined ? { visibility: nextBot.visibility } : {}),
                   avatar: nextBot.avatar,
                   engine: nextBot.engine,
                   sandbox: nextBot.sandbox,

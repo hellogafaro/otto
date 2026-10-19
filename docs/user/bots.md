@@ -90,6 +90,14 @@ enough usage data.
 Otto stores bot profiles on the connected environment. Every client connected to that environment
 sees the same profile.
 
+## Who sees a bot
+
+A bot is visible to the whole team by default. Its owner can set **Visibility** to **Only me** in
+the bot's settings, under **Access**. A private bot is then hidden from everyone except its owner and
+the people in a group chat that includes it. Others cannot open it, message it or change it, and
+other bots cannot hand it work from a chat where someone cannot see it. Only the owner can change
+this setting.
+
 ## Workspaces and browsers
 
 **Separate** is the default. Each bot gets its own workspace identity and browser profile. **Shared**

@@ -78,6 +78,7 @@ export {
   GroupMembership,
   isGroupBotMember,
   isGroupPersonMember,
+  canSeeBot,
   GROUP_SHARED_WORKSPACE_WARNING,
   OrchestrationGroup,
 } from "./orchestration/roster.ts";
