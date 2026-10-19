@@ -361,6 +361,9 @@ export const useRosterStore = create<RosterStore>((set, get) => ({
   },
 
   setItemPinned: (item, pinned) => {
+    // Bots stay in DMs. Pins are for groups and individual chats only.
+    if (item.kind === "bot") return;
+
     set((state) => {
       const withoutItem = state.pinnedItems.filter(
         (candidate) => candidate.kind !== item.kind || candidate.id !== item.id,

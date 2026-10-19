@@ -32,6 +32,7 @@ export {
   type RosterItemRef,
   rosterItemKey,
   rosterItemsEqual,
+  isRosterPinnable,
   moveRosterItemInOrder,
   rosterSectionItems,
   type RosterEntry,

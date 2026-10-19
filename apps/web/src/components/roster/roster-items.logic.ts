@@ -12,6 +12,11 @@ export function rosterItemsEqual(left: RosterItemRef, right: RosterItemRef): boo
   return left.kind === right.kind && left.id === right.id;
 }
 
+/** Groups and individual chats can sit in Pins. Bots cannot. */
+export function isRosterPinnable(item: RosterItemRef): boolean {
+  return item.kind !== "bot";
+}
+
 /** Shift an item by one slot in a visible zone. Null when it cannot move. */
 export function moveRosterItemInOrder(
   order: readonly RosterItemRef[],

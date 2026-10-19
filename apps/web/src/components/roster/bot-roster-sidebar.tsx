@@ -39,6 +39,7 @@ import { SidebarContent, SidebarGroup } from "../ui/sidebar";
 import { toast } from "sonner";
 import {
   filterRosterGroups,
+  isRosterPinnable,
   rosterItemKey,
   rosterItemsEqual,
   orderRosterBotsForShortcuts,
@@ -71,9 +72,6 @@ export { RosterPanelHeader } from "./roster-headers";
 
 const setRosterItemPinned = (item: RosterItemRef, pinned: boolean) =>
   useRosterStore.getState().setItemPinned(item, pinned);
-
-const nudgeRosterItem = (item: RosterItemRef, delta: -1 | 1) =>
-  useRosterStore.getState().nudgeRosterItem(item, delta);
 
 /** `panel` drops the roster's own chrome for the experimental rail layout. */
 export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" | "panel" } = {}) {
@@ -119,18 +117,12 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
       : false,
   );
 
-  const visibleBots = useMemo(
-    () => bots.filter((bot) => bot.archivedAt === null),
-    [bots],
-  );
+  const visibleBots = useMemo(() => bots.filter((bot) => bot.archivedAt === null), [bots]);
 
   const visibleGroups = useMemo(() => filterRosterGroups(groups, bots, ""), [bots, groups]);
 
   const pinnedKeys = useMemo(
-    () =>
-      new Set(
-        pinnedItems.filter((item) => item.kind === "group").map((item) => rosterItemKey(item)),
-      ),
+    () => new Set(pinnedItems.filter(isRosterPinnable).map((item) => rosterItemKey(item))),
     [pinnedItems],
   );
 
@@ -154,7 +146,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   );
 
   const visiblePinnedItems = useMemo(
-    () => pinnedItems.filter((item) => item.kind === "group" && liveItem(item)),
+    () => pinnedItems.filter((item) => isRosterPinnable(item) && liveItem(item)),
     [liveItem, pinnedItems],
   );
 
@@ -410,17 +402,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                   {rosterEntries.map((item) => {
                     const pinned = pinnedKeys.has(rosterItemKey(item.item));
 
-                    const zoneOrder =
-                      item.zone === "pinned" ? visiblePinnedItems : visibleUnassignedItems;
-
-                    const zoneIndex = zoneOrder.findIndex((candidate) =>
-                      rosterItemsEqual(candidate, item.item),
-                    );
-
-                    const canMoveUp = zoneIndex > 0;
-
-                    const canMoveDown = zoneIndex >= 0 && zoneIndex < zoneOrder.length - 1;
-
                     const firstOfSection =
                       item.zone === "pinned"
                         ? rosterItemsEqual(item.item, visiblePinnedItems[0]!)
@@ -463,9 +444,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               bot={bot}
                               openThreadId={routedChat?.threadId ?? null}
                               onPin={setRosterItemPinned}
-                              canMoveUp={canMoveUp}
-                              canMoveDown={canMoveDown}
-                              onNudge={nudgeRosterItem}
                             />
                           );
                         }),
@@ -484,9 +462,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               }
                               onOpenSettings={handleOpenBotSettings}
                               pinned={pinned}
-                              canMoveUp={canMoveUp}
-                              canMoveDown={canMoveDown}
-                              onNudge={nudgeRosterItem}
                               onArchive={setArchivingBot}
                               shortcutLabel={shortcutLabelByBotId.get(bot.id) ?? null}
                             />
@@ -506,9 +481,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               onSelect={handleSelectGroup}
                               pinned={pinned}
                               onPin={setRosterItemPinned}
-                              canMoveUp={canMoveUp}
-                              canMoveDown={canMoveDown}
-                              onNudge={nudgeRosterItem}
                             />
                           );
                         }),

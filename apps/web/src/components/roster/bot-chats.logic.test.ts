@@ -38,4 +38,15 @@ describe("buildBotChatRows", () => {
   it("lists eight chats by default", () => {
     expect(buildBotChatRows({ chats, currentThreadId: null })).toHaveLength(8);
   });
+
+  it("leaves pinned chats out, including the open one", () => {
+    const rows = buildBotChatRows({
+      chats,
+      currentThreadId: "chat-1",
+      pinnedIds: new Set(["chat-0", "chat-1"]),
+      limit: 4,
+    });
+
+    expect(rows.map((row) => row.threadId)).toEqual(["chat-2", "chat-3", "chat-4", "chat-5"]);
+  });
 });

@@ -1,3 +1,4 @@
+import { RiPushpinLine } from "@remixicon/react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef } from "react";
@@ -11,6 +12,7 @@ import { formatRelativeTime } from "../../timestamp-format";
 import { buildBotChatRows } from "./bot-chats.logic";
 import { ThreadStatusIcon } from "./chat-status-icon";
 import { listBotChats } from "./bot-thread-runtime.logic";
+import { RosterRowAction } from "./roster-row-actions";
 import {
   ROSTER_TIME_CLASS,
   ROSTER_TRAIL_ACTIONS_CLASS,
@@ -18,6 +20,7 @@ import {
   ROSTER_TRAIL_CLASS,
   ROSTER_TRAIL_INFO_CLASS,
 } from "./roster-row-classes";
+import { useRosterStore } from "./roster-store";
 
 /** The bot's chats, newest first. The roster lists them whenever the bot has one. */
 export function useBotChats(botId: string) {
@@ -40,10 +43,13 @@ export function useBotChats(botId: string) {
 export function BotChatTree({
   chats,
   openThreadId,
+  pinnedIds,
 }: {
   readonly chats: ReturnType<typeof useBotChats>;
   /** This bot's chat on screen, if one is, marked in the list. */
   readonly openThreadId: string | null;
+  /** This bot's chats pinned to Pins, which list there instead. */
+  readonly pinnedIds: ReadonlySet<string>;
 }) {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
@@ -53,6 +59,7 @@ export function BotChatTree({
   const rows = buildBotChatRows({
     chats,
     currentThreadId: openThreadId,
+    pinnedIds,
   });
 
   return (
@@ -122,6 +129,15 @@ export function BotChatTree({
               </span>
               {threadRef ? (
                 <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
+                  <RosterRowAction
+                    label={t("Pin")}
+                    icon={RiPushpinLine}
+                    onClick={() =>
+                      useRosterStore
+                        .getState()
+                        .setItemPinned({ kind: "chat", id: row.threadId }, true)
+                    }
+                  />
                   <SidebarChatMenu
                     threadRef={threadRef}
                     label={t("Actions for {name}", { name: title })}
