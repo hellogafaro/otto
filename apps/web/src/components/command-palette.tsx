@@ -77,7 +77,7 @@ import { projectStatus } from "./work/work.logic";
 import { StatusIcon } from "./status-icon";
 import { ROUTINE_STATUS_ICON, routineStatus } from "./routines/routine-status";
 import { useRoutineSearch } from "./routines/use-routine-search";
-import { resolveShortcutCommand } from "../keybindings";
+import { isInputFocus, resolveShortcutCommand } from "../keybindings";
 import { CommandDialog, CommandDialogPopup } from "./ui/command";
 import { toast } from "sonner";
 
@@ -110,6 +110,7 @@ export function CommandPalette({ children }: { children: ReactNode }) {
       const command = resolveShortcutCommand(event, keybindings, {
         context: {
           previewFocus: isPreviewFocused(),
+          inputFocus: isInputFocus(event.target),
         },
       });
 

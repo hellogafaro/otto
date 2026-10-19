@@ -71,9 +71,25 @@ function normalizeEventKey(key: string): string {
   return normalized;
 }
 
-function resolveEventKeys(event: ShortcutEventLike): Set<string> {
+function resolveEventKeys(event: ShortcutEventLike, typing: boolean): Set<string> {
   const layoutKey = normalizeEventKey(event.key);
   const keys = new Set([layoutKey]);
+  const physicalKey = event.code?.replace(/^(Digit|Key)/, "").toLowerCase();
+
+  // macOS Option types a character from the physical key. In a text field that
+  // character belongs to the field, so the physical key must not also match.
+  // Command or Control still names a chord, such as ⌘⌥B, and keeps the physical key.
+  if (
+    typing &&
+    event.altKey &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    physicalKey !== undefined &&
+    layoutKey !== physicalKey
+  ) {
+    return keys;
+  }
+
   // The physical-position fallback exists for layouts that type non-Latin
   // letters (Cyrillic, Greek) and for Option-modified symbols on macOS.
   // When the layout already produces a Latin letter, match on it alone;
@@ -117,6 +133,7 @@ function matchesShortcut(
   event: ShortcutEventLike,
   shortcut: KeybindingShortcut,
   platform = navigator.platform,
+  typing = false,
 ): boolean {
   // A symbol the layout itself typed, such as ?, needs Shift on some layouts and not on
   // others, so Shift belongs to the symbol rather than to the shortcut. A shortcut that names
@@ -133,7 +150,7 @@ function matchesShortcut(
 
   if (!matchesShortcutModifiers(modifiers, shortcut, platform)) return false;
 
-  return resolveEventKeys(event).has(shortcut.key);
+  return resolveEventKeys(event, typing).has(shortcut.key);
 }
 
 function resolvePlatform(options: ShortcutMatchOptions | undefined): string {
@@ -236,7 +253,9 @@ export function resolveShortcutCommand(
 
     if (!matchesWhenClause(binding.whenAst, context)) continue;
 
-    if (!matchesShortcut(event, binding.shortcut, platform)) continue;
+    if (!matchesShortcut(event, binding.shortcut, platform, context.inputFocus === true)) {
+      continue;
+    }
 
     return binding.command;
   }
