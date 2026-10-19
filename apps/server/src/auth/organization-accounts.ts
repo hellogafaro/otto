@@ -63,6 +63,7 @@ export const layer = Layer.effect(
     const secrets = yield* ServerSecretStore;
     const clock = yield* Clock.Clock;
     const variables = yield* HostProcessEnvironment;
+    const runFork = Effect.runForkWith(yield* Effect.context<never>());
 
     const database = yield* Effect.acquireRelease(
       Effect.try(() => new NodeSqlite.DatabaseSync(config.dbPath)),
@@ -113,7 +114,19 @@ export const layer = Layer.effect(
         sendEmail: async (mail) => {
           try {
             await mailer.sendMail({ ...mail, from: variables.OTTO_MAIL_FROM });
-          } catch {
+          } catch (cause) {
+            // Otto: the person only sees a generic failure; operators need the SMTP reason
+            // (timeout, refused login, rejected sender), never the credentials.
+            runFork(
+              Effect.logError("Otto email delivery failed", {
+                host: variables.OTTO_SMTP_HOST,
+                port: Number(variables.OTTO_SMTP_PORT ?? "587"),
+                secure: variables.OTTO_SMTP_SECURE === "true",
+                code: cause instanceof Error && "code" in cause ? String(cause.code) : undefined,
+                reason: cause instanceof Error ? cause.message : String(cause),
+              }),
+            );
+
             throw new APIError("SERVICE_UNAVAILABLE", {
               code: "EMAIL_DELIVERY_FAILED",
               message: "Email could not be delivered. Check the organization's mail configuration.",
