@@ -286,16 +286,6 @@ export function createTurnLifecycle(deps: {
           deps.runPromise(Effect.logWarning("bot computer wake failed", { threadId, cause })),
         );
 
-      // Otto: the computer's root, where its shell starts; the turn does not wait for it, only
-      // its first command does.
-      const chatFolder = deps.computerSetup.folder(String(threadId));
-      const toolSession = chatFolder ? { ...pending.toolSession, chatFolder } : pending.toolSession;
-
-      if (chatFolder) {
-        active.toolSession = toolSession;
-        deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-      }
-
       // Otto: the computer gets its tools and the project's repositories, and acts on GitHub as
       // the person this turn is for until the turn ends. It is awaited only for a turn a person
       // asked for, so other turns start without a pause.
@@ -312,7 +302,7 @@ export function createTurnLifecycle(deps: {
         ));
 
       if (commandEnvironment) {
-        active.toolSession = { ...toolSession, commandEnvironment };
+        active.toolSession = { ...pending.toolSession, commandEnvironment };
         deps.toolRuntime.registerSession(String(threadId), active.toolSession);
       }
 

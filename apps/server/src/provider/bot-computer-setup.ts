@@ -117,15 +117,12 @@ const cloneRepositories = (repositories: readonly string[]) =>
     })
     .join("\n");
 
-/** The environment variable that holds the computer's root; the shell starts there. */
-export const CHAT_FOLDER_VARIABLE = "OTTO_CHAT_DIR";
-
 /**
- * Prepares the chat's computer for each turn, and cleans up after it. The shell starts at the
- * computer root. A turn a person asked for also gets the toolbox once, that person's GitHub
- * login, and the project's repositories cloned into `repos/`. Nothing logs in when that person
- * has not linked GitHub, so git and gh say they are not logged in and the bot asks them to
- * connect.
+ * Prepares the chat's computer for each turn, and cleans up after it. The sandbox already
+ * starts at the computer root. A turn a person asked for also gets the toolbox once, that
+ * person's GitHub login, and the project's repositories cloned into `repos/`. Nothing logs in
+ * when that person has not linked GitHub, so git and gh say they are not logged in and the bot
+ * asks them to connect.
  */
 export function createBotComputerSetup(deps: {
   readonly turnLogin: (personId: string) => Promise<GitHubTurnLogin | undefined>;
@@ -168,37 +165,6 @@ export function createBotComputerSetup(deps: {
     return path ? { PATH: path } : {};
   };
 
-  // Each computer remembers its root, so a later turn skips asking; a replaced computer is a
-  // new object and asks again.
-  const roots = new WeakMap<OttoBotWorkspace, string>();
-
-  const computerRoot = async (computer: OttoBotWorkspace) => {
-    const saved = roots.get(computer);
-
-    if (saved) return saved;
-
-    const result = await computer.workspace.sandbox
-      ?.executeCommand?.('printf %s "$PWD"', [], { timeout: 60_000 })
-      .catch(() => undefined);
-
-    const folder = result?.exitCode === 0 ? result.stdout.trim() : "";
-
-    if (!folder.startsWith("/")) return undefined;
-    roots.set(computer, folder);
-
-    return folder;
-  };
-
-  /**
-   * The computer's root, resolved once without waiting on the chat's queue, so a turn can
-   * start at once and its shell waits for the path only when it runs.
-   */
-  const folder = (threadId: string): Promise<string | undefined> | undefined => {
-    const computer = deps.computer(threadId);
-
-    return computer ? computerRoot(computer) : undefined;
-  };
-
   // A turn for nobody on a chat with nothing written skips the queue, so it starts at once.
   const start = (threadId: string, askerPersonId: string | null) =>
     !askerPersonId && !written.has(threadId) && !queues.has(threadId)
@@ -237,5 +203,5 @@ export function createBotComputerSetup(deps: {
       ? queued(threadId, () => remove(threadId))
       : undefined;
 
-  return { start, folder, end };
+  return { start, end };
 }

@@ -247,37 +247,6 @@ describe("bot computer setup", () => {
     );
   });
 
-  it("starts the shell at the computer root", async () => {
-    const { root, computer, commands } = await localComputer();
-
-    const setup = createBotComputerSetup({
-      turnLogin: async () => undefined,
-      projectLinks: async () => [],
-      computer: () => computer,
-    });
-
-    const first = await setup.folder("thread-1");
-    const second = await setup.folder("thread-2");
-
-    expect(first).toBe(root);
-    expect(second).toBe(root);
-    expect(setup.start("thread-1", null)).toBeUndefined();
-
-    commands.mockClear();
-    expect(await setup.folder("thread-1")).toBe(first);
-    expect(commands).not.toHaveBeenCalled();
-
-    const shell = withCommandEnvironment(computer.workspace, {}, first);
-    const here = await shell.sandbox!.executeCommand!("pwd", []);
-    expect(await NodeFSP.realpath(here.stdout.trim())).toBe(root);
-    const there = await shell.sandbox!.executeCommand!("pwd", [], { cwd: root });
-    expect(there.stdout.trim()).toBe(root);
-
-    await NodeFSP.mkdir(NodePath.join(root, "sub"));
-    const below = await shell.sandbox!.executeCommand!("pwd", [], { cwd: "sub" });
-    expect(await NodeFSP.realpath(below.stdout.trim())).toBe(NodePath.join(root, "sub"));
-  });
-
   it("clones the project's repositories onto this computer and keeps its work", async () => {
     const { root, computer, tools } = await localComputer();
     await tools.origin("github.com/acme/app.git");
