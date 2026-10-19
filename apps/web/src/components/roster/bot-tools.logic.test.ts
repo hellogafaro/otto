@@ -158,4 +158,28 @@ describe("buildBotAccountItems", () => {
       ["slack", false],
     ]);
   });
+
+  it("starts a newly connected account off for every bot, team or private", () => {
+    const connections = [
+      account("slack", "organization", { "*": false }),
+      account("gmail", "user", { "*": false, "bot-1": true }),
+    ];
+
+    expect(
+      buildBotAccountItems(connections, { id: "bot-1", ownerPersonId: "ana" }, "ana").map(
+        (item) => [item.connection.id, item.enabled],
+      ),
+    ).toEqual([
+      ["gmail", true],
+      ["slack", false],
+    ]);
+    expect(
+      buildBotAccountItems(connections, { id: "bot-2", ownerPersonId: "ana" }, "ana").map(
+        (item) => [item.connection.id, item.enabled],
+      ),
+    ).toEqual([
+      ["gmail", false],
+      ["slack", false],
+    ]);
+  });
 });

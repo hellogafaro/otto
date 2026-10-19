@@ -1,4 +1,5 @@
 import {
+  COMPOSIO_BOT_ACCESS_DEFAULT,
   ComposioLabelTakenError,
   ComposioOperationError,
   type ComposioAuthSetup,
@@ -646,7 +647,7 @@ export function make(
         createdByName: viewer.displayName,
         label: label ?? null,
         visibility: input.visibility ?? "user",
-        botAccess: {},
+        botAccess: { [COMPOSIO_BOT_ACCESS_DEFAULT]: false },
       });
 
       return authorization;

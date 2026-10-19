@@ -1,5 +1,6 @@
 import {
   canUseMcpServer,
+  COMPOSIO_BOT_ACCESS_DEFAULT,
   LIBRARY_SKILLS_FOLDER_ID,
   type ComposioConnection,
   type LibraryFolder,
@@ -162,9 +163,8 @@ export interface BotAccountItem {
 }
 
 /**
- * The viewer's app accounts for one bot. A per-bot switch wins; otherwise a team account
- * serves every bot and a personal one (always the viewer's, since nobody sees another
- * person's) the bots its owner owns.
+ * The viewer's app accounts for one bot. A per-bot switch wins. A new account starts off.
+ * An older team account serves every bot, and an older personal one the bots its owner owns.
  */
 export function buildBotAccountItems(
   connections: readonly ComposioConnection[],
@@ -174,11 +174,18 @@ export function buildBotAccountItems(
   const ownsBot = viewerPersonId !== null && bot.ownerPersonId === viewerPersonId;
 
   return connections
-    .map((connection) => ({
-      connection,
-      enabled:
-        connection.botAccess[bot.id] ?? (connection.visibility === "organization" || ownsBot),
-    }))
+    .map((connection) => {
+      const choice = connection.botAccess[bot.id];
+
+      return {
+        connection,
+        enabled:
+          choice ??
+          (connection.botAccess[COMPOSIO_BOT_ACCESS_DEFAULT] === false
+            ? false
+            : connection.visibility === "organization" || ownsBot),
+      };
+    })
     .toSorted((left, right) =>
       (left.connection.toolkitName ?? left.connection.toolkitSlug).localeCompare(
         right.connection.toolkitName ?? right.connection.toolkitSlug,

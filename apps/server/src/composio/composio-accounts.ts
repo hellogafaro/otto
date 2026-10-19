@@ -1,5 +1,9 @@
 import * as NodeCrypto from "node:crypto";
-import { type ComposioOperationError, type ComposioVisibility } from "@otto/contracts";
+import {
+  COMPOSIO_BOT_ACCESS_DEFAULT,
+  type ComposioOperationError,
+  type ComposioVisibility,
+} from "@otto/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -54,8 +58,8 @@ export interface ComposioBot {
 }
 
 /**
- * Whether an account serves a bot: its per-bot switch when set, else the default (team
- * accounts serve every bot, a personal account the bots its owner owns).
+ * Whether an account serves a bot: its per-bot switch when set, else the default. A new
+ * account starts off for every bot. An older one serves the team, or the bots its owner owns.
  */
 export function composioAccountServesBot(
   record: ComposioAccountRecord | undefined,
@@ -63,7 +67,10 @@ export function composioAccountServesBot(
 ): boolean {
   const choice = bot.botId === null ? undefined : record?.botAccess[bot.botId];
 
-  return choice ?? composioAccountVisibleTo(record, bot.ownerPersonId);
+  if (choice !== undefined) return choice;
+  if (record?.botAccess[COMPOSIO_BOT_ACCESS_DEFAULT] === false) return false;
+
+  return composioAccountVisibleTo(record, bot.ownerPersonId);
 }
 
 const decodeBotAccess = Schema.decodeUnknownOption(

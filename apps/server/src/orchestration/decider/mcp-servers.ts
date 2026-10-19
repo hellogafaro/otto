@@ -5,6 +5,7 @@ import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
 import { requireMcpServer, requireMcpServerAbsent } from "../command-invariants.ts";
+import { addedToolStartsOff, disableAddedToolOnBots } from "./added-tools.ts";
 import { withEventBase, nowIso, type DecideOrchestrationCommandResult } from "./event-base.ts";
 
 export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
@@ -85,16 +86,27 @@ export const decideMcpServers = Effect.fn("decideMcpServers")(function* ({
               updatedAt: command.createdAt,
             };
 
-      return {
+      const created = {
         ...(yield* withEventBase({
-          aggregateKind: "mcp-server",
+          aggregateKind: "mcp-server" as const,
           aggregateId: command.mcpServerId,
           occurredAt: command.createdAt,
           commandId: command.commandId,
         })),
-        type: "mcp-server.created",
+        type: "mcp-server.created" as const,
         payload: { mcpServer },
       };
+
+      if (!addedToolStartsOff(command.createdAt)) return created;
+
+      const disables = yield* disableAddedToolOnBots({
+        bots: readModel.bots,
+        occurredAt: command.createdAt,
+        commandId: command.commandId,
+        mcpServerId: command.mcpServerId,
+      });
+
+      return disables.length === 0 ? created : [created, ...disables];
     }
 
     case "mcp-server.update": {

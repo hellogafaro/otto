@@ -20,6 +20,7 @@ import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
+import { addedToolStartsOff, disableAddedToolOnBots } from "./added-tools.ts";
 import { withEventBase, nowIso, type DecideOrchestrationCommandResult } from "./event-base.ts";
 
 type LibraryCommand = Extract<
@@ -194,9 +195,9 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       const { occurredAt, base: eventBase } = yield* base("library-folder", command.folderId);
 
-      return {
+      const created = {
         ...eventBase,
-        type: "library.folder-created",
+        type: "library.folder-created" as const,
         payload: {
           folder: {
             id: command.folderId,
@@ -206,7 +207,7 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
             title: command.title,
             visibility:
               command.threadId !== undefined || command.projectId !== undefined
-                ? "organization"
+                ? ("organization" as const)
                 : (command.visibility ?? "organization"),
             createdBy: by,
             createdAt: occurredAt,
@@ -215,6 +216,19 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
           },
         },
       };
+
+      if (command.parentId !== LIBRARY_SKILLS_FOLDER_ID || !addedToolStartsOff(occurredAt)) {
+        return created;
+      }
+
+      const disables = yield* disableAddedToolOnBots({
+        bots: readModel.bots,
+        occurredAt,
+        commandId: command.commandId,
+        skillId: command.folderId,
+      });
+
+      return disables.length === 0 ? created : [created, ...disables];
     }
 
     case "library.folder.update": {
@@ -263,14 +277,19 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
       }
 
       const { occurredAt, base: eventBase } = yield* base("library-folder", folder.id);
+      const parentId = command.parentId ?? null;
+      const becomesSkill =
+        moves &&
+        parentId === LIBRARY_SKILLS_FOLDER_ID &&
+        folder.parentId !== LIBRARY_SKILLS_FOLDER_ID;
 
-      return {
+      const updated = {
         ...eventBase,
-        type: "library.folder-updated",
+        type: "library.folder-updated" as const,
         payload: {
           folder: {
             ...folder,
-            ...(moves ? { parentId: command.parentId ?? null } : {}),
+            ...(moves ? { parentId } : {}),
             ...(command.title !== undefined ? { title: command.title } : {}),
             ...(command.visibility !== undefined ? { visibility: command.visibility } : {}),
             updatedBy: by,
@@ -278,6 +297,17 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
           },
         },
       };
+
+      if (!becomesSkill) return updated;
+
+      const disables = yield* disableAddedToolOnBots({
+        bots: readModel.bots,
+        occurredAt,
+        commandId: command.commandId,
+        skillId: folder.id,
+      });
+
+      return disables.length === 0 ? updated : [updated, ...disables];
     }
 
     case "library.folder.delete": {
