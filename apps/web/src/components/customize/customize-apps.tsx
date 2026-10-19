@@ -386,7 +386,7 @@ function AppBody({
  * select and a trash glyph; there is no account page or dialog), then the
  * tools it gives bots and the triggers (app events) that can start a routine, each in a card row. Connect opens a small dialog: a label (required,
  * unique among the person's own accounts for the app) and Yours or Team. Apps Composio hosts stop there.
- * Apps it does not host also ask for an existing auth config or a new one, using the fields Composio lists.
+ * Apps it does not host also ask for an existing auth config or a new one, as choice cards, using the fields Composio lists.
  * Otto forwards those fields and does not store them.
  */
 export function CustomizeAppPage({

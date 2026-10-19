@@ -26,7 +26,7 @@ import {
 } from "../ui/dialog";
 import { Field, FieldDescription, FieldError, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
-import { Radio, RadioGroup } from "../ui/radio-group";
+import { RadioCard, RadioGroup } from "../ui/radio-group";
 import { Spinner } from "../ui/spinner";
 import { Textarea } from "../ui/textarea";
 import { useComposio } from "./customize-integrations";
@@ -311,24 +311,20 @@ function UnmanagedFields({
       {configs.length > 0 ? (
         <Field>
           <FieldLabel>{t("Configuration")}</FieldLabel>
-          <RadioGroup value={selection} onValueChange={(value) => onPick(String(value))}>
+          <RadioGroup
+            className="w-full gap-2"
+            value={selection}
+            onValueChange={(value) => onPick(String(value))}
+          >
             {configs.map((config) => (
-              <label key={config.id} className="flex items-start gap-2">
-                <Radio value={config.id} />
-                <span className="min-w-0">
-                  <span className="block text-sm text-foreground">{config.name}</span>
-                  {config.scheme ? (
-                    <span className="block text-xs text-muted-foreground">
-                      {schemeLabel(config.scheme, t)}
-                    </span>
-                  ) : null}
-                </span>
-              </label>
+              <RadioCard
+                key={config.id}
+                value={config.id}
+                title={config.name}
+                description={config.scheme ? schemeLabel(config.scheme, t) : undefined}
+              />
             ))}
-            <label className="flex items-center gap-2">
-              <Radio value="new" />
-              <span className="text-sm text-foreground">{t("New configuration")}</span>
-            </label>
+            <RadioCard value="new" title={t("New configuration")} />
           </RadioGroup>
           <FieldDescription>
             {t(
@@ -344,12 +340,13 @@ function UnmanagedFields({
       {creating && schemes.length > 1 ? (
         <Field>
           <FieldLabel>{t("Scheme")}</FieldLabel>
-          <RadioGroup value={scheme} onValueChange={(value) => onScheme(String(value))}>
+          <RadioGroup
+            className="w-full gap-2"
+            value={scheme}
+            onValueChange={(value) => onScheme(String(value))}
+          >
             {schemes.map((item) => (
-              <label key={item.mode} className="flex items-center gap-2">
-                <Radio value={item.mode} />
-                <span className="text-sm text-foreground">{schemeLabel(item.mode, t)}</span>
-              </label>
+              <RadioCard key={item.mode} value={item.mode} title={schemeLabel(item.mode, t)} />
             ))}
           </RadioGroup>
         </Field>
