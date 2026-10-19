@@ -692,13 +692,19 @@ const make = (options?: AgentControllerLiveOptions) =>
             .map(({ manager }) => statusOf(manager))
             .find((status) => status?.connected);
 
-          if (live) return { toolNames: toolNamesOf(live.toolNames), needsSignIn: false };
+          if (live) {
+            subscriptionAuth.recordMcpRequestSuccess(serverId);
+
+            return { toolNames: toolNamesOf(live.toolNames), needsSignIn: false };
+          }
 
           const manager = (options?.makeMcpManager ?? createMcpManager)(
             path.join(config.stateDir, "bot-mcp-runtime"),
             ".otto-runtime",
             toMcpServerConfigs([server]),
           );
+
+          let recorded = false;
 
           try {
             await manager.init();
@@ -707,10 +713,21 @@ const make = (options?: AgentControllerLiveOptions) =>
             if (status?.needsAuth) return { toolNames: [], needsSignIn: true };
 
             if (!status?.connected) {
-              throw new Error(status?.error ?? "The server did not connect.");
+              const message = status?.error || "The server did not connect.";
+              subscriptionAuth.recordMcpRequestFailure(serverId, message);
+              recorded = true;
+              throw new Error(message);
             }
 
+            subscriptionAuth.recordMcpRequestSuccess(serverId);
+
             return { toolNames: toolNamesOf(status.toolNames), needsSignIn: false };
+          } catch (cause) {
+            if (!recorded) {
+              subscriptionAuth.recordMcpRequestFailure(serverId, failureDetail(cause));
+            }
+
+            throw cause;
           } finally {
             await manager.disconnect().catch(() => undefined);
           }

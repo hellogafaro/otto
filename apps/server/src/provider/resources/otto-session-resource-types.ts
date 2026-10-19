@@ -29,7 +29,9 @@ export interface OttoSessionResourcesOptions {
   readonly makeRemoteWorkspace?: (
     input: CreateRemoteBotWorkspaceInput,
   ) => Promise<OttoBotWorkspace | Workspace>;
-  readonly onMcpServerConnectionFailure?: (serverId: McpServer["id"]) => void;
+  readonly onMcpServerConnectionFailure?: (serverId: McpServer["id"], message: string) => void;
+  /** A completed handshake. Clears a prior failure so a healthy server does not stay failed. */
+  readonly onMcpServerConnectionSuccess?: (serverId: McpServer["id"]) => void;
   readonly getPreviewMcpServerConfig?: (threadId: string) => McpServerConfig | undefined;
   readonly toMcpServerConfigs: (servers: readonly McpServer[]) => Record<string, McpServerConfig>;
   /** How long a bot's computer stays awake after its last session ends; zero sleeps it at once. */

@@ -87,7 +87,105 @@ describe("OttoSessionResources", () => {
     });
 
     await resources.acquire({ ...remoteInput, threadId: "mcp-failure", mcpServers: [exaServer] });
-    expect(onMcpServerConnectionFailure).toHaveBeenCalledExactlyOnceWith(exaServer.id);
+    expect(onMcpServerConnectionFailure).toHaveBeenCalledExactlyOnceWith(
+      exaServer.id,
+      "The MCP server failed to connect.",
+    );
+    await resources.shutdown();
+  });
+
+  it("clears a prior failure when the MCP server connects", async () => {
+    const onMcpServerConnectionFailure = vi.fn();
+    const onMcpServerConnectionSuccess = vi.fn();
+
+    const manager = {
+      init: vi.fn(async () => undefined),
+      disconnect: vi.fn(async () => undefined),
+      getTools: vi.fn(() => ({})),
+      getServerStatuses: vi.fn(() => [{ name: String(exaServer.id), connected: true }]),
+    };
+
+    const resources = new OttoSessionResources({
+      io: workspaceIO,
+      stateDir: stateDir(),
+      makeRemoteWorkspace: async () => workspace(),
+      makeMcpManager: () => manager as never,
+      onMcpServerConnectionFailure,
+      onMcpServerConnectionSuccess,
+      toMcpServerConfigs: () => ({}),
+    });
+
+    await resources.acquire({ ...remoteInput, threadId: "mcp-connected", mcpServers: [exaServer] });
+    expect(onMcpServerConnectionSuccess).toHaveBeenCalledExactlyOnceWith(exaServer.id);
+    expect(onMcpServerConnectionFailure).not.toHaveBeenCalled();
+    await resources.shutdown();
+  });
+
+  it("keeps the server error and does not fail a server that connected", async () => {
+    const onMcpServerConnectionFailure = vi.fn();
+    const onMcpServerConnectionSuccess = vi.fn();
+    const other = { ...exaServer, id: "infisical" as typeof exaServer.id, name: "Infisical" };
+
+    const manager = {
+      init: vi.fn(async () => undefined),
+      disconnect: vi.fn(async () => undefined),
+      getTools: vi.fn(() => ({})),
+      getServerStatuses: vi.fn(() => [
+        { name: String(exaServer.id), connected: true },
+        { name: String(other.id), connected: false, error: "Unauthorized" },
+      ]),
+    };
+
+    const resources = new OttoSessionResources({
+      io: workspaceIO,
+      stateDir: stateDir(),
+      makeRemoteWorkspace: async () => workspace(),
+      makeMcpManager: () => manager as never,
+      onMcpServerConnectionFailure,
+      onMcpServerConnectionSuccess,
+      toMcpServerConfigs: () => ({}),
+    });
+
+    await resources.acquire({
+      ...remoteInput,
+      threadId: "mcp-partial",
+      mcpServers: [exaServer, other],
+    });
+    expect(onMcpServerConnectionSuccess).toHaveBeenCalledExactlyOnceWith(exaServer.id);
+    expect(onMcpServerConnectionFailure).toHaveBeenCalledExactlyOnceWith(other.id, "Unauthorized");
+    await resources.shutdown();
+  });
+
+  it("does not record a failure while an MCP server is still connecting", async () => {
+    const onMcpServerConnectionFailure = vi.fn();
+    const onMcpServerConnectionSuccess = vi.fn();
+
+    const manager = {
+      init: vi.fn(async () => undefined),
+      disconnect: vi.fn(async () => undefined),
+      getTools: vi.fn(() => ({})),
+      getServerStatuses: vi.fn(() => [
+        { name: String(exaServer.id), connected: false, connecting: true },
+      ]),
+    };
+
+    const resources = new OttoSessionResources({
+      io: workspaceIO,
+      stateDir: stateDir(),
+      makeRemoteWorkspace: async () => workspace(),
+      makeMcpManager: () => manager as never,
+      onMcpServerConnectionFailure,
+      onMcpServerConnectionSuccess,
+      toMcpServerConfigs: () => ({}),
+    });
+
+    await resources.acquire({
+      ...remoteInput,
+      threadId: "mcp-connecting",
+      mcpServers: [exaServer],
+    });
+    expect(onMcpServerConnectionFailure).not.toHaveBeenCalled();
+    expect(onMcpServerConnectionSuccess).not.toHaveBeenCalled();
     await resources.shutdown();
   });
 
@@ -113,7 +211,10 @@ describe("OttoSessionResources", () => {
     await expect(
       resources.acquire({ ...remoteInput, threadId: "mcp-init-failure", mcpServers: [exaServer] }),
     ).rejects.toThrow("MCP init failed");
-    expect(onMcpServerConnectionFailure).toHaveBeenCalledExactlyOnceWith(exaServer.id);
+    expect(onMcpServerConnectionFailure).toHaveBeenCalledExactlyOnceWith(
+      exaServer.id,
+      "MCP init failed",
+    );
     await resources.shutdown();
   });
 
