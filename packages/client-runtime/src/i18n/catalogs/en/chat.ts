@@ -136,7 +136,8 @@ export const chatCatalog = {
     "That snooze time has passed. Choose another time.",
   "Thread ID: {id}": "Thread ID: {id}",
   "Message {name}": "Message {name}",
-  "Message {name}, @ for context": "Message {name}, @ for context",
+  "Message {name}, @ for context, / for commands, $ for skills":
+    "Message {name}, @ for context, / for commands, $ for skills",
   "Add to prompt": "Add to prompt",
   "Attach file": "Attach file",
   "Attach files": "Attach files",

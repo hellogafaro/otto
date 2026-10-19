@@ -196,6 +196,10 @@ const PALETTE_ITEM_CLASSES =
 const COMPOSER_ITEM_CLASSES =
   "gap-3 rounded-lg px-3 py-2! hover:bg-transparent hover:text-inherit data-highlighted:bg-transparent data-highlighted:text-inherit";
 
+// Same row as the @ context menu: name on the left, muted detail on the right.
+const MENU_ITEM_CLASSES =
+  "items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-transparent hover:text-inherit data-highlighted:bg-transparent data-highlighted:text-inherit data-selected:bg-transparent [&[data-highlighted][data-selected]]:bg-transparent";
+
 // Items whose highlight the caller drives from its own keyboard state; `-active` marks that row.
 const COMMAND_ITEM_VARIANT_CLASSES = {
   default: undefined,
@@ -203,6 +207,8 @@ const COMMAND_ITEM_VARIANT_CLASSES = {
   "palette-active": `${PALETTE_ITEM_CLASSES} bg-accent! text-accent-foreground!`,
   composer: COMPOSER_ITEM_CLASSES,
   "composer-active": `${COMPOSER_ITEM_CLASSES} bg-accent! text-accent-foreground!`,
+  menu: MENU_ITEM_CLASSES,
+  "menu-active": `${MENU_ITEM_CLASSES} bg-accent! text-accent-foreground!`,
 } as const;
 
 function CommandItem({

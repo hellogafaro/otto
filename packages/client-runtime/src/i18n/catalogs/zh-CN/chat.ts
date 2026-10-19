@@ -133,7 +133,8 @@ export const chatCatalog = {
   "That snooze time has passed. Choose another time.": "该延后时间已过。请选择其他时间。",
   "Thread ID: {id}": "线程 ID：{id}",
   "Message {name}": "给 {name} 发消息",
-  "Message {name}, @ for context": "给 {name} 发消息，@ 添加上下文",
+  "Message {name}, @ for context, / for commands, $ for skills":
+    "给 {name} 发消息，@ 添加上下文，/ 输入命令，$ 使用技能",
   "Add to prompt": "添加到提示",
   "Attach file": "附加文件",
   "Attach files": "附加文件",
