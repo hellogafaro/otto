@@ -351,6 +351,7 @@ export const rosterCatalog = {
   "Used an app": "Used an app",
   "Asked you a question": "Asked you a question",
   "Worked for {duration}": "Worked for {duration}",
+  "New message from {name}": "New message from {name}",
   "Thought for {duration}": "Thought for {duration}",
   "Used {name}": "Used {name}",
   Failed: "Failed",

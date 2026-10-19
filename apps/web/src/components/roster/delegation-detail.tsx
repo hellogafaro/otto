@@ -6,23 +6,14 @@ import type {
 import { presentDelegation } from "@otto/client-runtime/delegation-presentation";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
 import type { MessageKey, TranslationParams } from "@otto/client-runtime/i18n";
-import { useNavigate } from "@tanstack/react-router";
+import { RiArrowLeftRightLine } from "@remixicon/react";
 import { useMemo } from "react";
 
 import { useI18n } from "../../i18n";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useThreadMessages } from "../../state/entities";
 import ChatMarkdown from "../chat-markdown";
-import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
+import { Dialog, DialogDescription, DialogPanel, DialogPopup, DialogTitle } from "../ui/dialog";
 import { BotAvatarView } from "./bot-avatar-view";
 import type { Bot } from "./types";
 
@@ -84,7 +75,6 @@ export function DelegationDetail({
   readonly onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useI18n();
-  const navigate = useNavigate();
   const environmentId = usePrimaryEnvironmentId();
   const presentation = presentDelegation(delegation);
 
@@ -99,83 +89,83 @@ export function DelegationDetail({
   const messages = useThreadMessages(childThreadRef);
   const activeChildBot = childBot?.archivedAt === null ? childBot : null;
   const childName = activeChildBot?.name ?? t("Unknown bot");
-  // Child work lives only in this view and the parent chat's card, so "Open
-  // chat" goes to the bot's own continuous chat, never the child thread.
-  const canOpen = activeChildBot !== null;
+  const parentName = parentBot?.name ?? t("Unknown bot");
 
+  // Otto: Agent-to-agent work reads as a chat, not a report: both names in one pill, the
+  // brief as an outlined note, and each message in the same outline bubble as a reply.
+  // Read-only, so the corner X is the only action.
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogPopup className="max-w-2xl" data-testid="delegation-detail">
-        <DialogHeader>
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center px-5 pt-3.5 pe-14">
+          <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-foreground/12 px-2.5 py-1">
+            <BotAvatarView
+              avatar={parentBot?.avatar ?? { kind: "dither", seed: delegation.parentBotId }}
+              name={parentName}
+              className="size-5 shrink-0"
+            />
+            <DialogTitle className="min-w-0 truncate text-sm">
+              {parentName}
+              <span className="sr-only"> · {childName}</span>
+            </DialogTitle>
+            <RiArrowLeftRightLine
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
             <BotAvatarView
               avatar={activeChildBot?.avatar ?? { kind: "dither", seed: delegation.childBotId }}
               name={childName}
-              className="size-7 shrink-0"
+              className="size-5 shrink-0"
             />
-            <DialogTitle className="min-w-0 truncate">
-              {t("Work by {name}", { name: childName })}
-            </DialogTitle>
+            <span aria-hidden="true" className="min-w-0 truncate text-sm font-medium">
+              {childName}
+            </span>
           </div>
-          <DialogDescription>{delegationStateLabel(presentation.state, t)}</DialogDescription>
-        </DialogHeader>
-        <DialogPanel tone="body" className="flex flex-col gap-4">
-          <section>
-            <h3 className="text-xs font-medium text-muted-foreground">{t("Task")}</h3>
-            <p className="mt-1 whitespace-pre-wrap leading-6">{delegation.task}</p>
-          </section>
-          <section>
-            <h3 className="text-xs font-medium text-muted-foreground">{t("Expected result")}</h3>
-            <p className="mt-1 whitespace-pre-wrap leading-6">{delegation.expectedResult}</p>
-          </section>
-          <section>
-            <h3 className="text-xs font-medium text-muted-foreground">{t("Access")}</h3>
-            <p className="mt-1 break-words text-xs text-muted-foreground">
-              {formatDelegationAccess(delegation.access, t)}
-            </p>
-          </section>
-          <section aria-label={t("{name} chat", { name: childName })}>
+        </div>
+        <DialogDescription className="sr-only">
+          {delegationStateLabel(presentation.state, t)}
+        </DialogDescription>
+        <DialogPanel tone="body" className="flex flex-col gap-3">
+          <p className="rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
+            {delegation.task}
+          </p>
+          <section
+            aria-label={t("{name} chat", { name: childName })}
+            className="flex flex-col gap-3"
+          >
             {messages.length === 0 ? (
-              <p className="text-muted-foreground">{t("No messages yet")}</p>
+              <p className="text-sm text-muted-foreground">{t("No messages yet")}</p>
             ) : (
-              <ol className="flex flex-col gap-3">
-                {messages.map((message) => (
-                  <li key={message.id} data-role={message.role}>
-                    <div className="text-xs font-medium text-muted-foreground">
-                      {message.role === "assistant"
-                        ? childName
-                        : (parentBot?.name ?? t("Unknown bot"))}
+              messages.map((message) => {
+                const fromChild = message.role === "assistant";
+
+                return (
+                  <div
+                    key={message.id}
+                    data-role={message.role}
+                    className={fromChild ? "flex justify-start" : "flex justify-end"}
+                  >
+                    <div
+                      className={`flex max-w-39/50 flex-col ${fromChild ? "items-start" : "items-end"}`}
+                    >
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">
+                        {fromChild ? childName : parentName}
+                      </div>
+                      <div className="rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
+                        <ChatMarkdown
+                          cwd={undefined}
+                          text={message.text}
+                          threadRef={childThreadRef ?? undefined}
+                          isStreaming={message.streaming}
+                        />
+                      </div>
                     </div>
-                    <ChatMarkdown
-                      className="mt-0.5"
-                      cwd={undefined}
-                      text={message.text}
-                      threadRef={childThreadRef ?? undefined}
-                      isStreaming={message.streaming}
-                    />
-                  </li>
-                ))}
-              </ol>
+                  </div>
+                );
+              })
             )}
           </section>
         </DialogPanel>
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            aria-label={t("Open {name} chat", { name: childName })}
-            disabled={!canOpen}
-            onClick={() => {
-              if (!canOpen) return;
-              onOpenChange(false);
-              void navigate({ to: "/bots/$botId", params: { botId: activeChildBot.id } });
-            }}
-          >
-            {t("Open chat")}
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t("Close")}
-          </Button>
-        </DialogFooter>
       </DialogPopup>
     </Dialog>
   );

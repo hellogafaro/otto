@@ -137,13 +137,18 @@ export function BotTraceSteps({
 export function BotTurnTrace({
   trace,
   environmentId,
+  name,
 }: {
   readonly trace: BotTurnTraceData | undefined;
   readonly environmentId: EnvironmentId | null;
+  /** Speaker, shown once on the accordion: "Cody · Worked for 24s". */
+  readonly name?: string;
 }) {
   const { t } = useI18n();
 
   if (!trace) return null;
+
+  const worked = t("Worked for {duration}", { duration: formatDuration(trace.workedMs) });
 
   return (
     <Trace className="mt-1" data-testid="bot-turn-trace">
@@ -151,7 +156,13 @@ export function BotTurnTrace({
         <TraceCollapsibleTrigger>
           <TraceLine>
             <TraceTitle>
-              {t("Worked for {duration}", { duration: formatDuration(trace.workedMs) })}
+              {name ? (
+                <>
+                  <span className="font-medium text-foreground">{name}</span>
+                  <span> · </span>
+                </>
+              ) : null}
+              {worked}
             </TraceTitle>
           </TraceLine>
         </TraceCollapsibleTrigger>

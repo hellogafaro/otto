@@ -174,9 +174,11 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   const copyText = message.text || "Attachment";
   const label = author?.name ?? t("Unavailable bot");
 
-  const markdown = (
-    <ChatMarkdown className="mt-1" cwd={cwd} text={message.text} threadRef={threadRef} />
-  );
+  const markdown = message.text ? (
+    <FoldedMessage className="mt-0.5 w-fit max-w-39/50 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
+      <ChatMarkdown cwd={cwd} text={message.text} threadRef={threadRef} />
+    </FoldedMessage>
+  ) : null;
 
   if (!author) {
     return (
@@ -227,10 +229,15 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
         <div aria-hidden="true" className="size-7 shrink-0" />
       )}
       <div className="min-w-0 flex-1">
-        <div className="relative w-fit min-w-56 max-w-full">
-          {startsGroup ? <div className="text-sm font-medium">{author.name}</div> : null}
+        <div className="relative w-fit max-w-39/50">
+          {/* Otto: One clock per turn. The turn's first reply carries "Cody · Worked for 24s" in
+              place of the name; the rest of the turn stacks under it as bare bubbles. */}
+          {trace ? (
+            <BotTurnTrace trace={trace} environmentId={environmentId} name={author.name} />
+          ) : startsGroup ? (
+            <div className="text-sm font-medium">{author.name}</div>
+          ) : null}
           <BotStepMeter meter={stepMeter} />
-          <BotTurnTrace trace={trace} environmentId={environmentId} />
           {markdown}
           {/* Otto: What a bot posts with message_post keeps its files, as a person's message does. */}
           {message.attachments?.length ? (
