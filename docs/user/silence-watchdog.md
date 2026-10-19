@@ -2,7 +2,7 @@
 
 Sometimes a provider stops sending anything while a bot is still working. After 90 seconds with no output, the chat stops showing the working indicator and says "No response from" the provider, for example "No response from Claude". The timer next to it counts from the last time the provider sent something.
 
-The bot also gets one item in the inbox, labeled "Bot stopped responding". Otto does not stop the turn for you.
+The bot also gets one item in the inbox, labeled "Bot stopped responding". That card shows only in the chat that went quiet, and its close button clears it. Otto does not stop the turn for you. A deploy closes a card left open when the turn was interrupted.
 
 - If the provider starts responding again, the notice goes away and the inbox item resolves on its own.
 - If you would rather not wait, stop the turn from the composer and send your message again.

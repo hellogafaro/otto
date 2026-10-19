@@ -2,11 +2,11 @@ import { Predicate } from "effect";
 import { threadDelegations } from "@otto/client-runtime/delegation-presentation";
 import { botChatTimeline } from "@otto/client-runtime/state/bot-chat-timeline";
 import { useAtomValue } from "@effect/atom-react";
+import { selectOpenBotInboxItems } from "@otto/client-runtime/bot-inbox";
 import { presentThreadError } from "@otto/client-runtime/errors";
 import { type EnvironmentId, type ScopedThreadRef } from "@otto/contracts";
 import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
 
-import { selectOpenBotInboxItems } from "../../bot-inbox";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentPeopleAtom } from "../../state/bots";
 import { useEnvironmentQuery } from "../../state/query";
@@ -343,6 +343,7 @@ export function GroupThreadLanding({
   const inboxItems = selectOpenBotInboxItems(
     inboxQuery.data?.inbox ?? [],
     new Set(members.map((bot) => bot.id)),
+    runtime.linkedThreadRef?.threadId ?? null,
   );
 
   const { delegations, waitingOnChildren } =
@@ -594,7 +595,11 @@ export function GroupThreadLanding({
                 title={presentThreadError(runtime.turnFailure.message, failureContext, t).title}
               />
             ) : null}
-            <BotInboxAlerts items={inboxItems} environmentId={environmentId} />
+            <BotInboxAlerts
+              items={inboxItems}
+              environmentId={environmentId}
+              onResolved={inboxQuery.refresh}
+            />
             {waitingOnChildren && !working ? (
               <p className="ml-10 text-xs text-muted-foreground" aria-live="polite">
                 {t("Waiting on delegated work")}

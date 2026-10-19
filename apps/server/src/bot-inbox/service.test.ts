@@ -293,6 +293,24 @@ describe("bot inbox incidents", () => {
     expect(new BotInboxService(filePath).list().map(({ id }) => id)).toEqual([item!.id]);
   });
 
+  it("closes open silence items and leaves other open items", () => {
+    const { service } = makeService(["2026-08-30T20:00:00.000Z", "2026-08-30T20:01:00.000Z"]);
+
+    service.ensureOpen({
+      ...incident,
+      incidentKey: "silence:thread-1:turn-1",
+      kind: "silence-watchdog-failure",
+    });
+    service.ensureOpen(incident);
+
+    expect(service.resolveOpenSilence()).toBe(1);
+    expect(service.list().find((item) => item.kind === "silence-watchdog-failure")?.status).toBe(
+      "resolved",
+    );
+    expect(service.list().find((item) => item.kind === "connector-failure")?.status).toBe("open");
+    expect(service.resolveOpenSilence()).toBe(0);
+  });
+
   it("resolves an open incident by id", () => {
     const { service } = makeService(["2026-08-30T20:00:00.000Z", "2026-08-30T20:01:00.000Z"]);
     const item = service.upsert(incident);

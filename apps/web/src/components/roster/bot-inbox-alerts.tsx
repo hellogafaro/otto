@@ -1,4 +1,6 @@
 import { RiCloseLine } from "@remixicon/react";
+import { Predicate } from "effect";
+import { useState } from "react";
 
 import { botInboxKindLabel, type BotInboxItem } from "@otto/client-runtime/bot-inbox";
 import type { EnvironmentId } from "@otto/contracts";
@@ -19,15 +21,43 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 export function BotInboxAlerts({
   items,
   environmentId,
+  onResolved,
 }: {
   readonly items: ReadonlyArray<BotInboxItem>;
   readonly environmentId: EnvironmentId | null;
+  /** The chat reads subscriptionAuth.inbox. Resolve only refreshes botInbox.list. */
+  readonly onResolved?: () => void;
 }) {
   const { t } = useI18n();
   const resolveIncident = useAtomCommand(botInboxEnvironment.resolve);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set());
+
+  const dismiss = (id: string) => {
+    if (environmentId === null) return;
+    setDismissed((current) => new Set(current).add(id));
+    void resolveIncident({ environmentId, input: { id } }).then((result) => {
+      if (Predicate.isTagged(result, "Success")) {
+        onResolved?.();
+
+        return;
+      }
+
+      setDismissed((current) => {
+        const next = new Set(current);
+        next.delete(id);
+
+        return next;
+      });
+    });
+  };
 
   return items
-    .filter((item) => item.kind !== "approval-request" && item.kind !== "routine-failure")
+    .filter(
+      (item) =>
+        item.kind !== "approval-request" &&
+        item.kind !== "routine-failure" &&
+        !dismissed.has(item.id),
+    )
     .map((item) => (
       <ChatAlertCard
         key={item.id}
@@ -41,7 +71,7 @@ export function BotInboxAlerts({
                 render={
                   <Button
                     aria-label={t("Dismiss")}
-                    onClick={() => void resolveIncident({ environmentId, input: { id: item.id } })}
+                    onClick={() => dismiss(item.id)}
                     size="icon-sm"
                     type="button"
                     variant="ghost-muted"
