@@ -67,6 +67,53 @@ export class OttoSessionResources {
     );
   }
 
+  /**
+   * A connected handshake clears a prior failure. Otherwise one missed connect
+   * stays open in every chat after the server is healthy again. A failed init
+   * is not proof that a server which already connected is down.
+   */
+  private reportMcpConnections(
+    servers: OttoSessionResourceInput["mcpServers"],
+    manager: McpManager,
+    initError?: string,
+  ) {
+    let statuses: ReturnType<McpManager["getServerStatuses"]> = [];
+
+    try {
+      statuses = manager.getServerStatuses();
+    } catch {
+      statuses = [];
+    }
+
+    const byName = new Map(statuses.map((status) => [status.name, status]));
+
+    for (const server of servers) {
+      const status = byName.get(String(server.id));
+
+      if (status?.connected) {
+        if (initError === undefined) this.options.onMcpServerConnectionSuccess?.(server.id);
+        continue;
+      }
+
+      if (
+        initError === undefined &&
+        (status?.connecting || status?.authenticating || status?.disabled)
+      ) {
+        continue;
+      }
+
+      if (!status && initError === undefined) continue;
+
+      const message =
+        (status?.error && status.error.length > 0 ? status.error : undefined) ??
+        (status?.needsAuth ? "The MCP server needs authentication." : undefined) ??
+        initError ??
+        "The MCP server failed to connect.";
+
+      this.options.onMcpServerConnectionFailure?.(server.id, message);
+    }
+  }
+
   acquire(input: OttoSessionResourceInput): Promise<OttoSessionResourceView> {
     if (this.shuttingDown) {
       return Promise.reject(new Error("Otto session resources are shutting down."));
@@ -169,21 +216,14 @@ export class OttoSessionResources {
 
         try {
           await manager.init();
+          this.reportMcpConnections(input.mcpServers, manager);
         } catch (cause) {
-          for (const server of input.mcpServers) {
-            this.options.onMcpServerConnectionFailure?.(server.id);
-          }
-
+          const message =
+            cause instanceof Error && cause.message.length > 0
+              ? cause.message
+              : "The MCP server failed to connect.";
+          this.reportMcpConnections(input.mcpServers, manager, message);
           throw cause;
-        }
-
-        const serversById = new Map(input.mcpServers.map((server) => [String(server.id), server]));
-
-        for (const status of manager.getServerStatuses()) {
-          if (status.connected) continue;
-          const server = serversById.get(status.name);
-
-          if (server) this.options.onMcpServerConnectionFailure?.(server.id);
         }
       }
 

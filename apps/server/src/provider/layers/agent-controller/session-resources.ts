@@ -36,8 +36,10 @@ export function createSessionResources(deps: {
     // Otto: a group chat switches bots every message; keep a computer awake between turns
     // instead of stopping and waking it each time. Idle computers still stop after this.
     workspaceIdleTimeToLive: deps.options?.workspaceIdleTimeToLive ?? "5 minutes",
-    onMcpServerConnectionFailure: (serverId) =>
-      deps.subscriptionAuth.recordMcpRequestFailure(serverId, "The MCP server failed to connect."),
+    onMcpServerConnectionFailure: (serverId, message) =>
+      deps.subscriptionAuth.recordMcpRequestFailure(serverId, message),
+    onMcpServerConnectionSuccess: (serverId) =>
+      deps.subscriptionAuth.recordMcpRequestSuccess(serverId),
     ...(deps.options?.makeMcpManager ? { makeMcpManager: deps.options.makeMcpManager } : {}),
     ...(deps.options?.makeRemoteWorkspace
       ? { makeRemoteWorkspace: deps.options.makeRemoteWorkspace }
