@@ -408,6 +408,41 @@ describe("setup and email sign-in", () => {
     expect(emails).toHaveLength(0);
   });
 
+  it("reports undelivered mail instead of claiming it was sent", async () => {
+    const delivery = { failing: false };
+
+    const { runtime, request } = await fixture({
+      sendEmail: async () => {
+        if (delivery.failing) throw new Error("connect ETIMEDOUT");
+      },
+    });
+
+    await runtime.setup(owner);
+
+    delivery.failing = true;
+
+    const code = await request("/email-otp/send-verification-otp", {
+      email: owner.email,
+      type: "sign-in",
+    });
+
+    expect(code.status).toBe(503);
+    expect(await code.json()).toMatchObject({ code: "EMAIL_DELIVERY_FAILED" });
+
+    const reset = await request("/request-password-reset", { email: owner.email });
+    expect(reset.status).toBe(503);
+
+    // Unknown addresses still get the same answer, so the form reveals no accounts.
+    expect(
+      (
+        await request("/email-otp/send-verification-otp", {
+          email: "nobody@example.test",
+          type: "sign-in",
+        })
+      ).status,
+    ).toBe(200);
+  });
+
   it("keeps a member's own small JPEG photo for everyone and refuses anything else", async () => {
     const { runtime, request, setup } = await fixture();
     const admin = await setup();

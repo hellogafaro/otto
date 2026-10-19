@@ -4,6 +4,7 @@ import { APIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import { bearer, emailOTP, organization } from "better-auth/plugins";
 import { adminAc, memberAc } from "better-auth/plugins/organization/access";
+import * as NodeAsyncHooks from "node:async_hooks";
 import * as NodeSqlite from "node:sqlite";
 import * as DateTime from "effect/DateTime";
 import { z } from "zod";
@@ -78,6 +79,11 @@ export interface AccountPerson {
   readonly image: string | null;
 }
 
+/** A request's mail outcome; Better Auth hides delivery failures from its response. */
+interface MailDelivery {
+  failure?: APIError;
+}
+
 export interface AccountMail {
   readonly to: string;
   readonly subject: string;
@@ -126,6 +132,30 @@ export async function createOrganizationAccountsRuntime(options: {
 }) {
   const database = options.database;
   const origin = new URL(options.origin).origin;
+
+  // Otto: Better Auth sends mail as a background task and answers success even when it fails, so
+  // each request notes a failed delivery here and `handle` reports it instead of "code sent".
+  const deliveries = new NodeAsyncHooks.AsyncLocalStorage<MailDelivery>();
+
+  const sendEmail = async (mail: AccountMail) => {
+    try {
+      await options.sendEmail(mail);
+    } catch (cause) {
+      const failure =
+        cause instanceof APIError
+          ? cause
+          : new APIError("SERVICE_UNAVAILABLE", {
+              code: "EMAIL_DELIVERY_FAILED",
+              message: "Email could not be delivered. Check the organization's mail configuration.",
+            });
+
+      const delivery = deliveries.getStore();
+
+      if (delivery) delivery.failure = failure;
+
+      throw failure;
+    }
+  };
 
   const requireMail = () => {
     if (!options.mailConfigured) {
@@ -195,7 +225,7 @@ export async function createOrganizationAccountsRuntime(options: {
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         requireMail();
-        await options.sendEmail({
+        await sendEmail({
           to: user.email,
           subject: "Reset your Otto password",
           text: `Reset your password using this link:\n\n${url}\n\nIf you did not request this, ignore this email.`,
@@ -207,7 +237,7 @@ export async function createOrganizationAccountsRuntime(options: {
       sendOnSignIn: options.mailConfigured,
       sendVerificationEmail: async ({ user, url }) => {
         requireMail();
-        await options.sendEmail({
+        await sendEmail({
           to: user.email,
           subject: "Verify your Otto email",
           text: `Verify your email to sign in to Otto:\n\n${url}`,
@@ -244,7 +274,7 @@ export async function createOrganizationAccountsRuntime(options: {
         sendVerificationOTP: async ({ email, otp, type }) => {
           if (type !== "sign-in") return;
           requireMail();
-          await options.sendEmail({
+          await sendEmail({
             to: email,
             subject: `${otp} is your Otto sign-in code`,
             text: `Your Otto sign-in code is ${otp}. It expires in 5 minutes and works once.\n\nIf you did not try to sign in, ignore this email.`,
@@ -265,7 +295,7 @@ export async function createOrganizationAccountsRuntime(options: {
         sendInvitationEmail: async ({ id, email, organization }) => {
           if (!options.mailConfigured) return;
           const url = new URL(`/invite/${encodeURIComponent(id)}`, origin);
-          await options.sendEmail({
+          await sendEmail({
             to: email,
             subject: `Join ${organization.name} on Otto`,
             text: `You have been invited to ${organization.name}. Sign in or create an account to accept:\n\n${url}`,
@@ -483,7 +513,17 @@ export async function createOrganizationAccountsRuntime(options: {
       return Response.json({ message: "Not found." }, { status: 404 });
     }
 
-    return auth.handler(request);
+    const delivery: MailDelivery = {};
+    const response = await deliveries.run(delivery, () => auth.handler(request));
+
+    if (delivery.failure) {
+      return Response.json(
+        { message: delivery.failure.body?.message, code: delivery.failure.body?.code },
+        { status: delivery.failure.statusCode },
+      );
+    }
+
+    return response;
   };
 
   const revokeSession = (sessionId: string) => {
