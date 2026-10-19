@@ -19,7 +19,12 @@ import {
   credential,
 } from "./workspace/bot-workspace-lifecycle.ts";
 import { RemoteSandbox } from "./workspace/remote-sandbox.ts";
-import { BOAT_TTL_SECONDS, boat, boatFailure } from "./workspace/adapters/boat.ts";
+import {
+  BOAT_TTL_SECONDS,
+  boat,
+  boatFailure,
+  type BoatMachineTypeRef,
+} from "./workspace/adapters/boat.ts";
 
 export function isRemoteBotSandbox(
   value: BotSandbox | null | undefined,
@@ -39,6 +44,8 @@ export async function createBotWorkspace(
       ...(input.legacyIdentityFile ? { legacyIdentityFile: input.legacyIdentityFile } : {}),
       ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
       ...(input.environment ? { environment: input.environment } : {}),
+      ...(input.machineType ? { machineType: input.machineType } : {}),
+      ...(input.sandboxSize ? { sandboxSize: input.sandboxSize } : {}),
     });
 
     return remote instanceof Workspace ? wrap(remote, input.sandbox) : remote;
@@ -105,7 +112,11 @@ export async function createRemoteBotWorkspace(
           input.environment,
           persisted,
           (createKey) => writeIdentity(input.io, identityFile, { ...owner, createKey }),
-          { replaceMissing: true, scope: input.threadId },
+          {
+            replaceMissing: true,
+            scope: input.threadId,
+            ...(input.machineType ? { machineType: input.machineType } : {}),
+          },
         );
 
     if (!opened) throw new Error(`Remote ${input.sandbox} workspace is missing.`);
@@ -206,10 +217,15 @@ async function connect(
   environment: Readonly<Record<string, string>> = {},
   persisted: BotWorkspaceRecord | undefined,
   saveCreateKey: (createKey: string) => Promise<void>,
-  options: { readonly replaceMissing: boolean; readonly scope?: string } = {
+  options: {
+    readonly replaceMissing: boolean;
+    readonly scope?: string;
+    readonly machineType?: BoatMachineTypeRef;
+  } = {
     replaceMissing: true,
   },
 ): Promise<OttoRemoteSession | undefined> {
+  const machineType = options.machineType ?? { current: "default" };
   const providerId = persisted?.providerId;
   const { BoatApi, Configuration, ResponseError } = await import("@boatdev/sdk");
 
@@ -226,7 +242,7 @@ async function connect(
 
       if (name && sandbox.name !== name) await rename(client, providerId, name);
 
-      return boat(client, providerId);
+      return boat(client, providerId, machineType);
     } catch (cause) {
       // A timed-out deletion can finish later; only confirmed absence permits replacement.
       if (!(cause instanceof ResponseError) || cause.response.status !== 404) throw cause;
@@ -244,7 +260,11 @@ async function connect(
   const { sandbox } = await client
     .create({
       idempotencyKey: createKey,
-      createSandboxRequest: { ttlSeconds: BOAT_TTL_SECONDS, noEnv: true },
+      createSandboxRequest: {
+        ttlSeconds: BOAT_TTL_SECONDS,
+        noEnv: true,
+        type: machineType.current,
+      },
     })
     .catch(async (cause: unknown) => {
       throw await boatFailure(cause);
@@ -252,7 +272,7 @@ async function connect(
 
   if (name) await rename(client, sandbox.id, name);
 
-  return boat(client, sandbox.id);
+  return boat(client, sandbox.id, machineType);
 }
 
 export {

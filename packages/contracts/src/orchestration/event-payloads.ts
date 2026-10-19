@@ -46,6 +46,7 @@ import {
   BotAvatar,
   BotEngine,
   PersistedBotSandbox,
+  SandboxSize,
   BotInstructions,
   BotAlwaysAllowedTool,
   ChannelBinding,
@@ -226,6 +227,7 @@ export const BotCreatedPayload = Schema.Struct({
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,
+  sandboxSize: Schema.NullOr(SandboxSize).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   runtimeMode: RuntimeMode.pipe(Schema.withDecodingDefault(Effect.succeed(DEFAULT_RUNTIME_MODE))),
   imageProvider: Schema.NullOr(ImageProviderId).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
@@ -254,6 +256,7 @@ export const BotUpdatedPayload = Schema.Struct({
   avatar: Schema.optional(BotAvatar),
   engine: Schema.optional(Schema.NullOr(BotEngine)),
   sandbox: Schema.optional(PersistedBotSandbox),
+  sandboxSize: Schema.optional(Schema.NullOr(SandboxSize)),
   runtimeMode: Schema.optional(RuntimeMode),
   imageProvider: Schema.optional(Schema.NullOr(ImageProviderId)),
   voiceEnabled: Schema.optional(Schema.Boolean),

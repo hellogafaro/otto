@@ -27,6 +27,16 @@ changes the default to Local.
 The default applies to a bot without its own sandbox choice. A bot-specific choice stays in place,
 so connect that service before you start the bot.
 
+## Choose the size
+
+Boat computers come in three sizes. Small is 2 vCPU and 4 GB, medium is 4 vCPU and 8 GB, and
+large is 8 vCPU and 16 GB. Settings > Computer sets the size for every bot. A bot can override
+that size. Local computers ignore it.
+
+A size change applies the next time a stopped Boat computer resumes. A computer that is already
+running keeps its current size until it stops. If a smaller size cannot hold the computer's disk,
+Boat keeps the current size and the computer still opens.
+
 ## Session behavior
 
 Otto stops a Boat computer when that chat is idle and reconnects to the saved VM when work in the

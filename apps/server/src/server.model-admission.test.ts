@@ -96,6 +96,7 @@ it.describe("ws bot engine model routing preflight", () => {
       sandbox: "local" as const,
       runtimeMode: "full-access" as const,
       imageProvider: null,
+      sandboxSize: null,
       voiceEnabled: false,
       groupId: null,
       archivedAt: null,

@@ -56,7 +56,7 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
       SELECT
         bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", visibility, avatar_json AS "avatar",
-        engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
+        engine_json AS "engine", sandbox, sandbox_size AS "sandboxSize", runtime_mode AS "runtimeMode",
         image_provider AS "imageProvider", voice_enabled AS "voiceEnabled",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"
@@ -130,7 +130,7 @@ export function createEnvironmentRows({ sql }: Pick<ProjectionSnapshotDependenci
       SELECT
         bot_id AS "botId", name, title, label, description, instructions,
         disabled_mcp_server_ids_json AS "disabledMcpServerIds", disabled_skill_ids_json AS "disabledSkillIds", always_allowed_json AS "alwaysAllowed", owner_json AS "owner", visibility, avatar_json AS "avatar",
-        engine_json AS "engine", sandbox, runtime_mode AS "runtimeMode",
+        engine_json AS "engine", sandbox, sandbox_size AS "sandboxSize", runtime_mode AS "runtimeMode",
         voice_enabled AS "voiceEnabled",
         channel_bindings_json AS "channelBindings", group_id AS "groupId",
         archived_at AS "archivedAt", created_at AS "createdAt", updated_at AS "updatedAt"

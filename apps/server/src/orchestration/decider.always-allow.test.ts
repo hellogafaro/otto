@@ -39,6 +39,7 @@ const bot: OrchestrationBot = {
   avatar: { kind: "dither", seed: BOT_ID },
   engine: null,
   imageProvider: null,
+  sandboxSize: null,
   sandbox: "local",
   runtimeMode: "approval-required",
   voiceEnabled: false,

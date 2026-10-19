@@ -139,7 +139,7 @@ describe("OttoSessionResources computer sweep", () => {
 
     expect(BoatApi.prototype.create).toHaveBeenCalledWith({
       idempotencyKey: expect.any(String),
-      createSandboxRequest: { ttlSeconds: 300, noEnv: true },
+      createSandboxRequest: { ttlSeconds: 300, noEnv: true, type: "default" },
     });
     vi.mocked(BoatApi.prototype.update).mockClear();
     await target.keepComputersAwake([]);
@@ -155,7 +155,7 @@ describe("OttoSessionResources computer sweep", () => {
     await target.keepComputersAwake(["thread-ivy"]);
     expect(BoatApi.prototype.resume).toHaveBeenCalledWith({
       sandboxId: "vm-1",
-      resumeRequest: { ttlSeconds: 300 },
+      resumeRequest: { ttlSeconds: 300, type: "default" },
     });
     await target.release("thread-ivy");
     expect(BoatApi.prototype.stop).toHaveBeenCalledWith({ sandboxId: "vm-1" });

@@ -251,6 +251,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 workspaceResourceKey,
                 workspaceId,
                 ...(access.sandbox !== null ? { botSandbox: access.sandbox } : {}),
+                ...(input.botSandboxSize ? { sandboxSize: input.botSandboxSize } : {}),
                 ...(access.sandbox !== null &&
                 access.sandbox !== "local" &&
                 input.botSandboxEnvironment

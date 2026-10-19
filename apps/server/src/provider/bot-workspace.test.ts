@@ -127,7 +127,7 @@ describe("Boat", () => {
     await session.wake();
     expect(resume).toHaveBeenCalledWith({
       sandboxId: "boat-id",
-      resumeRequest: { ttlSeconds: 300 },
+      resumeRequest: { ttlSeconds: 300, type: "default" },
     });
     expect(await session.inspect()).toBe("running");
     await session.destroy();
@@ -181,7 +181,7 @@ describe("Boat", () => {
         if (action === "wake")
           expect(resume).toHaveBeenCalledWith({
             sandboxId: "boat-id",
-            resumeRequest: { ttlSeconds: 300 },
+            resumeRequest: { ttlSeconds: 300, type: "default" },
           });
         else expect(stop).toHaveBeenCalledOnce();
       } finally {
@@ -518,7 +518,7 @@ describe("Boat", () => {
       const first = await createRemoteBotWorkspace(input);
       expect(create).toHaveBeenCalledWith({
         idempotencyKey: expect.any(String),
-        createSandboxRequest: { ttlSeconds: 300, noEnv: true },
+        createSandboxRequest: { ttlSeconds: 300, noEnv: true, type: "default" },
       });
       const client = create.mock.contexts[0] as import("@boatdev/sdk").BoatApi;
       expect((await client.createRequestOpts({})).headers.Authorization).toBe(
@@ -627,7 +627,7 @@ describe("Boat", () => {
           });
           expect(create).toHaveBeenLastCalledWith({
             idempotencyKey: expect.any(String),
-            createSandboxRequest: { ttlSeconds: 300, noEnv: true },
+            createSandboxRequest: { ttlSeconds: 300, noEnv: true, type: "default" },
           });
         } else {
           await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");

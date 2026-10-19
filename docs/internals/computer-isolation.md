@@ -47,11 +47,15 @@ those are follow-ups if the host gets oversubscribed.
 ### Boat
 
 Acquire looks up the saved `providerId` and resumes that VM. Create happens only when there is
-no identity, or Boat confirms 404. Create uses an idempotency key and a 300s TTL. While a turn
-runs, Otto pushes the TTL back every 2 minutes. After the turn, idle shortens it to 120s unless
-another turn on _this_ computer is still running.
+no identity, or Boat confirms 404. Create uses an idempotency key, a 300s TTL, and the bot's
+resolved size (its override, or the global default). Small maps to Boat `small` (2 vCPU, 4 GB),
+medium to `default` (4 vCPU, 8 GB), and large to `large` (8 vCPU, 16 GB). Local ignores size.
+While a turn runs, Otto pushes the TTL back every 2 minutes. After the turn, idle shortens it to
+120s unless another turn on _this_ computer is still running.
 
-A later turn in the same chat resumes the existing VM. A new chat creates a new VM.
+A later turn in the same chat resumes the existing VM. Resume passes the current size, so a size
+change applies after the computer has stopped. A running computer is not stopped to resize it. A
+shrink Boat refuses (`type_too_small`) resumes on the current machine instead.
 
 ## Migration
 

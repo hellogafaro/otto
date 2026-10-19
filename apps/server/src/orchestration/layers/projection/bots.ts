@@ -27,6 +27,7 @@ export function createBots({
             avatar: event.payload.avatar,
             engine: event.payload.engine,
             sandbox: event.payload.sandbox,
+            sandboxSize: event.payload.sandboxSize,
             runtimeMode: event.payload.runtimeMode,
             imageProvider: event.payload.imageProvider,
             voiceEnabled: event.payload.voiceEnabled,
@@ -69,6 +70,9 @@ export function createBots({
             ...(event.payload.avatar !== undefined ? { avatar: event.payload.avatar } : {}),
             ...(event.payload.engine !== undefined ? { engine: event.payload.engine } : {}),
             ...(event.payload.sandbox !== undefined ? { sandbox: event.payload.sandbox } : {}),
+            ...(event.payload.sandboxSize !== undefined
+              ? { sandboxSize: event.payload.sandboxSize }
+              : {}),
             ...(event.payload.runtimeMode !== undefined
               ? { runtimeMode: event.payload.runtimeMode }
               : {}),

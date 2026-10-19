@@ -2,13 +2,14 @@ import type { ToolsInput } from "@mastra/core/agent";
 import { createMcpManager, type McpManager } from "@mastra/code-sdk/mcp/index";
 import type { Workspace } from "@mastra/core/workspace";
 import * as DateTime from "effect/DateTime";
-import type { BotSandbox } from "@otto/contracts";
+import type { BotSandbox, SandboxSize } from "@otto/contracts";
 import {
   createBotWorkspace,
   destroyRemoteComputer,
   isRemoteBotSandbox,
   type RemoteBotSandbox,
 } from "./bot-workspace.ts";
+import { boatMachineType, type BoatMachineTypeRef } from "./workspace/adapters/boat.ts";
 import {
   BotWorkspacePool,
   type BotWorkspaceLease,
@@ -56,6 +57,7 @@ export class OttoSessionResources {
   private readonly workspaceLeases = new Map<string, BotWorkspaceLease>();
   private readonly workspacePool: BotWorkspacePool;
   private readonly workspaceIds = new Map<string, string>();
+  private readonly machineTypes = new Map<string, BoatMachineTypeRef>();
   private shuttingDown = false;
 
   constructor(options: OttoSessionResourcesOptions) {
@@ -65,6 +67,26 @@ export class OttoSessionResources {
         ? {}
         : { idleTimeToLive: options.workspaceIdleTimeToLive },
     );
+  }
+
+  /**
+   * One ref per computer, mutated before each acquire so a pooled session resumes at the
+   * size chosen for this turn. The pool keeps the session; the ref is what changes.
+   */
+  private machineTypeFor(key: string, size: SandboxSize | undefined): BoatMachineTypeRef {
+    const next = boatMachineType(size ?? "medium");
+    const existing = this.machineTypes.get(key);
+
+    if (existing) {
+      existing.current = next;
+
+      return existing;
+    }
+
+    const created = { current: next };
+    this.machineTypes.set(key, created);
+
+    return created;
   }
 
   /**
@@ -148,6 +170,10 @@ export class OttoSessionResources {
     const identityFile = io.path.join(directory, `${workspaceId}.json`);
     this.workspaceIds.set(key, workspaceId);
 
+    const machineType = isRemoteBotSandbox(input.botSandbox)
+      ? this.machineTypeFor(input.workspaceResourceKey, input.sandboxSize)
+      : undefined;
+
     try {
       const workspaceLease = await this.workspacePool.acquire(
         input.workspaceResourceKey,
@@ -168,6 +194,7 @@ export class OttoSessionResources {
             ...(isRemoteBotSandbox(input.botSandbox)
               ? {
                   sandbox: input.botSandbox,
+                  ...(machineType ? { machineType } : {}),
                   ...(input.sandboxEnvironment ? { environment: input.sandboxEnvironment } : {}),
                 }
               : {

@@ -514,6 +514,7 @@ export function mapBotRow(
     avatar: row.avatar,
     engine: row.engine,
     sandbox: row.sandbox,
+    sandboxSize: row.sandboxSize,
     runtimeMode: row.runtimeMode,
     imageProvider: row.imageProvider,
     voiceEnabled: row.voiceEnabled === 1,

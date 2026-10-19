@@ -12,6 +12,9 @@ export const connectionsCatalog = {
   "Data portability": "数据可移植性",
   "Default browser viewport": "默认浏览器视口",
   "Default sandbox": "默认沙箱",
+  "Default sandbox size": "默认沙箱大小",
+  "Default sandbox size couldn't be saved": "无法保存默认沙箱大小",
+  "Default size": "默认大小",
   "Desktop-managed pairing and one-time pairing tokens are both accepted for this environment.":
     "此环境同时接受桌面管理配对和一次性配对令牌。",
   Disconnect: "断开连接",
@@ -589,4 +592,12 @@ export const connectionsCatalog = {
   "Pick a configuration, or create one. Composio keeps the credentials. Otto does not store them.":
     "选择一个配置，或新建一个。凭据由 Composio 保存，Otto 不存储。",
   "Composio did not list a way to connect this app.": "Composio 没有列出连接此应用的方式。",
+  "Boat small is 4 GB, medium is 8 GB, and large is 16 GB. Local ignores this.":
+    "Boat 的小是 4 GB，中是 8 GB，大是 16 GB。本地计算机忽略此设置。",
+  Large: "大",
+  Medium: "中",
+  "Sandbox size": "沙箱大小",
+  "Size of this bot's Boat computer. Default uses the global size. Local ignores it.":
+    "此机器人的 Boat 计算机大小。默认使用全局大小。本地计算机忽略此设置。",
+  Small: "小",
 } as const;

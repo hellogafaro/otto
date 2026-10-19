@@ -40,6 +40,7 @@ const archivedBot: OrchestrationBot = {
   avatar: { kind: "dither", seed: BOT_ID },
   engine: null,
   imageProvider: null,
+  sandboxSize: null,
   sandbox: "local",
   runtimeMode: "full-access",
   voiceEnabled: true,

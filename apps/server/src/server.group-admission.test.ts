@@ -45,6 +45,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         botId,
         engine: { provider: "claudeAgent", model: "claude-sonnet" },
         imageProvider: null,
+        sandboxSize: null,
         groupId,
       } satisfies ProjectionBots.ProjectionBot;
 
@@ -121,6 +122,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         botId,
         engine,
         imageProvider: null,
+        sandboxSize: null,
         groupId,
       }) satisfies ProjectionBots.ProjectionBot;
 

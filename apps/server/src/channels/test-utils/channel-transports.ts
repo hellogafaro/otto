@@ -192,6 +192,7 @@ const makeBot = (): OrchestrationBot => ({
   sandbox: "local",
   runtimeMode: "full-access",
   imageProvider: null,
+  sandboxSize: null,
   voiceEnabled: false,
   channelBindings: [],
   groupId: null,

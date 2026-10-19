@@ -307,6 +307,7 @@ export const createWsOrchestrationStreams = ({
                   avatar: nextBot.avatar,
                   engine: nextBot.engine,
                   sandbox: nextBot.sandbox,
+                  sandboxSize: nextBot.sandboxSize,
                   runtimeMode: nextBot.runtimeMode,
                   imageProvider: nextBot.imageProvider,
                   voiceEnabled: nextBot.voiceEnabled,

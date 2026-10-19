@@ -1,8 +1,32 @@
 import * as NodeCrypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Predicate from "effect/Predicate";
+import { type SandboxSize } from "@otto/contracts";
 import { type OttoRemoteSession } from "../bot-workspace-types.ts";
 import { quote, commandLine } from "../bot-workspace-lifecycle.ts";
+
+/**
+ * Otto sizes, mapped to Boat machine types. Small is 2 vCPU and 4 GB, medium is
+ * Boat's default (4 vCPU, 8 GB), large is 8 vCPU and 16 GB.
+ */
+export const BOAT_MACHINE_TYPES = {
+  small: "small",
+  medium: "default",
+  large: "large",
+} as const satisfies Record<SandboxSize, "small" | "default" | "large">;
+
+export type BoatMachineType = (typeof BOAT_MACHINE_TYPES)[SandboxSize];
+
+/** Shared with the session so a later acquire can change the size before the next resume. */
+export interface BoatMachineTypeRef {
+  current: BoatMachineType;
+}
+
+export function boatMachineType(size: SandboxSize): BoatMachineType {
+  return BOAT_MACHINE_TYPES[size];
+}
+
+const DEFAULT_MACHINE_TYPE: BoatMachineTypeRef = { current: "default" };
 
 /**
  * Boat stops a computer by itself this long after Otto last used it, even if Otto is down. Its
@@ -24,6 +48,27 @@ const ENVIRONMENT_FOLDER = "/home/user/.otto/env";
 /** The exit code and message a command gives when its environment file is gone. */
 const MISSING_ENVIRONMENT = { exitCode: 125, stderr: "otto: environment file missing" };
 
+async function boatErrorCode(cause: unknown): Promise<string | undefined> {
+  const { ResponseError } = await import("@boatdev/sdk");
+
+  if (!(cause instanceof ResponseError)) return undefined;
+  const body: unknown = await cause.response
+    .clone()
+    .json()
+    .catch(() => undefined);
+
+  if (Predicate.hasProperty(body, "code") && Predicate.isString(body.code)) return body.code;
+  if (
+    Predicate.hasProperty(body, "error") &&
+    Predicate.hasProperty(body.error, "code") &&
+    Predicate.isString(body.error.code)
+  ) {
+    return body.error.code;
+  }
+
+  return undefined;
+}
+
 /** Boat's SDK reports every HTTP failure as "Response returned an error code"; surface its message. */
 export async function boatFailure(cause: unknown): Promise<Error> {
   const { ResponseError } = await import("@boatdev/sdk");
@@ -44,7 +89,11 @@ export async function boatFailure(cause: unknown): Promise<Error> {
   return message ? new Error(`Boat: ${message}`, { cause }) : cause;
 }
 
-export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string): OttoRemoteSession {
+export function boat(
+  client: import("@boatdev/sdk").BoatApi,
+  sandboxId: string,
+  machineType: BoatMachineTypeRef = DEFAULT_MACHINE_TYPE,
+): OttoRemoteSession {
   const waitUntilArchived = async () => {
     const deadline = performance.now() + 300_000;
 
@@ -73,13 +122,27 @@ export function boat(client: import("@boatdev/sdk").BoatApi, sandboxId: string):
     }
   };
 
+  // A running computer cannot change size. The next resume, after Boat has archived it,
+  // applies the size. A shrink Boat refuses leaves the computer on its current machine.
+  const resume = async (type: BoatMachineType) => {
+    try {
+      await client.resume({
+        sandboxId,
+        resumeRequest: { ttlSeconds: BOAT_TTL_SECONDS, type },
+      });
+    } catch (cause) {
+      if ((await boatErrorCode(cause)) !== "type_too_small") throw cause;
+      await client.resume({ sandboxId, resumeRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
+    }
+  };
+
   const wake = async () => {
     const { sandbox } = await client.get({ sandboxId });
 
     if (sandbox.state === "archiving") await waitUntilArchived();
 
     if (sandbox.state === "archived" || sandbox.state === "archiving")
-      await client.resume({ sandboxId, resumeRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
+      await resume(machineType.current);
     const { waitUntilReady } = await import("@boatdev/sdk");
     await waitUntilReady(client, sandboxId, { timeoutMs: 300_000 });
   };

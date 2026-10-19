@@ -249,6 +249,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/computer",
   },
   {
+    id: "default-sandbox-size",
+    title: "Default sandbox size",
+    to: "/settings/computer",
+    keywords: ["4 GB", "8 GB", "16 GB", "vcpu"],
+  },
+  {
     id: "agent-browser-access",
     title: "Bot browser access",
     to: "/settings/computer",

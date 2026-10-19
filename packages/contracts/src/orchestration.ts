@@ -58,6 +58,8 @@ export {
   BotEngine,
   BotSandbox,
   PersistedBotSandbox,
+  SandboxSize,
+  DEFAULT_SANDBOX_SIZE,
   BOT_INSTRUCTIONS_MAX_CHARS,
   BotInstructions,
   CHANNEL_PROVIDERS,

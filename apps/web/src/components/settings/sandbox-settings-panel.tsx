@@ -1,7 +1,7 @@
 import { RiCloudLine } from "@remixicon/react";
 import { Predicate } from "effect";
 import { squashAtomCommandFailure } from "@otto/client-runtime/state/runtime";
-import type { EnvironmentId, SandboxProvider, SandboxSettings } from "@otto/contracts";
+import type { EnvironmentId, SandboxProvider, SandboxSettings, SandboxSize } from "@otto/contracts";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -33,6 +33,12 @@ const SANDBOX_PROVIDER_LABELS: Readonly<Record<SandboxProvider, string>> = {
   local: "Local",
   boat: "Boat",
 };
+
+const SANDBOX_SIZES = ["small", "medium", "large"] as const satisfies readonly SandboxSize[];
+
+function sandboxSizeLabel(size: SandboxSize, t: (message: string) => string) {
+  return size === "small" ? t("Small") : size === "medium" ? t("Medium") : t("Large");
+}
 
 function errorMessage(
   result: Parameters<typeof squashAtomCommandFailure>[0],
@@ -237,6 +243,36 @@ function EnvironmentSandboxSettingsPanel({
             }
           />
         )}
+        <SettingsRow
+          {...searchableSetting("default-sandbox-size", t)}
+          title={t("Default sandbox size")}
+          description={t(
+            "Boat small is 4 GB, medium is 8 GB, and large is 16 GB. Local ignores this.",
+          )}
+          control={
+            <Select
+              value={sandbox.defaultSize}
+              onValueChange={(value) => {
+                if (value !== "small" && value !== "medium" && value !== "large") return;
+
+                void persist({ ...sandbox, defaultSize: value }).then((saved) => {
+                  if (!saved) toast.error(t("Default sandbox size couldn't be saved"));
+                });
+              }}
+            >
+              <SelectTrigger className="w-44" aria-label={t("Default sandbox size")}>
+                <SelectValue>{sandboxSizeLabel(sandbox.defaultSize, t)}</SelectValue>
+              </SelectTrigger>
+              <SelectPopup>
+                {SANDBOX_SIZES.map((size) => (
+                  <SelectItem key={size} value={size}>
+                    {sandboxSizeLabel(size, t)}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
+          }
+        />
       </SettingsSection>
 
       {editingDefinition ? (

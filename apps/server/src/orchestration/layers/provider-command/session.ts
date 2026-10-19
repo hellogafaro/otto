@@ -389,6 +389,7 @@ export function createSession({
 
     const effectiveSandbox =
       respondingBot?.sandbox ?? defaultBotSandbox(serverSettings.sandbox, serverBoatKey);
+    const sandboxSize = respondingBot?.sandboxSize ?? serverSettings.sandbox.defaultSize;
 
     const sandboxEnvironment =
       effectiveSandbox === "local"
@@ -449,6 +450,7 @@ export function createSession({
           ? { botInstructions: respondingBot.instructions.trim() }
           : {}),
         botSandbox: effectiveSandbox,
+        botSandboxSize: sandboxSize,
         ...(sandboxEnvironment ? { botSandboxEnvironment: sandboxEnvironment } : {}),
         ...(input?.resumeCursor !== undefined ? { resumeCursor: input.resumeCursor } : {}),
         runtimeMode: desiredRuntimeMode,

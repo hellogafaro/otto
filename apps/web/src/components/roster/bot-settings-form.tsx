@@ -6,6 +6,7 @@ import {
   IMAGE_PROVIDER_IDS,
   type EnvironmentId,
   type ImageProviderId,
+  type SandboxSize,
   type Visibility,
 } from "@otto/contracts";
 import {
@@ -39,7 +40,7 @@ import { BotAvatarView } from "./bot-avatar-view";
 import { BotEngineFields } from "./bot-engine-fields";
 import { BotIdentityFields } from "./bot-identity-fields";
 import { BotToolSwitches } from "./bot-tool-switches";
-import { BOT_SANDBOX_OPTIONS, botSandboxLabel } from "./bot-sandbox";
+import { BOT_SANDBOX_OPTIONS, botSandboxLabel, sandboxSizeLabel } from "./bot-sandbox";
 import type { Bot } from "./types";
 import {
   BOT_IMAGE_PROVIDER_DEFAULT,
@@ -293,6 +294,42 @@ export function BotSettingsForm({
                         {botSandboxLabel(option.value, t)}
                       </SelectItem>
                     ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+
+            <SettingsRow
+              title={t("Sandbox size")}
+              description={t(
+                "Size of this bot's Boat computer. Default uses the global size. Local ignores it.",
+              )}
+              control={
+                <Select
+                  value={draft.sandboxSize ?? "default"}
+                  onValueChange={(value) => {
+                    draft.setSandboxSize(
+                      value === "small" || value === "medium" || value === "large" ? value : null,
+                    );
+                    draft.markChanged();
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-48" aria-label={t("Sandbox size")}>
+                    <SelectValue>
+                      {draft.sandboxSize
+                        ? sandboxSizeLabel(draft.sandboxSize, t)
+                        : t("Default size")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    <SelectItem value="default">{t("Default size")}</SelectItem>
+                    {(["small", "medium", "large"] as const satisfies readonly SandboxSize[]).map(
+                      (size) => (
+                        <SelectItem key={size} value={size}>
+                          {sandboxSizeLabel(size, t)}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectPopup>
                 </Select>
               }

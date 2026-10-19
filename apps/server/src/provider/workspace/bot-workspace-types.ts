@@ -1,6 +1,7 @@
 import type { BotWorkspaceIO } from "./bot-workspace-io.ts";
 import { Workspace } from "@mastra/core/workspace";
-import type { BotSandbox } from "@otto/contracts";
+import type { BotSandbox, SandboxSize } from "@otto/contracts";
+import type { BoatMachineTypeRef } from "./adapters/boat.ts";
 
 export const REMOTE_BOT_SANDBOXES = ["boat"] as const;
 
@@ -53,6 +54,9 @@ export interface CreateRemoteBotWorkspaceInput {
   readonly legacyIdentityFile?: string;
   readonly workspaceId?: string;
   readonly environment?: Readonly<Record<string, string>>;
+  /** Boat machine for this computer. Local workspaces ignore it. Updated before each resume. */
+  readonly machineType?: BoatMachineTypeRef;
+  readonly sandboxSize?: SandboxSize;
   readonly openSession?: (providerId?: string) => Promise<OttoRemoteSession>;
 }
 
@@ -66,6 +70,8 @@ export interface CreateBotWorkspaceInput {
   /** Server-owned directory for local isolation profiles, outside every bot-writable path. */
   readonly sandboxProfileDirectory?: string;
   readonly sandbox?: BotSandbox | null;
+  readonly sandboxSize?: SandboxSize;
+  readonly machineType?: BoatMachineTypeRef;
   readonly workspaceId?: string;
   readonly environment?: Readonly<Record<string, string>>;
   readonly makeRemoteWorkspace?: (
