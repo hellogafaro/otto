@@ -23,7 +23,14 @@ export interface DictationCaptureDependencies<Stream extends CaptureStream = Med
 export interface DictationCaptureOptions {
   signal?: AbortSignal;
   maxDurationMs?: number;
+  /** The most one piece may hold; with segmentMs set, each piece counts on its own. */
   maxBytes?: number;
+  /**
+   * Cuts the recording into standalone files this long, each handed to onSegment as it ends, so a
+   * long dictation transcribes while the person keeps talking. release() returns the last piece.
+   */
+  segmentMs?: number;
+  onSegment?: (audio: Blob) => void;
 }
 
 export interface DictationCapture {
@@ -45,7 +52,9 @@ export function browserDependencies(): DictationCaptureDependencies {
   return {
     mediaDevices: navigator.mediaDevices,
     document,
-    createRecorder: (stream) => new MediaRecorder(stream),
+    // Speech needs far less than the browser's default bitrate: 32 kbps Opus is about 240 KB a
+    // minute, so pieces upload and transcribe faster.
+    createRecorder: (stream) => new MediaRecorder(stream, { audioBitsPerSecond: 32_000 }),
     setTimeout: (callback, milliseconds) => globalThis.setTimeout(callback, milliseconds),
     clearTimeout: (timer) => globalThis.clearTimeout(timer),
   };
@@ -76,6 +85,8 @@ export async function startDictationCapture<Stream extends CaptureStream = Media
   let stream: Stream | undefined;
   let recorder: ReturnType<DictationCaptureDependencies["createRecorder"]> | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let segmentTimer: ReturnType<typeof setTimeout> | undefined;
+  let segmenting = false;
   let finished = false;
   let releasing = false;
   let bytes = 0;
@@ -105,6 +116,8 @@ export async function startDictationCapture<Stream extends CaptureStream = Media
     for (const remove of removers.splice(0)) remove();
 
     if (timer !== undefined) deps.clearTimeout(timer);
+
+    if (segmentTimer !== undefined) deps.clearTimeout(segmentTimer);
 
     if (stream) stopTracks(stream);
   };
@@ -171,38 +184,70 @@ export async function startDictationCapture<Stream extends CaptureStream = Media
       if (track.readyState === "ended") throw new Error("Microphone track ended.");
     }
 
-    recorder = deps.createRecorder(stream);
-    listen(recorder, "dataavailable", (event) => {
-      // SAFETY: This listener is registered for MediaRecorder dataavailable events, whose payload is BlobEvent.
-      const { data } = event as BlobEvent;
-      bytes += data.size;
+    const recording = stream;
 
-      if (bytes > maxBytes) {
-        fail(new Error("Microphone capture exceeded the size limit."));
-      } else if (data.size > 0) {
-        chunks.push(data);
-      }
-    });
-    listen(recorder, "error", () => fail(new Error("Microphone recording failed.")));
-    listen(recorder, "stop", () => {
-      if (!releasing) {
-        fail(new Error("Microphone recording stopped unexpectedly."));
+    const blobOf = (from: NonNullable<typeof recorder>) =>
+      new Blob(chunks, { type: from.mimeType || chunks[0]?.type || "audio/webm" });
 
-        return;
-      }
+    // Each piece gets its own recorder so its file has a header and decodes on its own.
+    const startRecorder = () => {
+      const current = deps.createRecorder(recording);
+      recorder = current;
+      listen(current, "dataavailable", (event) => {
+        // SAFETY: This listener is registered for MediaRecorder dataavailable events, whose payload is BlobEvent.
+        const { data } = event as BlobEvent;
+        bytes += data.size;
 
-      if (finished) return;
-      finished = true;
-
-      const audio = new Blob(chunks, {
-        type: recorder?.mimeType || chunks[0]?.type || "audio/webm",
+        if (bytes > maxBytes) {
+          fail(new Error("Microphone capture exceeded the size limit."));
+        } else if (data.size > 0) {
+          chunks.push(data);
+        }
       });
+      listen(current, "error", () => fail(new Error("Microphone recording failed.")));
+      listen(current, "stop", () => {
+        if (finished) return;
 
-      chunks.length = 0;
-      cleanup();
-      resolveResult(audio);
-    });
-    recorder.start(250);
+        if (segmenting && !releasing) {
+          segmenting = false;
+          const piece = blobOf(current);
+          chunks.length = 0;
+          bytes = 0;
+          options.onSegment?.(piece);
+          startRecorder();
+
+          return;
+        }
+
+        if (!releasing) {
+          fail(new Error("Microphone recording stopped unexpectedly."));
+
+          return;
+        }
+
+        finished = true;
+        const audio = blobOf(current);
+        chunks.length = 0;
+        cleanup();
+        resolveResult(audio);
+      });
+      current.start(250);
+
+      if (options.segmentMs !== undefined && options.segmentMs > 0) {
+        segmentTimer = deps.setTimeout(() => {
+          if (finished || releasing) return;
+          segmenting = true;
+
+          try {
+            current.stop();
+          } catch (error) {
+            fail(error);
+          }
+        }, options.segmentMs);
+      }
+    };
+
+    startRecorder();
     timer = deps.setTimeout(
       () => fail(new Error("Microphone capture exceeded the duration limit.")),
       maxDurationMs,
@@ -215,8 +260,11 @@ export async function startDictationCapture<Stream extends CaptureStream = Media
         if (!finished && !releasing) {
           releasing = true;
 
+          if (segmentTimer !== undefined) deps.clearTimeout(segmentTimer);
+
           try {
-            recorder!.stop();
+            // A piece being cut right now ends on its own; its stop event resolves the release.
+            if (recorder && recorder.state !== "inactive") recorder.stop();
 
             // The final dataavailable/stop events are asynchronous in browsers.
             if (stream) stopTracks(stream);

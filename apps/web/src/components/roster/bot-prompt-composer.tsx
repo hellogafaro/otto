@@ -19,7 +19,9 @@ import { cn } from "../../lib/utils";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { ComposerBanner } from "../chat/composer-banner";
 import { DictationControls } from "../chat/dictation-controls";
-import { DictationMeter } from "../chat/dictation-meter";
+import { DictationRecordingBar, isDictating } from "../chat/dictation-recording-bar";
+import { useDictationToasts } from "../chat/use-dictation-toasts";
+import { DICTATION_LIMIT_MS } from "../../lib/use-composer-dictation";
 import { FileLightbox } from "../library/file-lightbox";
 import { ComposerStashBadge } from "../chat/composer-stash-badge";
 import { ComposerStashMenu } from "../chat/composer-stash-menu";
@@ -132,7 +134,10 @@ export function BotPromptComposer({
   /** Offers `@everyone` in the picker; group chats only. */
   mentionEveryone?: boolean;
   /** Other people in a group chat, offered in the picker. */
-  mentionPeople?: ReadonlyArray<{ readonly personId: string; readonly displayName: string }>;
+  mentionPeople?: ReadonlyArray<{
+    readonly personId: string;
+    readonly displayName: string;
+  }>;
   /** Enables `@browser` and `@chat:` mentions for this chat's environment. */
   mentionScope?: BotPromptMentionScope | null;
   /** Otto: Without a chat scope, offers this environment's tasks and projects, as in comments. */
@@ -384,25 +389,10 @@ export function BotPromptComposer({
     },
   });
 
-  const retryDictation = useRef(dictation.onRetry);
-  retryDictation.current = dictation.onRetry;
-
-  useEffect(() => {
-    if (dictation.status !== "failed" || !dictation.errorMessage) return;
-    const retry = retryDictation.current;
-
-    toast.error(t("Dictation couldn't be completed"), {
-      id: "dictation-failed",
-      description: dictation.errorMessage,
-      ...(retry ? { action: { label: t("Retry"), onClick: retry } } : {}),
-    });
-  }, [dictation.errorMessage, dictation.status, t]);
+  useDictationToasts(dictation, DICTATION_LIMIT_MS);
 
   // While dictating, + turns into × (cancel) and the row shows the voice and the time.
-  const dictating =
-    dictation.status === "requesting" ||
-    dictation.status === "recording" ||
-    dictation.status === "transcribing";
+  const dictating = isDictating(dictation.status);
 
   const showDictation =
     !readOnly &&
@@ -475,7 +465,10 @@ export function BotPromptComposer({
               initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.16, ease: "easeOut" }}
+              transition={{
+                duration: prefersReducedMotion ? 0 : 0.16,
+                ease: "easeOut",
+              }}
             >
               {pendingActionSlot}
             </motion.div>
@@ -643,33 +636,16 @@ export function BotPromptComposer({
               data-testid="bot-prompt-controls"
               /* Pinned to the box corners in every state: growing the draft must not move
              the add or send button out from under the pointer. */
-              className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between"
+              className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-2"
             >
               <div
                 className={cn(
                   "pointer-events-auto flex min-w-0 items-center gap-1",
-                  dictating && "flex-1 pe-1",
+                  dictating && "flex-1",
                 )}
               >
                 {dictating ? (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            size="icon-sm"
-                            variant="secondary"
-                            aria-label={t("Cancel dictation")}
-                            onClick={dictation.onCancel}
-                          />
-                        }
-                      >
-                        <RiCloseLine />
-                      </TooltipTrigger>
-                      <TooltipPopup side="top">{t("Cancel dictation")}</TooltipPopup>
-                    </Tooltip>
-                    <DictationMeter stream={dictation.stream} />
-                  </>
+                  <DictationRecordingBar stream={dictation.stream} onCancel={dictation.onCancel} />
                 ) : mentionBots.length === 0 ? (
                   // Attaching is the only prompt action here, so the button opens the picker.
                   <Tooltip>
@@ -783,7 +759,10 @@ export function BotPromptComposer({
         file={
           expandedAttachment
             ? attachmentLightboxFile(
-                { name: expandedAttachment.file.name, mimeType: expandedAttachment.file.type },
+                {
+                  name: expandedAttachment.file.name,
+                  mimeType: expandedAttachment.file.type,
+                },
                 expandedAttachment.previewUrl,
               )
             : null

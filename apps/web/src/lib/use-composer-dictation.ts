@@ -16,6 +16,9 @@ import type { DictationControlsProps } from "../components/chat/dictation-contro
 
 type ComposerDictationSession = ReturnType<typeof createDictationSession>;
 
+/** How long one dictation may run before it stops itself and transcribes what was said. */
+export const DICTATION_LIMIT_MS = VOICE_DICTATION_LIMITS.maxRecordingMs ?? 15 * 60_000;
+
 export interface ComposerDictationBinding {
   readonly identity: DictationIdentity;
   readonly connected: boolean;
@@ -37,6 +40,8 @@ export interface ComposerDictation extends DictationControlsProps {
   readonly stream: MediaStream | null;
   /** Transcribes a failed dictation's recording again; null when there is nothing to retry. */
   readonly onRetry: (() => void) | null;
+  /** The last dictation reached the time limit and stopped itself, keeping what was said. */
+  readonly stoppedAtLimit: boolean;
 }
 
 export function useComposerDictation(input: ComposerDictationBinding): ComposerDictation {
@@ -114,6 +119,7 @@ export function useComposerDictation(input: ComposerDictationBinding): ComposerD
     onCancel,
     stream: status === "recording" ? stream : null,
     onRetry: session.canRetry ? () => void session.retry() : null,
+    stoppedAtLimit: session.stoppedAtLimit,
   };
 }
 

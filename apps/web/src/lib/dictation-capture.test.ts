@@ -253,4 +253,50 @@ describe("startDictationCapture", () => {
     );
     expect(f.mediaDevices.getUserMedia).not.toHaveBeenCalled();
   });
+
+  it("cuts a long recording into standalone pieces and returns the last one on release", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    const recorders: Recorder[] = [];
+    f.deps.createRecorder = vi.fn(() => {
+      const next = new Recorder();
+
+      recorders.push(next);
+
+      return next;
+    });
+    const pieces: Blob[] = [];
+
+    const capture = await startDictationCapture(
+      { segmentMs: 1000, maxBytes: 8, onSegment: (piece) => pieces.push(piece) },
+      f.deps,
+    );
+
+    recorders[0]!.data("first");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(recorders[0]!.stop).toHaveBeenCalledTimes(1);
+    recorders[0]!.finish();
+    expect(await pieces[0]!.text()).toBe("first");
+    // Each piece gets a fresh recorder, so its file has a header, and its own byte budget.
+    expect(recorders).toHaveLength(2);
+    expect(recorders[1]!.start).toHaveBeenCalledWith(250);
+    recorders[1]!.data("second");
+    const result = capture.release();
+    recorders[1]!.finish();
+    expect(await (await result).text()).toBe("second");
+    expect(pieces).toHaveLength(1);
+    expect(f.track.stop).toHaveBeenCalled();
+  });
+
+  it("asks the browser for a speech bitrate", async () => {
+    const { browserDependencies } = await import("./dictation-capture");
+    const recorder = vi.fn();
+
+    vi.stubGlobal("navigator", { mediaDevices: new EventTarget() });
+    vi.stubGlobal("document", new EventTarget());
+    vi.stubGlobal("MediaRecorder", recorder);
+    browserDependencies().createRecorder({} as MediaStream);
+    expect(recorder).toHaveBeenCalledWith({}, { audioBitsPerSecond: 32_000 });
+    vi.unstubAllGlobals();
+  });
 });

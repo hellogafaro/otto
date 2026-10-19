@@ -24,6 +24,7 @@ export type {
 
 export {
   DICTATION_TRANSCRIPTION_UNAVAILABLE,
+  MOBILE_DICTATION_LIMITS,
   VOICE_DICTATION_LIMITS,
   createVoiceDictationTranscriber,
   dictationAudioMediaType,

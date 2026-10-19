@@ -8,6 +8,9 @@ import { useEnvironmentComposerDictation } from "../lib/use-environment-composer
 import { cn } from "../lib/utils";
 import { ComposerControl, ComposerControlIcon } from "./chat/composer-control";
 import { DictationControls } from "./chat/dictation-controls";
+import { DictationRecordingBar, isDictating } from "./chat/dictation-recording-bar";
+import { useDictationToasts } from "./chat/use-dictation-toasts";
+import { DICTATION_LIMIT_MS } from "../lib/use-composer-dictation";
 import { fileDropHandlers } from "./chat/workspace-file-drop";
 import { FileLightbox } from "./library/file-lightbox";
 import { attachmentLightboxFile, downloadAttachment } from "./roster/bot-message-attachments";
@@ -112,14 +115,13 @@ function PromptDialogBody({
     },
   });
 
-  useEffect(() => {
-    if (dictation.status !== "failed" || !dictation.errorMessage) return;
-    toast.error(t("Dictation couldn't be completed"));
-  }, [dictation.errorMessage, dictation.status, t]);
+  useDictationToasts(dictation, DICTATION_LIMIT_MS);
+  const dictating = isDictating(dictation.status);
 
   const showDictation = composerActionIsDictation({
     hasDraft: prompt.trim().length > 0 || ready,
-    status: dictation.status,
+    // A failed dictation is retried from its toast, so it gives the slot back, as in chat.
+    status: dictation.status === "failed" ? "idle" : dictation.status,
   });
 
   const addFiles = (picked: Iterable<File>) => {
@@ -130,7 +132,9 @@ function PromptDialogBody({
 
     if (!files.add(supported)) {
       toast.error(
-        t("You can attach up to {count} files", { count: PROVIDER_SEND_TURN_MAX_ATTACHMENTS }),
+        t("You can attach up to {count} files", {
+          count: PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
+        }),
       );
     }
   };
@@ -208,19 +212,28 @@ function PromptDialogBody({
         }}
       />
       {/* Otto: Controls keep their full labels and wrap onto another line instead of cropping. */}
-      <div className="flex items-end justify-between gap-2 px-3 pb-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">
-          {attachable ? (
-            <ComposerControl
-              size="icon-sm"
-              aria-label={t("Attach file")}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <ComposerControlIcon icon={RiAttachmentLine} />
-            </ComposerControl>
-          ) : null}
-          {pickers}
-        </div>
+      <div
+        className={cn(
+          "flex justify-between gap-2 px-3 pb-3",
+          dictating ? "items-center" : "items-end",
+        )}
+      >
+        {dictating ? (
+          <DictationRecordingBar stream={dictation.stream} onCancel={dictation.onCancel} />
+        ) : (
+          <div className="flex min-w-0 flex-wrap items-center gap-1 *:shrink-0">
+            {attachable ? (
+              <ComposerControl
+                size="icon-sm"
+                aria-label={t("Attach file")}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ComposerControlIcon icon={RiAttachmentLine} />
+              </ComposerControl>
+            ) : null}
+            {pickers}
+          </div>
+        )}
         {showDictation ? (
           <div className="size-7 shrink-0">
             <DictationControls
@@ -268,7 +281,10 @@ function PromptDialogBody({
             file={
               files.expanded
                 ? attachmentLightboxFile(
-                    { name: files.expanded.file.name, mimeType: files.expanded.file.type },
+                    {
+                      name: files.expanded.file.name,
+                      mimeType: files.expanded.file.type,
+                    },
                     files.expanded.previewUrl,
                   )
                 : null

@@ -42,6 +42,12 @@ export interface DictationDependencies {
     signal: AbortSignal;
     limits: DictationLimits;
     onError(cause: unknown): void;
+    /**
+     * A finished piece of a long recording, in order. A capture may cut a long recording into
+     * pieces so each one transcribes while the person keeps talking; stop() returns the last one.
+     * A capture that records one file, as on mobile, never calls it.
+     */
+    onSegment?(audio: DictationAudio): void;
   }): Promise<DictationCapture>;
   /** Inject a real transcription implementation; this module supplies no provider or transport. */
   transcribe(input: {
@@ -116,13 +122,18 @@ export function createDictationSession(
         original: DictationDraft;
         controller: AbortController;
         capture?: DictationCapture;
-        audio?: DictationAudio;
+        /** Every piece recorded so far, in order, and its transcription. */
+        audios: DictationAudio[];
+        pieces: Promise<string>[];
         timer?: DictationTimer;
       }
     | undefined;
 
   // The recording and draft of a failed transcription, so retry() sends the same audio again.
-  let failed: { original: DictationDraft; audio: DictationAudio } | undefined;
+  let failed: { original: DictationDraft; audios: readonly DictationAudio[] } | undefined;
+
+  // The last dictation stopped on its own at maxRecordingMs rather than when the person stopped it.
+  let stoppedAtLimit = false;
 
   function releaseCapture(run: NonNullable<typeof active>) {
     const capture = run.capture;
@@ -144,27 +155,52 @@ export function createDictationSession(
     const run = active;
     releaseActive(cause);
     failed =
-      next === "error" && run?.audio ? { original: run.original, audio: run.audio } : undefined;
+      next === "error" && run && run.audios.length > 0
+        ? { original: run.original, audios: run.audios }
+        : undefined;
     transition(next, cause);
   }
 
-  async function transcribe(run: NonNullable<typeof active>, audio: DictationAudio) {
-    run.audio = audio;
+  function validAudio(audio: DictationAudio) {
+    return (
+      audio.bytes.byteLength > 0 &&
+      audio.bytes.byteLength <= limits.maxAudioBytes &&
+      Number.isFinite(audio.durationMs) &&
+      audio.durationMs > 0 &&
+      audio.durationMs <= limits.maxRecordingMs &&
+      audio.mediaType.trim().length > 0
+    );
+  }
 
+  /** Starts one piece's transcription now; its failure surfaces when the pieces are joined. */
+  function transcribePiece(run: NonNullable<typeof active>, audio: DictationAudio) {
+    run.audios.push(audio);
+
+    const piece = dependencies.transcribe({
+      audio,
+      signal: run.controller.signal,
+      identity: run.original.identity,
+    });
+
+    void piece.catch(() => undefined);
+    run.pieces.push(piece);
+  }
+
+  /** Joins every piece's transcript in recording order and merges it into the draft once. */
+  async function joinPieces(run: NonNullable<typeof active>) {
     try {
-      const transcript = await abortable(
-        dependencies.transcribe({
-          audio,
-          signal: run.controller.signal,
-          identity: run.original.identity,
-        }),
-        run.controller.signal,
-      );
+      const texts = await abortable(Promise.all(run.pieces), run.controller.signal);
 
       if (active !== run) return;
 
-      if (transcript.length > limits.maxTranscriptCharacters)
+      if (texts.some((text) => text.length > limits.maxTranscriptCharacters))
         throw new Error("Dictation transcript limit exceeded");
+
+      const transcript = texts
+        .map((text) => text.trim())
+        .filter(Boolean)
+        .join(" ");
+
       dependencies.updateDraft((current) =>
         active === run
           ? mergeDictationDraft(run.original, current, transcript, limits.maxDraftCharacters)
@@ -177,11 +213,50 @@ export function createDictationSession(
     }
   }
 
-  function deadline(run: NonNullable<typeof active>, milliseconds: number) {
+  function deadline(run: NonNullable<typeof active>, milliseconds: number, expire: () => void) {
     dependencies.cancelSchedule(run.timer);
     run.timer = dependencies.schedule(() => {
-      if (active === run) terminate("error", new Error("Dictation time limit exceeded"));
+      if (active === run) expire();
     }, milliseconds);
+  }
+
+  const transcriptionDeadline = (run: NonNullable<typeof active>) =>
+    deadline(run, limits.maxTranscriptionMs, () =>
+      terminate("error", new Error("Transcription took too long. Try again.")),
+    );
+
+  async function finish() {
+    if (status === "starting") {
+      terminate("cancelled", "cancel");
+
+      return;
+    }
+
+    const run = active;
+
+    if (!run?.capture || status !== "recording") return;
+    const capture = run.capture;
+    transcriptionDeadline(run);
+    transition("transcribing");
+
+    if (active !== run) return;
+
+    try {
+      const audio = await abortable(capture.stop(), run.controller.signal);
+      releaseCapture(run);
+
+      if (active !== run) return;
+
+      // A stop right after a piece ended leaves an empty last piece; the earlier pieces still count.
+      if (!(audio.bytes.byteLength === 0 && run.pieces.length > 0)) {
+        if (!validAudio(audio)) throw new Error("Invalid dictation audio or audio limit exceeded");
+        transcribePiece(run, audio);
+      }
+
+      await joinPieces(run);
+    } catch (cause) {
+      if (active === run) terminate("error", cause);
+    }
   }
 
   return {
@@ -195,6 +270,10 @@ export function createDictationSession(
     get canRetry() {
       return status === "error" && failed !== undefined;
     },
+    /** The last dictation reached maxRecordingMs and stopped itself; what was said is kept. */
+    get stoppedAtLimit() {
+      return stoppedAtLimit;
+    },
     /** Observe transitions synchronously; listeners must not throw. Returns an unsubscribe function. */
     subscribe(listener: () => void) {
       if (!disposed) listeners.add(listener);
@@ -207,14 +286,27 @@ export function createDictationSession(
       if (disposed) throw new Error("Dictation session is disposed");
       releaseActive();
       failed = undefined;
+      stoppedAtLimit = false;
 
       const run: NonNullable<typeof active> = {
         original: { ...draft, identity: { ...draft.identity }, selection: { ...draft.selection } },
         controller: new AbortController(),
+        audios: [],
+        pieces: [],
       };
 
       active = run;
-      deadline(run, limits.maxRecordingMs);
+      // At the limit the recording stops and transcribes what was said instead of failing.
+      deadline(run, limits.maxRecordingMs, () => {
+        if (status === "starting") {
+          terminate("cancelled", "cancel");
+
+          return;
+        }
+
+        stoppedAtLimit = true;
+        void finish();
+      });
       transition("starting");
 
       if (active !== run) return;
@@ -226,6 +318,12 @@ export function createDictationSession(
             limits,
             onError(cause) {
               if (active === run) terminate("error", cause);
+            },
+            onSegment(audio) {
+              if (active !== run) return;
+
+              if (validAudio(audio)) transcribePiece(run, audio);
+              else terminate("error", new Error("Invalid dictation audio or audio limit exceeded"));
             },
           })
           .then((capture) => {
@@ -242,57 +340,28 @@ export function createDictationSession(
         if (active === run) terminate("error", cause);
       }
     },
-    async finish() {
-      if (status === "starting") {
-        terminate("cancelled", "cancel");
-
-        return;
-      }
-
-      const run = active;
-
-      if (!run?.capture || status !== "recording") return;
-      const capture = run.capture;
-      deadline(run, limits.maxTranscriptionMs);
-      transition("transcribing");
-
-      if (active !== run) return;
-
-      try {
-        const audio = await abortable(capture.stop(), run.controller.signal);
-        releaseCapture(run);
-
-        if (active !== run) return;
-
-        if (
-          audio.bytes.byteLength === 0 ||
-          audio.bytes.byteLength > limits.maxAudioBytes ||
-          !Number.isFinite(audio.durationMs) ||
-          audio.durationMs <= 0 ||
-          audio.durationMs > limits.maxRecordingMs ||
-          !audio.mediaType.trim()
-        ) {
-          throw new Error("Invalid dictation audio or audio limit exceeded");
-        }
-
-        await transcribe(run, audio);
-      } catch (cause) {
-        if (active === run) terminate("error", cause);
-      }
-    },
+    finish,
     /** Transcribes a failed dictation's recording again into the draft it started from. */
     async retry() {
       if (status !== "error" || !failed) return;
-      const { original, audio } = failed;
+      const { original, audios } = failed;
       failed = undefined;
-      const run: NonNullable<typeof active> = { original, controller: new AbortController() };
+
+      const run: NonNullable<typeof active> = {
+        original,
+        controller: new AbortController(),
+        audios: [],
+        pieces: [],
+      };
 
       active = run;
-      deadline(run, limits.maxTranscriptionMs);
+      transcriptionDeadline(run);
       transition("transcribing");
 
       if (active !== run) return;
-      await transcribe(run, audio);
+
+      for (const audio of audios) transcribePiece(run, audio);
+      await joinPieces(run);
     },
     cancel(reason: DictationCancelReason = "cancel") {
       terminate("cancelled", reason);
