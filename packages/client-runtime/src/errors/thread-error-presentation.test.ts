@@ -68,6 +68,18 @@ describe("presentThreadError", () => {
     });
   });
 
+  it("names the disabled instance from the error when the chat is on a different provider", () => {
+    expect(
+      presentThreadError("Provider instance 'codex' is disabled in Otto settings.", {
+        providerName: "Claude",
+      }),
+    ).toMatchObject({
+      title: "ChatGPT is turned off",
+      description: "Turn ChatGPT on in Settings > Models, then send your message again.",
+      technicalDetails: "Provider instance “codex” is disabled.",
+    });
+  });
+
   it("sends a missing sign-in to Settings instead of asking for a retry", () => {
     expect(
       presentThreadError("Connect Claude in Settings.", { providerName: "Claude" }),

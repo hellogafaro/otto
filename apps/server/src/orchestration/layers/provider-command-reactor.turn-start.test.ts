@@ -69,6 +69,44 @@ describe("ProviderCommandReactor", () => {
     expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({ input: "send this only once" });
   });
 
+  it("starts a Claude bot when the chat still stores a disabled Codex selection", async () => {
+    const harness = await createHarness({
+      botEngine: { provider: "claudeAgent", model: "claude-opus-4-6" },
+      disabledInstances: ["codex"],
+    });
+
+    await harness.run(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.make("cmd-turn-start-claude-over-disabled-codex"),
+        threadId: ThreadId.make("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-claude-over-disabled-codex"),
+          role: "user",
+          text: "use claude",
+          attachments: [],
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    await harness.waitFor(() => harness.startSession.mock.calls.length === 1);
+    expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
+      provider: ProviderDriverKind.make("claudeAgent"),
+      providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+    });
+
+    const thread = (await harness.readModel()).threads.find(
+      (entry) => entry.id === ThreadId.make("thread-1"),
+    );
+
+    expect(thread?.activities.map((activity) => activity.kind)).not.toContain(
+      "provider.turn.start.failed",
+    );
+  });
+
   it.each([
     ["codex", "gpt-5.6-sol"],
     ["claudeAgent", "claude-fable-5"],
