@@ -1,11 +1,4 @@
 export const connectionsCatalog = {
-  "Retire Railway VMs before changing access": "更改访问权限前请清理 Railway 虚拟机",
-  "Open Railway dashboard": "打开 Railway 控制台",
-  "Changing or removing credentials does not stop or delete Railway VMs. They can keep accruing charges. Stop active bot sessions, then open your environment in the Railway dashboard and destroy any VMs you no longer need before removing access. If you are rotating a token, keep access to the same environment to reconnect to existing VMs. Otto preserves saved VM identities and will not silently create replacements.":
-    "更改或移除凭据不会停止或删除 Railway 虚拟机，它们可能继续产生费用。请先停止活动的机器人会话，然后在 Railway 控制台中打开环境，并在移除访问权限前销毁不再需要的虚拟机。如果正在轮换令牌，请保留对同一环境的访问权限，以便重新连接现有虚拟机。Otto 会保留已保存的虚拟机标识，不会自动创建替代虚拟机。",
-  "Environment ID": "环境 ID",
-  "Otto pauses idle remote sandboxes when supported. Railway VMs keep running until cleanup.":
-    "在支持的情况下，Otto 会暂停空闲的远程沙箱。Railway 虚拟机会持续运行，直到被清理。",
   "Add Environment": "添加环境",
   "Add environment": "添加环境",
   "All environments": "全部环境",
@@ -324,13 +317,8 @@ export const connectionsCatalog = {
     "此环境没有 {provider} 运行时。请更新环境服务器后在此处配置。",
   "this environment": "此环境",
   "Browser viewport": "浏览器视口",
-  "Cloud workspaces managed by E2B. Requires an API key.":
-    "由 E2B 管理的云端工作区。需要 API 密钥。",
   "Persistent Linux VMs managed by Boat. Requires an API key.":
     "由 Boat 管理的持久 Linux 虚拟机。需要 API 密钥。",
-  "Cloud workspaces managed by Daytona. Requires an API key.":
-    "由 Daytona 管理的云端工作区。需要 API 密钥。",
-  "Cloud workspaces in your Vercel team and project.": "位于你的 Vercel 团队和项目中的云端工作区。",
   "Network access": "访问网络",
   "No models available. Check your provider connection in Settings.":
     "没有可用的模型。请在设置中检查提供商连接。",

@@ -12,10 +12,6 @@ export const DEFAULT_BOT_RUNTIME_MODE: RuntimeMode = DEFAULT_LOCAL_EXECUTION_MOD
 
 export const BOT_SANDBOX_OPTIONS = [
   { value: "local", label: "Local" },
-  { value: "e2b", label: "E2B" },
-  { value: "daytona", label: "Daytona" },
-  { value: "vercel", label: "Vercel Sandbox" },
-  { value: "railway", label: "Railway" },
   { value: "boat", label: "Boat" },
 ] as const;
 

@@ -13,8 +13,6 @@ export interface OttoSessionResourceInput {
   readonly resourceScope: string;
   readonly workspaceResourceKey: string;
   readonly workspaceId: string;
-  /** The id the bot's computer had under its old `bot-<id>` scope, kept when it exists. */
-  readonly legacyWorkspaceId?: string;
   readonly botSandbox?: BotSandbox | null;
   readonly sandboxEnvironment?: Readonly<Record<string, string>>;
   readonly mcpServers: readonly McpServer[];

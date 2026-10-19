@@ -66,10 +66,6 @@ export function redactServerSettingsForClient(settings: ServerSettings): ServerS
     sandbox: {
       ...settings.sandbox,
       providers: {
-        e2b: redactSandboxProviderConnection(settings.sandbox.providers.e2b),
-        daytona: redactSandboxProviderConnection(settings.sandbox.providers.daytona),
-        vercel: redactSandboxProviderConnection(settings.sandbox.providers.vercel),
-        railway: redactSandboxProviderConnection(settings.sandbox.providers.railway),
         boat: redactSandboxProviderConnection(settings.sandbox.providers.boat),
       },
     },

@@ -106,8 +106,8 @@ lets bots share files and browser cookies.
 When a bot shares its browser, the panel shows a small capture of its screen. Select **Open** to
 expand it, and select the collapse button or press Esc to shrink it again.
 
-Bots can use Local, E2B, Daytona, Vercel Sandbox, or Upstash Box. Connect remote services under
-**Settings > Sandbox**. A bot-specific sandbox overrides the environment default.
+Bots can use Local or Boat. Connect Boat under **Settings > Computer**. A bot-specific sandbox
+overrides the environment default. Each chat gets its own computer.
 If a managed browser stops unexpectedly, Otto records the failure in the bot inbox so you can
 retry the browser task after it is available again. Each affected workspace keeps its own notice
 until its browser works again.

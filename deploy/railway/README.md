@@ -25,7 +25,7 @@ files are deprecated, so the template is set up once in Railway's template compo
    | `OTTO_SMTP_HOST`, `OTTO_SMTP_PORT`, `OTTO_SMTP_SECURE`, `OTTO_SMTP_USER`, `OTTO_SMTP_PASSWORD`, `OTTO_MAIL_FROM` | optional inputs: any SMTP provider                                                     |
 
    An https `OTTO_PUBLIC_URL` also tells Otto it sits behind a proxy, so sign-in rate limits key on
-   the address Railway's edge forwards. Bots' computers (Boat and the other sandboxes) are added in
+   the address Railway's edge forwards. Bots' computers (Local and Boat) are added in
    Settings → Computer.
 
    `COMPOSIO_API_KEY` connects one Composio project to this server. Use a Composio project only for

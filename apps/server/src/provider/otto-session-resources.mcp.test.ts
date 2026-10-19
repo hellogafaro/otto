@@ -117,13 +117,13 @@ describe("OttoSessionResources", () => {
     await resources.shutdown();
   });
 
-  it("reattaches Railway after credential rotation without touching the VM", async () => {
+  it("keeps the Boat VM when MCP setup fails after reconnect", async () => {
     const directory = stateDir();
     const destroy = vi.fn(async () => undefined);
 
     const openSession = vi.fn(
       async (providerId?: string): Promise<OttoRemoteSession> => ({
-        providerId: providerId ?? "railway-vm",
+        providerId: providerId ?? "boat-vm",
         inspect: async () => "running",
         run: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
         wake: async () => undefined,
@@ -137,7 +137,7 @@ describe("OttoSessionResources", () => {
     );
 
     const failedManager = mcpManager({ connected: true, toolCount: 0 });
-    failedManager.init.mockRejectedValueOnce(new Error("MCP init failed after rotation"));
+    failedManager.init.mockRejectedValueOnce(new Error("MCP init failed after reconnect"));
 
     const resources = new OttoSessionResources({
       io: workspaceIO,
@@ -147,48 +147,48 @@ describe("OttoSessionResources", () => {
       toMcpServerConfigs: () => ({}),
     });
 
-    const input = (token: string) => {
-      const sandboxEnvironment = {
-        RAILWAY_API_TOKEN: token,
-        RAILWAY_ENVIRONMENT_ID: "environment",
-      };
+    const sandboxEnvironment = { BOAT_API_KEY: "token" };
 
-      const workspaceResourceKey = botWorkspaceResourceKey({
-        sandbox: "railway",
-        resourceScope: "bot-one",
-        credentialFingerprint: botWorkspaceCredentialFingerprint(sandboxEnvironment),
-      });
+    const workspaceResourceKey = botWorkspaceResourceKey({
+      sandbox: "boat",
+      resourceScope: "bot-one_thread-one",
+      credentialFingerprint: botWorkspaceCredentialFingerprint(sandboxEnvironment),
+    });
 
-      return {
-        ...remoteInput,
-        botSandbox: "railway" as const,
-        sandboxEnvironment,
-        threadId: token,
-        workspaceResourceKey,
-        workspaceId: botWorkspaceIdentity(workspaceResourceKey),
-        mcpServers: [],
-      };
-    };
+    const input = (threadId: string) => ({
+      ...remoteInput,
+      botSandbox: "boat" as const,
+      sandboxEnvironment,
+      threadId,
+      resourceScope: "bot-one_thread-one",
+      workspaceResourceKey,
+      workspaceId: botWorkspaceIdentity(workspaceResourceKey),
+      mcpServers: [],
+    });
 
-    const first = input("old-token");
-    const second = input("new-token");
+    const first = input("first-turn");
     await resources.acquire(first);
-    await resources.acquire(second);
     expect(openSession).toHaveBeenNthCalledWith(1, undefined);
-    expect(openSession).toHaveBeenNthCalledWith(2, "railway-vm");
-    await resources.release(second.threadId);
+    await resources.shutdown();
 
     const identityFile = NodePath.join(directory, "bot-workspaces", `${first.workspaceId}.json`);
-
     const { providerId } = JSON.parse(NodeFS.readFileSync(identityFile, "utf8"));
-    expect(makeRemoteWorkspace).toHaveBeenCalledTimes(2);
+
+    const reconnecting = new OttoSessionResources({
+      io: workspaceIO,
+      stateDir: directory,
+      makeRemoteWorkspace,
+      makeMcpManager: () => failedManager as never,
+      toMcpServerConfigs: () => ({}),
+    });
+
     await expect(
-      resources.acquire({ ...input("another-token"), mcpServers: [exaServer] }),
-    ).rejects.toThrow("MCP init failed after rotation");
+      reconnecting.acquire({ ...input("failed-turn"), mcpServers: [exaServer] }),
+    ).rejects.toThrow("MCP init failed after reconnect");
+    expect(openSession).toHaveBeenNthCalledWith(2, "boat-vm");
     expect(destroy).not.toHaveBeenCalled();
-    expect(resources.getWorkspace(first.threadId)).toBeDefined();
     expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toMatchObject({ providerId });
-    await resources.shutdown();
+    await reconnecting.shutdown();
 
     const restarted = new OttoSessionResources({
       io: workspaceIO,
@@ -198,8 +198,8 @@ describe("OttoSessionResources", () => {
     });
 
     openSession.mockRejectedValueOnce(new Error("credentials revoked"));
-    await expect(restarted.acquire(input("revoked-token"))).rejects.toThrow("is unavailable");
-    expect(openSession).toHaveBeenLastCalledWith("railway-vm");
+    await expect(restarted.acquire(input("revoked-turn"))).rejects.toThrow("is unavailable");
+    expect(openSession).toHaveBeenLastCalledWith("boat-vm");
     expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toMatchObject({ providerId });
     expect(destroy).not.toHaveBeenCalled();
     await restarted.shutdown();
