@@ -17,6 +17,7 @@ import {
 } from "../otto-agent-instructions.ts";
 import { replyTokenLimit } from "./otto-compaction.ts";
 import { controllerContext, controllerModelId, controllerResourceId } from "./otto-memory.ts";
+import { toolImagesForChatApi } from "./otto-tool-images.ts";
 
 /** The native AI SDK v3 model; Mastra's own v3 wrapper streams from doGenerate too. */
 export type OttoLanguageModel = Extract<
@@ -131,6 +132,8 @@ export function withOttoPrompt(
 
   const anthropic = model.provider.startsWith("anthropic");
   const xai = model.provider.startsWith("xai");
+  // OpenAI-compatible chat-completions models (Grok, custom endpoints) are `<name>.chat`.
+  const chatApi = model.provider.endsWith(".chat");
   const bot = controllerContext(requestContext)?.state;
   const botConversation = Predicate.isObject(bot) && bot["botConversation"] === true;
 
@@ -257,7 +260,11 @@ export function withOttoPrompt(
       return {
         ...params,
         maxOutputTokens,
-        prompt: [...system, ...conversation, turn],
+        prompt: [
+          ...system,
+          ...(chatApi ? toolImagesForChatApi(conversation, xai) : conversation),
+          turn,
+        ],
         ...(xai && grokConversationId
           ? { headers: { ...params.headers, "x-grok-conv-id": grokConversationId } }
           : {}),

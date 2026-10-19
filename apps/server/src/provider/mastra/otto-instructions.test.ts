@@ -416,6 +416,85 @@ describe("withOttoPrompt", () => {
     expect(first.usage.inputTokens.cacheRead).toBe(12);
   });
 
+  it("sends a chat-completions model tool screenshots as images, never as base64 text", async () => {
+    const wire = async (name: string) => {
+      const bodies: WireChat[] = [];
+
+      const transport = createOpenAICompatible({
+        name,
+        apiKey: "test-key",
+        baseURL: "https://api.x.ai/v1",
+        fetch: Object.assign(
+          async (_input: string | URL | Request, init?: RequestInit) => {
+            bodies.push(JSON.parse(String(init?.body)));
+
+            return grokCompletion();
+          },
+          { preconnect: fetch.preconnect },
+        ),
+      }).chatModel("grok-4.7");
+
+      // Six screenshots read one by one, stored the way Mastra keeps them: `media`.
+      const shots: Prompt = Array.from(
+        { length: 6 },
+        (_, index): Prompt => [
+          {
+            role: "assistant",
+            content: [
+              { type: "tool-call", toolCallId: `read-${index}`, toolName: "read", input: {} },
+            ],
+          },
+          {
+            role: "tool",
+            content: [
+              {
+                type: "tool-result",
+                toolCallId: `read-${index}`,
+                toolName: "read",
+                output: {
+                  type: "content",
+                  value: [
+                    { type: "text", text: `/tmp/shot-${index}.png` },
+                    { type: "media", data: `SHOT${index}`, mediaType: "image/png" },
+                  ] as never,
+                },
+              },
+            ],
+          },
+        ],
+      ).flat();
+
+      await generate(withOttoPrompt(transport, context({}), inMemoryChats(), now), [
+        user("research"),
+        ...shots,
+      ]);
+
+      return JSON.stringify(bodies[0]?.messages);
+    };
+
+    const grok = await wire("xai");
+
+    const tool = (index: number) =>
+      `{"role":"tool","tool_call_id":"read-${index}","content":"/tmp/shot-${index}.png\\n\\n`;
+
+    expect(grok).toContain(
+      `${tool(0)}[An image this tool returned earlier was left out to keep the request small.]"}`,
+    );
+    expect(grok).toContain(
+      `${tool(5)}[The image this tool returned follows in the next message.]"},{"role":"user","content":[{"type":"text","text":"The images the tool calls above returned:"},{"type":"image_url","image_url":{"url":"data:image/png;base64,SHOT5"}}]}`,
+    );
+    expect(grok).not.toContain("SHOT0");
+    expect(grok).not.toContain("SHOT1");
+    expect(grok.match(/data:image\/png;base64,SHOT/g)).toHaveLength(4);
+
+    const custom = await wire("custom-openai");
+
+    expect(custom).toContain(
+      `${tool(5)}[This tool returned an image, which this model can't receive.]"}`,
+    );
+    expect(custom).not.toContain("SHOT");
+  });
+
   it("keeps the Grok conversation header on an OAuth request", async () => {
     const headers: Array<string | null> = [];
     const original = globalThis.fetch;
