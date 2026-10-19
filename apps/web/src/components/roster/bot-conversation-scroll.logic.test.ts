@@ -3,7 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   isConversationAtEnd,
   didScrollAwayFromEnd,
+  isUnreadBoundaryLaidOut,
   reduceConversationFollowState,
+  unreadBoundaryScrollTop,
 } from "./bot-conversation-scroll.logic";
 
 describe("isConversationAtEnd", () => {
@@ -21,6 +23,27 @@ describe("isConversationAtEnd", () => {
     expect(isConversationAtEnd({ scrollTop: 378, scrollHeight: 1000, clientHeight: 600 })).toBe(
       true,
     );
+  });
+});
+
+describe("unreadBoundaryScrollTop", () => {
+  it("stays put when the New mark is already in view", () => {
+    expect(
+      unreadBoundaryScrollTop({ scrollTop: 800, top: 100, bottom: 700 }, { top: 180, bottom: 200 }),
+    ).toBeNull();
+  });
+
+  it("lands on a New mark that sits above the fold", () => {
+    expect(
+      unreadBoundaryScrollTop({ scrollTop: 800, top: 100, bottom: 700 }, { top: 20, bottom: 40 }),
+    ).toBe(720);
+  });
+
+  it("does not treat an unmeasured row as already visible", () => {
+    expect(isUnreadBoundaryLaidOut({ top: 0, bottom: 0 }, { top: 0, bottom: 0 })).toBe(false);
+    expect(
+      unreadBoundaryScrollTop({ scrollTop: 0, top: 0, bottom: 0 }, { top: 0, bottom: 0 }),
+    ).toBeNull();
   });
 });
 
