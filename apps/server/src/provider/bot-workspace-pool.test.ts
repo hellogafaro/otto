@@ -44,7 +44,7 @@ describe("BotWorkspacePool", () => {
     Effect.sync(() => {
       expect(
         botRuntimeResourceScope({ botId: BotId.make("bot-one"), threadId: "thread-one" }),
-      ).toBe("bot-bot-one");
+      ).toBe("bot-one");
       expect(botRuntimeResourceScope({ threadId: "thread-one" })).toBe("thread-thread-one");
       expect(botWorkspaceIdentity("local:/private:bot-one")).not.toContain("private");
       expect(botWorkspaceCredentialFingerprint({ E2B_API_KEY: "first" })).not.toBe(

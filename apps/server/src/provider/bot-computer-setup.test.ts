@@ -1,4 +1,5 @@
 import * as NodeChildProcess from "node:child_process";
+import * as NodeFS from "node:fs";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -23,6 +24,7 @@ afterEach(async () => {
 
 const TOOLS = [
   "sh",
+  "printf",
   "cat",
   "cp",
   "dirname",
@@ -243,5 +245,73 @@ describe("bot computer setup", () => {
     expect(await NodeFSP.readFile(NodePath.join(repos, "acme", "app", "work"), "utf8")).toBe(
       "kept",
     );
+  });
+
+  it("gives each chat its own folder, made once, where its shell starts", async () => {
+    const { root, computer, commands } = await localComputer();
+
+    const setup = createBotComputerSetup({
+      turnLogin: async () => undefined,
+      projectLinks: async () => [],
+      computer: () => computer,
+    });
+
+    const first = await setup.folder("thread-1");
+    const second = await setup.folder("thread-2");
+
+    expect(first).toBe(NodePath.join(root, "chats", "thread-1"));
+    expect(second).toBe(NodePath.join(root, "chats", "thread-2"));
+    expect((await NodeFSP.stat(first!)).isDirectory()).toBe(true);
+    expect(setup.start("thread-1", null)).toBeUndefined();
+
+    commands.mockClear();
+    expect(await setup.folder("thread-1")).toBe(first);
+    expect(commands).not.toHaveBeenCalled();
+
+    // The shell starts in the chat's folder unless a command names another.
+    const shell = withCommandEnvironment(computer.workspace, {}, first);
+    const here = await shell.sandbox!.executeCommand!("pwd", []);
+    expect(await NodeFSP.realpath(here.stdout.trim())).toBe(first);
+    const there = await shell.sandbox!.executeCommand!("pwd", [], { cwd: root });
+    expect(there.stdout.trim()).toBe(root);
+
+    await NodeFSP.mkdir(NodePath.join(first!, "sub"));
+    const below = await shell.sandbox!.executeCommand!("pwd", [], { cwd: "sub" });
+    expect(await NodeFSP.realpath(below.stdout.trim())).toBe(NodePath.join(first!, "sub"));
+  });
+
+  it("gives each chat its own worktree of the project's repositories and keeps its work", async () => {
+    const { root, computer, tools } = await localComputer();
+    await tools.origin("github.com/acme/app.git");
+
+    const setup = createBotComputerSetup({
+      turnLogin: async () => undefined,
+      projectLinks: async () => ["https://github.com/acme/app"],
+      computer: () => computer,
+    });
+
+    await setup.start("thread-ana", "person-ana");
+    await setup.start("thread-ben", "person-ben");
+    const anas = NodePath.join((await setup.folder("thread-ana"))!, "acme", "app");
+    const bens = NodePath.join((await setup.folder("thread-ben"))!, "acme", "app");
+
+    expect(sh("git log --format=%s", anas)).toBe("first");
+    expect(sh("git log --format=%s", bens)).toBe("first");
+
+    sh("git switch -q -c ana-work && echo mine > notes", anas);
+    expect(NodeFS.existsSync(NodePath.join(bens, "notes"))).toBe(false);
+    expect(sh("git rev-parse --abbrev-ref HEAD", bens)).toBe("HEAD");
+
+    await setup.start("thread-ana", "person-ana");
+    expect(sh("git rev-parse --abbrev-ref HEAD", anas)).toBe("ana-work");
+    expect(await NodeFSP.readFile(NodePath.join(anas, "notes"), "utf8")).toBe("mine\n");
+
+    const worktrees = sh(
+      "git worktree list --porcelain",
+      NodePath.join(root, "repos", "acme", "app"),
+    );
+
+    expect(worktrees).toContain(anas);
+    expect(worktrees).toContain(bens);
   });
 });

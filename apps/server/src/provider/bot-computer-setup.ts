@@ -117,11 +117,48 @@ const cloneRepositories = (repositories: readonly string[]) =>
     })
     .join("\n");
 
+/** The environment variable that holds the chat's own folder; the shell starts there. */
+export const CHAT_FOLDER_VARIABLE = "OTTO_CHAT_DIR";
+
+const chatFolderName = (threadId: string) =>
+  /^[\w.-]+$/.test(threadId)
+    ? threadId
+    : NodeCrypto.createHash("sha256").update(threadId).digest("hex").slice(0, 32);
+
+/** Makes the chat's folder, `chats/<chat id>`, and prints its absolute path. */
+const chatFolderCommand = (threadId: string) =>
+  `d="$PWD/chats/"${quote(chatFolderName(threadId))} && mkdir -p "$d" && printf %s "$d"`;
+
 /**
- * Prepares the bot's computer for each turn a person asked for, and cleans up after it: the
- * toolbox once per computer, that person's GitHub login, and the project's repositories.
- * Nothing logs in when that person has not linked GitHub, so git and gh say they are not
- * logged in and the bot asks them to connect.
+ * Gives the chat its own git worktree of each cloned repository, at the same path under its
+ * folder as under `repos`, detached at the default branch as fetched now, so each chat works
+ * on its own branch and files. A worktree the chat has already keeps its work.
+ */
+const chatWorktrees = (folder: string, repositories: readonly string[]) =>
+  repositories
+    .map((repository) => {
+      const path = quote(repository.slice(repository.indexOf("/") + 1));
+
+      return [
+        `b="$PWD/repos/"${path}; w=${quote(folder)}/${path}`,
+        '[ -e "$w" ] || [ ! -d "$b/.git" ] || {',
+        '  mkdir -p "$(dirname "$w")" &&',
+        '  { GIT_TERMINAL_PROMPT=0 git -C "$b" fetch -q origin >/dev/null 2>&1; git -C "$b" worktree prune >/dev/null 2>&1;',
+        '    git -C "$b" worktree add -q --detach "$w" origin/HEAD >/dev/null 2>&1 ||',
+        '    git -C "$b" worktree add -q --detach "$w" HEAD >/dev/null 2>&1; } ||',
+        '  rmdir "$(dirname "$w")" 2>/dev/null',
+        "}",
+      ].join("\n");
+    })
+    .join("\n");
+
+/**
+ * Prepares the bot's computer for each turn, and cleans up after it. Every chat gets its own
+ * folder, where its shell starts, so a bot's chats never share a working tree. A turn a person
+ * asked for also gets the toolbox once per computer, that person's GitHub login, the
+ * project's repositories and the chat's own worktree of each. Nothing logs in when that person
+ * has not linked GitHub, so git and gh say they are not logged in and the bot asks them to
+ * connect.
  *
  * Known limit: a bot's chats share one computer and one system user, so a turn running at the
  * same time in another chat of the same bot can read the login folder. The token it holds is a
@@ -168,6 +205,39 @@ export function createBotComputerSetup(deps: {
     return path ? { PATH: path } : {};
   };
 
+  // Each computer remembers the chat folders it has, so a later turn skips making them; a
+  // replaced computer is a new object and makes them again.
+  const folders = new WeakMap<OttoBotWorkspace, Map<string, string>>();
+
+  const chatFolder = async (computer: OttoBotWorkspace, threadId: string) => {
+    const known = folders.get(computer) ?? new Map<string, string>();
+    folders.set(computer, known);
+    const saved = known.get(threadId);
+
+    if (saved) return saved;
+
+    const result = await computer.workspace.sandbox
+      ?.executeCommand?.(chatFolderCommand(threadId), [], { timeout: 60_000 })
+      .catch(() => undefined);
+
+    const folder = result?.exitCode === 0 ? result.stdout.trim() : "";
+
+    if (!folder.startsWith("/")) return undefined;
+    known.set(threadId, folder);
+
+    return folder;
+  };
+
+  /**
+   * The chat's folder, made once per computer without waiting on the chat's queue, so a turn
+   * can start at once and its shell waits for the folder only when it runs.
+   */
+  const folder = (threadId: string): Promise<string | undefined> | undefined => {
+    const computer = deps.computer(threadId);
+
+    return computer ? chatFolder(computer, threadId) : undefined;
+  };
+
   // A turn for nobody on a chat with nothing written skips the queue, so it starts at once.
   const start = (threadId: string, askerPersonId: string | null) =>
     !askerPersonId && !written.has(threadId) && !queues.has(threadId)
@@ -188,15 +258,19 @@ export function createBotComputerSetup(deps: {
             : undefined;
 
           const environment = { ...toolEnvironment, ...loginEnvironment };
-
           const repositories = projectRepositories(await deps.projectLinks(threadId));
+          const chat = repositories.length > 0 ? await chatFolder(computer, threadId) : undefined;
 
           if (repositories.length > 0)
             await computer.workspace.sandbox
-              ?.executeCommand?.(cloneRepositories(repositories), [], {
-                env: environment,
-                timeout: 600_000,
-              })
+              ?.executeCommand?.(
+                [
+                  cloneRepositories(repositories),
+                  ...(chat ? [chatWorktrees(chat, repositories)] : []),
+                ].join("\n"),
+                [],
+                { env: environment, timeout: 600_000 },
+              )
               .catch(() => undefined);
 
           return Object.keys(environment).length > 0 ? environment : undefined;
@@ -207,5 +281,5 @@ export function createBotComputerSetup(deps: {
       ? queued(threadId, () => remove(threadId))
       : undefined;
 
-  return { start, end };
+  return { start, folder, end };
 }

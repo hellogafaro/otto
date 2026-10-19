@@ -35,7 +35,7 @@ describe("OttoSessionResources computer sweep", () => {
         ok: true,
         type: "sandbox.created",
         status: "provisioning",
-        ttlSeconds: 1800,
+        ttlSeconds: 300,
         sandbox: box(`vm-${++nextId}`),
       })).mockRestore,
       vi.spyOn(BoatApi.prototype, "get").mockImplementation(async ({ sandboxId }) => ({
@@ -106,7 +106,7 @@ describe("OttoSessionResources computer sweep", () => {
 
     expect(BoatApi.prototype.create).toHaveBeenCalledWith({
       idempotencyKey: expect.any(String),
-      createSandboxRequest: { ttlSeconds: 1800, noEnv: true },
+      createSandboxRequest: { ttlSeconds: 300, noEnv: true },
     });
     vi.mocked(BoatApi.prototype.update).mockClear();
     await target.keepComputersAwake([]);
@@ -115,14 +115,14 @@ describe("OttoSessionResources computer sweep", () => {
     await target.keepComputersAwake(["thread-ivy"]);
     expect(BoatApi.prototype.update).toHaveBeenCalledWith({
       sandboxId: "vm-1",
-      updateSandboxRequest: { ttlSeconds: 1800 },
+      updateSandboxRequest: { ttlSeconds: 300 },
     });
 
     states.set("vm-1", "archived");
     await target.keepComputersAwake(["thread-ivy"]);
     expect(BoatApi.prototype.resume).toHaveBeenCalledWith({
       sandboxId: "vm-1",
-      resumeRequest: { ttlSeconds: 1800 },
+      resumeRequest: { ttlSeconds: 300 },
     });
     await target.release("thread-ivy");
     expect(BoatApi.prototype.stop).toHaveBeenCalledWith({ sandboxId: "vm-1" });
@@ -185,6 +185,52 @@ describe("OttoSessionResources computer sweep", () => {
     expect(NodeFS.existsSync(recordFile("otto-nova-new"))).toBe(true);
   });
 
+  it("keeps a bot's computer from before its scope was its id, then sweeps by the new scope", async () => {
+    const { BoatApi } = await import("@boatdev/sdk");
+    const target = resources();
+    await target.acquire(boatInput("ivy"));
+    await target.release("thread-ivy");
+    vi.mocked(BoatApi.prototype.create).mockClear();
+
+    await target.acquire({
+      ...boatInput("ivy", "otto-ivy-renamed"),
+      resourceScope: "ivy",
+      workspaceResourceKey: "boat:key:ivy",
+      legacyWorkspaceId: "otto-ivy",
+    });
+
+    expect(BoatApi.prototype.create).not.toHaveBeenCalled();
+    expect(NodeFS.existsSync(recordFile("otto-ivy-renamed"))).toBe(false);
+    expect(JSON.parse(NodeFS.readFileSync(recordFile("otto-ivy"), "utf8"))).toMatchObject({
+      providerId: "vm-1",
+      scope: "ivy",
+    });
+    await target.release("thread-ivy");
+
+    expect(await sweep(target, { ivy: "boat" })).toEqual([]);
+    expect(await sweep(target, {})).toEqual([
+      { workspaceId: "otto-ivy", provider: "boat", providerId: "vm-1", reason: "bot_deleted" },
+    ]);
+  });
+
+  it("gives a bot a new computer under its id when it had none before", async () => {
+    const { BoatApi } = await import("@boatdev/sdk");
+    const target = resources();
+
+    await target.acquire({
+      ...boatInput("nova", "otto-nova-new"),
+      resourceScope: "nova",
+      workspaceResourceKey: "boat:key:nova",
+      legacyWorkspaceId: "otto-nova",
+    });
+
+    expect(BoatApi.prototype.create).toHaveBeenCalledOnce();
+    expect(JSON.parse(NodeFS.readFileSync(recordFile("otto-nova-new"), "utf8"))).toMatchObject({
+      scope: "nova",
+    });
+    expect(NodeFS.existsSync(recordFile("otto-nova"))).toBe(false);
+  });
+
   it("deletes a deleted bot's Local computer folder", async () => {
     const target = resources();
     await target.acquire({
@@ -239,7 +285,7 @@ describe("OttoSessionResources computer sweep", () => {
     expect(JSON.parse(NodeFS.readFileSync(recordFile(ivyId), "utf8"))).toEqual({
       provider: "boat",
       providerId: "vm-ivy",
-      scope: "bot-ivy",
+      scope: "ivy",
     });
     expect(JSON.parse(NodeFS.readFileSync(recordFile("otto-unknown"), "utf8"))).toMatchObject({
       orphanedAt: expect.any(String),

@@ -7,6 +7,11 @@ credential and are always available.
 Every bot gets its own computer. A bot's sandbox is keyed to the bot, so its files and browser logins
 are never shared with another bot.
 
+A bot's chats share its computer, so it stays warm between them, but each chat works in its own
+folder, `chats/<chat id>`. The chat's shell starts there, and each repository linked in the project
+gets its own git worktree there, so two chats never edit the same files or branch. The shared clones
+stay in `repos/`.
+
 Select **Connect** and enter the provider credentials. The environment stores secret values outside
 `settings.json`. Clients receive only a redacted marker after a secret is saved.
 
@@ -38,7 +43,8 @@ Otto cannot attach its sandbox browser. See [Railway workspaces](railway-sandbox
 for credential rotation and VM cleanup.
 
 Boat runs persistent Linux VMs. Stopping a VM saves a native lifecycle snapshot; resuming it
-restores that workspace. Otto requests protected, token-authenticated access for its browser-control
+restores that workspace. Boat stops a VM by itself after 5 idle minutes; while a bot is working, Otto
+pushes that back every 2 minutes, and the next turn resumes it with its files in place. Otto requests protected, token-authenticated access for its browser-control
 endpoint. If session setup fails, Otto preserves the VM and waits for snapshot cleanup before
 reporting the error. Snapshot archival can take up to five minutes; retries wait for that cleanup to
 finish. New VMs do not inherit credentials from your Boat account environment.

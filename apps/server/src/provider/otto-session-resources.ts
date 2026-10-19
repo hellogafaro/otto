@@ -15,6 +15,7 @@ import {
   botWorkspaceCredentialFingerprint,
   botWorkspaceIdentity,
   botWorkspaceResourceKey,
+  legacyBotResourceScope,
 } from "./bot-workspace-pool.ts";
 import {
   type BotWorkspaceRecord,
@@ -94,12 +95,36 @@ export class OttoSessionResources {
     return acquisition;
   }
 
+  /**
+   * The computer a bot had under its old `bot-<id>` name keeps its identity, so renaming the
+   * scope never replaces a VM or empties a Local computer's folder.
+   */
+  private async carriedOverWorkspaceId(input: OttoSessionResourceInput): Promise<string> {
+    const { io } = this.options;
+    const legacy = input.legacyWorkspaceId;
+
+    if (!legacy || legacy === input.workspaceId) return input.workspaceId;
+    const directory = io.path.join(this.options.stateDir, "bot-workspaces");
+
+    if (await readIdentity(io, io.path.join(directory, `${input.workspaceId}.json`)))
+      return input.workspaceId;
+
+    const legacyRecord = await readIdentity(io, io.path.join(directory, `${legacy}.json`)).catch(
+      () => undefined,
+    );
+
+    return legacyRecord || (await io.list(io.path.join(directory, legacy))).length > 0
+      ? legacy
+      : input.workspaceId;
+  }
+
   private async acquireOnce(input: OttoSessionResourceInput): Promise<OttoSessionResourceView> {
     const key = input.threadId;
     const { io } = this.options;
     const directory = io.path.join(this.options.stateDir, "bot-workspaces");
-    const identityFile = io.path.join(directory, `${input.workspaceId}.json`);
-    this.workspaceIds.set(key, input.workspaceId);
+    const workspaceId = await this.carriedOverWorkspaceId(input);
+    const identityFile = io.path.join(directory, `${workspaceId}.json`);
+    this.workspaceIds.set(key, workspaceId);
 
     try {
       const workspaceLease = await this.workspacePool.acquire(
@@ -115,9 +140,9 @@ export class OttoSessionResources {
           const workspace = await createBotWorkspace({
             io,
             threadId: input.resourceScope,
-            workspaceId: input.workspaceId,
+            workspaceId,
             identityFile,
-            legacyIdentityFile: io.path.join(directory, input.workspaceId, "provider.json"),
+            legacyIdentityFile: io.path.join(directory, workspaceId, "provider.json"),
             ...(isRemoteBotSandbox(input.botSandbox)
               ? {
                   sandbox: input.botSandbox,
@@ -126,7 +151,7 @@ export class OttoSessionResources {
               : {
                   sandbox: "local" as const,
                   sandboxProfileDirectory: io.path.join(this.options.stateDir, "sandbox-profiles"),
-                  localRoot: io.path.join(directory, input.workspaceId),
+                  localRoot: io.path.join(directory, workspaceId),
                 }),
             ...(this.options.makeRemoteWorkspace
               ? { makeRemoteWorkspace: this.options.makeRemoteWorkspace }
@@ -145,6 +170,7 @@ export class OttoSessionResources {
       if (record) {
         await writeIdentity(io, identityFile, {
           ...record,
+          scope: input.resourceScope,
           usedAt: DateTime.formatIso(DateTime.nowUnsafe()),
         });
       }
@@ -296,9 +322,20 @@ export class OttoSessionResources {
     const inUse = new Set(this.workspaceIds.values());
     const newest = new Map<string, string>();
 
+    // A bot's scope is its id; computers recorded before that carry `bot-<id>`.
+    const botOf = (scope: string | undefined) => {
+      if (!scope || scope.startsWith("thread-")) return undefined;
+
+      if (input.sandboxes.has(scope) || !scope.startsWith("bot-")) return scope;
+
+      return scope.slice("bot-".length);
+    };
+
     for (const [id, record] of records) {
-      if (record.provider === "local" || !record.scope) continue;
-      const group = `${record.scope}:${record.provider}`;
+      const owner = botOf(record.scope);
+
+      if (record.provider === "local" || !owner) continue;
+      const group = `${owner}:${record.provider}`;
       const current = newest.get(group);
 
       if (!current || (records.get(current)?.usedAt ?? "") < (record.usedAt ?? "")) {
@@ -312,15 +349,14 @@ export class OttoSessionResources {
       if (inUse.has(id)) continue;
       let reason: BotComputerSweepResult["reason"] | undefined;
 
-      if (record.scope?.startsWith("bot-")) {
-        const sandbox = input.sandboxes.get(record.scope.slice("bot-".length));
+      const owner = botOf(record.scope);
+
+      if (owner) {
+        const sandbox = input.sandboxes.get(owner);
 
         if (sandbox === undefined) reason = "bot_deleted";
         else if (sandbox !== record.provider) reason = "sandbox_changed";
-        else if (
-          record.provider !== "local" &&
-          newest.get(`${record.scope}:${record.provider}`) !== id
-        )
+        else if (record.provider !== "local" && newest.get(`${owner}:${record.provider}`) !== id)
           reason = "replaced";
       } else if (!record.scope && record.provider !== "local") {
         const provider = record.provider;
@@ -331,7 +367,7 @@ export class OttoSessionResources {
             sandbox === provider &&
             botWorkspaceIdentity(
               botWorkspaceResourceKey({
-                resourceScope: `bot-${botId}`,
+                resourceScope: legacyBotResourceScope(botId),
                 sandbox,
                 credentialFingerprint: fingerprint,
               }),
@@ -339,7 +375,7 @@ export class OttoSessionResources {
         );
 
         const claimed = owner
-          ? { ...record, scope: `bot-${owner[0]}` }
+          ? { ...record, scope: owner[0] }
           : {
               ...record,
               orphanedAt: record.orphanedAt ?? DateTime.formatIso(DateTime.makeUnsafe(input.now)),

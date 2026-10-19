@@ -17,13 +17,19 @@ import * as Schema from "effect/Schema";
 import { Duration } from "effect";
 import type { OttoBotWorkspace } from "./bot-workspace.ts";
 
-/** Every bot gets its own computer; a thread without a bot gets its own. */
+/**
+ * Every bot gets its own computer, named by its id; a thread without a bot gets its own. Its
+ * chats share it, each in its own folder (see `bot-chat-folder.ts`).
+ */
 export function botRuntimeResourceScope(input: {
   readonly botId?: BotId;
   readonly threadId: string;
 }): string {
-  return input.botId ? `bot-${input.botId}` : `thread-${input.threadId}`;
+  return input.botId ?? `thread-${input.threadId}`;
 }
+
+/** The scope a bot's computer had before it was named by the bot's id alone. */
+export const legacyBotResourceScope = (botId: string) => `bot-${botId}`;
 
 export function botWorkspaceResourceKey(input: {
   readonly resourceScope: string;

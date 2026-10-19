@@ -22,6 +22,7 @@ import {
   botWorkspaceCredentialFingerprint,
   botWorkspaceIdentity,
   botWorkspaceResourceKey,
+  legacyBotResourceScope,
 } from "../../bot-workspace-pool.ts";
 import { AgentControllerRuntimeError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
@@ -75,17 +76,24 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
       threadId: key,
     });
 
-    const workspaceResourceKey = botWorkspaceResourceKey({
-      resourceScope,
-      sandbox: access.sandbox,
-      ...(access.sandbox !== null && access.sandbox !== "local" && input.botSandboxEnvironment
-        ? {
-            credentialFingerprint: botWorkspaceCredentialFingerprint(input.botSandboxEnvironment),
-          }
-        : {}),
-    });
+    const workspaceKey = (scope: string) =>
+      botWorkspaceResourceKey({
+        resourceScope: scope,
+        sandbox: access.sandbox,
+        ...(access.sandbox !== null && access.sandbox !== "local" && input.botSandboxEnvironment
+          ? {
+              credentialFingerprint: botWorkspaceCredentialFingerprint(input.botSandboxEnvironment),
+            }
+          : {}),
+      });
 
+    const workspaceResourceKey = workspaceKey(resourceScope);
     const workspaceId = botWorkspaceIdentity(workspaceResourceKey);
+
+    const legacyWorkspaceId = botId
+      ? botWorkspaceIdentity(workspaceKey(legacyBotResourceScope(botId)))
+      : undefined;
+
     const existing = deps.sessions.get(key);
     const resolved = deps.resolvedByThread.get(key);
 
@@ -247,6 +255,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
                 resourceScope,
                 workspaceResourceKey,
                 workspaceId,
+                ...(legacyWorkspaceId ? { legacyWorkspaceId } : {}),
                 ...(access.sandbox !== null ? { botSandbox: access.sandbox } : {}),
                 ...(access.sandbox !== null &&
                 access.sandbox !== "local" &&

@@ -60,10 +60,14 @@ function bound<T extends object, K extends keyof T>(target: T, key: K): T[K] {
   return Predicate.isFunction(value) ? value.bind(target) : value;
 }
 
-/** The workspace as one turn's shell sees it: every command also gets `environment`. */
+/**
+ * The workspace as one turn's shell sees it: every command also gets `environment`, and one
+ * that names no folder, or a relative one, runs in or under `cwd`, the chat's own folder.
+ */
 export function withCommandEnvironment(
   workspace: Workspace,
   environment: Readonly<Record<string, string>>,
+  cwd?: string,
 ): Workspace {
   const sandbox = workspace.sandbox;
 
@@ -74,7 +78,13 @@ export function withCommandEnvironment(
     get: (target, key: keyof typeof sandbox) =>
       key === "executeCommand"
         ? (...[command, args, options]: Parameters<typeof run>) =>
-            run(command, args, { ...options, env: { ...options?.env, ...environment } })
+            run(command, args, {
+              ...options,
+              ...(cwd && !options?.cwd?.startsWith("/")
+                ? { cwd: options?.cwd ? `${cwd.replace(/\/+$/, "")}/${options.cwd}` : cwd }
+                : {}),
+              env: { ...options?.env, ...environment },
+            })
         : bound(target, key),
   });
 
