@@ -116,12 +116,15 @@ describe("bot order", () => {
 });
 
 describe("roster pins", () => {
-  it("pins bots and groups as separate quick-launch items", () => {
+  it("pins groups and chats, and ignores bots", () => {
     useRosterStore.getState().setItemPinned({ kind: "bot", id: "one" }, true);
     useRosterStore.getState().setItemPinned({ kind: "group", id: "crew" }, true);
-    useRosterStore.getState().setItemPinned({ kind: "bot", id: "one" }, false);
+    useRosterStore.getState().setItemPinned({ kind: "chat", id: "thread-1" }, true);
 
-    expect(useRosterStore.getState().pinnedItems).toEqual([{ kind: "group", id: "crew" }]);
+    expect(useRosterStore.getState().pinnedItems).toEqual([
+      { kind: "group", id: "crew" },
+      { kind: "chat", id: "thread-1" },
+    ]);
   });
 
   it("nudges bots in the main list without changing group membership", () => {

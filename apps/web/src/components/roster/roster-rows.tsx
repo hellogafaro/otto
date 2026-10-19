@@ -1,9 +1,7 @@
 import {
   RiAddLine,
   RiArchiveLine,
-  RiArrowDownLine,
   RiArrowDownSLine,
-  RiArrowUpLine,
   RiDeleteBinLine,
   RiRadioButtonLine,
   RiPushpinLine,
@@ -156,9 +154,6 @@ export const BotRosterRow = memo(function BotRosterRow({
   openThreadId,
   onOpenSettings,
   pinned,
-  canMoveUp,
-  canMoveDown,
-  onNudge,
   onArchive,
   shortcutLabel,
 }: {
@@ -168,16 +163,12 @@ export const BotRosterRow = memo(function BotRosterRow({
   openThreadId: string | null;
   onOpenSettings: (bot: Bot) => void;
   pinned: boolean;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
   onArchive: (bot: Bot) => void;
   /** Its jump shortcut while the command modifier is held, in place of the status and time. */
   shortcutLabel: string | null;
 }) {
   const { t } = useI18n();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
-  const item = useMemo(() => ({ kind: "bot" as const, id: bot.id }), [bot.id]);
   const presence = useBotPresence(bot.id);
 
   const { message: latestMessage, threadRef: chatRef } = useLatestBotMessage(bot.id, lastMessage);
@@ -185,8 +176,22 @@ export const BotRosterRow = memo(function BotRosterRow({
   const unread = useBotRosterUnread(bot.id, chatRef, openThreadId === chatRef?.threadId);
   const chats = useBotChats(bot.id);
   const [chatsOpen, setChatsOpen] = useState(true);
-  const hasChatTree = chats.length > 0;
-  const active = openThreadId !== null;
+  const pinnedItems = useRosterStore((state) => state.pinnedItems);
+
+  const pinnedIds = useMemo(
+    () =>
+      new Set<string>(
+        chats.flatMap((chat) =>
+          pinnedItems.some((pin) => pin.kind === "chat" && pin.id === chat.id) ? [chat.id] : [],
+        ),
+      ),
+    [chats, pinnedItems],
+  );
+
+  const hasChatTree = chats.length - pinnedIds.size > 0;
+  // A chat pinned to Pins is marked there, so the bot row is not.
+  const pinnedChatOpen = openThreadId !== null && pinnedIds.has(openThreadId);
+  const active = openThreadId !== null && !pinnedChatOpen;
 
   return (
     <li
@@ -316,14 +321,6 @@ export const BotRosterRow = memo(function BotRosterRow({
               <RiSettings3Line />
               {t("Bot settings")}
             </MenuItem>
-            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
-              <RiArrowUpLine />
-              {t("Move up")}
-            </MenuItem>
-            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
-              <RiArrowDownLine />
-              {t("Move down")}
-            </MenuItem>
             <MenuSeparator />
             <MenuItem onClick={() => onArchive(bot)}>
               <RiArchiveLine />
@@ -333,7 +330,7 @@ export const BotRosterRow = memo(function BotRosterRow({
         </Menu>
       </div>
       {hasChatTree && chatsOpen ? (
-        <BotChatTree chats={chats} openThreadId={openThreadId} />
+        <BotChatTree chats={chats} openThreadId={openThreadId} pinnedIds={pinnedIds} />
       ) : null}
     </li>
   );
@@ -440,18 +437,12 @@ export const ChatRosterRow = memo(function ChatRosterRow({
   bot,
   openThreadId,
   onPin,
-  canMoveUp,
-  canMoveDown,
-  onNudge,
 }: {
   threadId: string;
   bot: Bot;
   /** The chat on screen, if any. */
   openThreadId: string | null;
   onPin: (item: RosterItemRef, pinned: boolean) => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
 }) {
   const { t } = useI18n();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -537,14 +528,6 @@ export const ChatRosterRow = memo(function ChatRosterRow({
               <RiRadioButtonLine />
               {t("Mark unread")}
             </MenuItem>
-            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
-              <RiArrowUpLine />
-              {t("Move up")}
-            </MenuItem>
-            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
-              <RiArrowDownLine />
-              {t("Move down")}
-            </MenuItem>
             <MenuSeparator />
             <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
               <RiDeleteBinLine />
@@ -564,9 +547,6 @@ export const GroupRosterRow = memo(function GroupRosterRow({
   onSelect,
   pinned,
   onPin,
-  canMoveUp,
-  canMoveDown,
-  onNudge,
 }: {
   group: Group;
   bots: readonly Bot[];
@@ -574,12 +554,8 @@ export const GroupRosterRow = memo(function GroupRosterRow({
   onSelect: (group: Group) => void;
   pinned: boolean;
   onPin: (item: RosterItemRef, pinned: boolean) => void;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
 }) {
   const { t } = useI18n();
-  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const item = useMemo(() => ({ kind: "group" as const, id: group.id }), [group.id]);
   const unread = useChatUnread(useGroupChatRef(group.id)) && !isActive;
   const presence = useGroupPresence(group.id);
@@ -590,10 +566,6 @@ export const GroupRosterRow = memo(function GroupRosterRow({
       data-roster-item
       data-testid="roster-group-card"
       data-pinned={pinned || undefined}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        menuTriggerRef.current?.click();
-      }}
       className={cn(
         "group/row relative flex w-full flex-none items-center rounded-md",
         ROSTER_ROW_FOCUS_CLASS,
@@ -629,19 +601,6 @@ export const GroupRosterRow = memo(function GroupRosterRow({
             icon={pinned ? RiUnpinLine : RiPushpinLine}
             onClick={() => onPin(item, !pinned)}
           />
-          <RosterRowMore
-            label={t("Actions for {name}", { name: group.name })}
-            triggerRef={menuTriggerRef}
-          >
-            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
-              <RiArrowUpLine />
-              {t("Move up")}
-            </MenuItem>
-            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
-              <RiArrowDownLine />
-              {t("Move down")}
-            </MenuItem>
-          </RosterRowMore>
         </span>
       </span>
     </li>
