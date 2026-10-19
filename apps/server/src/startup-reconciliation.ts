@@ -31,6 +31,9 @@ export const reconcileProviderSessions = Effect.gen(function* () {
   const orphanedThreads = threads.filter(
     (thread) =>
       thread.session !== null &&
+      // A still-running turn is recovered with backoff. Marking it failed here
+      // would tell the person to type again before that wake can run.
+      thread.latestTurn?.state !== "running" &&
       (thread.session.status === "starting" ||
         thread.session.status === "running" ||
         thread.session.activeTurnId !== null) &&
