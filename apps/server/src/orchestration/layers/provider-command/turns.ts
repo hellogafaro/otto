@@ -11,9 +11,9 @@ import {
   resolveControllerBotId,
   isProviderDriverKind,
   withoutUnavailability,
-  MANUAL_RECOVERY_INPUT,
   DEFAULT_RUNTIME_MODE,
 } from "./fields.ts";
+import { manualRecoveryInput } from "./recovery-input.ts";
 import type { createDependencies } from "./dependencies.ts";
 import type { createContext } from "./context.ts";
 import type { createFailures } from "./failures.ts";
@@ -550,7 +550,17 @@ export function createTurns({
     yield* resumeInterruptedTurn({
       threadId: event.payload.threadId,
       createdAt: event.payload.createdAt,
-      messageText: originalRequest?.text ?? MANUAL_RECOVERY_INPUT,
+      messageText:
+        originalRequest?.text ??
+        manualRecoveryInput({
+          threadId: event.payload.threadId,
+          turnId: detail?.latestTurn?.turnId ?? null,
+          requestMessageId: detail?.latestTurn?.requestMessageId ?? null,
+          requestedAt: detail?.latestTurn?.requestedAt ?? null,
+          respondingBotId: detail?.latestTurn?.respondingBotId ?? null,
+          messages: detail?.messages ?? [],
+          activities: detail?.activities ?? [],
+        }),
       ...(originalRequest?.attachments ? { attachments: originalRequest.attachments } : {}),
     }).pipe(
       Effect.tap(() =>

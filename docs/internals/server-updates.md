@@ -90,6 +90,13 @@ session says a turn was running but its in-memory controller session disappeared
 approval and user-input requests and continues from the durable conversation state. It does not replay
 the original prompt, because that could repeat an external mutation.
 
+The continuation note quotes the request as context instead (`provider-command/recovery-input.ts`),
+because compaction can fold it into a summary. It quotes the turn's recorded request message, up to
+five messages the person added while the bot worked, and that bot's last finished update, and says
+when there was none. Long text keeps its start and end, quoted text cannot close the note's tags,
+attachments are named, and answers to questions asked during the turn are repeated. The note never
+names the product. The manual Resume action uses the same note.
+
 If automatic recovery fails, the session stays in a recoverable error state. Web and mobile show a
 Resume action that persists `thread.turn-resume-requested`; the continuation is not inserted as a
 visible user message. The provider is instructed to reconcile completed work, recreate only still-needed
