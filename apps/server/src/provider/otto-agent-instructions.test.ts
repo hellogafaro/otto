@@ -41,7 +41,7 @@ describe("Otto bot instructions", () => {
     expect(instructions).not.toContain("<computer>");
     expect(createOttoInstructions({ tools: ["shell"] })).toContain("<computer>");
     expect(createOttoInstructions({ tools: ["shell"] })).toContain(
-      "Never edit, adopt or resume another chat's folder or branch",
+      "never adopt or resume another chat's files or branch",
     );
     expect(createOttoInstructions({ tools: ["secret_request"] })).toContain(
       "When a command needs a credential that is not in <secrets>, ask for it with secret_request, never in a message.",

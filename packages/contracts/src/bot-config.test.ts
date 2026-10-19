@@ -75,7 +75,7 @@ describe("BotCreatedPayload", () => {
   });
 
   it("accepts cloud sandbox providers on bot events", () => {
-    for (const sandbox of ["local", "e2b", "daytona", "vercel", "railway", "boat"] as const) {
+    for (const sandbox of ["local", "boat"] as const) {
       expect(
         decodeCreated({
           botId: "bot-sandbox",

@@ -1,6 +1,6 @@
 # Watch a bot's computer
 
-A bot whose computer is Boat has its own Linux desktop. You can watch it work there and click or
+A bot whose computer is Boat has its own Linux desktop in each chat. You can watch it work there and click or
 type on it, for example to sign in to a site for the bot.
 
 ## Open the computer
@@ -22,10 +22,9 @@ and never saves it to the chat.
 
 ## Supported computers
 
-| Bot computer                          | Watch                                          |
-| ------------------------------------- | ---------------------------------------------- |
-| Boat                                  | Yes                                            |
-| Local                                 | No. A local workspace has no separate desktop. |
-| E2B, Daytona, Vercel Sandbox, Railway | No. Otto does not open these desktops.         |
+| Bot computer | Watch                                          |
+| ------------ | ---------------------------------------------- |
+| Boat         | Yes. Each chat has its own desktop.            |
+| Local        | No. A local workspace has no separate desktop. |
 
 To set up Boat, see [Configure sandboxes](./sandboxes.md).

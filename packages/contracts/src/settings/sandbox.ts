@@ -6,15 +6,23 @@ import { ProviderInstanceEnvironmentVariable } from "../provider-instance.ts";
 
 export const SandboxProvider = BotSandbox;
 
-/** Settings saved before Ascii Box became Boat, or with a retired sandbox as the default. */
-const RetiredSandboxProvider = Schema.Literals(["upstash", "tenki", "ascii"]);
+/** Settings saved before only Local and Boat remained, or before Ascii Box became Boat. */
+const RetiredSandboxProvider = Schema.Literals([
+  "upstash",
+  "tenki",
+  "ascii",
+  "e2b",
+  "daytona",
+  "vercel",
+  "railway",
+]);
 
 const PersistedSandboxProvider = Schema.Union([SandboxProvider, RetiredSandboxProvider]).pipe(
   Schema.decodeTo(
     SandboxProvider,
     SchemaTransformation.transform({
       decode: (value) =>
-        value === "ascii" ? "boat" : value === "upstash" || value === "tenki" ? "local" : value,
+        value === "ascii" ? "boat" : value === "local" || value === "boat" ? value : "local",
       encode: (value) => value,
     }),
   ),
@@ -24,20 +32,9 @@ export type SandboxProvider = BotSandbox;
 
 export type CloudSandboxProvider = Exclude<SandboxProvider, "local">;
 
-export const CLOUD_SANDBOX_PROVIDERS = ["e2b", "daytona", "vercel", "railway", "boat"] as const;
+export const CLOUD_SANDBOX_PROVIDERS = ["boat"] as const;
 
 export const SANDBOX_PROVIDER_CREDENTIALS = {
-  e2b: [{ name: "E2B_API_KEY", sensitive: true }],
-  daytona: [{ name: "DAYTONA_API_KEY", sensitive: true }],
-  vercel: [
-    { name: "VERCEL_TOKEN", sensitive: true },
-    { name: "VERCEL_TEAM_ID", sensitive: false },
-    { name: "VERCEL_PROJECT_ID", sensitive: false },
-  ],
-  railway: [
-    { name: "RAILWAY_API_TOKEN", sensitive: true },
-    { name: "RAILWAY_ENVIRONMENT_ID", sensitive: false },
-  ],
   boat: [{ name: "BOAT_API_KEY", sensitive: true }],
 } as const satisfies Readonly<
   Record<
@@ -60,10 +57,6 @@ export const SandboxSettings = Schema.Struct({
   ),
   autoIdle: Schema.Literal(true).pipe(Schema.withDecodingDefault(Effect.succeed(true as const))),
   providers: Schema.Struct({
-    e2b: SandboxProviderConnection,
-    daytona: SandboxProviderConnection,
-    vercel: SandboxProviderConnection,
-    railway: SandboxProviderConnection,
     boat: SandboxProviderConnection,
   }).pipe(Schema.withDecodingDefault(Effect.succeed({}))),
 }).pipe(Schema.withDecodingDefault(Effect.succeed({})));
@@ -79,10 +72,6 @@ export const SandboxSettingsPatch = Schema.Struct({
   autoIdle: Schema.optionalKey(Schema.Literal(true)),
   providers: Schema.optionalKey(
     Schema.Struct({
-      e2b: Schema.optionalKey(SandboxProviderConnectionPatch),
-      daytona: Schema.optionalKey(SandboxProviderConnectionPatch),
-      vercel: Schema.optionalKey(SandboxProviderConnectionPatch),
-      railway: Schema.optionalKey(SandboxProviderConnectionPatch),
       boat: Schema.optionalKey(SandboxProviderConnectionPatch),
     }),
   ),

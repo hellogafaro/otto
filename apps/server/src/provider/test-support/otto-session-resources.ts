@@ -56,9 +56,9 @@ export function makeOttoSessionResourcesTestSupport() {
 
   const remoteInput = {
     resourceScope: "shared",
-    workspaceResourceKey: "vercel:shared",
+    workspaceResourceKey: "boat:shared",
     workspaceId: "otto-shared",
-    botSandbox: "vercel" as const,
+    botSandbox: "boat" as const,
     mcpServers: [],
   };
 

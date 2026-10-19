@@ -59,8 +59,8 @@ describe("AgentControllerLive", () => {
     const layer = agentControllerLayerWith({
       makeMastraHarness: mastra.factory,
       makeRemoteWorkspace: async () => ({
-        id: "tenki-retry",
-        provider: "e2b",
+        id: "boat-retry",
+        provider: "boat",
         workspace,
         inspect: async () => "running",
         wake: async () => undefined,
@@ -89,7 +89,7 @@ describe("AgentControllerLive", () => {
         providerInstanceId: codexInstanceId,
         modelSelection: codexSelection,
         runtimeMode: "full-access",
-        botSandbox: "e2b",
+        botSandbox: "boat",
       });
       yield* controller.stopSession({ threadId: codexThreadId }).pipe(Effect.ignore);
       expect(sleep).toHaveBeenCalledOnce();
@@ -142,7 +142,7 @@ describe("AgentControllerLive", () => {
         providerInstanceId: codexInstanceId,
         modelSelection: codexSelection,
         runtimeMode: "full-access" as const,
-        botSandbox: "e2b" as const,
+        botSandbox: "boat" as const,
       };
 
       yield* controller.startSession(codexThreadId, { ...input, cwd: process.cwd() });

@@ -61,13 +61,12 @@ function bound<T extends object, K extends keyof T>(target: T, key: K): T[K] {
 }
 
 /**
- * The workspace as one turn's shell sees it: every command also gets `environment`, and one
- * that names no folder, or a relative one, runs in or under `cwd`, the chat's own folder.
+ * The workspace as one turn's shell sees it: every command also gets `environment`. The
+ * sandbox already starts at the computer root.
  */
 export function withCommandEnvironment(
   workspace: Workspace,
   environment: Readonly<Record<string, string>>,
-  cwd?: string,
 ): Workspace {
   const sandbox = workspace.sandbox;
 
@@ -80,9 +79,6 @@ export function withCommandEnvironment(
         ? (...[command, args, options]: Parameters<typeof run>) =>
             run(command, args, {
               ...options,
-              ...(cwd && !options?.cwd?.startsWith("/")
-                ? { cwd: options?.cwd ? `${cwd.replace(/\/+$/, "")}/${options.cwd}` : cwd }
-                : {}),
               env: { ...options?.env, ...environment },
             })
         : bound(target, key),
