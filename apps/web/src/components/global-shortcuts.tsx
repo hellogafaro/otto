@@ -6,6 +6,7 @@ import { isInputFocus, resolveShortcutCommand } from "../keybindings";
 import { pageActionForCommand } from "../page-actions-registry";
 import { openSettings } from "../settings-dialog-store";
 import { primaryServerKeybindingsAtom } from "../state/server";
+import { useMyTasksSearch } from "../state/tasks";
 import { recordLookup } from "./record-lookup";
 import { useRosterStore } from "./roster/roster-store";
 
@@ -34,6 +35,7 @@ function isPathUnder(pathname: string, base: string): boolean {
 export function GlobalShortcuts() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const navigate = useNavigate();
+  const myTasks = useMyTasksSearch();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -64,7 +66,9 @@ export function GlobalShortcuts() {
       } else if (command === "item.new") {
         useRosterStore.getState().openNewChat({});
       } else if (path) {
-        if (!isPathUnder(pathname, path)) void navigate({ to: path });
+        if (!isPathUnder(pathname, path)) {
+          void navigate(path === "/tasks" ? { to: path, search: myTasks } : { to: path });
+        }
       } else if (command === "settings.open") {
         if (!isPathUnder(pathname, "/settings")) openSettings();
       } else if (command === "shortcuts.show") {
@@ -80,7 +84,7 @@ export function GlobalShortcuts() {
     window.addEventListener("keydown", onKeyDown, true);
 
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [keybindings, navigate]);
+  }, [keybindings, myTasks, navigate]);
 
   return null;
 }

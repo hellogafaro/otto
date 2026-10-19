@@ -20,6 +20,7 @@ import { cn } from "../../lib/utils";
 import { openSettings } from "../../settings-dialog-store";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { notificationEnvironment } from "../../state/notifications";
+import { useMyTasksSearch } from "../../state/tasks";
 import { useEnvironmentQuery } from "../../state/query";
 import BotRosterSidebar from "../roster/bot-roster-sidebar";
 import { resolveRosterListState } from "../roster/roster-route-selection";
@@ -109,6 +110,7 @@ export function ExperimentalSidebar() {
   const onNotifications = isPathUnder(pathname, "/notifications");
   const onRoutines = isPathUnder(pathname, "/routines");
   const onTasks = isPathUnder(pathname, "/tasks");
+  const myTasks = useMyTasksSearch();
   const onProjects = isPathUnder(pathname, "/projects");
   const onLibrary = isPathUnder(pathname, "/library");
   const onPage = onSettings || isFullPage(pathname);
@@ -214,7 +216,7 @@ export function ExperimentalSidebar() {
             shortcut="navigation.tasks"
             active={onTasks}
             onClick={() => {
-              if (!onTasks) void navigate({ to: "/tasks" });
+              if (!onTasks) void navigate({ to: "/tasks", search: myTasks });
             }}
           />
           <RailButton

@@ -142,7 +142,11 @@ export const decideTasks = Effect.fn("decideTasks")(function* ({
       yield* requireTaskAbsent({ readModel, command, taskId: command.taskId });
       yield* requireActiveProject({ readModel, command, projectId: command.projectId });
 
-      const assignees = uniqueParticipants(command.assignees ?? []);
+      const requested = uniqueParticipants(command.assignees ?? []);
+
+      const assignees =
+        requested.length === 0 && command.owner != null ? [command.owner] : requested;
+
       const by = commandActor(actor, command.by);
 
       yield* requireHumanDone(command, by, command.status);

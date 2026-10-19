@@ -19,6 +19,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useListPages } from "../hooks/use-list-pages";
+import { usePrimaryEnvironmentId } from "./environments";
+import { environmentSnapshotAtom } from "./shell";
 import { useAtomCommand } from "./use-atom-command";
 
 export const taskEnvironment = createTaskEnvironmentAtoms(connectionAtomRuntime);
@@ -27,6 +29,15 @@ export const taskEnvironment = createTaskEnvironmentAtoms(connectionAtomRuntime)
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
 const nextTaskCursor = (page: TaskListResult) => page.nextCursor;
+
+/** Where Tasks opens: the signed-in person's assigned tasks, or every task before they are known. */
+export function useMyTasksSearch(): { readonly assignee?: string } {
+  const environmentId = usePrimaryEnvironmentId();
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
+  const personId = snapshot?.currentPersonId;
+
+  return useMemo(() => (personId ? { assignee: `person:${personId}` } : {}), [personId]);
+}
 
 /** The tasks this client has read in an environment, by id. */
 export function useTaskCache(environmentId: EnvironmentId | null): ReadonlyMap<TaskId, CachedTask> {

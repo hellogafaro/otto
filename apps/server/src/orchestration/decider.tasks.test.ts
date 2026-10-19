@@ -155,6 +155,41 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
     }),
   );
 
+  it.effect("assigns a new task to its owner when nobody else is assigned", () =>
+    Effect.gen(function* () {
+      const grace = {
+        kind: "person" as const,
+        personId: AuthSessionId.make("session-grace"),
+        displayName: "Grace",
+      };
+
+      const { readModel } = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-owned"),
+        taskId,
+        projectId,
+        title: "Owned",
+        owner: person,
+        createdAt: now,
+      });
+
+      expect(readModel.tasks?.[0]?.assignees).toEqual([person]);
+
+      const assigned = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-owned-assigned"),
+        taskId,
+        projectId,
+        title: "Owned and assigned",
+        owner: person,
+        assignees: [grace],
+        createdAt: now,
+      });
+
+      expect(assigned.readModel.tasks?.[0]?.assignees).toEqual([grace]);
+    }),
+  );
+
   it.effect("rejects tasks for unknown or deleted projects", () =>
     Effect.gen(function* () {
       const missing = yield* decideOrchestrationCommand({
