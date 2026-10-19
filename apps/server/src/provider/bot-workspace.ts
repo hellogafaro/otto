@@ -20,7 +20,7 @@ import {
   credential,
 } from "./workspace/bot-workspace-lifecycle.ts";
 import { RemoteSandbox } from "./workspace/remote-sandbox.ts";
-import { BOAT_TTL_SECONDS, boat, boatFailure, boatName } from "./workspace/adapters/boat.ts";
+import { BOAT_TTL_SECONDS, boat, boatFailure } from "./workspace/adapters/boat.ts";
 import { e2b } from "./workspace/adapters/e2b.ts";
 import { daytona } from "./workspace/adapters/daytona.ts";
 import { vercel, vercelCredentials } from "./workspace/adapters/vercel.ts";
@@ -281,8 +281,8 @@ async function connect(
     new Configuration({ accessToken: credential(environment, "BOAT_API_KEY") }),
   );
 
-  // Boat shows this name, so a computer in its dashboard leads back to its bot.
-  const name = options.scope ? boatName(options.scope) : undefined;
+  // Boat shows the owner's id as the name, so a computer in its dashboard leads back to its bot.
+  const name = options.scope;
 
   if (providerId) {
     try {

@@ -24,10 +24,6 @@ const ENVIRONMENT_FOLDER = "/home/user/.otto/env";
 /** The exit code and message a command gives when its environment file is gone. */
 const MISSING_ENVIRONMENT = { exitCode: 125, stderr: "otto: environment file missing" };
 
-/** The name Boat shows for a computer: the bot it belongs to, or the chat for one without a bot. */
-export const boatName = (scope: string) =>
-  scope.startsWith("thread-") ? `otto-${scope}` : `otto-bot-${scope}`;
-
 /** Boat's SDK reports every HTTP failure as "Response returned an error code"; surface its message. */
 export async function boatFailure(cause: unknown): Promise<Error> {
   const { ResponseError } = await import("@boatdev/sdk");

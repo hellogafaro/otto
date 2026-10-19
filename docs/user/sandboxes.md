@@ -47,8 +47,8 @@ restores that workspace. While a bot is working, Otto pushes Boat's auto-stop ba
 When a turn ends, Boat stops the VM 2 minutes later unless another turn starts first, and it stops
 by itself 5 minutes after Otto last reached it, even when Otto is down. A turn waiting on your answer
 lets the VM stop; your answer resumes it with its files in place. Running processes such as dev
-servers do not survive a stop. Each VM is named after its bot (`otto-bot-<bot id>`) in Boat's
-dashboard.
+servers do not survive a stop. Boat's dashboard names each VM
+by its bot's id.
 
 Secrets reach Boat commands through a private file on the VM, never in the command text, because Boat
 keeps each command's text in its history. Otto requests protected, token-authenticated access for its browser-control

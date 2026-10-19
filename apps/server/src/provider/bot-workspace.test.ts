@@ -528,7 +528,7 @@ describe("Boat", () => {
       // Boat's dashboard names the computer after its owner.
       expect(update).toHaveBeenCalledWith({
         sandboxId: "boat-id",
-        updateSandboxRequest: { name: "otto-bot-thread" },
+        updateSandboxRequest: { name: "thread" },
       });
       get.mockRejectedValueOnce(new Error("VM unavailable"));
       await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
