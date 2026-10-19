@@ -54,10 +54,6 @@ describe("ServerSettings sandbox providers", () => {
       defaultProvider: "local",
       autoIdle: true,
       providers: {
-        e2b: { environment: [] },
-        daytona: { environment: [] },
-        vercel: { environment: [] },
-        railway: { environment: [] },
         boat: { environment: [] },
       },
     });
@@ -67,19 +63,19 @@ describe("ServerSettings sandbox providers", () => {
     expect(
       decodeServerSettingsPatch({
         sandbox: {
-          defaultProvider: "e2b",
+          defaultProvider: "boat",
           providers: {
-            e2b: {
-              environment: [{ name: "E2B_API_KEY", value: "secret", sensitive: true }],
+            boat: {
+              environment: [{ name: "BOAT_API_KEY", value: "secret", sensitive: true }],
             },
           },
         },
       }).sandbox,
     ).toEqual({
-      defaultProvider: "e2b",
+      defaultProvider: "boat",
       providers: {
-        e2b: {
-          environment: [{ name: "E2B_API_KEY", value: "secret", sensitive: true }],
+        boat: {
+          environment: [{ name: "BOAT_API_KEY", value: "secret", sensitive: true }],
         },
       },
     });
@@ -104,11 +100,32 @@ describe("ServerSettings sandbox providers", () => {
       defaultProvider: "boat",
     });
 
-    for (const retired of ["upstash", "tenki"]) {
+    for (const retired of ["upstash", "tenki", "e2b", "daytona", "vercel", "railway"]) {
       expect(
         decodeServerSettings({ sandbox: { defaultProvider: retired } }).sandbox.defaultProvider,
       ).toBe("local");
     }
+  });
+
+  it("drops leftover connections for deleted sandboxes", () => {
+    expect(
+      decodeServerSettings({
+        sandbox: {
+          defaultProvider: "e2b",
+          providers: {
+            e2b: { environment: [{ name: "E2B_API_KEY", value: "secret", sensitive: true }] },
+            railway: {
+              environment: [{ name: "RAILWAY_API_TOKEN", value: "token", sensitive: true }],
+            },
+            boat: { environment: [] },
+          },
+        },
+      }).sandbox,
+    ).toEqual({
+      defaultProvider: "local",
+      autoIdle: true,
+      providers: { boat: { environment: [] } },
+    });
   });
 
   it("keeps automatic idle cleanup enabled", () => {

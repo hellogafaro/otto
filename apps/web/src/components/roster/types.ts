@@ -49,7 +49,7 @@ export interface Bot {
   visibility?: Visibility | undefined;
   avatar: BotAvatar;
   engine: BotEngine | null;
-  sandbox: "local" | "e2b" | "daytona" | "vercel" | "railway" | "boat" | null;
+  sandbox: "local" | "boat" | null;
   runtimeMode: "approval-required" | "auto-accept-edits" | "auto" | "full-access";
   /** What this bot should do and how it should work; the server adds it to every chat. */
   instructions: string | null;

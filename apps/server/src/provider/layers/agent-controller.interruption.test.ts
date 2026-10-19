@@ -679,8 +679,8 @@ describe("AgentControllerLive", () => {
             botId: "bot-one" as never,
           };
 
-          yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
-          yield* controller.startSession(codexThreadId, { ...input, botSandbox: "vercel" });
+          yield* controller.startSession(codexThreadId, { ...input, botSandbox: "boat" });
+          yield* controller.startSession(codexThreadId, { ...input, botSandbox: "local" });
           expect(firstStop).toHaveBeenCalledOnce();
           expect(firstDestroy).not.toHaveBeenCalled();
         }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);

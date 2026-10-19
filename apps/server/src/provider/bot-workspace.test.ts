@@ -701,12 +701,10 @@ describe("Boat", () => {
 });
 
 describe("createBotWorkspace", () => {
-  it("classifies every managed provider", () => {
+  it("classifies only Boat as a remote sandbox", () => {
     expect(isRemoteBotSandbox("local")).toBe(false);
-
-    for (const sandbox of ["e2b", "daytona", "vercel", "railway", "boat"] as const) {
-      expect(isRemoteBotSandbox(sandbox)).toBe(true);
-    }
+    expect(isRemoteBotSandbox("boat")).toBe(true);
+    expect(isRemoteBotSandbox(null)).toBe(false);
   });
 
   it("keeps durable local bot files outside the user project", async () => {
@@ -767,25 +765,21 @@ describe("createBotWorkspace", () => {
     const makeRemoteWorkspace = vi.fn(async () => remote);
     await createBotWorkspace({
       io: workspaceIO,
-      threadId: "thread-vercel",
-      sandbox: "vercel",
-      workspaceId: "otto-vercel",
+      threadId: "thread-boat",
+      sandbox: "boat",
+      workspaceId: "otto-boat",
       environment: {
-        VERCEL_TOKEN: "token",
-        VERCEL_TEAM_ID: "team",
-        VERCEL_PROJECT_ID: "project",
+        BOAT_API_KEY: "token",
       },
       makeRemoteWorkspace,
     });
     expect(makeRemoteWorkspace).toHaveBeenCalledWith({
       io: workspaceIO,
-      threadId: "thread-vercel",
-      sandbox: "vercel",
-      workspaceId: "otto-vercel",
+      threadId: "thread-boat",
+      sandbox: "boat",
+      workspaceId: "otto-boat",
       environment: {
-        VERCEL_TOKEN: "token",
-        VERCEL_TEAM_ID: "team",
-        VERCEL_PROJECT_ID: "project",
+        BOAT_API_KEY: "token",
       },
     });
     await remote.destroy();
@@ -793,7 +787,7 @@ describe("createBotWorkspace", () => {
 
   it("requires stable identity for remote workspaces", async () => {
     await expect(
-      createRemoteBotWorkspace({ io: workspaceIO, threadId: "thread-remote", sandbox: "e2b" }),
+      createRemoteBotWorkspace({ io: workspaceIO, threadId: "thread-remote", sandbox: "boat" }),
     ).rejects.toThrow("needs a stable workspace identity");
   });
 
@@ -808,7 +802,7 @@ describe("createBotWorkspace", () => {
     const input = {
       io: workspaceIO,
       threadId: "thread-remote",
-      sandbox: "e2b" as const,
+      sandbox: "boat" as const,
       workspaceId: "otto-stable-id",
       identityFile,
       openSession,
@@ -823,7 +817,7 @@ describe("createBotWorkspace", () => {
     expect(openSession).toHaveBeenNthCalledWith(1, undefined);
     expect(openSession).toHaveBeenNthCalledWith(2, "native-workspace-id");
     expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toEqual({
-      provider: "e2b",
+      provider: "boat",
       scope: "thread-remote",
       providerId: "native-workspace-id",
     });
@@ -837,73 +831,43 @@ describe("createBotWorkspace", () => {
     const identityFile = NodePath.join(baseDir, "provider.json");
     NodeFS.writeFileSync(
       identityFile,
-      `${JSON.stringify({ provider: "vercel", providerId: "missing-id" })}\n`,
+      `${JSON.stringify({ provider: "boat", providerId: "missing-id" })}\n`,
     );
 
     await expect(
       createRemoteBotWorkspace({
         io: workspaceIO,
         threadId: "thread-remote",
-        sandbox: "vercel",
+        sandbox: "boat",
         workspaceId: "otto-stable-id",
         identityFile,
         openSession: async () => Promise.reject(new Error("not found")),
       }),
-    ).rejects.toThrow("Remote vercel workspace 'missing-id' is unavailable.");
+    ).rejects.toThrow("Remote boat workspace 'missing-id' is unavailable.");
     expect(NodeFS.existsSync(identityFile)).toBe(true);
     NodeFS.rmSync(baseDir, { recursive: true, force: true });
   });
 
-  it("replaces a Railway VM that Railway no longer has instead of failing every start", async () => {
-    const { RailwaySandbox } = await import("@mastra/railway");
-    const { SandboxNotFoundError } = await import("railway");
-    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-railway-stale-"));
+  it("refuses to open a retired provider's identity as Boat", async () => {
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-retired-"));
     const identityFile = NodePath.join(baseDir, "provider.json");
     NodeFS.writeFileSync(
       identityFile,
-      `${JSON.stringify({ provider: "railway", providerId: "gone-id" })}\n`,
+      `${JSON.stringify({ provider: "e2b", providerId: "old-id" })}\n`,
     );
 
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(Response.json({ data: { projectToken: null } }));
-
-    const internals: {
-      _reconnectSandbox: () => Promise<{ readonly id: string }>;
-      _createNewSandbox: () => Promise<{ readonly id: string; readonly status: string }>;
-    } = Object.getPrototypeOf(new RailwaySandbox({ id: "probe" }));
-
-    const reconnect = vi
-      .spyOn(internals, "_reconnectSandbox")
-      .mockRejectedValue(new SandboxNotFoundError({ id: "gone-id", environmentId: "env" }));
-
-    const create = vi
-      .spyOn(internals, "_createNewSandbox")
-      .mockResolvedValue({ id: "fresh-id", status: "RUNNING" });
-
-    try {
-      const workspace = await createRemoteBotWorkspace({
+    await expect(
+      createRemoteBotWorkspace({
         io: workspaceIO,
-        threadId: "thread-railway",
-        sandbox: "railway",
-        workspaceId: "otto-railway-id",
+        threadId: "thread-remote",
+        sandbox: "boat",
+        workspaceId: "otto-stable-id",
         identityFile,
-        environment: { RAILWAY_API_TOKEN: "token", RAILWAY_ENVIRONMENT_ID: "env" },
-      });
-
-      expect(reconnect).toHaveBeenCalledOnce();
-      expect(create).toHaveBeenCalledOnce();
-      expect(workspace.providerId).toBe("fresh-id");
-      expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toEqual({
-        provider: "railway",
-        scope: "thread-railway",
-        providerId: "fresh-id",
-      });
-    } finally {
-      fetchSpy.mockRestore();
-      reconnect.mockRestore();
-      create.mockRestore();
-      NodeFS.rmSync(baseDir, { recursive: true, force: true });
-    }
+        environment: { BOAT_API_KEY: "token" },
+        openSession: async () => remoteSession("should-not-open"),
+      }),
+    ).rejects.toThrow("belongs to 'e2b', not 'boat'");
+    expect(NodeFS.existsSync(identityFile)).toBe(true);
+    NodeFS.rmSync(baseDir, { recursive: true, force: true });
   });
 });

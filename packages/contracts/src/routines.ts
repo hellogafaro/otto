@@ -108,9 +108,21 @@ export const RoutineTimeZone = TrimmedNonEmptyString.check(
 
 export type RoutineTimeZone = typeof RoutineTimeZone.Type;
 
-export const RoutineSandbox = Schema.Literals(["local", "e2b", "daytona", "vercel-sandbox"]);
+export const RoutineSandbox = Schema.Literals(["local", "boat"]);
 
 export type RoutineSandbox = typeof RoutineSandbox.Type;
+
+const RetiredRoutineSandbox = Schema.Literals(["e2b", "daytona", "vercel-sandbox", "railway"]);
+
+export const PersistedRoutineSandbox = Schema.Union([RoutineSandbox, RetiredRoutineSandbox]).pipe(
+  Schema.decodeTo(
+    RoutineSandbox,
+    SchemaTransformation.transform({
+      decode: (value) => (value === "boat" ? "boat" : "local"),
+      encode: (value) => value,
+    }),
+  ),
+);
 
 export const RoutineApprovalPolicy = Schema.Literals([
   "approval-required",
@@ -237,7 +249,7 @@ export const RoutineDefinition = Schema.Struct({
   skillAssignmentIds: Schema.Array(SkillAssignmentId),
   connectorDependencies: Schema.Array(McpServerId),
   projectId: ProjectId,
-  sandbox: RoutineSandbox,
+  sandbox: PersistedRoutineSandbox,
   approvalPolicy: RoutineApprovalPolicy,
   /** When set, each run delegates the job to this bot from the target thread's owner. */
   delegateToBotId: Schema.NullOr(BotId).pipe(Schema.withDecodingDefault(Effect.succeed(null))),

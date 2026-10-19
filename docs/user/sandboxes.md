@@ -1,25 +1,22 @@
 # Configure sandboxes
 
-Open **Settings > Computer** to connect E2B, Daytona, Vercel Sandbox, Railway, or Boat. E2B, Daytona,
-Vercel Sandbox and Railway run on Mastra's official sandbox packages. Local workspaces need no
-credential and are always available.
+Open **Settings > Computer** to connect Boat. Local workspaces need no credential and are
+always available.
 
-Every bot gets its own computer. A bot's sandbox is keyed to the bot, so its files and browser logins
-are never shared with another bot.
+Every chat gets its own computer. A chat's sandbox is keyed to the bot and the chat, so two
+chats of the same bot never share files, processes or browser logins.
 
-A bot's chats share its computer, so it stays warm between them, but each chat works in its own
-folder, `chats/<chat id>`. The chat's shell starts there, and each repository linked in the project
-gets its own git worktree there, so two chats never edit the same files or branch. The shared clones
-stay in `repos/`.
+Each computer still keeps a `chats/<chat id>` folder. The chat's shell starts there, and each
+repository linked in the project gets its own git worktree there.
 
-Select **Connect** and enter the provider credentials. The environment stores secret values outside
+Select **Connect** and enter the Boat API key. The environment stores secret values outside
 `settings.json`. Clients receive only a redacted marker after a secret is saved.
 
 ## Local
 
 Local workspaces run on the environment's own machine. Where the host supports it (sandbox-exec on
 macOS, bubblewrap on Linux), commands run inside Mastra's native isolation: writes are limited to the
-bot's workspace and temporary directories, and network access stays on. Reads are not restricted on
+chat's workspace and temporary directories, and network access stays on. Reads are not restricted on
 macOS. Hosts without an isolation backend run Local commands unisolated.
 
 ## Choose the default
@@ -32,23 +29,15 @@ so connect that service before you start the bot.
 
 ## Session behavior
 
-Otto stops remote sandboxes other than Railway while bots are idle and reconnects to the saved
-provider workspace when bot work resumes. E2B pauses, Vercel Sandbox snapshots its filesystem, and
-Daytona stops the sandbox. If a remote pause fails, Otto keeps the workspace and retries the pause
-while it remains idle, except on Boat, where it reconnects to the saved VM on the next use.
+Otto stops a Boat computer when that chat is idle and reconnects to the saved VM when work in the
+chat resumes. A later turn in the same chat resumes the existing VM instead of creating a new one.
+If a remote pause fails, Otto reconnects to the saved VM on the next use.
 
-Railway VMs remain running while idle and can continue accruing charges. Connect with a
-`RAILWAY_API_TOKEN` and `RAILWAY_ENVIRONMENT_ID`. Previews require a Railway CLI tunnel;
-Otto cannot attach its sandbox browser. See [Railway workspaces](railway-sandboxes.md)
-for credential rotation and VM cleanup.
-
-Boat runs persistent Linux VMs. Stopping a VM saves a native lifecycle snapshot; resuming it
-restores that workspace. While a bot is working, Otto pushes Boat's auto-stop back every 2 minutes.
-When a turn ends, Boat stops the VM 2 minutes later unless another turn starts first, and it stops
-by itself 5 minutes after Otto last reached it, even when Otto is down. A turn waiting on your answer
-lets the VM stop; your answer resumes it with its files in place. Running processes such as dev
-servers do not survive a stop. Boat's dashboard names each VM
-by its bot's id.
+While a chat is working, Otto pushes Boat's auto-stop back every 2 minutes. When a turn ends, Boat
+stops the VM 2 minutes later unless another turn in that chat starts first, and it stops by itself
+5 minutes after Otto last reached it, even when Otto is down. A turn waiting on your answer lets
+the VM stop; your answer resumes it with its files in place. Running processes such as dev servers
+do not survive a stop. Boat's dashboard names each VM `{bot id}_{chat id}`.
 
 Secrets reach Boat commands through a private file on the VM, never in the command text, because Boat
 keeps each command's text in its history. Otto requests protected, token-authenticated access for its browser-control

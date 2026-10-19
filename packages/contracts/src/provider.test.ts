@@ -60,13 +60,24 @@ describe("ProviderSessionStartInput", () => {
     const parsed = decodeProviderSessionStartInput({
       threadId: "thread-1",
       provider: "codex",
-      botSandbox: "vercel",
+      botSandbox: "boat",
       botId: "bot-one",
       runtimeMode: "full-access",
     });
 
-    expect(parsed.botSandbox).toBe("vercel");
+    expect(parsed.botSandbox).toBe("boat");
     expect(parsed.botId).toBe("bot-one");
+  });
+
+  it("falls back a retired sandbox on session start", () => {
+    const parsed = decodeProviderSessionStartInput({
+      threadId: "thread-1",
+      provider: "codex",
+      botSandbox: "vercel",
+      runtimeMode: "full-access",
+    });
+
+    expect(parsed.botSandbox).toBeNull();
   });
 
   it("accepts the bot identity a session runs as", () => {

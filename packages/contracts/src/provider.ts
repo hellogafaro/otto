@@ -10,7 +10,7 @@ import {
   ThreadId,
   TurnId,
 } from "./base-schemas.ts";
-import { BotSandbox, BotInstructions } from "./orchestration/roster.ts";
+import { PersistedBotSandbox, BotInstructions } from "./orchestration/roster.ts";
 import { ApprovalResponder } from "./orchestration/work.ts";
 import {
   ChatAttachment,
@@ -72,7 +72,7 @@ export const ProviderSessionStartInput = Schema.Struct({
   botId: Schema.optional(BotId),
   botName: Schema.optional(TrimmedNonEmptyString),
   botInstructions: Schema.optional(BotInstructions),
-  botSandbox: Schema.optional(Schema.NullOr(BotSandbox)),
+  botSandbox: Schema.optional(PersistedBotSandbox),
   botSandboxEnvironment: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   mcpServers: Schema.optional(Schema.Array(McpServer)),
   /** Server-owned system context fixed when the native provider session starts. */

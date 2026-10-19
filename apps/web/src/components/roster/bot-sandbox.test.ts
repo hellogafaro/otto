@@ -12,7 +12,7 @@ describe("botSandbox", () => {
     expect(botSandboxChoice(null)).toBe("default");
     expect(botSandboxLabel("default")).toBe("Default sandbox");
     expect(botSandboxChoice("local")).toBe("local");
-    expect(botSandboxChoice("vercel")).toBe("vercel");
+    expect(botSandboxChoice("boat")).toBe("boat");
   });
 
   it("always runs bots with full access", () => {
@@ -20,14 +20,7 @@ describe("botSandbox", () => {
   });
 
   it("lists the first sandbox providers", () => {
-    expect(BOT_SANDBOX_OPTIONS.map((option) => option.value)).toEqual([
-      "local",
-      "e2b",
-      "daytona",
-      "vercel",
-      "railway",
-      "boat",
-    ]);
-    expect(botSandboxLabel("vercel")).toBe("Vercel Sandbox");
+    expect(BOT_SANDBOX_OPTIONS.map((option) => option.value)).toEqual(["local", "boat"]);
+    expect(botSandboxLabel("boat")).toBe("Boat");
   });
 });

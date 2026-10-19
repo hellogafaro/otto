@@ -40,8 +40,8 @@ const RULES = [
 
 // Otto: how to work in the computer lives in the built-in computer-use skill, read when needed.
 const COMPUTER = [
-  "Your computer is your own machine with a terminal, files and a browser. It keeps files between chats but can be wiped; put anything people need in the Library, a pull request or a task comment.",
-  "Your other chats share this computer. Each chat has its own folder in $OTTO_CHAT_DIR, where your shell starts, with its own git worktree of each project repository. Work, clone and branch only there. Never edit, adopt or resume another chat's folder or branch, even if it looks abandoned. Run heavy builds and tests one at a time.",
+  "Your computer is this chat's own machine with a terminal, files and a browser. It keeps files in this chat but can be wiped; put anything people need in the Library, a pull request or a task comment.",
+  "Your shell starts in $OTTO_CHAT_DIR. Work, clone and branch there. Other chats have their own computers; never edit, adopt or resume another chat's folder or branch.",
 ].join("\n");
 
 const SECRET_REQUEST_PROMPT: OttoToolPrompt = {
