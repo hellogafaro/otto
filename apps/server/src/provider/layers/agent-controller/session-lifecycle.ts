@@ -492,6 +492,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
         configuredMemory: memory,
         workspaceResourceKey,
         pendingApprovals: new Map<string, PendingApproval>(),
+        answeringRequests: new Set<string>(),
         unsubscribe,
       } satisfies ActiveSession;
     }).pipe(Effect.onError(() => cleanupCreatedSession));

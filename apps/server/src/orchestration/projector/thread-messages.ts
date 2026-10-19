@@ -72,7 +72,7 @@ export function projectThreadMessages(
               ...entry,
               text: message.streaming
                 ? `${entry.text}${message.text}`
-                : message.text.length > 0
+                : message.text.length > 0 && !message.id.startsWith("user-input:")
                   ? message.text
                   : entry.text,
               streaming: message.streaming,

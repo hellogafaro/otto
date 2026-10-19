@@ -413,14 +413,26 @@ export function createApprovals(deps: {
       });
     }
 
+    // A second reply while the first is still being handed over must not replace it.
+    if (active.answeringRequests.has(toolCallId)) return;
+
+    active.answeringRequests.add(toolCallId);
+
     const activeTurn = active.activeTurn;
     // Only a question this turn was waiting on goes back into its set on failure.
     let ownedByTurn = false;
     let restored = false;
     let resumeFailure: string | undefined;
+    let markToolEnded = () => {};
+
+    const toolEnded = new Promise<void>((resolve) => {
+      markToolEnded = resolve;
+    });
 
     const unsubscribe = active.session.subscribe((event) => {
-      if (event.type === "tool_suspension_cancelled" && event.toolCallId === toolCallId) {
+      if (event.type === "tool_end" && event.toolCallId === toolCallId) {
+        markToolEnded();
+      } else if (event.type === "tool_suspension_cancelled" && event.toolCallId === toolCallId) {
         resumeFailure = event.reason;
       } else if (event.type === "error") {
         resumeFailure ??= event.error.message;
@@ -432,7 +444,11 @@ export function createApprovals(deps: {
         active.providerInstanceId,
         "AgentController.respondToUserInput",
         () => {
-          if (!activeTurn || active.activeTurn !== activeTurn) {
+          if (
+            !activeTurn ||
+            active.activeTurn !== activeTurn ||
+            !activeTurn.suspendedToolCalls.has(toolCallId)
+          ) {
             return { _tag: "Stale" as const };
           }
 
@@ -447,14 +463,22 @@ export function createApprovals(deps: {
       );
 
       if (Predicate.isTagged(admitted, "Stale")) {
+        active.answeringRequests.delete(toolCallId);
+
         return yield* new AgentControllerRuntimeError({
           operation: "respondToUserInput",
           detail: `Unknown pending user-input request: ${input.requestId}. The bot turn has ended. Send the request again.`,
         });
       }
 
+      // Mastra settles the resume only when the resumed run ends, and reports later failures as
+      // session error events, so the question counts as answered once its tool ends.
       yield* deps
-        .runMastra("respondToToolSuspension", () => admitted.resume)
+        .runMastra("respondToToolSuspension", () => {
+          admitted.resume.catch(() => undefined);
+
+          return Promise.race([admitted.resume, toolEnded]);
+        })
         .pipe(
           // A rejected resume leaves the question open while its turn is still live.
           Effect.onError(() =>
@@ -482,26 +506,33 @@ export function createApprovals(deps: {
               : error,
           ),
         );
-    }).pipe(Effect.ensuring(Effect.sync(unsubscribe)));
 
-    if (resumeFailure !== undefined) {
-      return yield* new AgentControllerRuntimeError({
-        operation: "respondToToolSuspension",
-        detail: `Unknown pending user-input request: ${toolCallId}. ${resumeFailure}`,
-        cause: new Error(resumeFailure),
+      if (resumeFailure !== undefined) {
+        return yield* new AgentControllerRuntimeError({
+          operation: "respondToToolSuspension",
+          detail: `Unknown pending user-input request: ${toolCallId}. ${resumeFailure}`,
+          cause: new Error(resumeFailure),
+        });
+      }
+
+      deps.publish({
+        ...deps.baseEvent(input.threadId, active, active.activeTurn?.turnId),
+        requestId: RuntimeRequestId.make(toolCallId),
+        type: "user-input.resolved",
+        payload: { answers: input.answers },
       });
-    }
-
-    deps.publish({
-      ...deps.baseEvent(input.threadId, active, active.activeTurn?.turnId),
-      requestId: RuntimeRequestId.make(toolCallId),
-      type: "user-input.resolved",
-      payload: { answers: input.answers },
-    });
-    deps.publishSessionState(
-      input.threadId,
-      active,
-      active.activeTurn?.waiting ? "waiting" : "running",
+      deps.publishSessionState(
+        input.threadId,
+        active,
+        active.activeTurn?.waiting ? "waiting" : "running",
+      );
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          active.answeringRequests.delete(toolCallId);
+          unsubscribe();
+        }),
+      ),
     );
   });
 

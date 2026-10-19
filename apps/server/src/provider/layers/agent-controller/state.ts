@@ -115,6 +115,8 @@ export interface ActiveSession {
   configuredMemory: boolean;
   readonly workspaceResourceKey: string;
   readonly pendingApprovals: Map<string, PendingApproval>;
+  /** Question answers already handed to the provider and not yet settled. */
+  readonly answeringRequests: Set<string>;
   readonly unsubscribe: () => void;
 }
 
