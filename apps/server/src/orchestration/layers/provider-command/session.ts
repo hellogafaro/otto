@@ -49,7 +49,6 @@ export function createSession({
   threadsAwaitingRestrictiveSessionCleanup,
   agentController,
   resolveControllerEngine,
-  inspectAvailableEngine,
   setThreadSession,
   rejectStartedThreadModelChangeIfRequired,
   resolveProject,
@@ -75,7 +74,6 @@ export function createSession({
   | "threadsAwaitingRestrictiveSessionCleanup"
   | "agentController"
   | "resolveControllerEngine"
-  | "inspectAvailableEngine"
   | "setThreadSession"
   | "rejectStartedThreadModelChangeIfRequired"
   | "resolveProject"
@@ -212,9 +210,17 @@ export function createSession({
         ? activeSession.providerInstanceId
         : thread.modelSelection.instanceId;
 
+    // A bot with no saved engine follows the current default model, the same
+    // one the chat shows. The selection stored on the thread is only the model
+    // from when the chat was created, so a provider turned off later must not
+    // become the one this turn runs.
+    const serverSettings = yield* serverSettingsService.getSettings;
+    const botThread = thread.botId != null || thread.groupId != null;
+
     const desiredEngine = yield* resolveControllerEngine(
       thread,
-      requestedModelSelection ?? thread.modelSelection,
+      requestedModelSelection ??
+        (botThread ? serverSettings.textGenerationModelSelection : thread.modelSelection),
     );
 
     const desiredModelSelection = desiredEngine.modelSelection;
@@ -227,24 +233,8 @@ export function createSession({
     const desiredInfo = desiredEngine.routing;
     const desiredDriverKind = desiredInfo.driverKind;
 
-    // The turn runs on the desired instance. A chat can still store the
-    // default Codex selection after the user turned Codex off and moved the
-    // bot to another provider. Inspecting that leftover must not block startup.
-    const currentDriverKind =
-      currentInstanceId === desiredInstanceId
-        ? desiredDriverKind
-        : activeSession === undefined
-          ? undefined
-          : yield* inspectAvailableEngine({
-              instanceId: currentInstanceId,
-              model: activeSession.model ?? thread.modelSelection.model,
-            }).pipe(
-              Effect.map((engine) => engine.routing.driverKind),
-              Effect.catchTags({
-                ProviderValidationError: () => Effect.void,
-                AgentControllerUnsupportedEngineError: () => Effect.void,
-              }),
-            );
+    // Only the instance this turn will run is inspected. A disabled instance
+    // left on the chat must not block whichever provider was chosen.
 
     if (!isProviderDriverKind(desiredDriverKind)) {
       return yield* new ProviderAdapterRequestError({
@@ -289,12 +279,14 @@ export function createSession({
       });
     }
 
+    // Another instance of the same driver keeps its resume cursor. A different
+    // driver does not. The session already knows its driver, so the stored
+    // instance is not inspected again.
     const providerChanged =
-      currentDriverKind === undefined || currentDriverKind !== desiredInfo.driverKind;
+      activeSession !== undefined && activeSession.provider !== desiredDriverKind;
     const project = yield* resolveProject(thread.projectId);
 
     const mcpServers = yield* resolveControllerMcpServers(thread);
-    const serverSettings = yield* serverSettingsService.getSettings;
     const respondingBotId = resolveControllerBotId(thread);
 
     const respondingBot =
@@ -703,10 +695,7 @@ export function createSession({
             })
           : activeSession.providerInstanceId === ensured.engine.modelSelection.instanceId
             ? ensured.engine.capabilities.sessionModelSwitch
-            : (yield* inspectAvailableEngine({
-                instanceId: activeSession.providerInstanceId,
-                model: activeSession.model ?? thread.modelSelection.model,
-              })).capabilities.sessionModelSwitch;
+            : "unsupported";
 
     const requestedModelSelection = ensured.engine.modelSelection;
 

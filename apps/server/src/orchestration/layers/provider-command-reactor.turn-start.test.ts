@@ -69,21 +69,70 @@ describe("ProviderCommandReactor", () => {
     expect(harness.sendTurn.mock.calls[0]?.[0]).toMatchObject({ input: "send this only once" });
   });
 
-  it("starts a Claude bot when the chat still stores a disabled Codex selection", async () => {
+  it.each([
+    ["claudeAgent", "claude-opus-4-6"],
+    ["grok", "grok-4"],
+    ["kimi", "k3"],
+  ] as const)(
+    "starts a %s bot when the chat still stores a disabled Codex selection",
+    async (provider, model) => {
+      const harness = await createHarness({
+        botEngine: { provider, model },
+        disabledInstances: ["codex"],
+      });
+
+      await harness.run(
+        harness.engine.dispatch({
+          type: "thread.turn.start",
+          commandId: CommandId.make(`cmd-turn-start-${provider}-over-disabled-codex`),
+          threadId: ThreadId.make("thread-1"),
+          message: {
+            messageId: asMessageId(`user-message-${provider}-over-disabled-codex`),
+            role: "user",
+            text: "use the bot provider",
+            attachments: [],
+          },
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          runtimeMode: "approval-required",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+      );
+
+      await harness.waitFor(() => harness.startSession.mock.calls.length === 1);
+      expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
+        provider: ProviderDriverKind.make(provider),
+        providerInstanceId: ProviderInstanceId.make(provider),
+      });
+
+      const thread = (await harness.readModel()).threads.find(
+        (entry) => entry.id === ThreadId.make("thread-1"),
+      );
+
+      expect(thread?.activities.map((activity) => activity.kind)).not.toContain(
+        "provider.turn.start.failed",
+      );
+    },
+  );
+
+  it("starts a bot with no saved engine on the current default, not the stored Codex selection", async () => {
     const harness = await createHarness({
-      botEngine: { provider: "claudeAgent", model: "claude-opus-4-6" },
+      botEngine: null,
       disabledInstances: ["codex"],
+      textGenerationModelSelection: {
+        instanceId: ProviderInstanceId.make("grok"),
+        model: "grok-4",
+      },
     });
 
     await harness.run(
       harness.engine.dispatch({
         type: "thread.turn.start",
-        commandId: CommandId.make("cmd-turn-start-claude-over-disabled-codex"),
+        commandId: CommandId.make("cmd-turn-start-default-grok-over-disabled-codex"),
         threadId: ThreadId.make("thread-1"),
         message: {
-          messageId: asMessageId("user-message-claude-over-disabled-codex"),
+          messageId: asMessageId("user-message-default-grok-over-disabled-codex"),
           role: "user",
-          text: "use claude",
+          text: "use the default provider",
           attachments: [],
         },
         interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
@@ -94,17 +143,9 @@ describe("ProviderCommandReactor", () => {
 
     await harness.waitFor(() => harness.startSession.mock.calls.length === 1);
     expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
-      provider: ProviderDriverKind.make("claudeAgent"),
-      providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+      provider: ProviderDriverKind.make("grok"),
+      providerInstanceId: ProviderInstanceId.make("grok"),
     });
-
-    const thread = (await harness.readModel()).threads.find(
-      (entry) => entry.id === ThreadId.make("thread-1"),
-    );
-
-    expect(thread?.activities.map((activity) => activity.kind)).not.toContain(
-      "provider.turn.start.failed",
-    );
   });
 
   it.each([

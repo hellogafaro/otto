@@ -33,21 +33,37 @@ function providerName(id: string): string {
   return isProviderDriverKind(driver) ? (PROVIDER_ACCOUNT_NAMES[driver] ?? id) : id;
 }
 
+const builtinAccountNames = new Set(
+  Object.values(PROVIDER_ACCOUNT_NAMES).filter((name) => name !== undefined),
+);
+
 /**
- * The provider a failure should name. A chat context can still say Claude
- * while the error is about a different built-in instance, such as Codex.
- * A custom instance id keeps the name the chat already has.
+ * True when the chat's provider is the instance named in the error, or the chat
+ * named none. A different built-in account is not this instance. A name the user
+ * chose, or a custom instance id, still belongs to this chat.
  */
-function failureProviderName(
-  instanceId: string,
-  contextName: string | null | undefined,
-): string | null | undefined {
-  const fromError = providerName(instanceId);
+function namesSameProvider(contextName: string | null | undefined, instanceId: string): boolean {
+  if (!contextName) return true;
   const driver = isProviderDriverKind(instanceId) ? instanceId : instanceId.toLowerCase();
+  if (!isProviderDriverKind(driver)) return true;
+  const fromError = PROVIDER_ACCOUNT_NAMES[driver] ?? instanceId;
+  if (contextName === fromError || contextName === instanceId) return true;
 
-  if (!contextName || !isProviderDriverKind(driver)) return contextName ?? fromError;
+  return !builtinAccountNames.has(contextName);
+}
 
-  return contextName === fromError || contextName === instanceId ? contextName : fromError;
+/** A different instance failed. Don't say this chat's provider is off, or send the user there. */
+function unrelatedInstanceFailure(
+  instanceId: string,
+  detail: string,
+  t: ProviderAvailabilityTranslate,
+): ThreadErrorPresentation {
+  return {
+    title: t("The bot couldn’t finish that request"),
+    description: t("Try sending it again."),
+    technicalDetails: detail || `Provider instance “${instanceId}” is disabled.`,
+    action: "none",
+  };
 }
 
 function boundedTechnicalDetails(error: string): string {
@@ -124,9 +140,17 @@ export function presentThreadError(
   const disabledProvider = error.match(/Provider instance ['"]([^'"]+)['"] is disabled/i);
 
   if (disabledProvider?.[1]) {
+    if (!namesSameProvider(context.providerName, disabledProvider[1])) {
+      return unrelatedInstanceFailure(
+        disabledProvider[1],
+        `Provider instance “${disabledProvider[1]}” is disabled.`,
+        t,
+      );
+    }
+
     return present(
       "disabled",
-      failureProviderName(disabledProvider[1], context.providerName),
+      context.providerName ?? providerName(disabledProvider[1]),
       `Provider instance “${disabledProvider[1]}” is disabled.`,
     );
   }
@@ -138,10 +162,11 @@ export function presentThreadError(
   );
 
   if (missingProvider?.[1]) {
-    return present(
-      "missing-provider",
-      failureProviderName(missingProvider[1], context.providerName),
-    );
+    if (!namesSameProvider(context.providerName, missingProvider[1])) {
+      return unrelatedInstanceFailure(missingProvider[1], boundedTechnicalDetails(error), t);
+    }
+
+    return present("missing-provider", context.providerName ?? providerName(missingProvider[1]));
   }
 
   if (/Bot '[^']+' is archived/.test(error)) {

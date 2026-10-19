@@ -68,16 +68,50 @@ describe("presentThreadError", () => {
     });
   });
 
-  it("names the disabled instance from the error when the chat is on a different provider", () => {
+  it.each([
+    ["codex", "ChatGPT"],
+    ["claudeAgent", "Claude"],
+    ["grok", "Grok"],
+    ["kimi", "Kimi For Coding"],
+  ] as const)("names %s when that provider is the one this chat runs", (instanceId, name) => {
     expect(
-      presentThreadError("Provider instance 'codex' is disabled in Otto settings.", {
-        providerName: "Claude",
+      presentThreadError(`Provider instance '${instanceId}' is disabled in Otto settings.`, {
+        providerName: name,
       }),
     ).toMatchObject({
-      title: "ChatGPT is turned off",
-      description: "Turn ChatGPT on in Settings > Models, then send your message again.",
-      technicalDetails: "Provider instance “codex” is disabled.",
+      title: `${name} is turned off`,
+      description: `Turn ${name} on in Settings > Models, then send your message again.`,
+      action: "providers",
     });
+  });
+
+  it("keeps a renamed instance when its own id is disabled", () => {
+    expect(
+      presentThreadError("Provider instance 'codex_work' is disabled in Otto settings.", {
+        providerName: "Work Codex",
+      }),
+    ).toMatchObject({
+      title: "Work Codex is turned off",
+      action: "providers",
+    });
+  });
+
+  it("does not blame the chat's provider when a different instance is disabled", () => {
+    expect(
+      presentThreadError("Provider instance 'codex' is disabled in Otto settings.", {
+        providerName: "Grok",
+      }),
+    ).toMatchObject({
+      title: "The bot couldn’t finish that request",
+      description: "Try sending it again.",
+      technicalDetails: "Provider instance “codex” is disabled.",
+      action: "none",
+    });
+    expect(
+      presentThreadError("Provider instance 'claudeAgent' is disabled.", {
+        providerName: "ChatGPT",
+      }).action,
+    ).toBe("none");
   });
 
   it("sends a missing sign-in to Settings instead of asking for a retry", () => {

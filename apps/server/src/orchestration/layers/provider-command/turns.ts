@@ -523,7 +523,6 @@ export function createTurns({
       threadId: thread.id,
       messageText: input.messageText,
       ...(input.attachments ? { attachments: input.attachments } : {}),
-      modelSelection: thread.modelSelection,
       createdAt: input.createdAt,
     }).pipe(Effect.flatMap(agentController.sendTurn));
   });

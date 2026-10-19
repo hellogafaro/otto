@@ -42,9 +42,6 @@ export function createContext({
       .pipe(Effect.map(Option.getOrUndefined));
   });
 
-  const inspectAvailableEngine = (modelSelection: ModelSelection) =>
-    agentController.inspectEngine(modelSelection);
-
   const resolveControllerEngine = Effect.fnUntraced(function* (
     thread: ControllerEngineThread,
     fallback: ModelSelection,
@@ -146,7 +143,6 @@ export function createContext({
   return {
     resolveThreadShell,
     resolveThreadDetail,
-    inspectAvailableEngine,
     resolveControllerEngine,
     resolveControllerMcpServers,
     rejectStartedThreadModelChangeIfRequired,

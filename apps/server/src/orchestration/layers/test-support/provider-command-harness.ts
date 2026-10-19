@@ -2,7 +2,7 @@ import * as Match from "effect/Match";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { ProviderInstanceId } from "@otto/contracts";
+import { isProviderDriverKind, ProviderInstanceId } from "@otto/contracts";
 import { createModelSelection } from "@otto/shared/model";
 import {
   BotId,
@@ -55,6 +55,24 @@ import {
 } from "./provider-command-fixtures.ts";
 
 export * from "./provider-command-fixtures.ts";
+
+/** Settings the harness boots with. A chosen default stays on, so the live fallback keeps it. */
+function serverSettingsOverride(input: ProviderCommandHarnessOptions | undefined) {
+  const selection = input?.textGenerationModelSelection;
+
+  const driver =
+    selection !== undefined && isProviderDriverKind(selection.instanceId)
+      ? selection.instanceId
+      : undefined;
+
+  return {
+    ...(input?.enableAgentBrowserAccess === undefined
+      ? {}
+      : { enableAgentBrowserAccess: input.enableAgentBrowserAccess }),
+    ...(selection === undefined ? {} : { textGenerationModelSelection: selection }),
+    ...(driver === undefined ? {} : { providers: { [driver]: { enabled: true } } }),
+  };
+}
 
 export function createProviderCommandHarness() {
   let runtime: ManagedRuntime.ManagedRuntime<
@@ -304,13 +322,7 @@ export function createProviderCommandHarness() {
           generateThreadTitle,
         }),
       ),
-      Layer.provideMerge(
-        ServerSettingsService.layerTest(
-          input?.enableAgentBrowserAccess === undefined
-            ? {}
-            : { enableAgentBrowserAccess: input.enableAgentBrowserAccess },
-        ),
-      ),
+      Layer.provideMerge(ServerSettingsService.layerTest(serverSettingsOverride(input))),
       Layer.provideMerge(ServerConfig.layerTest(process.cwd(), baseDir)),
       Layer.provideMerge(NodeServices.layer),
     );

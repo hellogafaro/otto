@@ -78,7 +78,6 @@ const make = Effect.gen(function* () {
   const {
     resolveThreadShell,
     resolveThreadDetail,
-    inspectAvailableEngine,
     resolveControllerEngine,
     resolveControllerMcpServers,
     rejectStartedThreadModelChangeIfRequired,
@@ -146,7 +145,6 @@ const make = Effect.gen(function* () {
     threadsAwaitingRestrictiveSessionCleanup,
     agentController,
     resolveControllerEngine,
-    inspectAvailableEngine,
     setThreadSession,
     rejectStartedThreadModelChangeIfRequired,
     resolveProject,

@@ -67,6 +67,8 @@ export type ProviderCommandHarnessOptions = {
   readonly disabledInstances?: ReadonlyArray<string>;
   readonly composioResolveRuntimeMcpServer?: ComposioServiceShape["resolveRuntimeMcpServer"];
   readonly enableAgentBrowserAccess?: boolean;
+  /** Live default model. A bot with no saved engine runs this, not the chat's stored selection. */
+  readonly textGenerationModelSelection?: ModelSelection;
   readonly startReactor?: boolean;
   readonly dispatchDelegation?: AgentControllerShape["dispatchDelegation"];
 };
