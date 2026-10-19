@@ -567,7 +567,11 @@ export function BotPromptComposer({
                 aria-label={inputLabel ?? t("Message {name}", { name: botName })}
                 data-testid="bot-prompt-input"
                 placeholder={
-                  placeholder ?? inputLabel ?? t("Message {name}, @ for context", { name: botName })
+                  placeholder ??
+                  inputLabel ??
+                  t("Message {name}, @ for context, / for commands, $ for skills", {
+                    name: botName,
+                  })
                 }
                 rows={1}
                 value={draft}

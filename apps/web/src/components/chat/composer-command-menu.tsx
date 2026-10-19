@@ -17,7 +17,6 @@ import { type ComposerSlashCommand, type ComposerTriggerKind } from "../../compo
 import { BotAvatarView } from "../roster/bot-avatar-view";
 import type { GroupCandidate } from "../roster/group-member-checklist";
 import { PersonAvatar } from "../roster/person-avatar";
-import { Badge } from "../ui/badge";
 import { Command, CommandGroup, CommandGroupLabel, CommandItem, CommandList } from "../ui/command";
 import { FileEntryIcon } from "./file-entry-icon";
 import { ProviderSkillIcon } from "./provider-skill-icon";
@@ -119,39 +118,38 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
     >
       <div
         ref={listRef}
-        className="chat-composer-drawer-surface chat-composer-drawer-attached relative w-full overflow-hidden **:data-[slot=scroll-area-scrollbar]:data-[orientation=vertical]:my-4"
-        data-composer-command-drawer="true"
+        // Same floating shell as the @ context menu, not the attached composer drawer.
+        className="relative max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+        data-composer-command-menu="true"
       >
         {props.items.length > 0 ? (
-          <CommandList className="max-h-72 scroll-pb-6">
+          <CommandList className="max-h-none overflow-visible">
             {ottoItems.length > 0 ? <CommandGroup>{ottoItems.map(row)}</CommandGroup> : null}
             {otherItems.length > 0 ? (
               <CommandGroup>
                 {ottoItems.length > 0 && props.providerGroupLabel ? (
-                  <CommandGroupLabel className="ms-1">{props.providerGroupLabel}</CommandGroupLabel>
+                  <CommandGroupLabel>{props.providerGroupLabel}</CommandGroupLabel>
                 ) : null}
                 {otherItems.map(row)}
               </CommandGroup>
             ) : null}
           </CommandList>
         ) : (
-          <div className="px-5 pt-3.5 pb-7">
-            <p className="text-secondary-label text-xs">
-              {props.isLoading
-                ? props.triggerKind === "skill"
-                  ? "Searching workspace skills..."
-                  : "Searching workspace files..."
-                : (props.emptyStateText ??
-                  Match.value(props).pipe(
-                    Match.when(
-                      { triggerKind: "skill" },
-                      () => "No skills found. Try / to browse provider commands.",
-                    ),
-                    Match.when({ triggerKind: "path" }, () => "No matching files or folders."),
-                    Match.orElse(() => "No matching command."),
-                  ))}
-            </p>
-          </div>
+          <p className="px-2 py-1.5 text-sm text-muted-foreground">
+            {props.isLoading
+              ? props.triggerKind === "skill"
+                ? "Searching workspace skills..."
+                : "Searching workspace files..."
+              : (props.emptyStateText ??
+                Match.value(props).pipe(
+                  Match.when(
+                    { triggerKind: "skill" },
+                    () => "No skills found. Try / to browse provider commands.",
+                  ),
+                  Match.when({ triggerKind: "path" }, () => "No matching files or folders."),
+                  Match.orElse(() => "No matching command."),
+                ))}
+          </p>
         )}
       </div>
     </Command>
@@ -174,11 +172,18 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
 
   const CommandIcon = props.item.type === "slash-command" ? props.item.icon : undefined;
 
+  const rightLabel =
+    props.item.description.trim().length > 0
+      ? props.item.description
+      : skillSourceKind
+        ? `${SKILL_SOURCE_LABEL_BY_KIND[skillSourceKind]}${props.triggerKind === "skill" ? " Skill" : ""}`
+        : "";
+
   return (
     <CommandItem
       value={props.item.id}
       data-composer-item-id={props.item.id}
-      variant={props.isActive ? "composer-active" : "composer"}
+      variant={props.isActive ? "menu-active" : "menu"}
       className="cursor-pointer select-none"
       onMouseMove={() => {
         if (!props.isActive) props.onHighlight(props.item.id);
@@ -191,10 +196,17 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
       }}
     >
       {props.item.type === "path" ? (
-        <FileEntryIcon pathValue={props.item.path} kind={props.item.pathKind} />
+        <FileEntryIcon
+          pathValue={props.item.path}
+          kind={props.item.pathKind}
+          className="opacity-70"
+        />
       ) : null}
       {props.item.type === "skill" ? (
-        <ProviderSkillIcon skill={props.item.skill} className={SKILL_ROW_ICON_CLASS_NAME} />
+        <ProviderSkillIcon
+          skill={props.item.skill}
+          className="flex size-4 shrink-0 items-center justify-center opacity-70 [&>svg]:size-4"
+        />
       ) : null}
       {CommandIcon ? (
         <CommandIcon aria-hidden="true" className="size-4 shrink-0 opacity-70" />
@@ -204,45 +216,32 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
           <BotAvatarView
             avatar={props.item.candidate.bot.avatar}
             name={props.item.label}
-            className="size-5"
+            className="size-4"
           />
         ) : (
           <PersonAvatar
             name={props.item.label}
             personId={props.item.candidate.person.personId}
-            className="size-5"
+            className="size-4"
           />
         )
       ) : null}
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="min-w-0 max-w-9/20 shrink-0 truncate font-sans text-xs font-medium">
-          {isSlashSkill ? (
-            <>
-              <span className="text-secondary-label">/skill:</span>
-              {formatProviderSkillDisplayName(isSlashSkill)}
-            </>
-          ) : (
-            props.item.label
-          )}
-        </span>
-        <span className="min-w-0 max-w-48ch flex-1 truncate text-left text-secondary-label text-xs">
-          {props.item.description}
-        </span>
-        {skillSourceKind ? (
-          <SkillSourceBadge
-            kind={skillSourceKind}
-            showSkillSuffix={props.triggerKind === "skill"}
-          />
-        ) : null}
+      <span className="min-w-0 flex-1 truncate">
+        {isSlashSkill ? (
+          <>
+            <span className="text-muted-foreground">/skill:</span>
+            {formatProviderSkillDisplayName(isSlashSkill)}
+          </>
+        ) : (
+          props.item.label
+        )}
       </span>
+      {rightLabel ? (
+        <span className="min-w-0 shrink truncate text-xs text-muted-foreground">{rightLabel}</span>
+      ) : null}
     </CommandItem>
   );
 });
-
-// Same tint as the inline skill chip, a little larger so the row reads as the
-// chip it will insert. In em so it follows the row's font size.
-const SKILL_ROW_ICON_CLASS_NAME =
-  "flex size-1.6em shrink-0 items-center justify-center rounded-0.45em bg-skill/14 text-1em leading-none text-skill-foreground [&>svg]:size-1em";
 
 const SKILL_SOURCE_LABEL_BY_KIND: Record<ProviderSkillSourceKind, string> = {
   app: "App",
@@ -252,12 +251,3 @@ const SKILL_SOURCE_LABEL_BY_KIND: Record<ProviderSkillSourceKind, string> = {
   system: "System",
   other: "Provider",
 };
-
-function SkillSourceBadge(props: { kind: ProviderSkillSourceKind; showSkillSuffix: boolean }) {
-  return (
-    <Badge className="ms-auto" variant="secondary">
-      {SKILL_SOURCE_LABEL_BY_KIND[props.kind]}
-      {props.showSkillSuffix ? " Skill" : null}
-    </Badge>
-  );
-}

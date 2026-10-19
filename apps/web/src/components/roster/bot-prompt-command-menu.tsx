@@ -219,11 +219,7 @@ export function BotPromptCommandMenu({
   }));
 
   return (
-    <div
-      data-testid="bot-prompt-command-menu"
-      // Tucks the drawer's masked bottom edge behind the prompt box, like the classic composer.
-      className="absolute inset-x-5 bottom-full z-0 -mb-4"
-    >
+    <div data-testid="bot-prompt-command-menu" className="absolute inset-x-0 bottom-full z-20 mb-2">
       <ComposerCommandMenu
         items={items}
         resolvedTheme={resolvedTheme}

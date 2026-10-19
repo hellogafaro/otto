@@ -7,7 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { ComposerCommandMenu } from "./composer-command-menu";
 
 describe("ComposerCommandMenu", () => {
-  it("renders slash-command results as an attached composer drawer", () => {
+  it("renders slash-command results as the same popover as the context menu", () => {
     const markup = renderToStaticMarkup(
       <ComposerCommandMenu
         items={[]}
@@ -20,9 +20,11 @@ describe("ComposerCommandMenu", () => {
       />,
     );
 
-    expect(markup).toContain('data-composer-command-drawer="true"');
-    expect(markup).toContain("chat-composer-drawer-surface");
-    expect(markup).toContain("chat-composer-drawer-attached");
+    expect(markup).toContain('data-composer-command-menu="true"');
+    expect(markup).toContain("rounded-lg border border-border bg-popover p-1");
+    expect(markup).toContain("text-popover-foreground shadow-lg");
+    expect(markup).toContain("px-2 py-1.5 text-sm text-muted-foreground");
+    expect(markup).not.toContain("chat-composer-drawer-surface");
     expect(markup).not.toContain("dropdown-glass");
   });
 
@@ -51,11 +53,13 @@ describe("ComposerCommandMenu", () => {
     expect(markup).toContain("Switch response model for this thread");
     expect(markup).not.toContain("Built-in");
     expect(markup).not.toContain("<svg");
-    expect(markup).toContain("font-sans text-xs font-medium");
     expect(markup).not.toContain("font-mono");
     expect(markup).not.toContain("grid-cols-");
-    expect(markup).toContain("max-w-9/20");
-    expect(markup).toContain("text-left");
+    expect(markup).toContain("min-w-0 flex-1 truncate");
+    expect(markup).toContain("text-xs text-muted-foreground");
+    expect(markup.indexOf("/model")).toBeLessThan(
+      markup.indexOf("Switch response model for this thread"),
+    );
   });
 
   it("falls back to the skill source icon ahead of the row when the skill has none", () => {
@@ -86,19 +90,15 @@ describe("ComposerCommandMenu", () => {
     );
 
     expect(markup).toContain("Browser");
-    expect(markup).toContain('data-slot="badge"');
-    expect(markup).toContain(">App Skill</span>");
+    expect(markup).not.toContain('data-slot="badge"');
     expect(markup).toContain("Open and control the in-app browser");
-    expect(markup).toContain("max-w-48ch");
-    expect(markup).toContain("text-secondary-label text-xs");
-    expect(markup).toContain("ms-auto");
-    expect(markup.indexOf("Open and control the in-app browser")).toBeLessThan(
-      markup.indexOf(">App Skill</span>"),
+    expect(markup).toContain("text-xs text-muted-foreground");
+    expect(markup.indexOf("Browser")).toBeLessThan(
+      markup.indexOf("Open and control the in-app browser"),
     );
     expect(markup).toContain('data-skill-icon="source"');
     expect(markup).toContain(iconPath(RiShapesLine));
     expect(markup.indexOf("<svg")).toBeLessThan(markup.indexOf("Browser"));
-    expect(markup.indexOf("<svg")).toBeLessThan(markup.indexOf('data-slot="badge"'));
   });
 
   it("renders the skill's own emoji icon instead of the source glyph", () => {
@@ -147,10 +147,10 @@ describe("ComposerCommandMenu", () => {
       'data-composer-item-id="skill:codex:deploy"',
     );
 
-    expect(reviewRow).toContain('<span aria-hidden="true" class="flex size-1.6em');
+    expect(reviewRow).toContain('<span aria-hidden="true" class="flex size-4');
     expect(reviewRow).toContain('data-skill-icon="own">🔍</span>');
     expect(reviewRow).not.toContain(iconPath(RiUserLine));
-    expect(reviewRow).toContain(">Personal Skill</span>");
+    expect(reviewRow).not.toContain(">Personal Skill</span>");
     expect(deployRow).toContain('data-skill-icon="source"');
     expect(deployRow).toContain(iconPath(RiUserLine));
     expect(deployRow).not.toContain("icon.png");
@@ -184,11 +184,11 @@ describe("ComposerCommandMenu", () => {
       />,
     );
 
-    expect(markup).toContain('<span class="text-secondary-label">/skill:</span>Ask Matt');
-    expect(markup).toContain('data-slot="badge"');
+    expect(markup).toContain('<span class="text-muted-foreground">/skill:</span>Ask Matt');
+    expect(markup).not.toContain('data-slot="badge"');
     expect(markup).toContain(iconPath(RiFolderLine));
-    expect(markup).toContain(">Repo</span>");
     expect(markup).toContain("Find the right skill or workflow");
+    expect(markup.indexOf("<svg")).toBeLessThan(markup.indexOf("Ask Matt"));
     expect(markup).not.toContain("font-medium text-secondary-label");
   });
 });
