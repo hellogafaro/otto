@@ -11,7 +11,7 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
-import { assert, describe, expect } from "vite-plus/test";
+import { assert, describe, expect, vi } from "vite-plus/test";
 import { AgentController } from "../services/agent-controller.ts";
 import {
   codexThreadId,
@@ -490,6 +490,110 @@ describe("AgentControllerLive", () => {
       mastra.factory,
     );
   });
+
+  it.effect(
+    "closes an answered question when its tool finishes, before the resumed run ends",
+    () => {
+      const bridge = makeBridge();
+      const mastra = mastraHarnessFixture();
+
+      return provideController(
+        Effect.gen(function* () {
+          const controller = yield* AgentController;
+          const events: ProviderRuntimeEvent[] = [];
+
+          const collector = yield* controller.streamEvents.pipe(
+            Stream.runForEach((event) => Effect.sync(() => events.push(event))),
+            Effect.forkChild({ startImmediately: true }),
+          );
+
+          yield* resolveCodex(controller);
+          yield* controller.startSession(codexThreadId, {
+            threadId: codexThreadId,
+            provider: ProviderDriverKind.make("codex"),
+            providerInstanceId: codexInstanceId,
+            cwd: process.cwd(),
+            modelSelection: codexSelection,
+            runtimeMode: "approval-required",
+          });
+          yield* controller.sendTurn({ threadId: codexThreadId, input: "Ask for input." });
+          mastra.emit({
+            type: "tool_suspended",
+            toolCallId: "tool-input-1",
+            toolName: "ask_user",
+            args: {},
+            suspendPayload: {},
+          } as AgentControllerEvent);
+          mastra.emit({ type: "agent_end", reason: "suspended" } as AgentControllerEvent);
+          mastra.finishSend();
+          yield* Effect.yieldNow;
+
+          // Mastra settles the resume only when the whole resumed run ends.
+          let finishResumedRun = () => {};
+
+          vi.mocked(mastra.session.respondToToolSuspension).mockImplementationOnce(
+            () =>
+              new Promise<void>((resolve) => {
+                finishResumedRun = resolve;
+              }),
+          );
+
+          const answering = yield* controller
+            .respondToUserInput({
+              threadId: codexThreadId,
+              requestId: ApprovalRequestId.make("tool-input-1"),
+              answers: { "tool-input-1": "Continue" },
+            })
+            .pipe(Effect.forkChild({ startImmediately: true }));
+
+          yield* Effect.yieldNow;
+
+          const again = yield* controller
+            .respondToUserInput({
+              threadId: codexThreadId,
+              requestId: ApprovalRequestId.make("tool-input-1"),
+              answers: { "tool-input-1": "Again" },
+            })
+            .pipe(Effect.exit);
+
+          expect(again._tag).toBe("Success");
+          expect(mastra.session.respondToToolSuspension).toHaveBeenCalledTimes(1);
+
+          mastra.emit({
+            type: "tool_end",
+            toolCallId: "tool-input-1",
+            result: "Continue",
+            isError: false,
+          } as AgentControllerEvent);
+
+          for (let tick = 0; tick < 5; tick += 1) yield* Effect.yieldNow;
+
+          expect(
+            events.some(
+              (event) => event.type === "user-input.resolved" && event.requestId === "tool-input-1",
+            ),
+          ).toBe(true);
+
+          finishResumedRun();
+          yield* Fiber.join(answering);
+
+          const late = yield* controller
+            .respondToUserInput({
+              threadId: codexThreadId,
+              requestId: ApprovalRequestId.make("tool-input-1"),
+              answers: { "tool-input-1": "Late" },
+            })
+            .pipe(Effect.exit);
+
+          expect(late._tag).toBe("Failure");
+          expect(mastra.session.respondToToolSuspension).toHaveBeenCalledTimes(1);
+          yield* Fiber.interrupt(collector);
+        }),
+        bridge.service,
+        mastra.factory,
+      );
+    },
+  );
 
   it.effect("keeps a suspended Mastra turn active until tool input resumes", () => {
     const bridge = makeBridge();

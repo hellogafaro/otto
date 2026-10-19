@@ -90,6 +90,88 @@ describe("orchestration projector", () => {
       expect(message?.updatedAt).toBe(completeAt);
     }),
   );
+
+  it.effect("keeps the first answer when a later reply reuses the question message", () =>
+    Effect.gen(function* () {
+      const createdAt = "2026-02-23T09:00:00.000Z";
+      const firstAt = "2026-02-23T09:00:01.000Z";
+      const secondAt = "2026-02-23T09:00:02.000Z";
+      const model = createEmptyReadModel(createdAt);
+
+      const afterCreate = yield* projectEvent(
+        model,
+        makeEvent({
+          sequence: 1,
+          type: "thread.created",
+          aggregateKind: "thread",
+          aggregateId: "thread-1",
+          occurredAt: createdAt,
+          commandId: "cmd-create",
+          payload: {
+            threadId: "thread-1",
+            projectId: "project-1",
+            title: "demo",
+            modelSelection: {
+              provider: ProviderDriverKind.make("codex"),
+              model: "gpt-5.3-codex",
+            },
+            runtimeMode: "full-access",
+            branch: null,
+            worktreePath: null,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        }),
+      );
+
+      const afterFirst = yield* projectEvent(
+        afterCreate,
+        makeEvent({
+          sequence: 2,
+          type: "thread.message-sent",
+          aggregateKind: "thread",
+          aggregateId: "thread-1",
+          occurredAt: firstAt,
+          commandId: "cmd-answer",
+          payload: {
+            threadId: "thread-1",
+            messageId: "user-input:thread-1:req-1",
+            role: "user",
+            text: "Continue",
+            turnId: null,
+            streaming: false,
+            createdAt: firstAt,
+            updatedAt: firstAt,
+          },
+        }),
+      );
+
+      const afterSecond = yield* projectEvent(
+        afterFirst,
+        makeEvent({
+          sequence: 3,
+          type: "thread.message-sent",
+          aggregateKind: "thread",
+          aggregateId: "thread-1",
+          occurredAt: secondAt,
+          commandId: "cmd-answer-again",
+          payload: {
+            threadId: "thread-1",
+            messageId: "user-input:thread-1:req-1",
+            role: "user",
+            text: "Already replied?",
+            turnId: null,
+            streaming: false,
+            createdAt: secondAt,
+            updatedAt: secondAt,
+          },
+        }),
+      );
+
+      expect(afterSecond.threads[0]?.messages[0]?.text).toBe("Continue");
+    }),
+  );
+
   it.effect("projects channelDelivery onto the targeted assistant message", () =>
     Effect.gen(function* () {
       const now = "2026-09-25T12:00:00.000Z";

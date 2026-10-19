@@ -63,7 +63,9 @@ export function createMessages({
         const nextText = Option.match(existingMessage, {
           onNone: () => event.payload.text,
           onSome: (message) =>
-            event.payload.text.length === 0 ? message.text : event.payload.text,
+            event.payload.text.length === 0 || message.messageId.startsWith("user-input:")
+              ? message.text
+              : event.payload.text,
         });
 
         const nextAttachments = event.payload.attachments ?? previousMessage?.attachments;
