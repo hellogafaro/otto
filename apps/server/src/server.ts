@@ -7,6 +7,7 @@ import { FetchHttpClient, HttpRouter, HttpServer } from "effect/unstable/http";
 import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 import { whatsAppWebhookRouteLayer } from "./channels/channel-runtime.ts";
 import { composioWebhookRouteLayer } from "./routines/routine-triggers.ts";
+import { mcpOAuthRouteLayer } from "./provider/mcp-oauth-http.ts";
 import * as ServerConfig from "./config.ts";
 import {
   otlpTracesProxyRouteLayer,
@@ -133,6 +134,7 @@ const makeRoutesLayerWithSharedMcpRegistry = Layer.mergeAll(
     organizationHttpLayer,
     whatsAppWebhookRouteLayer,
     composioWebhookRouteLayer,
+    mcpOAuthRouteLayer,
     assetRouteLayer,
     attachmentUploadRouteLayer,
     librarySharedRouteLayer,

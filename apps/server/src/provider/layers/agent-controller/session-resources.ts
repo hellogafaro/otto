@@ -32,7 +32,7 @@ export function createSessionResources(deps: {
           }
         : undefined;
     },
-    toMcpServerConfigs,
+    toMcpServerConfigs: (servers) => toMcpServerConfigs(servers, deps.config.publicOrigin),
     // Otto: a group chat switches bots every message; keep a computer awake between turns
     // instead of stopping and waking it each time. Idle computers still stop after this.
     workspaceIdleTimeToLive: deps.options?.workspaceIdleTimeToLive ?? "5 minutes",

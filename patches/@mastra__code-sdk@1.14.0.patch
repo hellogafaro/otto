@@ -1,8 +1,22 @@
 diff --git a/dist/mcp/manager.js b/dist/mcp/manager.js
-index ce369d36aa3f81df1481441b477f3c2c05a5bb55..9825419ad04afe7860f20a40498973a4c465e6ca 100644
 --- a/dist/mcp/manager.js
 +++ b/dist/mcp/manager.js
-@@ -190,7 +190,7 @@ function createMcpManager(projectDir, configDirName = DEFAULT_CONFIG_DIR, extraS
+@@ -173,11 +173,11 @@
+ 		const oauth = cfg.oauth ?? (existsSync(getOAuthStoragePath(projectDir, name, cfg)) ? DEFAULT_OAUTH_CONFIG : void 0);
+ 		if (!oauth) return void 0;
+ 		const redirectUrl = resolveOAuthRedirectUrl(oauth);
+-		const clientInformation = oauth.clientId ? {
++		const clientMetadataUrl = typeof oauth.clientMetadataUrl === "string" ? oauth.clientMetadataUrl : oauth.clientId ? void 0 : MASTRA_CODE_CLIENT_METADATA_URL;
++		const clientInformation = clientMetadataUrl || !oauth.clientId ? void 0 : {
+ 			client_id: oauth.clientId,
+ 			...oauth.clientSecret ? { client_secret: oauth.clientSecret } : {}
+-		} : void 0;
+-		const clientMetadataUrl = clientInformation ? void 0 : MASTRA_CODE_CLIENT_METADATA_URL;
++		};
+ 		return new MCPOAuthClientProvider({
+ 			redirectUrl,
+ 			clientMetadata: {
+@@ -190,7 +190,7 @@
  			},
  			clientInformation,
  			clientMetadataUrl,
@@ -12,13 +26,18 @@ index ce369d36aa3f81df1481441b477f3c2c05a5bb55..9825419ad04afe7860f20a40498973a4
  				authUrlHandlers.get(name)?.(url.toString());
  			}
 diff --git a/dist/mcp/types.d.ts b/dist/mcp/types.d.ts
-index a2f653edeb501ad62e0ad7a4a01440a8c22fe9b5..b1e7c5eb0065390e38fb9be25dac646ec1345b31 100644
 --- a/dist/mcp/types.d.ts
 +++ b/dist/mcp/types.d.ts
-@@ -49,6 +49,12 @@ export interface McpHttpOAuthConfig {
+@@ -49,6 +49,18 @@
       * `clientId` caveat as `redirectUrl` applies.
       */
      callbackPort?: number;
++    /**
++     * HTTPS Client ID Metadata Document URL. When set, the authorization server
++     * fetches this URL as the client identity instead of Mastra Code's document.
++     * Do not set `clientId` as well.
++     */
++    clientMetadataUrl?: string;
 +    /** Where OAuth tokens, client registration and the PKCE verifier live. Defaults to a JSON file in the app data directory. */
 +    storage?: {
 +        get(key: string): Promise<string | undefined> | string | undefined;

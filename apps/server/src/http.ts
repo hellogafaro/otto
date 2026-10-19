@@ -36,6 +36,7 @@ import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 import { OtlpTracer } from "effect/unstable/observability";
 
 import * as ServerConfig from "./config.ts";
+import { mcpOAuthHttpResponse } from "./provider/mcp-oauth-http.ts";
 import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/asset-access.ts";
 import { OrganizationAccounts } from "./auth/organization-accounts.ts";
 import { canReadAttachment } from "./orchestration/group-visibility.ts";
@@ -548,6 +549,11 @@ const handleStaticAndDevRequest = Effect.fn("handleStaticAndDevRequest")(
     }
 
     const config = yield* ServerConfig.ServerConfig;
+    const oauthResponse = mcpOAuthHttpResponse(url.value, config.publicOrigin);
+
+    if (oauthResponse) {
+      return HttpServerResponse.fromWeb(yield* Effect.promise(() => Promise.resolve(oauthResponse)));
+    }
 
     if (config.devUrl && isDevProxiedPath(url.value.pathname)) {
       return HttpServerResponse.text("Not Found", { status: 404 });

@@ -1,6 +1,10 @@
 import type { McpManager, McpServerStatus } from "@mastra/code-sdk/mcp/index";
 import type { McpServer, McpServerId } from "@otto/contracts";
 
+import { getMcpOAuthStorage } from "./mcp-server-config.ts";
+import { signInHostedMcpOAuth } from "./mcp-oauth-login.ts";
+import { ottoMcpOAuthIdentity } from "./mcp-oauth-public.ts";
+
 interface AuthenticateMcpServerOptions {
   readonly server: McpServer;
   readonly managers: readonly McpManager[];
@@ -11,7 +15,16 @@ interface AuthenticateMcpServerOptions {
   readonly recordSuccess: (serverId: McpServerId) => void;
   readonly recordFailure: (serverId: McpServerId, message: string) => void;
   readonly recordRecoveryFailure?: (serverId: McpServerId, message: string) => void;
+  /**
+   * When present, sign-in uses Otto's public client instead of the local Mastra Code
+   * callback. `null` means the server is hosted but has no public https address.
+   */
+  readonly publicOrigin?: string | null;
+  readonly signIn?: typeof signInHostedMcpOAuth;
 }
+
+const MISSING_PUBLIC_ORIGIN =
+  "MCP sign-in needs this server's public https address (OTTO_PUBLIC_URL).";
 
 function failureMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
@@ -23,6 +36,88 @@ function requireConnected(status: McpServerStatus): McpServerStatus {
 }
 
 export async function authenticateMcpServer(
+  options: AuthenticateMcpServerOptions,
+): Promise<McpServerStatus> {
+  if ("publicOrigin" in options) return authenticateHostedMcpServer(options);
+
+  return authenticateWithManager(options);
+}
+
+async function authenticateHostedMcpServer(
+  options: AuthenticateMcpServerOptions,
+): Promise<McpServerStatus> {
+  const identity = ottoMcpOAuthIdentity(options.publicOrigin);
+
+  if (!identity) {
+    options.recordFailure(options.server.id, MISSING_PUBLIC_ORIGIN);
+    throw new Error(MISSING_PUBLIC_ORIGIN);
+  }
+
+  if (options.server.transport !== "url") {
+    const message = "Local MCP servers do not support OAuth authentication.";
+    options.recordFailure(options.server.id, message);
+    throw new Error(message);
+  }
+
+  const storage = getMcpOAuthStorage(options.server);
+
+  if (!storage) {
+    const message = "MCP sign-in could not store credentials.";
+    options.recordFailure(options.server.id, message);
+    throw new Error(message);
+  }
+
+  try {
+    await (options.signIn ?? signInHostedMcpOAuth)({
+      serverUrl: options.server.url,
+      storage,
+      identity,
+      onAuthorizationUrl: options.onAuthorizationUrl,
+      signal: options.signal,
+    });
+  } catch (cause) {
+    options.recordFailure(options.server.id, failureMessage(cause));
+    throw cause;
+  }
+
+  return reconnectAfterSignIn(options);
+}
+
+async function reconnectAfterSignIn(
+  options: AuthenticateMcpServerOptions,
+): Promise<McpServerStatus> {
+  const temporary = options.managers.length === 0;
+  const manager = options.managers[0] ?? options.createManager();
+  const serverId = String(options.server.id);
+
+  try {
+    if (temporary) await manager.init();
+
+    const connected = requireConnected(await manager.reconnectServer(serverId));
+    options.recordSuccess(options.server.id);
+
+    for (const [index, other] of options.managers.slice(1).entries()) {
+      try {
+        requireConnected(await other.reconnectServer(serverId));
+      } catch (cause) {
+        const threadId = options.managerThreadIds?.[index + 1];
+        options.recordRecoveryFailure?.(
+          options.server.id,
+          `${threadId ? `MCP session for thread '${threadId}'` : `Active MCP session ${index + 2}`} did not reconnect: ${failureMessage(cause)}`,
+        );
+      }
+    }
+
+    return connected;
+  } catch (cause) {
+    options.recordFailure(options.server.id, failureMessage(cause));
+    throw cause;
+  } finally {
+    if (temporary) await manager.disconnect().catch(() => undefined);
+  }
+}
+
+async function authenticateWithManager(
   options: AuthenticateMcpServerOptions,
 ): Promise<McpServerStatus> {
   const temporary = options.managers.length === 0;

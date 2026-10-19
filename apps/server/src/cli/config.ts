@@ -116,7 +116,7 @@ export const tailscaleServeFlag = Flag.boolean("tailscale-serve").pipe(
 export const publicOriginFlag = Flag.string("public-url").pipe(
   Flag.withSchema(PublicOriginFromString),
   Flag.withDescription(
-    "Public https origin that forwards to this server, used for inbound channel webhooks (equivalent to OTTO_PUBLIC_URL).",
+    "Public https origin that forwards to this server, used for inbound webhooks and MCP OAuth (equivalent to OTTO_PUBLIC_URL).",
   ),
   Flag.optional,
 );
