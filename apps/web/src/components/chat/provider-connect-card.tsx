@@ -8,6 +8,7 @@ import { providerSupportsBaseUrl } from "@otto/client-runtime/provider-auth";
 
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { CONVERSATION_MEASURE_CLASS_NAME } from "../roster/bot-conversation-presentation";
 import { SettingsEntityIcon } from "../settings/settings-detail-layout";
 import { ActiveLoginPanel, ProviderApiKeyForm } from "../settings/provider-account-controls";
 import { SUBSCRIPTION_PROVIDERS } from "../settings/subscription-providers";
@@ -35,6 +36,7 @@ export function providerConnectStep(
  * Asks the user to connect the account a bot runs on and runs the sign-in in
  * place, so fixing it never leaves the chat. Renders nothing once the account
  * is connected, which clears the card as soon as the post-login check lands.
+ * Shares the composer's column, so the card does not read wider than the box below it.
  */
 export function ProviderConnectCard({
   environmentId,
@@ -77,71 +79,73 @@ export function ProviderConnectCard({
   const lapsed = step === "reconnect";
 
   return (
-    <div
-      id={id}
-      role="status"
-      data-provider-connect=""
-      className={cn(
-        "mx-4 max-w-3xl rounded-lg sm:mx-auto sm:w-full border bg-card text-card-foreground shadow-sm",
-        className,
-      )}
-    >
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        <SettingsEntityIcon icon={definition.icon} />
-        <p className="min-w-0 flex-1 text-sm leading-5">
-          {lapsed
-            ? t("Reconnect {provider} to keep chatting with {bot}", {
-                provider: definition.label,
-                bot: botName,
-              })
-            : t("Connect {provider} to chat with {bot}", {
-                provider: definition.label,
-                bot: botName,
-              })}
-        </p>
-        {signingIn ? null : (
-          <Button
-            size="xs"
-            disabled={accounts.busyProvider !== null}
-            onClick={() => void accounts.connect(definition)}
-          >
-            {accounts.busyProvider === provider ? (
-              <RiLoaderLine className="size-3.5 animate-spin" />
-            ) : null}
-            {lapsed ? t("Reconnect") : t("Connect")}
-          </Button>
+    <div className={cn("w-full px-gutter-48rem sm:px-gutter-48rem-wide", className)}>
+      <div
+        id={id}
+        role="status"
+        data-provider-connect=""
+        className={cn(
+          CONVERSATION_MEASURE_CLASS_NAME,
+          "rounded-lg border bg-card text-card-foreground shadow-sm",
         )}
+      >
+        <div className="flex items-center gap-3 px-3 py-2.5">
+          <SettingsEntityIcon icon={definition.icon} />
+          <p className="min-w-0 flex-1 text-sm leading-5">
+            {lapsed
+              ? t("Reconnect {provider} to keep chatting with {bot}", {
+                  provider: definition.label,
+                  bot: botName,
+                })
+              : t("Connect {provider} to chat with {bot}", {
+                  provider: definition.label,
+                  bot: botName,
+                })}
+          </p>
+          {signingIn ? null : (
+            <Button
+              size="xs"
+              disabled={accounts.busyProvider !== null}
+              onClick={() => void accounts.connect(definition)}
+            >
+              {accounts.busyProvider === provider ? (
+                <RiLoaderLine className="size-3.5 animate-spin" />
+              ) : null}
+              {lapsed ? t("Reconnect") : t("Connect")}
+            </Button>
+          )}
+        </div>
+        {accounts.activeLogin ? (
+          <div className="border-t">
+            <ActiveLoginPanel
+              login={accounts.activeLogin}
+              pastedCode={accounts.pastedCode}
+              onPastedCodeChange={accounts.setPastedCode}
+              onComplete={() => void accounts.complete()}
+              onCancel={() => void accounts.cancelLogin()}
+              completing={accounts.completing}
+            />
+          </div>
+        ) : accounts.keyProvider ? (
+          <div className="border-t pt-3">
+            <ProviderApiKeyForm
+              supportsBaseUrl={providerSupportsBaseUrl(accounts.keyProvider.id)}
+              apiKey={accounts.pastedCode}
+              baseUrl={accounts.baseUrl}
+              busy={accounts.completing}
+              error={accounts.error}
+              onKeyChange={accounts.setPastedCode}
+              onBaseUrlChange={accounts.setBaseUrl}
+              onSave={() => void accounts.saveApiKey()}
+              onCancel={accounts.closeApiKey}
+            />
+          </div>
+        ) : accounts.error ? (
+          <p role="alert" className="border-t px-3 py-2 text-xs text-destructive">
+            {accounts.error}
+          </p>
+        ) : null}
       </div>
-      {accounts.activeLogin ? (
-        <div className="border-t">
-          <ActiveLoginPanel
-            login={accounts.activeLogin}
-            pastedCode={accounts.pastedCode}
-            onPastedCodeChange={accounts.setPastedCode}
-            onComplete={() => void accounts.complete()}
-            onCancel={() => void accounts.cancelLogin()}
-            completing={accounts.completing}
-          />
-        </div>
-      ) : accounts.keyProvider ? (
-        <div className="border-t pt-3">
-          <ProviderApiKeyForm
-            supportsBaseUrl={providerSupportsBaseUrl(accounts.keyProvider.id)}
-            apiKey={accounts.pastedCode}
-            baseUrl={accounts.baseUrl}
-            busy={accounts.completing}
-            error={accounts.error}
-            onKeyChange={accounts.setPastedCode}
-            onBaseUrlChange={accounts.setBaseUrl}
-            onSave={() => void accounts.saveApiKey()}
-            onCancel={accounts.closeApiKey}
-          />
-        </div>
-      ) : accounts.error ? (
-        <p role="alert" className="border-t px-3 py-2 text-xs text-destructive">
-          {accounts.error}
-        </p>
-      ) : null}
     </div>
   );
 }
