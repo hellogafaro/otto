@@ -56,6 +56,8 @@ import {
   type MessageReplyTarget,
 } from "../chat/message-controls";
 import { ConversationSeparator } from "../chat/conversation-separator";
+import { firstUnseenMessageId } from "../chat/unread-boundary";
+import { useOpenChatUnreadSince } from "../chat/use-open-chat-unread-since";
 import { useOptionalReplyPlayback } from "../chat/reply-playback-provider";
 import { useReplyPlaybackThread } from "~/lib/reply-playback-thread";
 import { BotVoiceCallButton, useVoiceCall } from "../voice/voice-call";
@@ -116,6 +118,11 @@ export function BotThreadLanding({
   const runtime = useBotThreadRuntime(botId, threadRef, stickyEngine);
   const archived = useChatShell(threadRef).shell?.archivedAt != null;
   useMarkChatVisited(runtime.linkedThreadRef);
+
+  const unreadSince = useOpenChatUnreadSince(
+    runtime.linkedThreadRef,
+    runtime.latestTurn?.completedAt ?? null,
+  );
 
   // New chat opens the New chat dialog with this bot and this chat's project.
   const newChatProjectId = runtime.project?.id;
@@ -265,6 +272,12 @@ export function BotThreadLanding({
 
   const today = useLocalDay();
   const todayLabel = t("Today");
+  const newLabel = t("New");
+
+  const newMessageId = useMemo(
+    () => firstUnseenMessageId(messages, unreadSince, runtime.latestTurn),
+    [messages, runtime.latestTurn, unreadSince],
+  );
 
   const entries = useMemo(
     () => buildBotConversationEntries(messages, today, todayLabel, locale),
@@ -441,6 +454,7 @@ export function BotThreadLanding({
             </WorkspacePageHeader>
             <BotConversationScrollArea
               followKey={messages.findLast((message) => message.role === "user")?.id}
+              anchorKey={newMessageId}
             >
               {olderRoutineNotes.nextCursor ? (
                 <button
@@ -515,6 +529,13 @@ export function BotThreadLanding({
 
                         return (
                           <>
+                            {message.id === newMessageId ? (
+                              <ConversationSeparator
+                                label={newLabel}
+                                variant="primary"
+                                boundaryId={message.id}
+                              />
+                            ) : null}
                             {separator ? <ConversationSeparator label={separator} /> : null}
                             {message.role === "assistant" ? (
                               <AssistantMessageRow

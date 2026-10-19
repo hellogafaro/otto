@@ -21,6 +21,8 @@ import {
   type MessageReplyTarget,
 } from "../chat/message-controls";
 import { ConversationSeparator } from "../chat/conversation-separator";
+import { firstUnseenMessageId } from "../chat/unread-boundary";
+import { useOpenChatUnreadSince } from "../chat/use-open-chat-unread-since";
 import { useOptionalReplyPlayback } from "../chat/reply-playback-provider";
 import { useReplyPlaybackThread } from "~/lib/reply-playback-thread";
 import { useI18n } from "~/i18n";
@@ -129,6 +131,12 @@ export function GroupThreadLanding({
   const invite = useGroupInvites(environmentId ?? NO_ENVIRONMENT, group, bots);
   const archived = useChatShell(threadRef).shell?.archivedAt != null;
   useMarkChatVisited(runtime.linkedThreadRef);
+
+  const unreadSince = useOpenChatUnreadSince(
+    runtime.linkedThreadRef,
+    runtime.latestTurn?.completedAt ?? null,
+  );
+
   const [detailsPanelOpen] = useChatDetailsOpen();
 
   const mentionScope = useBotPromptMentionScope({
@@ -293,6 +301,12 @@ export function GroupThreadLanding({
 
   const today = useLocalDay();
   const todayLabel = t("Today");
+  const newLabel = t("New");
+
+  const newMessageId = useMemo(
+    () => firstUnseenMessageId(messages, unreadSince, runtime.latestTurn),
+    [messages, runtime.latestTurn, unreadSince],
+  );
 
   const entries = useMemo(
     () => buildBotConversationEntries(messages, today, todayLabel, locale),
@@ -432,6 +446,7 @@ export function GroupThreadLanding({
           </WorkspacePageHeader>
           <BotConversationScrollArea
             followKey={messages.findLast((message) => message.role === "user")?.id}
+            anchorKey={newMessageId}
           >
             {timeline.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
@@ -493,6 +508,13 @@ export function GroupThreadLanding({
 
                   return (
                     <Fragment key={message.id}>
+                      {message.id === newMessageId ? (
+                        <ConversationSeparator
+                          label={newLabel}
+                          variant="primary"
+                          boundaryId={message.id}
+                        />
+                      ) : null}
                       {separator ? <ConversationSeparator label={separator} /> : null}
                       <AssistantMessageRow
                         message={message}
@@ -533,6 +555,13 @@ export function GroupThreadLanding({
 
                 return (
                   <Fragment key={message.id}>
+                    {message.id === newMessageId ? (
+                      <ConversationSeparator
+                        label={newLabel}
+                        variant="primary"
+                        boundaryId={message.id}
+                      />
+                    ) : null}
                     {separator ? <ConversationSeparator label={separator} /> : null}
                     <UserMessageRow
                       message={message}

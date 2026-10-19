@@ -41,6 +41,24 @@ export function isConversationAtEnd(
 }
 
 /**
+ * Scroll offset that puts an unread marker at the top of the viewport, or null
+ * when that marker is already fully visible. A short new reply stays pinned to
+ * the end; a longer one lands on the blue New line.
+ */
+export function unreadBoundaryScrollTop(
+  viewport: {
+    readonly scrollTop: number;
+    readonly top: number;
+    readonly bottom: number;
+  },
+  anchor: { readonly top: number; readonly bottom: number },
+): number | null {
+  if (anchor.top >= viewport.top && anchor.bottom <= viewport.bottom) return null;
+
+  return viewport.scrollTop + (anchor.top - viewport.top);
+}
+
+/**
  * True when a scroll moved toward the start while the content and viewport kept
  * their size. Wheel, drag, keyboard, and jumps to an earlier message all look like
  * this. Layout-driven scrolls (clamping after a shrink, scroll anchoring) always

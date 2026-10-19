@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "~/lib/utils";
+import { UNREAD_BOUNDARY_ATTRIBUTE } from "./unread-boundary";
 
 /**
  * Marks where a conversation resumes after a break: a new day, or a long enough gap
@@ -41,15 +42,19 @@ type ConversationSeparatorVariant = NonNullable<
 export function ConversationSeparator({
   label,
   variant = "secondary",
+  boundaryId,
 }: {
   readonly label: string;
   readonly variant?: ConversationSeparatorVariant;
+  /** Set on the blue New mark so the open chat can land on that message. */
+  readonly boundaryId?: string;
 }) {
   return (
     <div
       className="mt-4 mb-1 flex items-center gap-3 first:mt-0"
       data-testid="conversation-separator"
       data-variant={variant}
+      {...(boundaryId ? { [UNREAD_BOUNDARY_ATTRIBUTE]: boundaryId } : {})}
       role="separator"
       aria-label={label}
     >

@@ -29,5 +29,14 @@ describe("ConversationSeparator", () => {
     expect(markup).not.toContain("text-muted-foreground/70");
     expect(markup.match(/wavy-rule/g)).toHaveLength(2);
     expect(markup.match(/text-primary/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(markup).not.toContain("data-unread-boundary");
+  });
+
+  it("marks the unread boundary so the open chat can land on it", () => {
+    const markup = renderToStaticMarkup(
+      <ConversationSeparator label="New" variant="primary" boundaryId="reply-1" />,
+    );
+
+    expect(markup).toContain('data-unread-boundary="reply-1"');
   });
 });
