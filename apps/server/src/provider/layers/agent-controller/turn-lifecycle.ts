@@ -103,6 +103,7 @@ export function createTurnLifecycle(deps: {
     threadId: ThreadId,
     active: ActiveSession,
     turn: ActiveTurn,
+    options?: { readonly releaseClosing?: boolean },
   ) => void;
   readonly resolveChildWaiter: (threadId: ThreadId, outcome: OttoDelegationChildOutcome) => void;
   readonly wired: () => {
@@ -181,6 +182,7 @@ export function createTurnLifecycle(deps: {
       reasoningTokens: 0,
       assistantText: "",
       posted: false,
+      lastPostedText: null,
     };
     active.status = "running";
     deps.publish({
@@ -412,7 +414,9 @@ export function createTurnLifecycle(deps: {
 
     if (!turn || turn.finished) return;
     turn.finished = true;
-    deps.completeAssistantMessages(threadId, active, turn);
+    deps.completeAssistantMessages(threadId, active, turn, {
+      releaseClosing: state === "completed",
+    });
     cancelAllPendingApprovals(threadId, active);
     deps.publish({
       ...deps.baseEvent(threadId, active, turn.turnId),

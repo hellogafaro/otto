@@ -344,6 +344,7 @@ export function createSessionLifecycle(deps: SessionLifecycleDependencies) {
 
               if (receipt.phase === "success" && active?.activeTurn?.turnId === turnId) {
                 active.activeTurn.posted = true;
+                active.activeTurn.lastPostedText = request.text;
               }
 
               return receipt;

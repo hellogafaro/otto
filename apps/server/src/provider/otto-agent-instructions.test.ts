@@ -76,6 +76,15 @@ describe("Otto bot instructions", () => {
 
     expect(instructions).toContain("Direct and friendly, never performative");
     expect(instructions).toContain("NO_REPLY");
+    expect(instructions).toContain("Markdown renders, including tables");
+    expect(instructions).toContain("Never invent a skill name");
+    expect(instructions).not.toContain("visualize");
+    expect(instructions).not.toContain("Write skill");
+    expect(instructions).toContain("post a one-line status");
+    expect(instructions).toContain("post the result before you stop");
+    expect(instructions).toContain("Match their tone, not their length");
+    expect(instructions).not.toContain("Post an update only when");
+    expect(instructions).not.toContain("match the person's tone and length");
     expect(instructions).not.toContain("No follow-up questions or offers");
     expect(instructions).not.toContain("Prefer preview_* tools over browser_* tools");
     expect(instructions).not.toContain("<personality>");
