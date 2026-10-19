@@ -145,6 +145,10 @@ export function pluginView(
 }
 
 export function pluginMatches(plugin: PluginManifest, query: string): boolean {
+  const needle = query.trim().toLocaleLowerCase();
+
+  if (!needle) return false;
+
   return [
     plugin.id,
     plugin.name,
@@ -156,7 +160,26 @@ export function pluginMatches(plugin: PluginManifest, query: string): boolean {
   ]
     .join("\n")
     .toLocaleLowerCase()
-    .includes(query.trim().toLocaleLowerCase());
+    .includes(needle);
+}
+
+/** Name and id outrank a word buried in a description, so a loose hit is not the app offered. */
+export function pluginIdentityRank(name: string, id: string, query: string): number {
+  const needle = query.trim().toLocaleLowerCase();
+  const normalizedName = name.toLocaleLowerCase();
+  const normalizedId = id.toLocaleLowerCase();
+
+  if (
+    normalizedName.startsWith(needle) ||
+    normalizedId.startsWith(needle) ||
+    normalizedId.endsWith(`:${needle}`)
+  ) {
+    return 0;
+  }
+
+  if (normalizedName.includes(needle) || normalizedId.includes(needle)) return 1;
+
+  return 2;
 }
 
 export function recommendationForPlugin(
@@ -255,9 +278,21 @@ export function createOttoPluginRuntime(
     statuses: readonly McpRuntimeStatus[] = [],
     botId?: string,
   ) => {
-    const query = input.query ?? "";
-    const matches = catalog.filter((plugin) => pluginMatches(plugin, query));
+    const query = input.query.trim();
     const limit = input.limit ?? 20;
+
+    if (!query) {
+      return {
+        kind: "plugin-search-results",
+        query: "",
+        total: 0,
+        sources: { directory: "available", composio: "unavailable" },
+        recommendations: [],
+        plugins: [],
+      } satisfies OttoPluginSearchResult & { readonly plugins: readonly unknown[] };
+    }
+
+    const matches = catalog.filter((plugin) => pluginMatches(plugin, query));
     const snapshot = await options.readSnapshot();
     const owner = snapshot.bots.find((bot) => bot.id === botId)?.owner;
     const ownerPersonId = owner?.kind === "person" ? owner.personId : null;
@@ -267,7 +302,7 @@ export function createOttoPluginRuntime(
     if (options.searchComposioToolkits) {
       try {
         composioSearch = await options.searchComposioToolkits({
-          ...(query ? { query } : {}),
+          query,
           limit,
           ...(botId === undefined ? {} : { bot: { botId, ownerPersonId } }),
         });
@@ -292,6 +327,11 @@ export function createOttoPluginRuntime(
       ).values(),
     ]
       .filter((recommendation) => recommendation.action !== "unavailable")
+      .toSorted(
+        (left, right) =>
+          pluginIdentityRank(left.name, left.id, query) -
+          pluginIdentityRank(right.name, right.id, query),
+      )
       .slice(0, limit);
 
     return {

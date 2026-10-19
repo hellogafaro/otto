@@ -218,6 +218,7 @@ export const chatCatalog = {
   "Retry readout": "重试朗读",
   "Run this command?": "运行此命令？",
   "Allow {tool}?": "允许 {tool}？",
+  "Connect {name}?": "连接 {name}？",
   "Delegate to {name}?": "交给 {name}？",
   "Hand this to another bot?": "交给另一个机器人？",
   "Done when": "完成标准",

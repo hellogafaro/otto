@@ -2,7 +2,7 @@ import { Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import { selectOpenBotInboxItems } from "@otto/client-runtime/bot-inbox";
 import { presentThreadError } from "@otto/client-runtime/errors";
-import { BotId, type EnvironmentId, type ScopedThreadRef, type TurnId } from "@otto/contracts";
+import { BotId, type EnvironmentId, type ScopedThreadRef } from "@otto/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
 
@@ -50,7 +50,6 @@ import { buildBotStepMeters } from "@otto/client-runtime/bot-step-usage";
 import { ThreadErrorCard } from "../chat/thread-error-card";
 import { ProviderUnavailableLine } from "../chat/provider-unavailable-notice";
 import { ComposerPendingUserInputPanel } from "../chat/composer-pending-user-input-panel";
-import { PluginSearchResultCard } from "../chat/plugin-search-result-card";
 import {
   buildReplyPrompt,
   findReplySourceMessageId,
@@ -72,7 +71,6 @@ import { withInlineApprovals } from "./inline-approvals.logic";
 import { delegateProposalDetails } from "../chat/composer-pending-approval-panel";
 import { useRosterLoadState } from "./use-server-roster";
 import { RosterLoadStatus } from "./roster-load-status";
-import { deriveWorkLogEntries, pluginSearchResultForWorkEntry } from "../../session-logic";
 import { activeThreadRuntimeWarning } from "./thread-runtime-warning.logic";
 import { RoutineReceiptRow } from "./routine-receipt-row";
 import { useBotLandingTimeline } from "./use-bot-landing-timeline";
@@ -208,27 +206,6 @@ export function BotThreadLanding({
     [activities, runtime.latestTurn],
   );
 
-  const pluginResultsByTurn = useMemo(() => {
-    const results = new Map<
-      TurnId,
-      {
-        readonly id: string;
-        readonly result: NonNullable<ReturnType<typeof pluginSearchResultForWorkEntry>>;
-      }[]
-    >();
-
-    for (const entry of deriveWorkLogEntries(activities)) {
-      const result = pluginSearchResultForWorkEntry(entry);
-
-      if (!result || !entry.turnId) continue;
-      const turnResults = results.get(entry.turnId) ?? [];
-      turnResults.push({ id: entry.id, result });
-      results.set(entry.turnId, turnResults);
-    }
-
-    return results;
-  }, [activities]);
-
   const voiceCall = useVoiceCall();
   const replyPlayback = useOptionalReplyPlayback();
   const presence = resolveBotPresence(useThreadShell(threadRef));
@@ -347,16 +324,6 @@ export function BotThreadLanding({
   }
 
   if (!bot) return null;
-
-  const assistantTurnIds = new Set(
-    messages.flatMap((message) =>
-      message.role === "assistant" && message.turnId !== null ? [message.turnId] : [],
-    ),
-  );
-
-  const pendingPluginResults = [...pluginResultsByTurn.entries()].filter(
-    ([turnId]) => !assistantTurnIds.has(turnId),
-  );
 
   const waitingForApproval = approvalState.pending.length > 0;
   const shortcutApprovalId = approvalState.pending[0]?.requestId ?? null;
@@ -571,11 +538,6 @@ export function BotThreadLanding({
                                     : turnTraces.get(message.turnId)
                                 }
                                 environmentId={environmentId ?? null}
-                                pluginResults={
-                                  message.turnId === null
-                                    ? undefined
-                                    : pluginResultsByTurn.get(message.turnId)
-                                }
                                 currentPersonId={currentPersonId}
                                 playback={replyPlayback}
                                 playbackKey={playbackKey}
@@ -611,21 +573,6 @@ export function BotThreadLanding({
                   </Fragment>
                 ))
               )}
-              {pendingPluginResults.map(([turnId, results]) => (
-                <div className="flex items-start gap-3" key={`${turnId}:plugins`}>
-                  <BotAvatarView
-                    avatar={bot.avatar}
-                    name={bot.name}
-                    className="mt-0.5 size-7 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <div className="text-sm font-medium">{bot.name}</div>
-                    {results.map(({ id, result }) => (
-                      <PluginSearchResultCard key={id} result={result} />
-                    ))}
-                  </div>
-                </div>
-              ))}
               {runtime.pendingUserInputs.length > 0 ? (
                 <div className="flex items-start gap-3">
                   <BotAvatarView

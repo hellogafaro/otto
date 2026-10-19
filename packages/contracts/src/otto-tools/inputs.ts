@@ -248,7 +248,7 @@ export const OttoToolInputSchemas = {
     ),
   }),
   connection_search: Schema.Struct({
-    query: Schema.optional(TrimmedNonEmptyString),
+    query: TrimmedNonEmptyString,
     limit: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(50))),
   }),
   connection_read: ConnectionIdInput,

@@ -1,6 +1,5 @@
 import type {
   EnvironmentId,
-  OttoPluginSearchResult,
   MessageId,
   OrchestrationMessage,
   ScopedThreadRef,
@@ -14,11 +13,6 @@ import type { Bot } from "./types";
 import type { MessageReactionHandler } from "./use-message-reaction-updater";
 
 export type MessageReplyHandler = (messageId: MessageId, label: string, text: string) => void;
-
-export interface PluginResultEntry {
-  readonly id: string;
-  readonly result: OttoPluginSearchResult;
-}
 
 /** Props of the memoized assistant row, compared by `assistantRowPropsEqual`. */
 export interface AssistantMessageRowProps {
@@ -36,7 +30,6 @@ export interface AssistantMessageRowProps {
   readonly trace: BotTurnTrace | undefined;
   /** Names the apps and MCP servers in the trace. */
   readonly environmentId: EnvironmentId | null;
-  readonly pluginResults: ReadonlyArray<PluginResultEntry> | undefined;
   readonly currentPersonId: string | null | undefined;
   readonly playback: ReplyPlaybackSession | null;
   /** Changes when the playback context changes, so the read-aloud action is recomputed. */
@@ -84,17 +77,6 @@ function tracesEqual(a: BotTurnTrace | undefined, b: BotTurnTrace | undefined) {
   });
 }
 
-function pluginResultsEqual(
-  a: ReadonlyArray<PluginResultEntry> | undefined,
-  b: ReadonlyArray<PluginResultEntry> | undefined,
-) {
-  if (a === b) return true;
-
-  if (!a || !b || a.length !== b.length) return false;
-
-  return a.every((entry, index) => entry.id === b[index]?.id && entry.result === b[index]?.result);
-}
-
 export function assistantRowPropsEqual(
   previous: AssistantMessageRowProps,
   next: AssistantMessageRowProps,
@@ -110,8 +92,6 @@ export function assistantRowPropsEqual(
         return stepMetersEqual(previous.stepMeter, next.stepMeter);
       case "trace":
         return tracesEqual(previous.trace, next.trace);
-      case "pluginResults":
-        return pluginResultsEqual(previous.pluginResults, next.pluginResults);
       case "channelApproval":
         return shallowEqual(previous.channelApproval, next.channelApproval);
       default:

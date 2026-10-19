@@ -518,7 +518,7 @@ describe("thread landing delegations", () => {
     expect(botCard?.props.variant).toBeUndefined();
   });
 
-  it("renders plugin recommendations inside the bot conversation", () => {
+  it("does not attach a connect card to a plugin search", () => {
     const turnId = TurnId.make("turn-plugins");
     const timestamp = "2026-09-02T20:00:00.000Z";
     mocks.messages = [
@@ -582,10 +582,9 @@ describe("thread landing delegations", () => {
       (element) => element.type === AssistantMessageRow,
     ) as ReactElement<Parameters<typeof AssistantMessageRow>[0]> | null;
 
-    const result = row?.props.pluginResults?.[0]?.result;
-
-    expect(result?.query).toBe("email");
-    expect(result?.recommendations[0]?.name).toBe("Gmail");
+    expect(row).not.toBeNull();
+    expect(JSON.stringify(row?.props)).not.toContain("plugin-search-results");
+    expect(JSON.stringify(row?.props)).not.toContain("Connect");
   });
 
   it("renders provider questions inside the bot conversation", () => {

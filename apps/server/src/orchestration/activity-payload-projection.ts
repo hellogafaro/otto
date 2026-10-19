@@ -5,9 +5,6 @@ import type {
   OrchestrationThreadActivity,
   OrchestrationThreadDetailSnapshot,
 } from "@otto/contracts";
-import { OttoPluginSearchResult } from "@otto/contracts";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { asRecord, asTrimmedString, projectBoundedValue } from "./activity-payload-bounds.ts";
 import {
   summarizeToolTextOutput,
@@ -20,8 +17,6 @@ import {
   dropSupersededToolUpdatedActivities,
   dropStaleContextWindowActivities,
 } from "./activity-retention.ts";
-
-const decodePluginSearchResult = Schema.decodeUnknownOption(OttoPluginSearchResult);
 
 /**
  * Task-list tools (Otto's `task_write`, Claude's `TodoWrite`) carry the whole
@@ -159,17 +154,6 @@ function projectComposioTools(args: ActivityValue): ActivityRecord | undefined {
   return slugs.length > 0 ? { tools: slugs.map((slug) => ({ tool_slug: slug })) } : undefined;
 }
 
-function projectPluginSearchResult(value: ActivityValue): OttoPluginSearchResult | undefined {
-  const decoded = decodePluginSearchResult(value);
-
-  if (Option.isNone(decoded)) return undefined;
-
-  return {
-    ...decoded.value,
-    recommendations: decoded.value.recommendations.slice(0, 6),
-  };
-}
-
 /**
  * Removes activity payload fields that no current client reads while retaining
  * the full payload in persistence and the event store.
@@ -199,23 +183,6 @@ export function projectActivityPayload(
         data: projectMcpToolCallData(data),
       },
     };
-  }
-
-  if (payload.itemType === "dynamic_tool_call" && activity.summary === "connection_search") {
-    const result = projectPluginSearchResult(data.result);
-
-    if (result) {
-      return {
-        ...activity,
-        payload: {
-          ...projectedPayload,
-          data: {
-            result,
-            ...(data.toolCallId !== undefined ? { toolCallId: data.toolCallId } : {}),
-          },
-        },
-      };
-    }
   }
 
   const projectedData: ActivityRecord = {};

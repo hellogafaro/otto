@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1722,
+  "directMessageCount": 1714,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -47,7 +47,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     ],
     "apps/web/src/components/roster/bot-activity-status.tsx": [
       "THINKING_VERBS[index % THINKING_VERBS.length] ?? "Thinking");",
-      "activity.label);",
+      "activity.label)} />",
     ],
     "apps/web/src/components/roster/bot-inbox-alerts.tsx": [
       "botInboxKindLabel(item.kind))}",
@@ -56,6 +56,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "STATUS_LABEL[status])}",
     ],
     "apps/web/src/components/roster/bot-turn-trace.tsx": [
+      "step.running ? "Using {name}" : "Used {name}", { name: subjectName })",
       "step.label)}",
     ],
     "apps/web/src/components/roster/chat-status-icon.tsx": [
@@ -291,13 +292,13 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/composer-stash-badge.tsx",
     "apps/web/src/components/chat/composer-stash-menu.tsx",
     "apps/web/src/components/chat/dictation-controls.tsx",
+    "apps/web/src/components/chat/dictation-recording-bar.tsx",
     "apps/web/src/components/chat/folded-message.tsx",
     "apps/web/src/components/chat/message-controls.tsx",
     "apps/web/src/components/chat/message-reactions.tsx",
     "apps/web/src/components/chat/model-list-row.tsx",
     "apps/web/src/components/chat/model-picker-content.tsx",
     "apps/web/src/components/chat/model-picker-sidebar.tsx",
-    "apps/web/src/components/chat/plugin-search-result-card.tsx",
     "apps/web/src/components/chat/provider-connect-card.tsx",
     "apps/web/src/components/chat/provider-model-picker.tsx",
     "apps/web/src/components/chat/provider-unavailable-notice.tsx",
@@ -311,6 +312,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/chat/traits-menu-content.tsx",
     "apps/web/src/components/chat/traits-picker.logic.ts",
     "apps/web/src/components/chat/traits-picker.tsx",
+    "apps/web/src/components/chat/use-dictation-toasts.ts",
     "apps/web/src/components/command-palette-content.tsx",
     "apps/web/src/components/command-palette.logic.ts",
     "apps/web/src/components/command-palette.tsx",

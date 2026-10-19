@@ -514,7 +514,6 @@ export function GroupThreadLanding({
                         }
                         trace={message.turnId === null ? undefined : turnTraces.get(message.turnId)}
                         environmentId={environmentId ?? null}
-                        pluginResults={undefined}
                         currentPersonId={currentPersonId}
                         playback={replyPlayback}
                         playbackKey={playbackKey}

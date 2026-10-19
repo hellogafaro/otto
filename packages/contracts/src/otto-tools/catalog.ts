@@ -176,7 +176,7 @@ export const OTTO_TOOL_CATALOG = [
     "connection_search",
     "bot-workspace",
     "Search the plugin catalog and connected providers for a capability you lack. " +
-      "Read-only; returns plugins with id, status and the action to take.",
+      "Read-only, and it needs a query. It does not ask the person to connect anything.",
   ),
   define(
     "connection_read",
