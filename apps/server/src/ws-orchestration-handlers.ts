@@ -36,6 +36,7 @@ import {
   visibleShellSnapshot,
 } from "./orchestration/group-visibility.ts";
 import { preflightProvider } from "./provider/provider-preflight.ts";
+import { resolveTurnModelSelection } from "./provider/turn-provider-selection.ts";
 
 import { isOrchestrationDispatchCommandError, nowIso } from "./ws-support.ts";
 import type { WsConnection } from "./ws-connection.ts";
@@ -303,25 +304,32 @@ export const createWsOrchestrationHandlers = ({
               ? yield* projectionBots.getById({ botId }).pipe(Effect.map(Option.getOrUndefined))
               : undefined;
 
-            const selection = bot?.engine
-              ? {
-                  instanceId: ProviderInstanceId.make(bot.engine.provider),
-                  model: bot.engine.model,
-                }
-              : (normalizedCommand.modelSelection ??
-                thread?.modelSelection ??
-                bootstrapThread?.modelSelection);
+            const settings = yield* serverSettings.getSettings;
+            const providers = yield* providerRegistry.getProviders;
+            const stored = thread?.modelSelection ?? bootstrapThread?.modelSelection;
 
-            const providerId = selection?.instanceId ?? thread?.session?.providerName;
-            const model = selection?.model ?? "";
+            const selection = resolveTurnModelSelection({
+              botEngine: bot?.engine ?? null,
+              requested: normalizedCommand.modelSelection,
+              stored,
+              liveDefault: settings.textGenerationModelSelection,
+              isBotThread:
+                thread?.botId != null ||
+                thread?.groupId != null ||
+                bootstrapThread?.botId != null ||
+                bootstrapThread?.groupId != null,
+              providers,
+            });
+
+            const providerId = selection.instanceId ?? thread?.session?.providerName;
+            const model = selection.model ?? "";
 
             if (providerId && model && (!groupId || botId)) {
-              const providerInstanceConfig = deriveProviderInstanceConfigMap(
-                yield* serverSettings.getSettings,
-              )[ProviderInstanceId.make(providerId)];
+              const providerInstanceConfig =
+                deriveProviderInstanceConfigMap(settings)[ProviderInstanceId.make(providerId)];
 
               const verdict = preflightProvider({
-                providers: yield* providerRegistry.getProviders,
+                providers,
                 providerId,
                 model,
                 ...(providerInstanceConfig ? { providerInstanceConfig } : {}),

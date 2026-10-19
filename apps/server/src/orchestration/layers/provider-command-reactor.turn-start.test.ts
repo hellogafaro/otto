@@ -152,6 +152,57 @@ describe("ProviderCommandReactor", () => {
     });
   });
 
+  it("runs the live provider when the stored Codex selection and the saved default are both off", async () => {
+    const harness = await createHarness({
+      botEngine: null,
+      disabledInstances: ["codex"],
+      textGenerationModelSelection: {
+        instanceId: ProviderInstanceId.make("codex"),
+        model: "gpt-5-codex",
+      },
+      registryProviders: [
+        { instanceId: "codex", enabled: false, driver: "codex", status: "disabled" },
+        {
+          instanceId: "grok",
+          enabled: true,
+          driver: "grok",
+          models: [{ slug: "grok-4", isDefault: true }],
+        },
+      ],
+    });
+
+    await harness.run(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.make("cmd-turn-start-disabled-default-over-stored-codex"),
+        threadId: ThreadId.make("thread-1"),
+        message: {
+          messageId: asMessageId("user-message-disabled-default-over-stored-codex"),
+          role: "user",
+          text: "use a provider that is on",
+          attachments: [],
+        },
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("codex"),
+          model: "gpt-5-codex",
+        },
+        interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+        runtimeMode: "approval-required",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    await harness.waitFor(() => harness.startSession.mock.calls.length === 1);
+    expect(harness.startSession.mock.calls[0]?.[1]).toMatchObject({
+      provider: ProviderDriverKind.make("grok"),
+      providerInstanceId: ProviderInstanceId.make("grok"),
+      modelSelection: {
+        instanceId: ProviderInstanceId.make("grok"),
+        model: "grok-4",
+      },
+    });
+  });
+
   it.each([
     ["codex", "gpt-5.6-sol"],
     ["claudeAgent", "claude-fable-5"],

@@ -69,6 +69,14 @@ export type ProviderCommandHarnessOptions = {
   readonly enableAgentBrowserAccess?: boolean;
   /** Live default model. A bot with no saved engine runs this, not the chat's stored selection. */
   readonly textGenerationModelSelection?: ModelSelection;
+  /** Registry snapshots for turn-start fallback. Incomplete snapshots are ignored. */
+  readonly registryProviders?: ReadonlyArray<{
+    readonly instanceId: string;
+    readonly enabled?: boolean;
+    readonly driver?: string;
+    readonly status?: string;
+    readonly models?: ReadonlyArray<{ readonly slug: string; readonly isDefault?: boolean }>;
+  }>;
   readonly startReactor?: boolean;
   readonly dispatchDelegation?: AgentControllerShape["dispatchDelegation"];
 };

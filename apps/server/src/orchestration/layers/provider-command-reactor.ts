@@ -151,6 +151,7 @@ const make = Effect.gen(function* () {
     projectionSnapshotQuery,
     resolveControllerMcpServers,
     serverSettingsService,
+    providerRegistry,
     projectionBotRepository,
     threadModelSelections,
     threadMcpServers,
