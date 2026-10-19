@@ -29,6 +29,7 @@ import {
 } from "./test-support/agent-controller-layers.ts";
 import { usageLedgerFixture } from "./test-support/agent-controller-memory.ts";
 import { mastraHarnessFixture } from "./test-support/agent-controller-harness.ts";
+import type { AgentControllerEvent } from "@mastra/core/agent-controller";
 
 describe("AgentControllerLive", () => {
   it.effect("retries failed remote pauses in the background without a new session", () => {
@@ -600,6 +601,87 @@ describe("AgentControllerLive", () => {
       yield* Effect.promise(() => mastra.waitForSendMessageCount(1));
       expect(keepAlive).toHaveBeenCalledOnce();
       mastra.finishSend();
+    }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
+  });
+
+  it.effect("keeps a Boat computer awake only while its turn works, and lets it stop after", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+
+    const workspace = new Workspace({
+      filesystem: new LocalFilesystem({ basePath: process.cwd() }),
+      sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
+    });
+
+    const keepAlive = vi.fn(async () => undefined);
+    const idle = vi.fn(async () => undefined);
+
+    const layer = agentControllerLayerWith({
+      makeMastraHarness: mastra.factory,
+      makeRemoteWorkspace: async () => ({
+        id: "boat-idle",
+        provider: "boat",
+        providerId: "sbx_idle",
+        workspace,
+        inspect: async () => "running",
+        wake: async () => undefined,
+        sleep: async () => undefined,
+        destroy: async () => undefined,
+        keepAlive,
+        idle,
+      }),
+    }).pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(LegacyProviderBridge, bridge.service),
+          Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
+          ServerConfig.layerTest(process.cwd(), { prefix: "otto-turn-idle-" }).pipe(
+            Layer.provide(NodeServices.layer),
+          ),
+        ),
+      ),
+    );
+
+    return Effect.gen(function* () {
+      const controller = yield* AgentController;
+      yield* resolveCodex(controller);
+      yield* controller.startSession(codexThreadId, {
+        threadId: codexThreadId,
+        provider: ProviderDriverKind.make("codex"),
+        providerInstanceId: codexInstanceId,
+        modelSelection: codexSelection,
+        runtimeMode: "full-access",
+        botSandbox: "boat",
+      });
+
+      yield* controller.sendTurn({ threadId: codexThreadId, input: "Work for hours." });
+      yield* Effect.promise(() => mastra.waitForSendMessageCount(1));
+      expect(keepAlive).toHaveBeenCalledOnce();
+
+      // A working turn is pushed back on every round.
+      yield* TestClock.adjust("2 minutes");
+      yield* Effect.promise(() => vi.waitFor(() => expect(keepAlive).toHaveBeenCalledTimes(2)));
+      expect(idle).not.toHaveBeenCalled();
+
+      // When the turn ends, the computer is set to stop soon.
+      mastra.finishSend();
+      yield* Effect.promise(() => vi.waitFor(() => expect(idle).toHaveBeenCalledOnce()));
+
+      // A turn waiting on a person lets its computer stop.
+      yield* controller.sendTurn({ threadId: codexThreadId, input: "Ask me first." });
+      yield* Effect.promise(() => mastra.waitForSendMessageCount(2));
+      expect(keepAlive).toHaveBeenCalledTimes(3);
+      mastra.emit({
+        type: "tool_suspended",
+        toolCallId: "question-1",
+        toolName: "ask_user",
+        args: {},
+        suspendPayload: { question: "Which branch?" },
+      } as AgentControllerEvent);
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("4 minutes");
+      yield* Effect.yieldNow;
+      expect(keepAlive).toHaveBeenCalledTimes(3);
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });
