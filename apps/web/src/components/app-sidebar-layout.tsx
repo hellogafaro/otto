@@ -13,7 +13,7 @@ import { useLocation } from "@tanstack/react-router";
 import { isElectron } from "../env";
 import { getLocalStorageItem, removeLocalStorageItem } from "../hooks/use-local-storage";
 import { useI18n } from "../i18n";
-import { resolveShortcutCommand } from "../keybindings";
+import { isInputFocus, resolveShortcutCommand } from "../keybindings";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { GlobalShortcuts } from "./global-shortcuts";
 import { NotificationAlerts } from "./notifications/notification-alerts";
@@ -96,7 +96,13 @@ function SidebarControl({ stageArtworkVisible }: { stageArtworkVisible: boolean 
         return;
       }
 
-      if (resolveShortcutCommand(event, keybindings) !== "sidebar.toggle") return;
+      if (
+        resolveShortcutCommand(event, keybindings, {
+          context: { inputFocus: isInputFocus(event.target) },
+        }) !== "sidebar.toggle"
+      ) {
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();

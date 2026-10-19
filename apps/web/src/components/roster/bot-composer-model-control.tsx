@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { registerComposerModelPicker } from "../../composer-model-picker-registry";
-import { resolveShortcutCommand } from "../../keybindings";
+import { isInputFocus, resolveShortcutCommand } from "../../keybindings";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 
 /**
@@ -33,7 +33,7 @@ export function BotComposerModelControl({
       if (event.defaultPrevented || event.repeat) return;
 
       const command = resolveShortcutCommand(event, keybindings, {
-        context: { modelPickerOpen: false },
+        context: { modelPickerOpen: false, inputFocus: isInputFocus(event.target) },
       });
 
       if (command !== "modelPicker.toggle") return;
