@@ -1,4 +1,5 @@
 import {
+  RiAddLine,
   RiArchiveLine,
   RiArrowDownLine,
   RiArrowDownSLine,
@@ -22,7 +23,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestamp-format";
 import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
-import { MenuItem, MenuSeparator } from "../ui/menu";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { SidebarGroup } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { BotChatTree, useBotChats } from "./bot-chat-tree";
@@ -153,10 +154,8 @@ export const BotRosterRow = memo(function BotRosterRow({
   bot,
   lastMessage,
   openThreadId,
-  onSelect,
   onOpenSettings,
   pinned,
-  onPin,
   canMoveUp,
   canMoveDown,
   onNudge,
@@ -167,10 +166,8 @@ export const BotRosterRow = memo(function BotRosterRow({
   lastMessage: RosterLastMessage | null;
   /** This bot's chat on screen, if one is: it marks the row and counts as seen. */
   openThreadId: string | null;
-  onSelect: (bot: Bot) => void;
   onOpenSettings: (bot: Bot) => void;
   pinned: boolean;
-  onPin: (item: RosterItemRef, pinned: boolean) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onNudge: (item: RosterItemRef, delta: -1 | 1) => void;
@@ -188,23 +185,8 @@ export const BotRosterRow = memo(function BotRosterRow({
   const unread = useBotRosterUnread(bot.id, chatRef, openThreadId === chatRef?.threadId);
   const chats = useBotChats(bot.id);
   const [chatsOpen, setChatsOpen] = useState(true);
-  const navigate = useNavigate();
-  const pinnedItems = useRosterStore((state) => state.pinnedItems);
-
-  const pinnedIds = useMemo(
-    () =>
-      new Set<string>(
-        chats.flatMap((chat) =>
-          pinnedItems.some((pin) => pin.kind === "chat" && pin.id === chat.id) ? [chat.id] : [],
-        ),
-      ),
-    [chats, pinnedItems],
-  );
-
-  const hasChatTree = chats.length - pinnedIds.size > 1;
-  // A chat pinned to Pins is marked there, so the bot row is not.
-  const pinnedChatOpen = openThreadId !== null && pinnedIds.has(openThreadId);
-  const active = openThreadId !== null && !pinnedChatOpen;
+  const hasChatTree = chats.length > 0;
+  const active = openThreadId !== null;
 
   return (
     <li
@@ -229,20 +211,11 @@ export const BotRosterRow = memo(function BotRosterRow({
             : "sidebar-row-plain text-sidebar-foreground hover:sidebar-row-hovered",
         )}
       >
-        <button
-          type="button"
+        <div
           data-roster-row={rosterItemKey({ kind: "bot", id: bot.id })}
+          tabIndex={-1}
           aria-current={active || undefined}
-          onClick={() => {
-            // The row opens the bot's newest chat listed under it; its pinned chats list in Pins.
-            const listed = chats.find((chat) => !pinnedIds.has(chat.id));
-
-            if (listed) void navigate({ to: "/chats/$threadId", params: { threadId: listed.id } });
-            else onSelect(bot);
-          }}
-          className={cn(
-            "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none",
-          )}
+          className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none"
         >
           <span
             className={cn(
@@ -267,7 +240,7 @@ export const BotRosterRow = memo(function BotRosterRow({
               {bot.name}
             </span>
           </>
-        </button>
+        </div>
         {hasChatTree ? (
           // Like Capy's crews: the chevron takes the avatar's place on hover or focus.
           <span
@@ -318,42 +291,49 @@ export const BotRosterRow = memo(function BotRosterRow({
           </span>
           <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
             <RosterRowAction
-              label={pinned ? t("Unpin") : t("Pin")}
-              icon={pinned ? RiUnpinLine : RiPushpinLine}
-              onClick={() => onPin(item, !pinned)}
+              label={t("New chat")}
+              icon={RiAddLine}
+              onClick={() =>
+                useRosterStore.getState().openNewChat({ memberKeys: [`bot:${bot.id}`] })
+              }
             />
-            <RosterRowMore
-              label={t("Actions for {name}", { name: bot.name })}
-              triggerRef={menuTriggerRef}
-            >
-              <MenuItem onClick={() => onOpenSettings(bot)}>
-                <RiSettings3Line />
-                {t("Bot settings")}
-              </MenuItem>
-              <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
-                <RiArrowUpLine />
-                {t("Move up")}
-              </MenuItem>
-              <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
-                <RiArrowDownLine />
-                {t("Move down")}
-              </MenuItem>
-              <MenuSeparator />
-              <MenuItem onClick={() => onArchive(bot)}>
-                <RiArchiveLine />
-                {t("Archive bot")}
-              </MenuItem>
-            </RosterRowMore>
           </span>
         </span>
+        <Menu>
+          <MenuTrigger
+            render={
+              <button
+                ref={menuTriggerRef}
+                type="button"
+                tabIndex={-1}
+                aria-label={t("Actions for {name}", { name: bot.name })}
+                className="sr-only"
+              />
+            }
+          />
+          <MenuPopup align="end">
+            <MenuItem onClick={() => onOpenSettings(bot)}>
+              <RiSettings3Line />
+              {t("Bot settings")}
+            </MenuItem>
+            <MenuItem disabled={!canMoveUp} onClick={() => onNudge(item, -1)}>
+              <RiArrowUpLine />
+              {t("Move up")}
+            </MenuItem>
+            <MenuItem disabled={!canMoveDown} onClick={() => onNudge(item, 1)}>
+              <RiArrowDownLine />
+              {t("Move down")}
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem onClick={() => onArchive(bot)}>
+              <RiArchiveLine />
+              {t("Archive bot")}
+            </MenuItem>
+          </MenuPopup>
+        </Menu>
       </div>
       {hasChatTree && chatsOpen ? (
-        <BotChatTree
-          chats={chats}
-          openThreadId={openThreadId}
-          pinnedIds={pinnedIds}
-          botPinned={pinned}
-        />
+        <BotChatTree chats={chats} openThreadId={openThreadId} />
       ) : null}
     </li>
   );

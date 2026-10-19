@@ -188,24 +188,16 @@ describe("ChatActionsMenu", () => {
     expect(menuLabels()).toEqual([
       "Rename chat",
       "Regenerate title",
-      "Pin chat",
-      "Mark unread",
       "Copy link",
       "Copy ID",
       "Archive chat",
-      "Delete chat",
     ]);
     expect(mocks.subTriggers.get("Snooze")?.disabled).toBe(false);
 
-    click("Pin chat");
-    click("Mark unread");
     click("Archive chat");
-    click("Delete chat");
-    expect(mocks.actions.pin).toHaveBeenCalledWith(threadRef);
-    expect(mocks.actions.markUnread).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.archive).toHaveBeenCalledWith(threadRef);
-    expect(mocks.actions.delete).toHaveBeenCalledWith(threadRef);
-    expect(mocks.items.get("Delete chat")?.variant).toBe("destructive");
+    expect(mocks.actions.pin).not.toHaveBeenCalled();
+    expect(mocks.actions.delete).not.toHaveBeenCalled();
   });
 
   it("snoozes until the chosen preset", () => {
@@ -219,31 +211,26 @@ describe("ChatActionsMenu", () => {
     expect(Date.parse(until)).toBeGreaterThan(Date.now());
   });
 
-  it("shows pinned and snoozed chats with the way back out", () => {
+  it("shows a snoozed chat with the way back out", () => {
     mocks.shell = shell({
       pinnedAt: "2026-09-27T11:00:00.000Z",
       snoozedUntil: "2999-01-01T09:00:00.000Z",
     });
     const markup = render();
 
-    expect(markup).toContain('aria-label="Pinned"');
+    expect(markup).not.toContain('aria-label="Pinned"');
     expect(markup).toContain("Snoozed until");
     expect(menuLabels()).toEqual([
       "Rename chat",
       "Regenerate title",
-      "Unpin chat",
-      "Mark unread",
       "Wake chat",
       "Copy link",
       "Copy ID",
       "Archive chat",
-      "Delete chat",
     ]);
     expect(mocks.subTriggers.size).toBe(0);
 
-    click("Unpin chat");
     click("Wake chat");
-    expect(mocks.actions.unpin).toHaveBeenCalledWith(threadRef);
     expect(mocks.actions.unsnooze).toHaveBeenCalledWith(threadRef);
   });
 
@@ -271,15 +258,7 @@ describe("ChatActionsMenu", () => {
     render();
 
     expect(mocks.items.get("Archive chat")?.disabled).toBe(true);
-    expect(mocks.items.get("Delete chat")?.disabled).toBeUndefined();
-  });
-
-  it("offers Mark unread only while the chat reads as seen", () => {
-    mocks.visited = {
-      [`${threadRef.environmentId}:${threadRef.threadId}`]: "2026-09-27T10:00:59.999Z",
-    };
-    render();
-    expect(mocks.items.get("Mark unread")?.disabled).toBe(true);
+    expect(mocks.items.has("Delete chat")).toBe(false);
   });
 
   it("leaves starting a chat to New chat, outside the chat menu", () => {
@@ -328,12 +307,12 @@ describe("buildChatPaletteActions", () => {
 
     expect(keys).toMatchObject({
       rename: "item.rename",
-      pin: "item.pin",
-      "mark-unread": "item.markUnread",
       snooze: "item.snooze",
       archive: "item.archive",
-      delete: "item.delete",
     });
+    expect(keys).not.toHaveProperty("pin");
+    expect(keys).not.toHaveProperty("mark-unread");
+    expect(keys).not.toHaveProperty("delete");
   });
 
   it("offers Archive chat only to whoever may archive it", () => {

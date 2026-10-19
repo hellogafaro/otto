@@ -1,4 +1,3 @@
-import { RiSearchLine } from "@remixicon/react";
 import { Match, Predicate } from "effect";
 import { useAtomValue } from "@effect/atom-react";
 import { ARCHIVED_BOT_RETENTION_DAYS, BotId } from "@otto/contracts";
@@ -7,6 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import { openCommandPalette } from "../../command-palette-bus";
 import { useI18n } from "../../i18n";
 import {
   isInputFocus,
@@ -38,7 +38,6 @@ import { Button } from "../ui/button";
 import { SidebarContent, SidebarGroup } from "../ui/sidebar";
 import { toast } from "sonner";
 import {
-  filterRosterBots,
   filterRosterGroups,
   rosterItemKey,
   rosterItemsEqual,
@@ -78,7 +77,6 @@ const nudgeRosterItem = (item: RosterItemRef, delta: -1 | 1) =>
 
 /** `panel` drops the roster's own chrome for the experimental rail layout. */
 export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" | "panel" } = {}) {
-  const [searchOpen, setSearchOpen] = useState(false);
   const { t } = useI18n();
   const navigate = useNavigate();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
@@ -112,7 +110,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   const rosterEnvironmentId = useRosterStore((state) => state.environmentId);
   const rosterListState = resolveRosterListState(environmentId, rosterEnvironmentId, bots);
   const rosterLoadState = useRosterLoadState();
-  const [query, setQuery] = useState("");
 
   const activeBotThreadRef = routed?.threadRef ?? null;
 
@@ -123,19 +120,17 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   );
 
   const visibleBots = useMemo(
-    () => filterRosterBots(bots, query).filter((bot) => bot.archivedAt === null),
-    [bots, query],
+    () => bots.filter((bot) => bot.archivedAt === null),
+    [bots],
   );
 
-  const visibleGroups = useMemo(
-    () => filterRosterGroups(groups, bots, query),
-    [bots, groups, query],
-  );
-
-  const searching = query.trim().length > 0;
+  const visibleGroups = useMemo(() => filterRosterGroups(groups, bots, ""), [bots, groups]);
 
   const pinnedKeys = useMemo(
-    () => new Set(pinnedItems.map((item) => rosterItemKey(item))),
+    () =>
+      new Set(
+        pinnedItems.filter((item) => item.kind === "group").map((item) => rosterItemKey(item)),
+      ),
     [pinnedItems],
   );
 
@@ -158,7 +153,10 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     [threadShells, visibleBots, visibleGroups],
   );
 
-  const visiblePinnedItems = useMemo(() => pinnedItems.filter(liveItem), [liveItem, pinnedItems]);
+  const visiblePinnedItems = useMemo(
+    () => pinnedItems.filter((item) => item.kind === "group" && liveItem(item)),
+    [liveItem, pinnedItems],
+  );
 
   const visibleUnassignedItems = useMemo(() => {
     const remaining = (item: RosterItemRef) =>
@@ -218,7 +216,12 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   );
 
   const shortcutBots = useMemo(
-    () => orderRosterBotsForShortcuts(bots, pinnedItems, []),
+    () =>
+      orderRosterBotsForShortcuts(
+        bots,
+        pinnedItems.filter((item) => item.kind !== "bot"),
+        [],
+      ),
     [bots, pinnedItems],
   );
 
@@ -283,7 +286,6 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   // here and holds it past the close, so the dialog does not restore focus onto
   // a button the projection is about to remove.
   const archivedFocusTarget = useRef<string | null | undefined>(undefined);
-  const rosterSearchRef = useRef<HTMLInputElement | null>(null);
   const rosterListRef = useRef<HTMLUListElement | null>(null);
 
   /** Row keys in the order the roster renders them, so the survivor is the next one down. */
@@ -305,8 +307,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
       }
     }
 
-    // Nothing survived in the list, or the last bot took the list with it.
-    (list ?? rosterSearchRef.current)?.focus();
+    list?.focus();
   }, []);
 
   const handleArchiveBot = async (bot: Bot) => {
@@ -368,44 +369,11 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
   return (
     <>
       {chrome === "panel" ? (
-        <RosterPanelHeader onNewChat={handleNewChat} onSearch={() => setSearchOpen(true)} />
+        <RosterPanelHeader onNewChat={handleNewChat} onSearch={() => openCommandPalette("chats")} />
       ) : (
         <RosterSidebarHeader onNewChat={handleNewChat} />
       )}
-      <SidebarContent
-        scrollAnchoring={false}
-        className="gap-0"
-        fixedHeader={
-          chrome === "panel" && !searchOpen && query.length === 0 ? null : (
-            <SidebarGroup className="px-(--sidebar-content-inset) pb-1 pt-1 group-data-[collapsible=icon]:hidden">
-              <label className="flex h-9 items-center gap-2 rounded-lg bg-sidebar-row-hover px-2.5 ring-ring focus-within:ring-2">
-                <RiSearchLine className="size-4 shrink-0 text-sidebar-muted-foreground" />
-                <input
-                  type="text"
-                  ref={rosterSearchRef}
-                  data-testid="roster-search-input"
-                  placeholder={t("Search")}
-                  autoFocus={chrome === "panel"}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  onBlur={() => {
-                    if (query.length === 0) setSearchOpen(false);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" && query.length > 0) {
-                      event.stopPropagation();
-                      setQuery("");
-                    } else if (event.key === "Escape") {
-                      setSearchOpen(false);
-                    }
-                  }}
-                  className="min-w-0 flex-1 bg-transparent text-sm text-sidebar-foreground outline-none placeholder:text-sidebar-muted-foreground"
-                />
-              </label>
-            </SidebarGroup>
-          )
-        }
-      >
+      <SidebarContent scrollAnchoring={false} className="gap-0">
         {Match.value(rosterListState).pipe(
           Match.when("loading", () => (
             // Same inset as the list it stands in for, so rows don't shift when it lands.
@@ -449,10 +417,9 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                       rosterItemsEqual(candidate, item.item),
                     );
 
-                    const canMoveUp = !searching && zoneIndex > 0;
+                    const canMoveUp = zoneIndex > 0;
 
-                    const canMoveDown =
-                      !searching && zoneIndex >= 0 && zoneIndex < zoneOrder.length - 1;
+                    const canMoveDown = zoneIndex >= 0 && zoneIndex < zoneOrder.length - 1;
 
                     const firstOfSection =
                       item.zone === "pinned"
@@ -515,10 +482,8 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                               openThreadId={
                                 routedBotId === bot.id ? (routedChat?.threadId ?? null) : null
                               }
-                              onSelect={handleSelect}
                               onOpenSettings={handleOpenBotSettings}
                               pinned={pinned}
-                              onPin={setRosterItemPinned}
                               canMoveUp={canMoveUp}
                               canMoveDown={canMoveDown}
                               onNudge={nudgeRosterItem}

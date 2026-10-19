@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 
 import { memo } from "react";
 
+import { openCommandPalette } from "../../command-palette-bus";
 import { isElectron } from "../../env";
 import { useI18n } from "../../i18n";
 import { OttoWordmark } from "../otto-wordmark";
@@ -42,6 +43,22 @@ export const RosterSidebarHeader = memo(function RosterSidebarHeader({
           <OttoWordmark />
         </Link>
         <div className="flex items-center justify-end">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={t("Search")}
+                  className="size-(--workspace-titlebar-control-size)!"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => openCommandPalette("chats")}
+                >
+                  <RiSearchLine />
+                </Button>
+              }
+            />
+            <TooltipPopup>{t("Search")}</TooltipPopup>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger
               render={
