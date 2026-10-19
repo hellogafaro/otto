@@ -63,6 +63,8 @@ export type ProviderCommandHarnessOptions = {
   readonly bindTurnFailure?: boolean;
   readonly unavailableEngine?: boolean | "missing-login";
   readonly disabledEngine?: boolean;
+  /** Instance ids whose inspect fails as disabled, even when they are not the bot engine. */
+  readonly disabledInstances?: ReadonlyArray<string>;
   readonly composioResolveRuntimeMcpServer?: ComposioServiceShape["resolveRuntimeMcpServer"];
   readonly enableAgentBrowserAccess?: boolean;
   readonly startReactor?: boolean;
@@ -296,6 +298,15 @@ export function createProviderCommandMocks(
 
   const inspectEngine: AgentControllerShape["inspectEngine"] = (selected) => {
     const raw = String(selected.instanceId);
+
+    if (input?.disabledInstances?.includes(raw)) {
+      return Effect.fail(
+        new ProviderValidationError({
+          operation: "AgentController.inspectEngine",
+          issue: `Provider instance '${raw}' is disabled in Otto settings.`,
+        }),
+      );
+    }
 
     const driverKind = ProviderDriverKind.make(
       raw.startsWith("claude") ? "claudeAgent" : raw.startsWith("codex") ? "codex" : raw,

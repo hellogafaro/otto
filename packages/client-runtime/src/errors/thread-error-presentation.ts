@@ -33,6 +33,23 @@ function providerName(id: string): string {
   return isProviderDriverKind(driver) ? (PROVIDER_ACCOUNT_NAMES[driver] ?? id) : id;
 }
 
+/**
+ * The provider a failure should name. A chat context can still say Claude
+ * while the error is about a different built-in instance, such as Codex.
+ * A custom instance id keeps the name the chat already has.
+ */
+function failureProviderName(
+  instanceId: string,
+  contextName: string | null | undefined,
+): string | null | undefined {
+  const fromError = providerName(instanceId);
+  const driver = isProviderDriverKind(instanceId) ? instanceId : instanceId.toLowerCase();
+
+  if (!contextName || !isProviderDriverKind(driver)) return contextName ?? fromError;
+
+  return contextName === fromError || contextName === instanceId ? contextName : fromError;
+}
+
 function boundedTechnicalDetails(error: string): string {
   const firstLine = error.split("\n", 1)[0]?.trim() ?? error.trim();
   const withoutStack = firstLine.replace(/\s+at\s+[A-Za-z_$][\s\S]*$/, "").trim();
@@ -109,7 +126,7 @@ export function presentThreadError(
   if (disabledProvider?.[1]) {
     return present(
       "disabled",
-      context.providerName ?? providerName(disabledProvider[1]),
+      failureProviderName(disabledProvider[1], context.providerName),
       `Provider instance “${disabledProvider[1]}” is disabled.`,
     );
   }
@@ -121,7 +138,10 @@ export function presentThreadError(
   );
 
   if (missingProvider?.[1]) {
-    return present("missing-provider", context.providerName ?? providerName(missingProvider[1]));
+    return present(
+      "missing-provider",
+      failureProviderName(missingProvider[1], context.providerName),
+    );
   }
 
   if (/Bot '[^']+' is archived/.test(error)) {

@@ -224,17 +224,27 @@ export function createSession({
       ? desiredModelSelection
       : requestedModelSelection;
 
-    const currentEngine =
-      currentInstanceId === desiredInstanceId
-        ? desiredEngine
-        : yield* inspectAvailableEngine({
-            instanceId: currentInstanceId,
-            model: activeSession?.model ?? thread.modelSelection.model,
-          });
-
-    const currentInfo = currentEngine.routing;
     const desiredInfo = desiredEngine.routing;
     const desiredDriverKind = desiredInfo.driverKind;
+
+    // The turn runs on the desired instance. A chat can still store the
+    // default Codex selection after the user turned Codex off and moved the
+    // bot to another provider. Inspecting that leftover must not block startup.
+    const currentDriverKind =
+      currentInstanceId === desiredInstanceId
+        ? desiredDriverKind
+        : activeSession === undefined
+          ? undefined
+          : yield* inspectAvailableEngine({
+              instanceId: currentInstanceId,
+              model: activeSession.model ?? thread.modelSelection.model,
+            }).pipe(
+              Effect.map((engine) => engine.routing.driverKind),
+              Effect.catchTags({
+                ProviderValidationError: () => Effect.void,
+                AgentControllerUnsupportedEngineError: () => Effect.void,
+              }),
+            );
 
     if (!isProviderDriverKind(desiredDriverKind)) {
       return yield* new ProviderAdapterRequestError({
@@ -279,7 +289,8 @@ export function createSession({
       });
     }
 
-    const providerChanged = currentInfo.driverKind !== desiredInfo.driverKind;
+    const providerChanged =
+      currentDriverKind === undefined || currentDriverKind !== desiredInfo.driverKind;
     const project = yield* resolveProject(thread.projectId);
 
     const mcpServers = yield* resolveControllerMcpServers(thread);
