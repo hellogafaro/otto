@@ -2,13 +2,9 @@ import {
   RiAddLine,
   RiAlarmLine,
   RiArchiveLine,
-  RiDeleteBinLine,
   RiLoopRightLine,
   RiPencilLine,
-  RiPushpinLine,
-  RiRadioButtonLine,
   RiSunLine,
-  RiUnpinLine,
   RiUserAddLine,
 } from "@remixicon/react";
 import type { SnoozePresetId } from "@otto/client-runtime/state/thread-snoozed";
@@ -106,42 +102,6 @@ export function buildChatPaletteActions({
     });
   }
 
-  if (state.supports.pinning) {
-    list.push(
-      state.isPinned
-        ? {
-            id: "unpin",
-            title: t("Unpin chat"),
-            icon: RiUnpinLine,
-            searchTerms: ["unpin"],
-            shortcutCommand: "item.pin",
-            run: async () => {
-              await actions.unpin(threadRef);
-            },
-          }
-        : {
-            id: "pin",
-            title: t("Pin chat"),
-            icon: RiPushpinLine,
-            searchTerms: ["pin"],
-            shortcutCommand: "item.pin",
-            run: async () => {
-              await actions.pin(threadRef);
-            },
-          },
-    );
-  }
-
-  list.push({
-    id: "mark-unread",
-    title: t("Mark unread"),
-    icon: RiRadioButtonLine,
-    searchTerms: ["unread"],
-    shortcutCommand: "item.markUnread",
-    disabled: !state.canMarkUnread,
-    run: () => actions.markUnread(threadRef),
-  });
-
   if (state.supports.snooze) {
     list.push(
       state.isSnoozed
@@ -193,17 +153,6 @@ export function buildChatPaletteActions({
       },
     });
   }
-
-  list.push({
-    id: "delete",
-    title: t("Delete chat"),
-    icon: RiDeleteBinLine,
-    searchTerms: ["delete", "remove"],
-    shortcutCommand: "item.delete",
-    run: async () => {
-      await actions.delete(threadRef);
-    },
-  });
 
   return list;
 }

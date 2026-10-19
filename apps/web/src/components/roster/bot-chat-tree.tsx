@@ -1,14 +1,11 @@
-import { RiArchiveLine, RiDeleteBinLine, RiPushpinLine, RiRadioButtonLine } from "@remixicon/react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef } from "react";
 
-import { useChatActions } from "../../hooks/use-chat-actions";
-
+import { SidebarChatMenu } from "../chat/chat-actions-menu";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
 import { useThreadShells } from "../../state/entities";
-import { MenuItem, MenuSeparator } from "../ui/menu";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { formatRelativeTime } from "../../timestamp-format";
 import { buildBotChatRows } from "./bot-chats.logic";
@@ -21,10 +18,8 @@ import {
   ROSTER_TRAIL_CLASS,
   ROSTER_TRAIL_INFO_CLASS,
 } from "./roster-row-classes";
-import { RosterRowAction, RosterRowMore } from "./roster-row-actions";
-import { useRosterStore } from "./roster-store";
 
-/** The bot's chats, newest first; the roster lists them once there are two. */
+/** The bot's chats, newest first. The roster lists them whenever the bot has one. */
 export function useBotChats(botId: string) {
   const environmentId = usePrimaryEnvironmentId();
   const shells = useThreadShells();
@@ -45,27 +40,19 @@ export function useBotChats(botId: string) {
 export function BotChatTree({
   chats,
   openThreadId,
-  pinnedIds,
-  botPinned,
 }: {
   readonly chats: ReturnType<typeof useBotChats>;
   /** This bot's chat on screen, if one is, marked in the list. */
   readonly openThreadId: string | null;
-  /** This bot's chats pinned to Pins, which list there instead. */
-  readonly pinnedIds: ReadonlySet<string>;
-  /** The whole bot is in Pins, so its chats are already there and offer no Pin. */
-  readonly botPinned: boolean;
 }) {
   const { t } = useI18n();
   const environmentId = usePrimaryEnvironmentId();
   const navigate = useNavigate();
-  const actions = useChatActions();
   const menuTriggers = useRef(new Map<string, HTMLButtonElement>());
 
   const rows = buildBotChatRows({
     chats,
     currentThreadId: openThreadId,
-    pinnedIds,
   });
 
   return (
@@ -135,39 +122,14 @@ export function BotChatTree({
               </span>
               {threadRef ? (
                 <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
-                  {botPinned ? null : (
-                    <RosterRowAction
-                      label={t("Pin")}
-                      icon={RiPushpinLine}
-                      onClick={() =>
-                        useRosterStore
-                          .getState()
-                          .setItemPinned({ kind: "chat", id: row.threadId }, true)
-                      }
-                    />
-                  )}
-                  <RosterRowAction
-                    label={t("Archive")}
-                    icon={RiArchiveLine}
-                    onClick={() => void actions.archive(threadRef)}
-                  />
-                  <RosterRowMore
+                  <SidebarChatMenu
+                    threadRef={threadRef}
                     label={t("Actions for {name}", { name: title })}
                     triggerRef={(node) => {
                       if (node) menuTriggers.current.set(row.threadId, node);
                       else menuTriggers.current.delete(row.threadId);
                     }}
-                  >
-                    <MenuItem onClick={() => actions.markUnread(threadRef)}>
-                      <RiRadioButtonLine />
-                      {t("Mark unread")}
-                    </MenuItem>
-                    <MenuSeparator />
-                    <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
-                      <RiDeleteBinLine />
-                      {t("Delete chat")}
-                    </MenuItem>
-                  </RosterRowMore>
+                  />
                 </span>
               ) : null}
             </span>

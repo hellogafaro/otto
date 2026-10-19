@@ -12,27 +12,16 @@ can be identified.
 
 ## Chat actions
 
-On web and desktop, the roster keeps one row per bot or group, and a bot opens its newest chat.
-Open the **⋯** menu at the top right of the open chat to act on it:
+On web and desktop, the roster keeps one row per bot or group, and each of a bot's chats is listed under it, including when there is only one. Open a chat row to open that chat. The bot row itself does not open a chat. Hover it for a plus that starts a new chat with that bot, and, when it has a chat, a chevron that folds the list. Right-click the bot to open its settings, move it, or archive it.
 
-- **New chat** starts a fresh chat with the bot. It is available once the current chat has a
-  message. The earlier chat stays active and keeps its history; its bot opens the new chat from now
-  on. Groups keep a single chat and do not offer this action.
+Open the **⋯** menu at the top right of the open chat, or right-click a chat in the sidebar, to act on it. Both menus are the same:
+
 - **Rename chat** and **Regenerate title** change the chat's title.
-- **Pin chat** and **Unpin chat**.
-- **Mark unread** puts a dot on the bot or group in the roster until you open the chat again. A dot
-  also appears when a bot finishes replying in a chat you have opened before but are not looking
-  at, including an open chat whose window or tab is in the background. Unread dots are kept on
-  this device only.
-- **Snooze** until a preset time, such as **In 1 hour** or **Tomorrow**, and **Wake chat** to end
-  the snooze early.
-- **Archive chat** and **Delete chat**. Delete asks for confirmation first. A chat cannot be
-  archived while the bot is replying.
+- **Snooze** until a preset time, such as **In 1 hour** or **Tomorrow**, and **Wake chat** to end the snooze early.
+- **Copy link** and **Copy ID**.
+- **Archive chat**. A chat cannot be archived while the bot is replying. Delete stays on **Settings > Archived**.
 
-The chat header shows a pin when the chat is pinned, and **Snoozed until** with the wake time while
-the chat is snoozed. The same actions are in the command palette under **This chat** while
-the chat is open. The palette lists each snooze choice as its own entry, such as **Snooze chat:
-Tomorrow**, with its wake time.
+The chat header shows **Snoozed until** with the wake time while the chat is snoozed. The same actions are in the command palette under **This chat** while the chat is open. The palette lists each snooze choice as its own entry, such as **Snooze chat: Tomorrow**, with its wake time. Search in the chat sidebar opens that palette on the Chats tab.
 
 On mobile, the chat list keeps its own menu for each chat, and you can swipe left on a chat for
 archive and delete.
@@ -40,15 +29,9 @@ Date labels in bot and group chats follow your device's local day and update whe
 
 ## Older chats
 
-On web and desktop, the bot's side panel lists its eight most recent chats under **Chats**, newest
-first, with how long ago each one was active. The chat you are looking at is highlighted. Select a
-chat to open it in place of the newest one. Sending a message there makes it the newest chat again.
-Select the newest chat, or start a **New chat** from the same list, to go back to the bot's usual
-view. **New chat** appears once the open chat has a message. Archived chats stay in **Settings >
-Archived**.
+On web and desktop, a bot's chats are listed under its row in the sidebar, newest first, up to eight, with how long ago each one was active. The chat you are looking at is highlighted. Select a chat to open it. The bot row does not open a chat. Hover the bot and select the plus to start a new chat with that bot. Archived chats stay in **Settings > Archived**.
 
-The open chat is remembered for this session only. Reloading the page, or archiving or deleting the
-open chat, returns the bot to its newest chat.
+Reloading the page, or archiving the open chat, leaves the bot in the sidebar. Open another of its chats, or start a new one, from there.
 
 On mobile, the chat list shows every chat, so older chats are already one tap away.
 

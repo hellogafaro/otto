@@ -156,8 +156,17 @@ function CommandPaletteDialog(props: { readonly setOpen: (open: boolean) => void
 function OpenCommandPaletteDialog(props: { readonly setOpen: (open: boolean) => void }) {
   const { setOpen } = props;
   const { t } = useI18n();
+  const requestedTab = useCommandPaletteStore((state) => state.tab);
+  const paletteOpen = useCommandPaletteStore((state) => state.open);
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<CommandPaletteTab>("all");
+  const [tab, setTab] = useState<CommandPaletteTab>(requestedTab);
+
+  // A fresh open reads the tab the opener asked for. The shortcut and the rail ask for All;
+  // the chat sidebar's Search asks for Chats. Switching tabs after that stays local.
+  useEffect(() => {
+    if (paletteOpen) setTab(requestedTab);
+  }, [paletteOpen, requestedTab]);
+
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
