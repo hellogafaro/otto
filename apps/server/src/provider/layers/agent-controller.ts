@@ -659,10 +659,11 @@ const make = (options?: AgentControllerLiveOptions) =>
               (options?.makeMcpManager ?? createMcpManager)(
                 path.join(config.stateDir, "bot-mcp-runtime"),
                 ".otto-runtime",
-                toMcpServerConfigs([server]),
+                toMcpServerConfigs([server], config.publicOrigin),
               ),
             onAuthorizationUrl,
             signal,
+            publicOrigin: config.publicOrigin ?? null,
             recordSuccess: (serverId) => subscriptionAuth.recordMcpRequestSuccess(serverId),
             recordFailure: (serverId, message) =>
               subscriptionAuth.recordMcpRequestFailure(serverId, message),
@@ -701,7 +702,7 @@ const make = (options?: AgentControllerLiveOptions) =>
           const manager = (options?.makeMcpManager ?? createMcpManager)(
             path.join(config.stateDir, "bot-mcp-runtime"),
             ".otto-runtime",
-            toMcpServerConfigs([server]),
+            toMcpServerConfigs([server], config.publicOrigin),
           );
 
           let recorded = false;

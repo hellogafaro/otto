@@ -181,4 +181,67 @@ describe("MCP server authentication", () => {
     );
     expect(secondary.reconnectServer).toHaveBeenCalledWith("builtin-hoplite");
   });
+
+  it("refuses a hosted sign-in when the public https address is missing", async () => {
+    const manager = mcpManagerFixture({
+      authenticateServer: vi.fn(),
+    });
+    const recordFailure = vi.fn();
+
+    await expect(
+      authenticateMcpServer({
+        server,
+        managers: [manager],
+        createManager: vi.fn(),
+        onAuthorizationUrl: vi.fn(),
+        recordSuccess: vi.fn(),
+        recordFailure,
+        publicOrigin: null,
+      }),
+    ).rejects.toThrow("OTTO_PUBLIC_URL");
+    expect(manager.authenticateServer).not.toHaveBeenCalled();
+    expect(recordFailure).toHaveBeenCalledWith(server.id, expect.stringContaining("OTTO_PUBLIC_URL"));
+  });
+
+  it("signs in through Otto's public client and reconnects without the local callback", async () => {
+    const { withMcpOAuthStorage } = await import("./mcp-server-config.ts");
+    const hosted = withMcpOAuthStorage(server, {
+      get: async () => undefined,
+      set: async () => undefined,
+      delete: async () => undefined,
+    });
+    const manager = mcpManagerFixture({
+      reconnectServer: vi.fn(async () =>
+        status({ connected: true, needsAuth: false, toolCount: 3 }),
+      ),
+      authenticateServer: vi.fn(),
+    });
+    const signIn = vi.fn(async () => undefined);
+    const onAuthorizationUrl = vi.fn();
+
+    const result = await authenticateMcpServer({
+      server: hosted,
+      managers: [manager],
+      createManager: vi.fn(),
+      onAuthorizationUrl,
+      recordSuccess: vi.fn(),
+      recordFailure: vi.fn(),
+      publicOrigin: "https://otto.example.com",
+      signIn,
+    });
+
+    expect(result.connected).toBe(true);
+    expect(signIn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverUrl: server.url,
+        identity: expect.objectContaining({
+          clientName: "Otto",
+          redirectUrl: "https://otto.example.com/oauth/mcp/callback",
+        }),
+      }),
+    );
+    expect(manager.authenticateServer).not.toHaveBeenCalled();
+    expect(manager.reconnectServer).toHaveBeenCalledWith("builtin-hoplite");
+    expect(onAuthorizationUrl).not.toHaveBeenCalled();
+  });
 });
