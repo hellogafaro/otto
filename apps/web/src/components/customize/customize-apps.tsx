@@ -26,22 +26,38 @@ import { LibraryVisibilitySelect } from "../library/library-actions";
 import { SettingsCard } from "../settings/settings-layout";
 import { Button } from "../ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
-import { SkeletonSettingsSections } from "../ui/skeleton";
+import { Skeleton, SkeletonAppDetail, SkeletonCustomizeRows } from "../ui/skeleton";
 import { SettingsPageContainer } from "../settings/settings-layout";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PageTitle } from "../workspace-page-container";
-import { WorkEmpty } from "../work/work-pages";
-import { CustomizeGroup, CustomizeItem, CustomizeRow, LogoTile } from "./customize-group";
+import {
+  CustomizeEmpty,
+  CustomizeGroup,
+  CustomizeItem,
+  CustomizeRow,
+  LogoTile,
+} from "./customize-group";
 import { DetailHeader } from "./customize-detail";
 import { AppLogo, ConnectionStatus, useComposio } from "./customize-integrations";
 import { ConnectAppDialog } from "./connect-app-dialog";
+
+function AppsCatalogSkeleton() {
+  const { t } = useI18n();
+
+  return (
+    <>
+      <Skeleton className="h-8 w-full rounded-md" />
+      <SkeletonCustomizeRows label={t("Loading settings")} rows={6} />
+    </>
+  );
+}
 
 /** Shown instead of the catalog until someone adds a Composio key. */
 function NotConfigured({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const { t } = useI18n();
 
   return (
-    <WorkEmpty
+    <CustomizeEmpty
       icon={<RiPuzzleLine />}
       title={t("Connect apps with Composio")}
       description={t("Add a Composio key in Settings to connect apps like Slack and Gmail.")}
@@ -93,17 +109,23 @@ function AppsList({
         />
       </InputGroup>
       {toolkits.error ? (
-        <p className="text-13px text-destructive-foreground">
-          {t("Could not reach Composio: {error}", { error: String(toolkits.error) })}
-        </p>
+        <CustomizeEmpty
+          icon={<RiPuzzleLine />}
+          title={t("Couldn't load apps")}
+          description={t("Could not reach Composio: {error}", { error: String(toolkits.error) })}
+        />
       ) : toolkits.data === undefined ? (
-        <SkeletonSettingsSections label={t("Loading settings")} sections={[6]} headings={false} />
+        <SkeletonCustomizeRows label={t("Loading settings")} rows={6} />
       ) : apps.length === 0 ? (
-        <p className="text-13px text-muted-foreground">
-          {deferredSearch
-            ? t("No apps match “{query}”.", { query: deferredSearch })
-            : t("Composio lists no apps for this key.")}
-        </p>
+        <CustomizeEmpty
+          icon={<RiSearchLine />}
+          title={t("No apps")}
+          description={
+            deferredSearch
+              ? t("No apps match “{query}”.", { query: deferredSearch })
+              : t("Composio lists no apps for this key.")
+          }
+        />
       ) : (
         <SettingsCard>
           {apps.map((toolkit) => (
@@ -136,9 +158,22 @@ function AppsBody({
   readonly query: string;
   readonly visibility: ComposioVisibility;
 }) {
+  const { t } = useI18n();
   const composio = useComposio(environmentId);
 
-  if (!composio.status.data) return null;
+  if (composio.status.error && !composio.status.data) {
+    return (
+      <CustomizeEmpty
+        icon={<RiPuzzleLine />}
+        title={t("Couldn't load apps")}
+        description={t("Could not reach Composio: {error}", {
+          error: String(composio.status.error),
+        })}
+      />
+    );
+  }
+
+  if (!composio.status.data) return <AppsCatalogSkeleton />;
 
   return composio.status.data.configured ? (
     <AppsList environmentId={environmentId} query={query} visibility={visibility} />
@@ -168,7 +203,9 @@ export function CustomizeAppsPage({
       <PageTitle>{t("Apps")}</PageTitle>
       {environmentId ? (
         <AppsBody environmentId={environmentId} query={query} visibility={visibility} />
-      ) : null}
+      ) : (
+        <AppsCatalogSkeleton />
+      )}
     </SettingsPageContainer>
   );
 }
@@ -287,17 +324,18 @@ function AppBody({
   );
 
   if (detail.error) {
+    const missing = detail.error.includes("does not list");
+
     return (
-      <WorkEmpty
+      <CustomizeEmpty
         icon={<RiPuzzleLine />}
-        title={t("Not found")}
+        title={missing ? t("Not found") : t("Couldn't load this app")}
         description={t("Could not reach Composio: {error}", { error: String(detail.error) })}
       />
     );
   }
 
-  if (!detail.data)
-    return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 4]} />;
+  if (!detail.data) return <SkeletonAppDetail label={t("Loading settings")} />;
   const { toolkit, tools, triggers } = detail.data;
 
   const connections = (composio.status.data?.connections ?? []).filter(

@@ -109,6 +109,80 @@ describe("ComposioService", () => {
     }),
   );
 
+  it.effect("lists a custom MCP toolkit ahead of the public catalog", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+
+      const { client } = fakeClient({
+        toolkits: Array.from({ length: 60 }, (_, index) => ({
+          slug: `app-${index}`,
+          name: `App ${index}`,
+          meta: {},
+        })),
+        customToolkits: [
+          {
+            slug: "CUSTOM_INFISICAL",
+            name: "Infisical",
+            meta: { description: "Secrets", toolsCount: 3 },
+          },
+        ],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), "project-key", () => client);
+      const listed = yield* service.searchToolkits({});
+
+      expect(listed[0]).toMatchObject({
+        slug: "CUSTOM_INFISICAL",
+        name: "Infisical",
+        description: "Secrets",
+        toolsCount: 3,
+      });
+      expect(listed.some((toolkit) => toolkit.slug === "app-59")).toBe(false);
+
+      const found = yield* service.searchToolkits({ query: "infisical" });
+      expect(found.map((toolkit) => toolkit.slug)).toEqual(["CUSTOM_INFISICAL"]);
+    }),
+  );
+
+  it.effect("loads a custom toolkit's tools from the latest version", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+
+      const { client } = fakeClient({
+        customToolkits: [{ slug: "CUSTOM_INFISICAL", name: "Infisical", meta: {} }],
+        latestTools: [{ slug: "CUSTOM_INFISICAL_LIST_SECRETS", name: "List secrets" }],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), "project-key", () => client);
+
+      expect(yield* service.getToolkit("CUSTOM_INFISICAL")).toMatchObject({
+        toolkit: { slug: "CUSTOM_INFISICAL", name: "Infisical" },
+        tools: [{ slug: "CUSTOM_INFISICAL_LIST_SECRETS", name: "List secrets" }],
+      });
+      expect(client.tools.listLatest).toHaveBeenCalledWith("CUSTOM_INFISICAL");
+      expect(client.tools.getRawComposioTools).not.toHaveBeenCalled();
+    }),
+  );
+
+  it.effect("includes a no-auth custom toolkit without a connected account", () =>
+    Effect.gen(function* () {
+      const { store } = makeSecretStore();
+
+      const { client, createSession } = fakeClient({
+        customToolkits: [{ slug: "CUSTOM_INFISICAL", name: "Infisical", noAuth: true, meta: {} }],
+      });
+
+      const service = make(store, inMemoryComposioAccounts(), "project-key", () => client);
+      const server = yield* service.resolveRuntimeMcpServer("thread-1", noBot);
+
+      expect(server?.name).toBe("Composio");
+      expect(createSession).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ toolkits: ["CUSTOM_INFISICAL"] }),
+      );
+    }),
+  );
+
   it.effect("deletes its hosted session after starting authorization", () =>
     Effect.gen(function* () {
       const { store } = makeSecretStore();

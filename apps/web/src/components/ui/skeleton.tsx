@@ -195,9 +195,104 @@ function SkeletonPaletteRows({
   );
 }
 
+/** Otto: Stand-in app rows: a 32px logo tile, a name, a detail and a chevron, in one card. */
+function SkeletonCustomizeRows({
+  label,
+  rows = 6,
+}: {
+  readonly label: string;
+  readonly rows?: number;
+}) {
+  return (
+    <SkeletonRegion label={label}>
+      <div className="divide-y divide-border/50 rounded-lg border border-border/70 bg-settings-surface">
+        {Array.from({ length: rows }, (_, row) => (
+          <div key={row} className="flex items-center gap-3 px-4 py-3">
+            <Skeleton className="size-8 shrink-0 rounded-md" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className={cn("h-2.5", TEXT_WIDTHS[row % TEXT_WIDTHS.length])} />
+              <Skeleton className="h-2 w-1/2" tone="faint" />
+            </div>
+            <Skeleton className="size-4 shrink-0" />
+          </div>
+        ))}
+      </div>
+    </SkeletonRegion>
+  );
+}
+
+/** Otto: Stand-in Yours and Team cards: a title, a count row and app rows. */
+function SkeletonIntegrationGroups({ label }: { readonly label: string }) {
+  return (
+    <SkeletonRegion label={label} className="flex flex-col gap-10">
+      {Array.from({ length: 2 }, (_, section) => (
+        <div key={section} className="flex flex-col gap-3">
+          <div className="flex h-7 items-center">
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <div className="divide-y divide-border/50 rounded-lg border border-border/70 bg-settings-surface">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <Skeleton className="h-2.5 w-24" />
+              <Skeleton className="size-7 shrink-0 rounded-md" />
+            </div>
+            {Array.from({ length: 2 }, (_, row) => (
+              <div key={row} className="flex items-center gap-3 px-4 py-3">
+                <Skeleton className="size-8 shrink-0 rounded-md" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <Skeleton
+                    className={cn("h-2.5", TEXT_WIDTHS[(section + row) % TEXT_WIDTHS.length])}
+                  />
+                  <Skeleton className="h-2 w-1/3" tone="faint" />
+                </div>
+                <Skeleton className="size-4 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </SkeletonRegion>
+  );
+}
+
+/** Otto: Stand-in app page: the 40px logo and name, then two groups of rows. */
+function SkeletonAppDetail({ label }: { readonly label: string }) {
+  return (
+    <SkeletonRegion label={label} className="flex flex-col gap-10">
+      <div className="flex items-center gap-4">
+        <Skeleton className="size-10 shrink-0 rounded-lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-2.5 w-2/3" tone="faint" />
+        </div>
+      </div>
+      {[2, 4].map((rows, section) => (
+        <div key={section} className="flex flex-col gap-3">
+          <div className="flex h-7 items-center">
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <div className="divide-y divide-border/50 rounded-lg border border-border/70 bg-settings-surface">
+            {Array.from({ length: rows }, (_, row) => (
+              <div key={row} className="flex items-center gap-3 px-4 py-3">
+                <Skeleton className="size-8 shrink-0 rounded-md" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <Skeleton className={cn("h-2.5", TEXT_WIDTHS[row % TEXT_WIDTHS.length])} />
+                  <Skeleton className="h-2 w-1/2" tone="faint" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </SkeletonRegion>
+  );
+}
+
 export {
   Skeleton,
+  SkeletonAppDetail,
   SkeletonCards,
+  SkeletonCustomizeRows,
+  SkeletonIntegrationGroups,
   SkeletonPaletteRows,
   SkeletonRegion,
   SkeletonSettingsSections,

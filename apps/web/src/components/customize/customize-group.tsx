@@ -3,7 +3,14 @@ import type { ReactNode } from "react";
 
 import { SettingsSection } from "../settings/settings-layout";
 import { Button } from "../ui/button";
-import { Empty, EmptyDescription, EmptyMedia } from "../ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -126,15 +133,41 @@ export function CustomizeGroup({
       {header}
       {empty ? (
         <div data-settings-row="">
-          <Empty>
-            <EmptyMedia variant="icon">{empty.icon}</EmptyMedia>
-            <EmptyDescription>{empty.description}</EmptyDescription>
+          <Empty className="flex-none px-6 py-8 md:p-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">{empty.icon}</EmptyMedia>
+              <EmptyTitle>{empty.description}</EmptyTitle>
+            </EmptyHeader>
           </Empty>
         </div>
       ) : (
         children
       )}
     </SettingsSection>
+  );
+}
+
+/** The shared empty state for a settings card or page: icon tile, title, optional description. */
+export function CustomizeEmpty({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  readonly icon: ReactNode;
+  readonly title: string;
+  readonly description?: string;
+  readonly action?: ReactNode;
+}) {
+  return (
+    <Empty className="flex-none px-6 py-10">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">{icon}</EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        {description ? <EmptyDescription>{description}</EmptyDescription> : null}
+        {action ? <EmptyContent>{action}</EmptyContent> : null}
+      </EmptyHeader>
+    </Empty>
   );
 }
 

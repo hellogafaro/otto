@@ -41,6 +41,7 @@ import {
 import {
   type ComposioClient,
   type ComposioClientFactory,
+  type ComposioListedToolkit,
   composioStatus,
   createComposioClient,
   isNotFoundError,
@@ -52,6 +53,47 @@ import {
 } from "./composio-client.ts";
 
 const USER_ID_SECRET = "composio-user-id";
+
+type CatalogToolkit = ComposioToolkit & {
+  readonly custom: boolean;
+  readonly noAuth: boolean;
+};
+
+type ToolkitSource = {
+  readonly slug: string;
+  readonly name: string;
+  readonly noAuth?: boolean | undefined;
+  readonly meta: {
+    readonly description?: string | null | undefined;
+    readonly logo?: string | null | undefined;
+    readonly categories?: ReadonlyArray<{ readonly name: string }> | null | undefined;
+    readonly toolsCount?: number | null | undefined;
+  };
+};
+
+const toPublicToolkit = (toolkit: ToolkitSource): ComposioToolkit => ({
+  slug: toolkit.slug,
+  name: toolkit.name,
+  ...(toolkit.meta.description ? { description: toolkit.meta.description } : {}),
+  ...(toolkit.meta.logo ? { logoUrl: toolkit.meta.logo } : {}),
+  categories: toolkit.meta.categories?.map((category) => category.name) ?? [],
+  toolsCount: toolkit.meta.toolsCount ?? 0,
+});
+
+const asCatalog = (toolkit: ComposioListedToolkit, custom: boolean): CatalogToolkit => ({
+  ...toPublicToolkit(toolkit),
+  custom,
+  noAuth: toolkit.noAuth === true,
+});
+
+const asPublic = (toolkit: CatalogToolkit): ComposioToolkit => ({
+  slug: toolkit.slug,
+  name: toolkit.name,
+  ...(toolkit.description ? { description: toolkit.description } : {}),
+  ...(toolkit.logoUrl ? { logoUrl: toolkit.logoUrl } : {}),
+  categories: [...toolkit.categories],
+  toolsCount: toolkit.toolsCount,
+});
 
 const WEBHOOK_SECRET = "composio-webhook-secret";
 
@@ -282,7 +324,7 @@ export function make(
       const [connections, toolkits] = yield* tryComposio("load connected accounts", () =>
         Promise.all([
           listConnections(client, userId),
-          loadCatalog(client).catch((): readonly ComposioToolkit[] => []),
+          loadCatalog(client, userId).catch((): readonly CatalogToolkit[] => []),
         ]),
       );
 
@@ -319,22 +361,11 @@ export function make(
       };
     });
 
-  /** Composio's whole app catalog, most used first, fetched once per key: its list has no search. */
-  const loadCatalog = (client: ComposioClient) => {
+  /** Composio's public catalog, most used first, plus the project's custom MCP toolkits. */
+  const loadNative = (client: ComposioClient) => {
     catalog ??= client.toolkits
       .get({ limit: 1000, sortBy: "usage" })
-      .then((toolkits) =>
-        toolkits.map(
-          (toolkit): ComposioToolkit => ({
-            slug: toolkit.slug,
-            name: toolkit.name,
-            ...(toolkit.meta.description ? { description: toolkit.meta.description } : {}),
-            ...(toolkit.meta.logo ? { logoUrl: toolkit.meta.logo } : {}),
-            categories: toolkit.meta.categories?.map((category) => category.name) ?? [],
-            toolsCount: toolkit.meta.toolsCount ?? 0,
-          }),
-        ),
-      )
+      .then((toolkits) => toolkits.map(toPublicToolkit))
       .catch((cause: unknown) => {
         catalog = null;
         throw cause;
@@ -343,11 +374,26 @@ export function make(
     return catalog;
   };
 
+  const loadCatalog = async (client: ComposioClient, userId: string) => {
+    const [native, custom] = await Promise.all([
+      loadNative(client),
+      client.toolkits.listCustom(userId),
+    ]);
+    const customSlugs = new Set(custom.map((toolkit) => toolkit.slug));
+
+    return [
+      ...custom.map((toolkit) => asCatalog(toolkit, true)),
+      ...native
+        .filter((toolkit) => !customSlugs.has(toolkit.slug))
+        .map((toolkit) => ({ ...toolkit, custom: false, noAuth: false })),
+    ];
+  };
+
   const searchToolkits: ComposioServiceShape["searchToolkits"] = (input) =>
-    withClient("load toolkits", async (client) => {
+    withClient("load toolkits", async (client, userId) => {
       const limit = input.limit ?? 50;
       const query = input.query?.trim().toLowerCase() ?? "";
-      const toolkits = await loadCatalog(client);
+      const toolkits = (await loadCatalog(client, userId)).map(asPublic);
 
       if (!query) return toolkits.slice(0, limit);
 
@@ -374,18 +420,22 @@ export function make(
     });
 
   const getToolkit: ComposioServiceShape["getToolkit"] = (slug) =>
-    withClient("load the app", async (client) => {
-      const toolkit = (await loadCatalog(client)).find((candidate) => candidate.slug === slug);
+    withClient("load the app", async (client, userId) => {
+      const toolkit = (await loadCatalog(client, userId)).find(
+        (candidate) => candidate.slug === slug,
+      );
 
       if (!toolkit) throw new Error(`Composio does not list ${slug}.`);
 
       const [tools, triggers] = await Promise.all([
-        client.tools.getRawComposioTools({ toolkits: [slug], limit: 1000 }),
+        toolkit.custom
+          ? client.tools.listLatest(slug)
+          : client.tools.getRawComposioTools({ toolkits: [slug], limit: 1000 }),
         listTriggerTypes(client, slug),
       ]);
 
       return {
-        toolkit,
+        toolkit: asPublic(toolkit),
         tools: tools.map((tool) => ({
           slug: tool.slug,
           name: tool.name,
@@ -419,7 +469,7 @@ export function make(
         (client, userId) =>
           Promise.all([
             listConnections(client, userId),
-            loadCatalog(client).catch((): readonly ComposioToolkit[] => []),
+            loadCatalog(client, userId).catch((): readonly CatalogToolkit[] => []),
           ]),
       );
 
@@ -698,7 +748,13 @@ export function make(
               composioAccountServesBot(owners.get(connection.id), bot),
           );
 
-          if (connections.length === 0) {
+          const listed = await loadCatalog(client, userId);
+          const noAuthSlugs = listed
+            .filter((toolkit) => toolkit.noAuth)
+            .map((toolkit) => toolkit.slug)
+            .sort();
+
+          if (connections.length === 0 && noAuthSlugs.length === 0) {
             await deleteCachedSession(resourceId);
 
             return undefined;
@@ -715,12 +771,14 @@ export function make(
               (accounts ?? []).map((account) => account.id),
             ]),
           );
+          const toolkitSlugs = [...new Set([...Object.keys(accountMap), ...noAuthSlugs])].sort();
 
-          const fingerprint = JSON.stringify(
-            Object.entries(accountMap)
+          const fingerprint = JSON.stringify({
+            accounts: Object.entries(accountMap)
               .sort(([left], [right]) => left.localeCompare(right))
               .map(([toolkit, accountIds]) => [toolkit, [...accountIds].sort()]),
-          );
+            noAuth: noAuthSlugs,
+          });
 
           const cached = runtimeCache.get(resourceId);
 
@@ -735,7 +793,7 @@ export function make(
 
           const session = await client.sessions.create(userId, {
             mcp: true,
-            toolkits: Object.keys(accountMap),
+            toolkits: toolkitSlugs,
             connectedAccounts: accountMap,
             manageConnections: false,
             multiAccount: {
@@ -804,7 +862,7 @@ export function make(
       return withClient("set up the app trigger", async (client, userId) => {
         const app = input.app.trim().toLowerCase();
 
-        const toolkit = (await loadCatalog(client)).find(
+        const toolkit = (await loadCatalog(client, userId)).find(
           (candidate) => candidate.slug === app || candidate.name.toLowerCase() === app,
         );
 

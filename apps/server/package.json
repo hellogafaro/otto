@@ -33,7 +33,7 @@
     "@chat-adapter/slack": "4.39.0",
     "@chat-adapter/state-memory": "4.39.0",
     "@chat-adapter/whatsapp": "4.39.0",
-    "@composio/core": "0.18.0",
+    "@composio/core": "0.25.0",
     "@effect/platform-bun": "catalog:",
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
