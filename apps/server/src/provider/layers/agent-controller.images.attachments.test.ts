@@ -5,6 +5,7 @@ import { ProviderDriverKind } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { describe, expect } from "vite-plus/test";
+import { inlineTextFile } from "../chat-history.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import {
   codexThreadId,
@@ -116,6 +117,66 @@ describe("AgentControllerLive", () => {
             '[File: project.json]\n```\n{"codename":"HERON"}\n```',
           ].join("\n\n"),
         });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),
+        ),
+      ),
+      bridge.service,
+      mastra.factory,
+      undefined,
+      baseDir,
+    );
+  });
+
+  it.effect("sends a long text file as its first lines, so it can't overflow the model", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-mastra-csv-"));
+    const attachmentsDir = NodePath.join(baseDir, "userdata", "attachments");
+    NodeFS.mkdirSync(attachmentsDir, { recursive: true });
+
+    const csv = Array.from(
+      { length: 10_000 },
+      (_, row) => `"10/19/2026","https://example.com/?gclid=${row}"`,
+    ).join("\n");
+
+    NodeFS.writeFileSync(NodePath.join(attachmentsDir, "file-1.csv"), csv);
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+        });
+        yield* controller.sendTurn({
+          threadId: codexThreadId,
+          input: "Here you go.",
+          attachments: [
+            {
+              type: "file",
+              id: "file-1",
+              name: "sessions.csv",
+              mimeType: "text/csv",
+              sizeBytes: csv.length,
+            },
+          ],
+        });
+
+        expect(mastra.sendMessage).toHaveBeenCalledWith({
+          content: [
+            "Here you go.",
+            `[Attached file "sessions.csv" is saved at: ${NodePath.join(attachmentsDir, "file-1.csv")}]`,
+            inlineTextFile("sessions.csv", csv),
+          ].join("\n\n"),
+        });
+        expect(inlineTextFile("sessions.csv", csv)).toContain("(too long to send whole: its first");
       }).pipe(
         Effect.ensuring(
           Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),

@@ -141,6 +141,19 @@ export function mastraConnectionIssue(
   }
 }
 
+// The provider refused what one chat sent (too long, an image too large, a malformed message),
+// not the account: Anthropic names the offending part as `messages.N...`.
+const REQUEST_REJECTION =
+  /^messages\.\d+\.|prompt is too long|context_length_exceeded|maximum context length|input is too long|too many (input )?tokens|image dimensions|image exceeds|image is too large|too many images/i;
+
+/**
+ * Otto: Whether a failure rejected the request's content rather than the provider connection.
+ * It stays an error in its chat, but marking the provider failed would alert every chat.
+ */
+export function isRequestRejection(message: string): boolean {
+  return REQUEST_REJECTION.test(message);
+}
+
 export function recordProviderAccessHealth(
   subscriptionAuth: SubscriptionAuthService,
   event: ProviderRuntimeEvent,
@@ -153,6 +166,8 @@ export function recordProviderAccessHealth(
   if (event.type === "turn.completed") {
     if (event.payload.state === "failed") {
       const message = event.payload.errorMessage ?? "The provider request failed.";
+
+      if (isRequestRejection(message)) return;
 
       if (provider) {
         if (providerInstanceId)
@@ -201,7 +216,13 @@ export function recordProviderAccessHealth(
     return;
   }
 
-  if (event.type !== "runtime.error" || event.payload.class !== "provider_error") return;
+  if (
+    event.type !== "runtime.error" ||
+    event.payload.class !== "provider_error" ||
+    isRequestRejection(event.payload.message)
+  ) {
+    return;
+  }
 
   if (provider) {
     if (providerInstanceId)

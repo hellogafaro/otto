@@ -7,6 +7,7 @@ import * as Schema from "effect/Schema";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
 
+import { oversizedImageNote } from "./chat-history.ts";
 import { type OttoToolRuntime } from "./otto-tool-runtime.ts";
 import type { OttoToolExecution } from "./tools/otto-tool-types.ts";
 import { deferredToolOptions, type OttoToolSearch } from "./mastra/otto-tool-search.ts";
@@ -120,6 +121,14 @@ export function createOttoMastraTools(
 
                 if (Option.isNone(media)) return undefined;
                 const { text, data, mediaType } = media.value;
+                const note = mediaType.startsWith("image/") ? oversizedImageNote(data) : undefined;
+
+                if (note) {
+                  return {
+                    type: "content" as const,
+                    value: [{ type: "text" as const, text: `${text}\n\n${note}` }],
+                  };
+                }
 
                 return {
                   type: "content" as const,

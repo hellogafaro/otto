@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
 
+import { oversizedImageNote } from "./chat-history.ts";
 import { createOttoMastraTools, foldConstraintAllOf } from "./otto-mastra-tools.ts";
 
 describe("createOttoMastraTools", () => {
@@ -125,6 +126,32 @@ describe("createOttoMastraTools", () => {
       ],
     });
     expect(read.toModelOutput?.("notes.txt (5 bytes)\nhello")).toBeUndefined();
+
+    // A 3840×2160 PNG's header: the model gets a note to scale it, never the image.
+    const screen = Buffer.alloc(24);
+    screen.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    screen.write("IHDR", 12, "latin1");
+    screen.writeUInt32BE(3840, 16);
+    screen.writeUInt32BE(2160, 20);
+
+    const data = screen.toString("base64");
+
+    expect(
+      read.toModelOutput?.({
+        __workspaceMedia: true,
+        text: "/tmp/screen.png (24 bytes, image/png)",
+        mediaType: "image/png",
+        data,
+      }),
+    ).toEqual({
+      type: "content",
+      value: [
+        {
+          type: "text",
+          text: `/tmp/screen.png (24 bytes, image/png)\n\n${oversizedImageNote(data)}`,
+        },
+      ],
+    });
   });
 
   it("keeps checked string fields as plain strings with their pattern", () => {

@@ -28,7 +28,7 @@ import { cancelActiveImageGenerations } from "../../../image-generation/image-ge
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
-import { MODEL_FILE_MAX_BYTES, modelReadsAttachment } from "../../chat-history.ts";
+import { inlineTextFile, MODEL_FILE_MAX_BYTES, modelReadsAttachment } from "../../chat-history.ts";
 import { routineWakeText } from "../../mastra/otto-routine-signals.ts";
 import { taskWakeSignal, taskWakeText } from "../../mastra/otto-task-signals.ts";
 
@@ -115,8 +115,9 @@ export function createTurnRequests(deps: {
   ) => void;
 }) {
   // Images and PDFs go as file parts and text files inline as decoded text, which every model
-  // reads; anything else (video, office files, archives) or anything over 8 MiB only as the path
-  // line, which lets tools open the saved copy without the server reading it.
+  // reads (a long text file as its first lines); anything else (video, office files, archives)
+  // or anything over 8 MiB only as the path line, which lets tools open the saved copy without
+  // the server reading it.
   const readTurnContent = (input: string | undefined, attachments: ReadonlyArray<ChatAttachment>) =>
     Effect.forEach(
       attachments,
@@ -173,16 +174,7 @@ export function createTurnRequests(deps: {
               };
             }
 
-            const text = buffer.toString("utf8");
-
-            const longestRun = Math.max(
-              0,
-              ...Array.from(text.matchAll(/`+/g), (run) => run[0].length),
-            );
-
-            const fence = "`".repeat(Math.max(3, longestRun + 1));
-
-            return { pathLine, inline: `[File: ${attachment.name}]\n${fence}\n${text}\n${fence}` };
+            return { pathLine, inline: inlineTextFile(attachment.name, buffer.toString("utf8")) };
           }),
         );
       },
