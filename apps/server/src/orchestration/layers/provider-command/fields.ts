@@ -108,16 +108,16 @@ export const MAX_THREAD_TITLE_CONTEXT_CHARS = 8_000;
 export const MAX_FIRST_USER_TITLE_CONTEXT_CHARS = 2_000;
 
 export const STARTUP_RECOVERY_INPUT = [
-  "The Otto server restarted while you were handling the current request.",
-  "Continue the existing request from the last durable conversation state.",
-  "Inspect the current workspace and tool state before acting, and do not repeat side effects that already completed.",
-  "If an approval or question was open, recreate it only if it is still needed.",
+  "The server restarted while you were working on this request, so your run stopped partway.",
+  "Continue it from the conversation so far.",
+  "Check the current workspace and tool state before acting, and do not repeat steps that already finished, such as commits, pushes, sent messages or created items.",
+  "If an approval or question was open, ask again only if it is still needed.",
 ].join(" ");
 
 export const MANUAL_RECOVERY_INPUT = [
-  "Resume the interrupted request from the last durable conversation state.",
-  "Inspect the current workspace and tool state before acting, and do not repeat side effects that already completed.",
-  "If an approval or question was open, recreate it only if it is still needed.",
+  "Resume the interrupted request from the conversation so far.",
+  "Check the current workspace and tool state before acting, and do not repeat steps that already finished, such as commits, pushes, sent messages or created items.",
+  "If an approval or question was open, ask again only if it is still needed.",
 ].join(" ");
 
 export const THREAD_TITLE_CONTEXT_TRUNCATION_MARKER = "[Earlier content truncated]\n\n";

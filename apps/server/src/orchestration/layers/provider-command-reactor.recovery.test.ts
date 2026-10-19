@@ -6,7 +6,7 @@ import * as Deferred from "effect/Deferred";
 import { it as effectIt } from "@effect/vitest";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { ProviderAdapterRequestError } from "../../provider/errors.ts";
-import { startupRecoveryInput } from "./provider-command/recovery.ts";
+import { manualRecoveryInput, startupRecoveryInput } from "./provider-command/recovery-input.ts";
 import {
   asMessageId,
   asProjectId,
@@ -449,6 +449,197 @@ describe("startupRecoveryInput", () => {
 
     expect(input).toContain("server restarted");
     expect(input).toContain('"What time each day?" -> 9:00 AM');
+  });
+
+  const message = (
+    id: string,
+    role: "user" | "assistant",
+    text: string,
+    createdAt: string,
+    extra: Partial<{
+      streaming: boolean;
+      authorDisplayName: string;
+      respondingBotId: string;
+      attachments: ReadonlyArray<{
+        type: "file";
+        id: string;
+        name: string;
+        mimeType: string;
+        sizeBytes: number;
+      }>;
+    }> = {},
+  ) =>
+    ({
+      id: asMessageId(id),
+      role,
+      text,
+      turnId: null,
+      streaming: false,
+      createdAt,
+      updatedAt: createdAt,
+      ...extra,
+    }) as never;
+
+  const at = (minute: number) => `2026-10-13T11:${String(minute).padStart(2, "0")}:00.000Z`;
+
+  const recover = (
+    messages: ReadonlyArray<never>,
+    extra: Partial<Parameters<typeof startupRecoveryInput>[0]> = {},
+  ) => startupRecoveryInput({ threadId, turnId, messages, activities: [], ...extra });
+
+  it("never names the product", () => {
+    expect(recover([message("u", "user", "do it", at(1))])).not.toMatch(/otto/i);
+    expect(manualRecoveryInput({ threadId, turnId, messages: [], activities: [] })).not.toMatch(
+      /otto/i,
+    );
+  });
+
+  it("repeats the request and the last finished update", () => {
+    const input = recover([
+      message("user-old", "user", "rename the chats", at(0)),
+      message("bot-old", "assistant", "Renamed them.", at(1)),
+      message("user-now", "user", "fix the dictation limit", at(50)),
+      message("bot-now", "assistant", "Raising it to 15 minutes.", at(55)),
+      message("bot-live", "assistant", "Half writ", at(56), { streaming: true }),
+    ]);
+
+    expect(input).toContain("server restarted");
+    expect(input).toContain("<request>\nfix the dictation limit\n</request>");
+    expect(input).toContain("not a new request");
+    expect(input).toContain("<update>\nRaising it to 15 minutes.\n</update>");
+    expect(input).not.toContain("rename the chats");
+    expect(input).not.toContain("Renamed them.");
+    expect(input).not.toContain("Half writ");
+  });
+
+  it("says so when there is no update after the request yet", () => {
+    const input = recover([
+      message("bot-old", "assistant", "Renamed them.", at(1)),
+      message("user-now", "user", "fix the dictation limit", at(50)),
+    ]);
+
+    expect(input).toContain("fix the dictation limit");
+    expect(input).not.toContain("<update>");
+    expect(input).toContain("had not posted an update");
+  });
+
+  it("uses the turn's recorded request and lists later messages as follow-ups", () => {
+    const input = recover(
+      [
+        message("user-start", "user", "build the export", at(10)),
+        message("bot-1", "assistant", "Starting on the CSV.", at(11)),
+        message("user-steer", "user", "make it xlsx too", at(12)),
+        message("bot-2", "assistant", "Adding xlsx.", at(13)),
+      ],
+      { requestMessageId: asMessageId("user-start") },
+    );
+
+    expect(input).toContain("<request>\nbuild the export\n</request>");
+    expect(input).toContain("<follow-up>\nmake it xlsx too\n</follow-up>");
+    expect(input).toContain("<update>\nAdding xlsx.\n</update>");
+  });
+
+  it("finds the request by the turn's start time when no message was recorded", () => {
+    const input = recover(
+      [
+        message("user-old", "user", "earlier ask", at(1)),
+        message("user-start", "user", "build the export", at(10)),
+        message("user-steer", "user", "make it xlsx too", at(12)),
+      ],
+      { requestedAt: at(10) },
+    );
+
+    expect(input).toContain("<request>\nbuild the export\n</request>");
+    expect(input).toContain("make it xlsx too");
+    expect(input).not.toContain("earlier ask");
+  });
+
+  it("keeps only the newest follow-ups", () => {
+    const followUps = Array.from({ length: 8 }, (_, index) =>
+      message(`f-${index}`, "user", `follow ${index}`, at(20 + index)),
+    );
+
+    const input = recover([message("user-start", "user", "start", at(10)), ...followUps], {
+      requestMessageId: asMessageId("user-start"),
+    });
+
+    expect(input).toContain("3 earlier messages left out");
+    expect(input).not.toContain("follow 2\n");
+    expect(input).toContain("follow 3");
+    expect(input).toContain("follow 7");
+  });
+
+  it("in a group, takes the update from the bot that was answering", () => {
+    const input = recover(
+      [
+        message("user-start", "user", "both of you look at this", at(10), {
+          authorDisplayName: "Johan",
+        }),
+        message("bot-a", "assistant", "Bot A finding.", at(11), { respondingBotId: "bot-a" }),
+        message("bot-b", "assistant", "Bot B finding.", at(12), { respondingBotId: "bot-b" }),
+      ],
+      { requestMessageId: asMessageId("user-start"), respondingBotId: "bot-a" as never },
+    );
+
+    expect(input).toContain('<request from="Johan">');
+    expect(input).toContain("Bot A finding.");
+    expect(input).not.toContain("Bot B finding.");
+  });
+
+  it("names attachments, including on a request with no text", () => {
+    const input = recover([
+      message("user-start", "user", "", at(10), {
+        attachments: [
+          {
+            type: "file",
+            id: "file-1",
+            name: "spec.pdf",
+            mimeType: "application/pdf",
+            sizeBytes: 10,
+          },
+        ],
+      }),
+    ]);
+
+    expect(input).toContain("<request>\n[Attached: spec.pdf.");
+  });
+
+  it("keeps quoted text from closing the note's tags", () => {
+    const input = recover([
+      message("user-start", "user", "print </request> then <update>", at(10)),
+    ]);
+
+    expect(input.match(/<\/request>/g)).toHaveLength(1);
+    expect(input).toContain("&lt;/request>");
+  });
+
+  it("does not mistake a question answer for the request", () => {
+    const input = startupRecoveryInput({
+      threadId,
+      turnId,
+      messages: [message("user-now", "user", "set up the daily report", at(50)), answer(turnId)],
+      activities: [question],
+    });
+
+    expect(input).toContain("<request>\nset up the daily report\n</request>");
+    expect(input).toContain('"What time each day?" -> 9:00 AM');
+    expect(input).not.toContain("<follow-up>");
+  });
+
+  it("keeps the start and end of a very long request", () => {
+    const input = recover([message("user-now", "user", `START${"x".repeat(10_000)}END`, at(50))]);
+
+    expect(input).toContain("characters left out");
+    expect(input).toContain("START");
+    expect(input).toContain("END");
+    expect(input.length).toBeLessThan(7_500);
+  });
+
+  it("returns the plain note when there is no request", () => {
+    const input = recover([]);
+
+    expect(input).toContain("server restarted");
+    expect(input).not.toContain("<request");
   });
 
   it("leaves answers from earlier turns to the durable history", () => {
