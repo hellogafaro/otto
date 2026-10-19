@@ -5,8 +5,28 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN corepack enable
-COPY . .
+# Manifests and the two file: dependencies only. A source-only change reuses this
+# install, including native builds. pnpm fetch alone does not.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
+COPY apps/desktop/package.json apps/desktop/
+COPY apps/mobile/package.json apps/mobile/
+COPY apps/mobile/deps apps/mobile/deps
+COPY apps/mobile/modules/otto-markdown-text apps/mobile/modules/otto-markdown-text
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY oxlint-plugin-anti-slop/package.json oxlint-plugin-anti-slop/
+COPY oxlint-plugin-otto/package.json oxlint-plugin-otto/
+COPY packages/client-runtime/package.json packages/client-runtime/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/effect-acp/package.json packages/effect-acp/
+COPY packages/effect-codex-app-server/package.json packages/effect-codex-app-server/
+COPY packages/shared/package.json packages/shared/
+COPY packages/ssh/package.json packages/ssh/
+COPY packages/tailscale/package.json packages/tailscale/
+COPY scripts/package.json scripts/clean-tsgo-backups.mjs scripts/
 RUN git init -q && pnpm install --frozen-lockfile
+COPY . .
 RUN pnpm --filter @otto/web build
 RUN node apps/server/scripts/cli.ts build
 RUN pnpm --config.inject-workspace-packages=true --filter @otto/server deploy --prod /runtime \
