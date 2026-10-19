@@ -308,7 +308,9 @@ export function createProviderCommandHarness() {
             input?.composioResolveRuntimeMcpServer ?? (() => Effect.as(Effect.void, undefined)),
         }),
       ),
-      Layer.provideMerge(makeProviderRegistryLayer(providerSnapshots as never)),
+      Layer.provideMerge(
+        makeProviderRegistryLayer((input?.registryProviders ?? providerSnapshots) as never),
+      ),
       Layer.provideMerge(
         Layer.mock(GitWorkflowService.GitWorkflowService)({
           renameBranch,

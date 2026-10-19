@@ -22,6 +22,7 @@ import { OrchestrationCommandReceiptRepository } from "../persistence/services/o
 import * as ProviderRegistry from "../provider/services/provider-registry.ts";
 import { deriveProviderInstanceConfigMap } from "../provider/layers/provider-instance-registry-hydration.ts";
 import { preflightProvider } from "../provider/provider-preflight.ts";
+import { resolveTurnModelSelection } from "../provider/turn-provider-selection.ts";
 import { SubscriptionAuthService } from "../subscription-auth/service.ts";
 import { projectThreadDetailSnapshot } from "./activity-payload-projection.ts";
 import {
@@ -360,31 +361,48 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
                 )
               : undefined;
 
-            const selection = bot?.engine
-              ? {
-                  instanceId: ProviderInstanceId.make(bot.engine.provider),
-                  model: bot.engine.model,
-                }
-              : (normalizedCommand.modelSelection ??
-                thread?.modelSelection ??
-                bootstrapThread?.modelSelection);
+            const settings = Option.isSome(serverSettings)
+              ? yield* serverSettings.value.getSettings.pipe(
+                  Effect.catch((cause) =>
+                    failEnvironmentInternal("orchestration_dispatch_failed", cause),
+                  ),
+                )
+              : undefined;
+
+            const providers = yield* providerRegistry.value.getProviders;
+            const stored = thread?.modelSelection ?? bootstrapThread?.modelSelection;
+
+            const selection =
+              settings === undefined
+                ? bot?.engine
+                  ? {
+                      instanceId: ProviderInstanceId.make(bot.engine.provider),
+                      model: bot.engine.model,
+                    }
+                  : (normalizedCommand.modelSelection ?? stored)
+                : resolveTurnModelSelection({
+                    botEngine: bot?.engine ?? null,
+                    requested: normalizedCommand.modelSelection,
+                    stored,
+                    liveDefault: settings.textGenerationModelSelection,
+                    isBotThread:
+                      thread?.botId != null ||
+                      thread?.groupId != null ||
+                      bootstrapThread?.botId != null ||
+                      bootstrapThread?.groupId != null,
+                    providers,
+                  });
 
             const providerId = selection?.instanceId ?? thread?.session?.providerName;
             const model = selection?.model ?? "";
 
             if (providerId && model && (!groupId || botId)) {
-              const providerInstanceConfig = Option.isSome(serverSettings)
-                ? deriveProviderInstanceConfigMap(
-                    yield* serverSettings.value.getSettings.pipe(
-                      Effect.catch((cause) =>
-                        failEnvironmentInternal("orchestration_dispatch_failed", cause),
-                      ),
-                    ),
-                  )[ProviderInstanceId.make(providerId)]
+              const providerInstanceConfig = settings
+                ? deriveProviderInstanceConfigMap(settings)[ProviderInstanceId.make(providerId)]
                 : undefined;
 
               const verdict = preflightProvider({
-                providers: yield* providerRegistry.value.getProviders,
+                providers,
                 providerId,
                 model,
                 ...(providerInstanceConfig ? { providerInstanceConfig } : {}),

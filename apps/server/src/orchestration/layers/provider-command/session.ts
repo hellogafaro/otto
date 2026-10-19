@@ -21,6 +21,7 @@ import { resolveThreadWorkspaceCwd } from "../../../checkpointing/utils.ts";
 import { chatMemory } from "../../../memory/memories.ts";
 import { taskChatId } from "../../../tasks/task-work-reactor.ts";
 import { ProviderAdapterRequestError } from "../../../provider/errors.ts";
+import { resolveTurnModelSelection } from "../../../provider/turn-provider-selection.ts";
 import {
   botRuntimeResourceScope,
   botSandboxEnvironment,
@@ -55,6 +56,7 @@ export function createSession({
   projectionSnapshotQuery,
   resolveControllerMcpServers,
   serverSettingsService,
+  providerRegistry,
   projectionBotRepository,
   threadModelSelections,
   threadMcpServers,
@@ -80,6 +82,7 @@ export function createSession({
   | "projectionSnapshotQuery"
   | "resolveControllerMcpServers"
   | "serverSettingsService"
+  | "providerRegistry"
   | "projectionBotRepository"
   | "threadModelSelections"
   | "threadMcpServers"
@@ -225,11 +228,19 @@ export function createSession({
     const explicitSelection =
       botThread && repeatsStoredSelection ? undefined : requestedModelSelection;
 
-    const desiredEngine = yield* resolveControllerEngine(
-      thread,
-      explicitSelection ??
-        (botThread ? serverSettings.textGenerationModelSelection : thread.modelSelection),
-    );
+    // The request may only repeat the chat's stored model. If that instance
+    // was turned off or removed, run the live provider instead of inspecting it.
+    const providers = yield* providerRegistry.getProviders;
+
+    const fallback = resolveTurnModelSelection({
+      requested: requestedModelSelection,
+      stored: thread.modelSelection,
+      liveDefault: serverSettings.textGenerationModelSelection,
+      isBotThread: botThread,
+      providers,
+    });
+
+    const desiredEngine = yield* resolveControllerEngine(thread, fallback);
 
     const desiredModelSelection = desiredEngine.modelSelection;
     const desiredInstanceId = desiredModelSelection.instanceId;
@@ -292,6 +303,7 @@ export function createSession({
     // instance is not inspected again.
     const providerChanged =
       activeSession !== undefined && activeSession.provider !== desiredDriverKind;
+
     const project = yield* resolveProject(thread.projectId);
 
     const mcpServers = yield* resolveControllerMcpServers(thread);
