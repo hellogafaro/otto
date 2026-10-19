@@ -284,7 +284,7 @@ export const OTTO_TOOL_CATALOG = [
       "Text files up to 1 MB. Scripts in a skill are references to read; Otto never runs them.",
     {
       promptGuidelines: [
-        "When a request matches one of <available_skills>, read its SKILL.md with skill_read first and follow it.",
+        "When a request matches one of <available_skills>, or a loaded skill would do the job better, read its SKILL.md with skill_read first and follow it. That includes a visual or a long text. Never invent a skill name.",
         "For heavy or long work of any kind, run the loop: investigate or research, the skill that does the work, verify, review, then deliver.",
       ],
     },
