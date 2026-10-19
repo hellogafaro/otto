@@ -1,8 +1,8 @@
 import type { MessageKey } from "@otto/client-runtime/i18n";
 import {
   RiAddLine,
-  RiArrowLeftLine,
-  RiArrowRightLine,
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
   RiBookShelfLine,
   RiBox3Line,
   RiChat1Line,
@@ -291,14 +291,14 @@ export function DesktopTabStrip() {
           shortcut="<"
           disabled={!history || !canGoBack(history)}
           onClick={() => show(goDesktopTabHistory("back"))}
-          icon={RiArrowLeftLine}
+          icon={RiArrowLeftSLine}
         />
         <HistoryButton
           label={t("Forward")}
           shortcut=">"
           disabled={!history || !canGoForward(history)}
           onClick={() => show(goDesktopTabHistory("forward"))}
-          icon={RiArrowRightLine}
+          icon={RiArrowRightSLine}
         />
       </div>
       <div
