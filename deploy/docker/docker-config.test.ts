@@ -77,6 +77,28 @@ it("keeps every state on the /data volume, never a host folder", () => {
   expect(entrypoint).toContain("exec setpriv --reuid=node --regid=node");
 });
 
+it("installs from package manifests before copying source", () => {
+  const installAt = dockerfile.indexOf("pnpm install --frozen-lockfile");
+  const copySourceAt = dockerfile.indexOf("COPY . .");
+  expect(installAt).toBeGreaterThan(-1);
+  expect(copySourceAt).toBeGreaterThan(installAt);
+  const beforeInstall = dockerfile.slice(0, installAt);
+  for (const manifest of [
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "apps/server/package.json",
+    "apps/web/package.json",
+    "apps/mobile/package.json",
+    "apps/mobile/deps",
+    "apps/mobile/modules/otto-markdown-text",
+    "scripts/clean-tsgo-backups.mjs",
+    "patches",
+  ]) {
+    expect(beforeInstall).toContain(manifest);
+  }
+});
+
 it("keeps root and nested environment and private-key files out of the Docker context", () => {
   expect(dockerignore).toContain(".env.*");
   expect(dockerignore).toContain("**/.env.*");
