@@ -10,6 +10,7 @@ import {
   IsoDateTime,
   McpServerId,
   RuntimeMode,
+  Visibility,
   WorkParticipant,
   LibraryFolderId,
 } from "@otto/contracts";
@@ -31,6 +32,7 @@ export const ProjectionBot = Schema.Struct({
   disabledSkillIds: Schema.optional(Schema.Array(LibraryFolderId)),
   alwaysAllowed: Schema.optional(Schema.Array(BotAlwaysAllowedTool)),
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  visibility: Schema.optional(Visibility),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,

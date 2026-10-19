@@ -180,6 +180,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
         sandbox: null,
         runtimeMode: "approval-required",
         imageProvider: "chatgpt",
+        visibility: "organization",
         voiceEnabled: true,
         channelBindings: [],
         groupId: null,

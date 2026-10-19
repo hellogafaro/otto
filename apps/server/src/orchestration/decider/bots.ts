@@ -124,6 +124,9 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           instructions: command.instructions ?? null,
           disabledMcpServerIds: command.disabledMcpServerIds ?? [],
           owner: command.owner ?? null,
+          ...(command.owner?.kind === "person" && command.visibility !== undefined
+            ? { visibility: command.visibility }
+            : {}),
           avatar: command.avatar,
           engine: command.engine,
           sandbox: command.sandbox,
@@ -181,6 +184,19 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         return yield* new OrchestrationCommandInvariantError({
           commandType: command.type,
           detail: "Only the bot's owner can hand it to someone else.",
+        });
+      }
+
+      if (
+        command.visibility !== undefined &&
+        command.visibility !== (bot.visibility ?? "organization") &&
+        (command.by?.kind !== "person" ||
+          bot.owner?.kind !== "person" ||
+          bot.owner.personId !== command.by.personId)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Only the bot's owner can change who sees it.",
         });
       }
 
@@ -313,6 +329,7 @@ export const decideBots = Effect.fn("decideBots")(function* ({
             : {}),
           ...(keep !== undefined || added !== undefined ? { alwaysAllowed } : {}),
           ...(command.owner !== undefined ? { owner: command.owner } : {}),
+          ...(command.visibility !== undefined ? { visibility: command.visibility } : {}),
           ...(command.avatar !== undefined ? { avatar: command.avatar } : {}),
           ...(command.engine !== undefined ? { engine: command.engine } : {}),
           ...(command.sandbox !== undefined ? { sandbox: command.sandbox } : {}),

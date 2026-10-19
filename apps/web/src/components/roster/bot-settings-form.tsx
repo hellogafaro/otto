@@ -6,6 +6,7 @@ import {
   IMAGE_PROVIDER_IDS,
   type EnvironmentId,
   type ImageProviderId,
+  type Visibility,
 } from "@otto/contracts";
 import {
   botImageProviderOptionLabel,
@@ -21,6 +22,7 @@ import { useI18n } from "../../i18n";
 import { botEnvironment } from "../../state/bots";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { environmentMcpServersAtom } from "../../state/mcp-servers";
+import { environmentSnapshotAtom } from "../../state/shell";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -63,6 +65,32 @@ export function BotSettingsForm({
   const environmentId = usePrimaryEnvironmentId();
   const mcpServers = useAtomValue(environmentMcpServersAtom(environmentId ?? NO_ENVIRONMENT));
   const deleteBot = useAtomCommand(botEnvironment.delete, { reportFailure: false });
+  const updateBot = useAtomCommand(botEnvironment.update, { reportFailure: false });
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
+  const ownerPersonId = bot.owner?.kind === "person" ? bot.owner.personId : null;
+  const isOwner = ownerPersonId !== null && ownerPersonId === snapshot?.currentPersonId;
+  const [visibility, setVisibility] = useState<Visibility>(bot.visibility ?? "organization");
+
+  const visibilityLabel = (value: Visibility) => (value === "user" ? t("Only me") : t("Team"));
+
+  const onVisibilityChange = useCallback(
+    async (next: Visibility) => {
+      if (!environmentId || next === visibility) return;
+      const previous = visibility;
+      setVisibility(next);
+
+      const result = await updateBot({
+        environmentId,
+        input: { botId: BotId.make(bot.id), visibility: next },
+      });
+
+      if (Predicate.isTagged(result, "Failure")) {
+        setVisibility(previous);
+        toast.error(t("Bot settings couldn't be saved"));
+      }
+    },
+    [bot.id, environmentId, t, updateBot, visibility],
+  );
 
   const imageSettings = useEnvironmentSettings(
     environmentId ?? NO_ENVIRONMENT,
@@ -150,6 +178,42 @@ export function BotSettingsForm({
           </header>
 
           <BotIdentityFields bot={bot} draft={draft} onChangeAvatar={() => setAvatarOpen(true)} />
+
+          {ownerPersonId !== null ? (
+            <SettingsSection id="access" title={t("Access")}>
+              <SettingsRow
+                title={t("Visibility")}
+                description={
+                  isOwner
+                    ? t(
+                        "Only me hides this bot from everyone except you and the people in its groups.",
+                      )
+                    : t("Only the bot's owner can change who sees it.")
+                }
+                control={
+                  <Select
+                    value={visibility}
+                    disabled={!isOwner}
+                    onValueChange={(value) => {
+                      if (value === "user" || value === "organization") {
+                        void onVisibilityChange(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-48" aria-label={t("Visibility")}>
+                      <SelectValue>{visibilityLabel(visibility)}</SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup align="end" alignItemWithTrigger={false}>
+                      <SelectItem value="user">{visibilityLabel("user")}</SelectItem>
+                      <SelectItem value="organization">
+                        {visibilityLabel("organization")}
+                      </SelectItem>
+                    </SelectPopup>
+                  </Select>
+                }
+              />
+            </SettingsSection>
+          ) : null}
 
           <SettingsSection id="behavior" title={t("Behavior")}>
             <SettingsRow

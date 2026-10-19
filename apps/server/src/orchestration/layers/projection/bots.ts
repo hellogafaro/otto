@@ -21,6 +21,9 @@ export function createBots({
               ? { disabledSkillIds: event.payload.disabledSkillIds }
               : {}),
             owner: event.payload.owner,
+            ...(event.payload.visibility !== undefined
+              ? { visibility: event.payload.visibility }
+              : {}),
             avatar: event.payload.avatar,
             engine: event.payload.engine,
             sandbox: event.payload.sandbox,
@@ -60,6 +63,9 @@ export function createBots({
               ? { alwaysAllowed: event.payload.alwaysAllowed }
               : {}),
             ...(event.payload.owner !== undefined ? { owner: event.payload.owner } : {}),
+            ...(event.payload.visibility !== undefined
+              ? { visibility: event.payload.visibility }
+              : {}),
             ...(event.payload.avatar !== undefined ? { avatar: event.payload.avatar } : {}),
             ...(event.payload.engine !== undefined ? { engine: event.payload.engine } : {}),
             ...(event.payload.sandbox !== undefined ? { sandbox: event.payload.sandbox } : {}),

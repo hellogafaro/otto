@@ -6,6 +6,7 @@ import type {
   ImageProviderId,
   LibraryFolderId,
   McpServerId,
+  Visibility,
   WorkParticipant,
 } from "@otto/contracts";
 
@@ -44,6 +45,8 @@ export interface Bot {
   alwaysAllowed?: readonly BotAlwaysAllowedTool[] | undefined;
   /** The person responsible for the bot; its personal connections and skills serve it. */
   owner?: WorkParticipant | null | undefined;
+  /** `user` shows the bot only to its owner and the people in its groups. */
+  visibility?: Visibility | undefined;
   avatar: BotAvatar;
   engine: BotEngine | null;
   sandbox: "local" | "e2b" | "daytona" | "vercel" | "railway" | "boat" | null;

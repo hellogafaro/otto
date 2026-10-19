@@ -1,4 +1,5 @@
 import {
+  canSeeBot,
   canSeeDirectChat,
   canSeeLibraryItem,
   type DirectChatAccess,
@@ -11,6 +12,7 @@ import {
   type BotId,
   type GroupId,
   type GroupMembership,
+  type OrchestrationCommand,
   type OrchestrationShellSnapshot,
   type OrchestrationShellStreamItem,
   type Routine,
@@ -19,6 +21,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
+import type { ProjectionBotRepository } from "../persistence/services/projection-bots.ts";
 import type { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
 import type { LibraryChatThread } from "../persistence/services/projection-library.ts";
 import type { ProjectionThreadMessageRepository } from "../persistence/services/projection-thread-messages.ts";
@@ -173,6 +176,48 @@ export const canReadAttachment = (
     return false;
   });
 
+/** The bots a command names, which a person must be able to see to send it. */
+export function commandBotIds(command: OrchestrationCommand): ReadonlyArray<BotId> {
+  const ids: Array<BotId> = [];
+
+  if ("botId" in command && command.botId != null) ids.push(command.botId);
+
+  if ("respondingBotId" in command && command.respondingBotId != null) {
+    ids.push(command.respondingBotId);
+  }
+
+  return ids;
+}
+
+/** Whether a person may see every bot a command names. An unknown bot is left to the decider. */
+export const canSeeCommandBots = (
+  services: {
+    readonly projectionBots: ProjectionBotRepository["Service"];
+    readonly projectionGroups: ProjectionGroupRepository["Service"];
+  },
+  command: OrchestrationCommand,
+  personId: AuthSessionId,
+) =>
+  Effect.gen(function* () {
+    const ids = commandBotIds(command);
+
+    if (ids.length === 0) return true;
+
+    const groups = yield* services.projectionGroups.listAll().pipe(Effect.orElseSucceed(() => []));
+
+    for (const botId of ids) {
+      const bot = yield* services.projectionBots
+        .getById({ botId })
+        .pipe(Effect.orElseSucceed(() => Option.none()));
+
+      if (Option.isSome(bot) && !canSeeBot({ ...bot.value, id: botId }, groups, personId)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
 const libraryContext = (
   folders: ReadonlyArray<LibraryFolder>,
   groups: ReadonlyArray<GroupMembers>,
@@ -194,6 +239,7 @@ export function visibleShellSnapshot(
     ...snapshot,
     ...mcp,
     groups,
+    bots: snapshot.bots.filter((bot) => canSeeBot(bot, snapshot.groups, personId)),
     threads: snapshot.threads.filter((thread) => canSeeThread(thread, snapshot.groups, personId)),
   };
 }
@@ -220,6 +266,12 @@ export function withGroupVisibility<E, R>(input: {
     let chatThreads: ReadonlyArray<LibraryChatThread> = [];
     const groups = new Map<GroupId, GroupMembers>();
     let folders: ReadonlyArray<LibraryFolder> = [];
+    const bots = new Map<BotId, OrchestrationShellSnapshot["bots"][number]>();
+
+    const visibleBotIds = () =>
+      [...bots.values()]
+        .flatMap((bot) => (canSeeBot(bot, [...groups.values()], personId) ? [bot.id] : []))
+        .join();
 
     const visible = (groupId: GroupId) => {
       const group = groups.get(groupId);
@@ -231,6 +283,9 @@ export function withGroupVisibility<E, R>(input: {
       groups.clear();
 
       for (const group of snapshot.groups) groups.set(group.id, group);
+      bots.clear();
+
+      for (const bot of snapshot.bots) bots.set(bot.id, bot);
 
       return visibleShellSnapshot(snapshot, personId);
     };
@@ -268,20 +323,29 @@ export function withGroupVisibility<E, R>(input: {
           );
         case "group-upserted": {
           const before = visible(item.group.id);
+          const botsBefore = visibleBotIds();
           groups.set(item.group.id, item.group);
           const after = visible(item.group.id);
 
-          if (before !== after) return fresh;
+          if (before !== after || botsBefore !== visibleBotIds()) return fresh;
 
           return Effect.succeed(after ? [item] : []);
         }
 
-        case "group-removed":
+        case "group-removed": {
+          const botsBefore = visibleBotIds();
           groups.delete(item.groupId);
 
-          if (chatThreads.some((thread) => thread.groupId === item.groupId)) return fresh;
+          if (
+            chatThreads.some((thread) => thread.groupId === item.groupId) ||
+            botsBefore !== visibleBotIds()
+          ) {
+            return fresh;
+          }
 
           return Effect.succeed([item]);
+        }
+
         // Otto: A hidden group's chat stays unsent; a chat made private leaves everyone
         // else's list, since they may already hold it.
         case "thread-upserted":
@@ -322,6 +386,14 @@ export function withGroupVisibility<E, R>(input: {
           folders = folders.filter((folder) => folder.id !== item.folderId);
 
           return Effect.succeed([item]);
+        case "bot-upserted":
+          bots.set(item.bot.id, item.bot);
+
+          return Effect.succeed(
+            canSeeBot(item.bot, [...groups.values()], personId)
+              ? [item]
+              : [{ kind: "bot-removed", sequence: item.sequence, botId: item.bot.id }],
+          );
         // Otto: A routine made private leaves everyone else's routines.
         case "routine-upserted":
           return Effect.succeed(
@@ -367,6 +439,7 @@ export function withGroupVisibility<E, R>(input: {
     const hidesAny =
       initial.groups.some((group) => !canSeeGroup(group, personId)) ||
       reset.threads.length !== initial.threads.length ||
+      reset.bots.length !== initial.bots.length ||
       (reset.mcpServers?.length ?? 0) !== (initial.mcpServers?.length ?? 0);
 
     if (!hidesAny) return filtered;

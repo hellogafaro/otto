@@ -235,6 +235,9 @@ export const rosterCatalog = {
   "Turn on {name} for this bot": "Turn on {name} for this bot",
   "Name your bot": "Name your bot",
   "Set up how this bot works with you.": "Set up how this bot works with you.",
+  "Only me hides this bot from everyone except you and the people in its groups.":
+    "Only me hides this bot from everyone except you and the people in its groups.",
+  "Only the bot's owner can change who sees it.": "Only the bot's owner can change who sees it.",
   "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.":
     "Otto does not recognize this condition yet. It can still be saved, but it may not match unless the runtime provides it.",
   "Negate group": "Negate group",

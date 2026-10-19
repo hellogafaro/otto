@@ -1,5 +1,8 @@
 import {
   AuthSessionId,
+  canSeeBot,
+  CommandId,
+  ProjectId,
   type LibraryFile,
   LibraryFileId,
   type LibraryFolder,
@@ -12,8 +15,19 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
-import { canSeeGroup, visibleShellSnapshot, withGroupVisibility } from "./group-visibility.ts";
-import { makeGroup, makeGroupThread, BOSS_ID } from "./test-support/group-decider-fixtures.ts";
+import {
+  canSeeGroup,
+  commandBotIds,
+  visibleShellSnapshot,
+  withGroupVisibility,
+} from "./group-visibility.ts";
+import {
+  makeBot,
+  makeGroup,
+  makeGroupThread,
+  BOSS_ID,
+  SPECIALIST_ID,
+} from "./test-support/group-decider-fixtures.ts";
 
 const ANA = AuthSessionId.make("user-ana");
 
@@ -224,3 +238,89 @@ it.effect("hides a Library file under a folder that just turned private", () =>
     ]);
   }),
 );
+
+const privateBot = {
+  ...makeBot({ id: SPECIALIST_ID }),
+  owner: ana,
+  visibility: "user" as const,
+};
+
+const botSnapshot = (groups: ReadonlyArray<OrchestrationGroup>): OrchestrationShellSnapshot => ({
+  snapshotSequence: 1,
+  projects: [],
+  bots: [privateBot],
+  groups: [...groups],
+  delegations: [],
+  threads: [],
+  updatedAt: "2026-10-13T00:00:00.000Z",
+});
+
+it("shows a private bot only to its owner and the people in its groups", () => {
+  expect(canSeeBot(privateBot, [], ANA)).toBe(true);
+  expect(canSeeBot(privateBot, [], BEN)).toBe(false);
+  expect(canSeeBot({ ...privateBot, visibility: "organization" }, [], BEN)).toBe(true);
+  expect(canSeeBot({ ...privateBot, owner: null }, [], BEN)).toBe(true);
+
+  const shared = makeGroup({
+    members: [
+      { kind: "bot", botId: SPECIALIST_ID, role: "specialist" },
+      { kind: "person", personId: BEN, displayName: "Ben" },
+    ],
+  });
+
+  expect(canSeeBot(privateBot, [shared], BEN)).toBe(true);
+  expect(visibleShellSnapshot(botSnapshot([]), BEN).bots).toEqual([]);
+  expect(visibleShellSnapshot(botSnapshot([]), ANA).bots).toHaveLength(1);
+});
+
+it.effect("removes a bot from everyone else's stream when it is made private", () =>
+  Effect.gen(function* () {
+    const items: ReadonlyArray<OrchestrationShellStreamItem> = [
+      { kind: "snapshot", snapshot: { ...botSnapshot([]), bots: [] } },
+      { kind: "bot-upserted", sequence: 2, bot: { ...privateBot, visibility: "organization" } },
+      { kind: "bot-upserted", sequence: 3, bot: privateBot },
+    ];
+
+    const stream = yield* withGroupVisibility({
+      stream: Stream.fromIterable(items),
+      personId: BEN,
+      loadSnapshot: Effect.succeed(botSnapshot([])),
+      loadChatThreads: Effect.succeed([]),
+      loadLibraryFolders: Effect.succeed([]),
+      resuming: false,
+    });
+
+    const delivered = yield* Stream.runCollect(stream);
+
+    expect(delivered.map((item) => item.kind)).toEqual(["snapshot", "bot-upserted", "bot-removed"]);
+  }),
+);
+
+it.effect("hides a private bot that a resuming client still holds", () =>
+  Effect.gen(function* () {
+    const stream = yield* withGroupVisibility({
+      stream: Stream.empty,
+      personId: BEN,
+      loadSnapshot: Effect.succeed(botSnapshot([])),
+      loadChatThreads: Effect.succeed([]),
+      loadLibraryFolders: Effect.succeed([]),
+      resuming: true,
+    });
+
+    const delivered = yield* Stream.runCollect(stream);
+
+    expect(delivered[0]?.kind === "snapshot" && delivered[0].snapshot.bots).toEqual([]);
+  }),
+);
+
+it("names the bots a command addresses", () => {
+  const commandId = CommandId.make("command-1");
+
+  expect(commandBotIds({ type: "bot.update", commandId, botId: SPECIALIST_ID })).toEqual([
+    SPECIALIST_ID,
+  ]);
+  expect(commandBotIds({ type: "bot.archive", commandId, botId: BOSS_ID })).toEqual([BOSS_ID]);
+  expect(
+    commandBotIds({ type: "project.delete", commandId, projectId: ProjectId.make("project-1") }),
+  ).toEqual([]);
+});

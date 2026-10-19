@@ -28,6 +28,7 @@ import Migration0012 from "./migrations/012-library-file-shares.ts";
 import Migration0013 from "./migrations/013-routine-triggers.ts";
 import Migration0014 from "./migrations/014-resource-memories.ts";
 import Migration0015 from "./migrations/015-message-search.ts";
+import Migration0016 from "./migrations/016-bot-visibility.ts";
 
 const migrationEntries = [
   [1, "Baseline", Migration0001],
@@ -45,6 +46,7 @@ const migrationEntries = [
   [13, "RoutineTriggers", Migration0013],
   [14, "ResourceMemories", Migration0014],
   [15, "MessageSearch", Migration0015],
+  [16, "BotVisibility", Migration0016],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

@@ -30,6 +30,7 @@ import {
 } from "./orchestration/normalizer.ts";
 import { readWorkflowScript } from "./orchestration/workflow-script-query.ts";
 import {
+  canSeeCommandBots,
   canSeeThread,
   canSeeThreadById,
   visibleShellSnapshot,
@@ -184,6 +185,18 @@ export const createWsOrchestrationHandlers = ({
           ) {
             return yield* new OrchestrationDispatchCommandError({
               message: "This chat is private to the person who started it.",
+            });
+          }
+
+          if (
+            !(yield* canSeeCommandBots(
+              { projectionBots, projectionGroups },
+              actorCommand,
+              currentPersonId,
+            ))
+          ) {
+            return yield* new OrchestrationDispatchCommandError({
+              message: "This bot is private to its owner.",
             });
           }
 

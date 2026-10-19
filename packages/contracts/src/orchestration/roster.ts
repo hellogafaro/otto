@@ -12,6 +12,7 @@ import {
   MessageId,
   ProjectId,
   TrimmedNonEmptyString,
+  Visibility,
 } from "../base-schemas.ts";
 import { McpServerId } from "../mcp-server.ts";
 import { LibraryFileId, LibraryFolderId } from "./library.ts";
@@ -327,6 +328,8 @@ export const OrchestrationBot = Schema.Struct({
   alwaysAllowed: Schema.optional(Schema.Array(BotAlwaysAllowedTool)),
   /** The person responsible for the bot, like a task's owner; its personal connections serve it. */
   owner: Schema.optional(Schema.NullOr(WorkParticipant)),
+  /** `user` shows the bot only to its owner and the people in its groups. */
+  visibility: Schema.optional(Visibility),
   avatar: BotAvatar,
   engine: Schema.NullOr(BotEngine),
   sandbox: PersistedBotSandbox,
@@ -381,6 +384,26 @@ export function isGroupBotMember(member: GroupMembership): member is GroupBotMem
 
 export function isGroupPersonMember(member: GroupMembership): member is GroupPersonMembership {
   return member.kind === "person";
+}
+
+/**
+ * A private bot is seen by its owner and by the people in a group it belongs to; everyone
+ * else sees no trace of it.
+ */
+export function canSeeBot(
+  bot: Pick<OrchestrationBot, "id" | "owner" | "visibility">,
+  groups: ReadonlyArray<{ readonly members: ReadonlyArray<GroupMembership> }>,
+  personId: string,
+): boolean {
+  if (bot.visibility !== "user" || bot.owner?.kind !== "person") return true;
+
+  if (bot.owner.personId === personId) return true;
+
+  return groups.some(
+    (group) =>
+      group.members.some((member) => isGroupBotMember(member) && member.botId === bot.id) &&
+      group.members.some((member) => isGroupPersonMember(member) && member.personId === personId),
+  );
 }
 
 export const GROUP_SHARED_WORKSPACE_WARNING =

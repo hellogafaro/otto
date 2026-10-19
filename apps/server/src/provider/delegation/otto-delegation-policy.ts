@@ -11,9 +11,11 @@ import {
   type OrchestrationCommand,
   type OrchestrationReadModel,
   TurnId,
+  canSeeBot,
   isGroupBotMember,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
+import { chatPeople } from "../../orchestration/group-visibility.ts";
 import { PendingWaiterTimeoutError } from "../pending-waiters.ts";
 
 export const isPendingWaiterTimeout = Schema.is(PendingWaiterTimeoutError);
@@ -185,13 +187,20 @@ export function findDelegationTarget<
 /**
  * A bot can take work from a group chat only when it is a member of that
  * group. A bot may belong to several groups, so membership is read from the
- * group, not from the bot's legacy `groupId`. A direct chat can reach any bot.
+ * group, not from the bot's legacy `groupId`. A private bot also takes work only from a
+ * chat whose people can all see it.
  */
 export function isReachableFromThread(
   snapshot: OrchestrationReadModel,
   parentThread: OrchestrationReadModel["threads"][number],
   bot: OrchestrationBot,
 ): boolean {
+  const seenByChat = chatPeople(parentThread, snapshot.groups).every((personId) =>
+    canSeeBot(bot, snapshot.groups, personId),
+  );
+
+  if (!seenByChat) return false;
+
   if (parentThread.groupId === null) return true;
   const group = snapshot.groups.find((candidate) => candidate.id === parentThread.groupId);
 

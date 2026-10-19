@@ -156,3 +156,37 @@ it.layer(NodeServices.layer)("Always allow authority", (it) => {
     }),
   );
 });
+
+it.layer(NodeServices.layer)("Bot visibility authority", (it) => {
+  it.effect("lets only the bot's owner change who sees it", () =>
+    Effect.gen(function* () {
+      const update = (by: typeof owner | undefined) =>
+        decideOrchestrationCommand({
+          command: {
+            type: "bot.update",
+            commandId: CommandId.make(`visibility-${by?.personId ?? "nobody"}`),
+            botId: BOT_ID,
+            visibility: "user",
+            ...(by ? { by: { kind: "person" as const, ...by } } : {}),
+          },
+          readModel,
+        });
+
+      for (const by of [member, undefined]) {
+        const error = yield* update(by).pipe(Effect.flip);
+
+        expect(String(error)).toContain("Only the bot's owner can change who sees it");
+      }
+
+      const decided = yield* update(owner);
+      const events = Array.isArray(decided) ? decided : [decided];
+
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "bot.updated",
+          payload: expect.objectContaining({ visibility: "user" }),
+        }),
+      );
+    }),
+  );
+});
