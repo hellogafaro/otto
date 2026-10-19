@@ -4,6 +4,9 @@ import * as NodePath from "node:path";
 
 import type { MastraModelConfig } from "@mastra/core/llm";
 import { RequestContext } from "@mastra/core/request-context";
+import { xaiProvider } from "@mastra/code-sdk/providers/xai";
+import type { CredentialStore } from "@mastra/code-sdk/auth/types";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import * as DateTime from "effect/DateTime";
 import * as Predicate from "effect/Predicate";
 import { describe, expect, it } from "vite-plus/test";
@@ -99,6 +102,61 @@ function inMemoryChats(): OttoChatContexts {
       records.set(`${threadId}:${botId}`, record);
     },
   };
+}
+
+type WireMessage = {
+  readonly role: string;
+  readonly content?: string | null;
+  readonly reasoning_content?: string;
+};
+
+type WireChat = {
+  readonly messages: ReadonlyArray<WireMessage>;
+  readonly tools?: unknown;
+};
+
+function grokCompletion() {
+  return new Response(
+    JSON.stringify({
+      id: "cmpl",
+      model: "grok-4.7",
+      choices: [
+        {
+          message: { role: "assistant", content: "ok", reasoning_content: "step" },
+          finish_reason: "stop",
+        },
+      ],
+      usage: {
+        prompt_tokens: 20,
+        completion_tokens: 2,
+        prompt_tokens_details: { cached_tokens: 12 },
+      },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+}
+
+function grokOAuthStore(): CredentialStore {
+  return {
+    reload() {},
+    get: () => ({ type: "oauth" }) as ReturnType<CredentialStore["get"]>,
+    getStoredApiKey: () => undefined,
+    getApiKey: async () => "oauth-token",
+  };
+}
+
+async function generate(
+  model: MastraModelConfig,
+  prompt: Prompt,
+  tools: CallOptions["tools"] = undefined,
+) {
+  if (!Predicate.isObject(model) || !("specificationVersion" in model)) {
+    throw new Error("withOttoPrompt must keep a v3 model.");
+  }
+
+  const native: TestModel = model as TestModel;
+
+  return native.doGenerate({ prompt, ...(tools ? { tools } : {}) });
 }
 
 function user(text: string): Prompt[number] {
@@ -293,6 +351,89 @@ describe("withOttoPrompt", () => {
       "thread-1",
       "thread-1:bot-mina",
     ]);
+  });
+
+  it("keeps a Grok chat's wire prefix stable and echoes reasoning", async () => {
+    const requests: Array<{ readonly headers: Headers; readonly body: WireChat }> = [];
+
+    const transport = createOpenAICompatible({
+      name: "xai",
+      apiKey: "test-key",
+      baseURL: "https://api.x.ai/v1",
+      fetch: async (_input, init) => {
+        requests.push({
+          headers: new Headers(init?.headers),
+          body: JSON.parse(String(init?.body)) as WireChat,
+        });
+
+        return grokCompletion();
+      },
+    }).chatModel("grok-4.7");
+
+    const chats = inMemoryChats();
+    const wrapped = withOttoPrompt(transport, context({}), chats, now);
+
+    const tool = {
+      type: "function" as const,
+      name: "shell",
+      inputSchema: { type: "object" as const },
+    };
+
+    const first = await generate(wrapped, [user("a")], [tool]);
+
+    await generate(
+      wrapped,
+      [
+        { ...user("a"), providerOptions: { mastra: { createdAt: 1 } } },
+        {
+          role: "assistant",
+          content: [
+            { type: "reasoning", text: "step" },
+            { type: "text", text: "ok" },
+          ],
+        },
+        user("c"),
+      ],
+      [tool],
+    );
+
+    const [opened, continued] = requests;
+    expect(opened?.headers.get("x-grok-conv-id")).toBe("thread-1");
+    expect(continued?.headers.get("x-grok-conv-id")).toBe("thread-1");
+    const cachedPrefix = (opened?.body.messages.length ?? 1) - 1;
+    expect(continued?.body.messages.slice(0, cachedPrefix)).toEqual(
+      opened?.body.messages.slice(0, -1),
+    );
+    expect(opened?.body.tools).toEqual(continued?.body.tools);
+    expect(continued?.body.messages.at(-2)).toEqual({ role: "user", content: "c" });
+    expect(continued?.body.messages.find((message) => message.role === "assistant")).toEqual({
+      role: "assistant",
+      content: "ok",
+      reasoning_content: "step",
+    });
+    expect(String(opened?.body.messages.at(-1)?.content)).toContain("<turn");
+    expect(String(continued?.body.messages.at(-1)?.content)).toContain("<turn");
+    expect(first.usage.inputTokens.cacheRead).toBe(12);
+  });
+
+  it("keeps the Grok conversation header on an OAuth request", async () => {
+    const headers: Array<string | null> = [];
+    const original = globalThis.fetch;
+
+    globalThis.fetch = (async (_input, init) => {
+      headers.push(new Headers(init?.headers).get("x-grok-conv-id"));
+
+      return grokCompletion();
+    }) as typeof fetch;
+
+    try {
+      const transport = xaiProvider("grok-4.7", { authStorage: grokOAuthStore() });
+      await generate(withOttoPrompt(transport, context({}), inMemoryChats(), now), [user("a")]);
+    } finally {
+      globalThis.fetch = original;
+    }
+
+    expect(headers).toEqual(["thread-1"]);
   });
 
   it("keeps each group bot's prefix and OpenAI prompt cache apart", async () => {
