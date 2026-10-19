@@ -169,17 +169,26 @@ describe("OttoSessionResources", () => {
     const first = input("first-turn");
     await resources.acquire(first);
     expect(openSession).toHaveBeenNthCalledWith(1, undefined);
-    await resources.release(first.threadId);
+    await resources.shutdown();
 
     const identityFile = NodePath.join(directory, "bot-workspaces", `${first.workspaceId}.json`);
     const { providerId } = JSON.parse(NodeFS.readFileSync(identityFile, "utf8"));
+
+    const reconnecting = new OttoSessionResources({
+      io: workspaceIO,
+      stateDir: directory,
+      makeRemoteWorkspace,
+      makeMcpManager: () => failedManager as never,
+      toMcpServerConfigs: () => ({}),
+    });
+
     await expect(
-      resources.acquire({ ...input("failed-turn"), mcpServers: [exaServer] }),
+      reconnecting.acquire({ ...input("failed-turn"), mcpServers: [exaServer] }),
     ).rejects.toThrow("MCP init failed after reconnect");
     expect(openSession).toHaveBeenNthCalledWith(2, "boat-vm");
     expect(destroy).not.toHaveBeenCalled();
     expect(JSON.parse(NodeFS.readFileSync(identityFile, "utf8"))).toMatchObject({ providerId });
-    await resources.shutdown();
+    await reconnecting.shutdown();
 
     const restarted = new OttoSessionResources({
       io: workspaceIO,
