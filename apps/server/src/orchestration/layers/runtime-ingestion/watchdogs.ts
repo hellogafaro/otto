@@ -33,6 +33,8 @@ export const createWatchdogs = Effect.fn("makeRuntimeWatchdogs")(function* ({
   // Open requests per watched turn, so a duplicate or unmatched resolution cannot
   // resume a watchdog while another request still waits on the user.
   const silenceWaitingRequests = new Map<string, Set<string>>();
+  // In-progress tools and tasks. A long shell or subagent is work, not silence.
+  const silenceWaitingWork = new Map<string, Set<string>>();
 
   const silenceIncidentKey = (threadId: ThreadId, turnId: TurnId) =>
     `silence:${threadId}:${turnId}`;
@@ -44,6 +46,7 @@ export const createWatchdogs = Effect.fn("makeRuntimeWatchdogs")(function* ({
     if (!handle) return Effect.void;
     silenceWatchdogs.delete(key);
     silenceWaitingRequests.delete(key);
+    silenceWaitingWork.delete(key);
 
     return handle.stop;
   };
@@ -55,6 +58,7 @@ export const createWatchdogs = Effect.fn("makeRuntimeWatchdogs")(function* ({
         Effect.sync(() => {
           silenceWatchdogs.delete(key);
           silenceWaitingRequests.delete(key);
+          silenceWaitingWork.delete(key);
         }).pipe(Effect.andThen(handle.stop)),
       { concurrency: 1, discard: true },
     );
@@ -158,7 +162,7 @@ export const createWatchdogs = Effect.fn("makeRuntimeWatchdogs")(function* ({
                     taskOrRoutine: thread.title,
                     lastFailure: `No response from ${providerName} for over a minute while the chat is running.`,
                     nextAction:
-                      "Wait for it to continue, or stop the chat and send your message again. If it keeps happening, check the provider connection.",
+                      "Wait for it to continue, or stop the chat and send your message again.",
                   }),
                 );
               }).pipe(
@@ -192,6 +196,7 @@ export const createWatchdogs = Effect.fn("makeRuntimeWatchdogs")(function* ({
   return {
     silenceWatchdogs,
     silenceWaitingRequests,
+    silenceWaitingWork,
     silenceIncidentKey,
     stopSilenceWatchdog,
     stopAllSilenceWatchdogs,

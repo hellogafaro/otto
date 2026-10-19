@@ -118,6 +118,19 @@ function applyMessageDelta(message: MastraDBMessage, delta: MessageDelta) {
   else parts.push({ type: "text", text: delta.delta });
 }
 
+/** Text that proves a Mastra provider is thinking, without becoming the chat reply. */
+export function reasoningActivityText(delta: MessageDelta): string | undefined {
+  if (delta.type === "reasoning-delta") {
+    return delta.delta.length > 0 ? delta.delta : undefined;
+  }
+
+  if (delta.type === "part" && delta.part.type === "reasoning" && delta.part.reasoning.length > 0) {
+    return " ";
+  }
+
+  return undefined;
+}
+
 export function createEvents(deps: {
   readonly forkPromise: OttoRuntimeSeam["forkPromise"];
   readonly runPromise: OttoRuntimeSeam["runPromise"];
@@ -364,6 +377,16 @@ export function createEvents(deps: {
       }
 
       case "message_update": {
+        const reasoning = reasoningActivityText(event.event);
+
+        if (reasoning && turn) {
+          deps.publish({
+            ...baseEvent(threadId, active, turn.turnId),
+            type: "content.delta",
+            payload: { streamKind: "reasoning_text", delta: reasoning },
+          });
+        }
+
         const message = streamingMessages.get(event.id);
 
         if (!message) return;

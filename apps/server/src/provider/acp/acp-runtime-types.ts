@@ -74,6 +74,12 @@ export type AcpParsedSessionEvent =
       readonly itemId?: string;
       readonly text: string;
       readonly rawPayload: unknown;
+    }
+  | {
+      /** Provider traffic that is not shown as assistant text, but proves the turn is alive. */
+      readonly _tag: "ProviderActivity";
+      readonly text: string;
+      readonly rawPayload: unknown;
     };
 
 export type AcpSessionSetupResponse =

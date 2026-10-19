@@ -1,6 +1,8 @@
 import {
   ProviderRuntimeEvent,
+  RuntimeItemId,
   RuntimeRequestId,
+  RuntimeTaskId,
   THREAD_SILENT_RUN_ACTIVITY_KIND,
 } from "@otto/contracts";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -221,5 +223,106 @@ describe("ProviderRuntimeIngestion silence watchdog", () => {
     await harness.drain();
     expect(await harness.watchdogActivities()).toHaveLength(0);
     expect(silenceIncidents(harness)).toHaveLength(0);
+  });
+
+  it("does not report silence while a tool is running, then restarts after it finishes", async () => {
+    const harness = await createHarness({ botOwned: true });
+    const turnId = asTurnId("turn-tool-running");
+    harness.emitTurnStarted(turnId);
+    await harness.drain();
+
+    harness.emit({
+      type: "item.started",
+      eventId: asEventId("evt-tool-start"),
+      provider: harness.provider,
+      threadId: asThreadId("thread-1"),
+      turnId,
+      itemId: RuntimeItemId.make("tool-1"),
+      createdAt: "2026-01-01T00:00:00.000Z",
+      payload: { itemType: "command_execution", status: "inProgress", title: "shell" },
+    });
+    await harness.drain();
+    await harness.adjustClock(SILENT_MS * 3);
+    await harness.drain();
+    expect(await harness.watchdogActivities()).toHaveLength(0);
+
+    harness.emit({
+      type: "item.completed",
+      eventId: asEventId("evt-tool-done"),
+      provider: harness.provider,
+      threadId: asThreadId("thread-1"),
+      turnId,
+      itemId: RuntimeItemId.make("tool-1"),
+      createdAt: "2026-01-01T00:00:00.000Z",
+      payload: { itemType: "command_execution", status: "completed", title: "shell" },
+    });
+    await harness.drain();
+    await harness.adjustClock(SILENT_MS - 1);
+    await harness.drain();
+    expect(await harness.watchdogActivities()).toHaveLength(0);
+    await harness.adjustClock(1);
+    await harness.drain();
+    expect(silentKinds(await harness.watchdogActivities())).toEqual([
+      THREAD_SILENT_RUN_ACTIVITY_KIND,
+    ]);
+  });
+
+  it("does not pause silence for an assistant message item", async () => {
+    const harness = await createHarness({ botOwned: true });
+    const turnId = asTurnId("turn-assistant-item");
+    harness.emitTurnStarted(turnId);
+    await harness.drain();
+    harness.emit({
+      type: "item.started",
+      eventId: asEventId("evt-assistant-start"),
+      provider: harness.provider,
+      threadId: asThreadId("thread-1"),
+      turnId,
+      itemId: RuntimeItemId.make("assistant-1"),
+      createdAt: "2026-01-01T00:00:00.000Z",
+      payload: { itemType: "assistant_message", status: "inProgress" },
+    });
+    await harness.drain();
+    await harness.adjustClock(SILENT_MS);
+    await harness.drain();
+    expect(silentKinds(await harness.watchdogActivities())).toEqual([
+      THREAD_SILENT_RUN_ACTIVITY_KIND,
+    ]);
+  });
+
+  it("does not report silence while a task is running", async () => {
+    const harness = await createHarness({ botOwned: true });
+    const turnId = asTurnId("turn-task-running");
+    harness.emitTurnStarted(turnId);
+    await harness.drain();
+    harness.emit({
+      type: "task.started",
+      eventId: asEventId("evt-task-start"),
+      provider: harness.provider,
+      threadId: asThreadId("thread-1"),
+      turnId,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      payload: { taskId: RuntimeTaskId.make("task-1"), description: "subagent" },
+    } as ProviderRuntimeEvent);
+    await harness.drain();
+    await harness.adjustClock(SILENT_MS * 3);
+    await harness.drain();
+    expect(await harness.watchdogActivities()).toHaveLength(0);
+
+    harness.emit({
+      type: "task.updated",
+      eventId: asEventId("evt-task-idle"),
+      provider: harness.provider,
+      threadId: asThreadId("thread-1"),
+      turnId,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      payload: { taskId: RuntimeTaskId.make("task-1"), status: "idle" },
+    } as ProviderRuntimeEvent);
+    await harness.drain();
+    await harness.adjustClock(SILENT_MS);
+    await harness.drain();
+    expect(silentKinds(await harness.watchdogActivities())).toEqual([
+      THREAD_SILENT_RUN_ACTIVITY_KIND,
+    ]);
   });
 });

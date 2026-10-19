@@ -381,6 +381,12 @@ export function decideToolCallUpdateEmission(
     return { emit: true, skippedSinceEmit: 0 };
   }
 
+  // The opening observation has to reach ingestion even with no output yet, so a
+  // long tool can pause the silence watchdog instead of looking like a dead provider.
+  if (previous === undefined) {
+    return { emit: true, skippedSinceEmit: 0 };
+  }
+
   if (!next.detail) {
     return { emit: false, skippedSinceEmit };
   }

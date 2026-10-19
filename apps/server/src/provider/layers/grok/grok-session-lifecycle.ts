@@ -522,6 +522,19 @@ export function createGrokSessionLifecycle(deps: {
                     }),
                   ),
                 ),
+                Match.tag("ProviderActivity", (event) =>
+                  deps.offerRuntimeEvent(
+                    acpContentDeltaEvent({
+                      stamp,
+                      provider: PROVIDER,
+                      threadId: ctx.threadId,
+                      turnId: notificationTurnId,
+                      text: event.text.length > 0 ? event.text : " ",
+                      streamKind: "reasoning_text",
+                      rawPayload: event.rawPayload,
+                    }),
+                  ),
+                ),
                 Match.exhaustive,
               );
             }),
