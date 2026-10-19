@@ -212,14 +212,22 @@ export function createSession({
 
     // A bot with no saved engine follows the current default model, the same
     // one the chat shows. The selection stored on the thread is only the model
-    // from when the chat was created, so a provider turned off later must not
-    // become the one this turn runs.
+    // from when the project was created, and a new chat copies that, so a
+    // request that only repeats it is not a choice of provider.
     const serverSettings = yield* serverSettingsService.getSettings;
     const botThread = thread.botId != null || thread.groupId != null;
 
+    const repeatsStoredSelection =
+      requestedModelSelection !== undefined &&
+      requestedModelSelection.instanceId === thread.modelSelection.instanceId &&
+      requestedModelSelection.model === thread.modelSelection.model;
+
+    const explicitSelection =
+      botThread && repeatsStoredSelection ? undefined : requestedModelSelection;
+
     const desiredEngine = yield* resolveControllerEngine(
       thread,
-      requestedModelSelection ??
+      explicitSelection ??
         (botThread ? serverSettings.textGenerationModelSelection : thread.modelSelection),
     );
 
@@ -228,7 +236,7 @@ export function createSession({
 
     const effectiveRequestedModelSelection = desiredEngine.configured
       ? desiredModelSelection
-      : requestedModelSelection;
+      : explicitSelection;
 
     const desiredInfo = desiredEngine.routing;
     const desiredDriverKind = desiredInfo.driverKind;
@@ -699,17 +707,17 @@ export function createSession({
 
     const requestedModelSelection = ensured.engine.modelSelection;
 
+    // The resolved engine wins when the request only repeated the selection
+    // stored on the chat. That copy is not the model this turn runs.
     const modelForTurn =
-      sessionModelSwitch === "unsupported" && input.modelSelection === undefined
-        ? activeSession?.model !== undefined
-          ? {
-              ...requestedModelSelection,
-              model: activeSession.model,
-            }
-          : requestedModelSelection
-        : ensured.engine.configured
-          ? requestedModelSelection
-          : input.modelSelection;
+      sessionModelSwitch === "unsupported" &&
+      input.modelSelection === undefined &&
+      activeSession?.model !== undefined
+        ? {
+            ...requestedModelSelection,
+            model: activeSession.model,
+          }
+        : requestedModelSelection;
 
     return {
       threadId: input.threadId,

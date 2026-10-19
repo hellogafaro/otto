@@ -230,7 +230,7 @@ export function useGroupThreadRuntime(groupId: string, threadRef: ScopedThreadRe
       const modelSelection = respondingBot
         ? selectionFor(respondingBot)
         : members.length === 0
-          ? (project.defaultModelSelection ?? appDefaultModelSelection)
+          ? (appDefaultModelSelection ?? project.defaultModelSelection)
           : null;
 
       if (!modelSelection || (members.length > 0 && !respondingBot)) {

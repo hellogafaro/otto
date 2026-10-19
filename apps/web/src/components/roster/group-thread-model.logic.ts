@@ -1,8 +1,8 @@
 import { type BotEngine, type ModelSelection, ProviderInstanceId } from "@otto/contracts";
 
 /**
- * The model a group turn runs on: the responding member's own engine, else the project's
- * default, else the app default. Null when none of them is set.
+ * The model a group turn runs on: the responding member's own engine, else the
+ * current app default. The model stored on the project is the one from setup.
  */
 export function groupModelSelection(
   engine: BotEngine | null | undefined,
@@ -15,5 +15,5 @@ export function groupModelSelection(
         model: engine.model,
         ...(engine.options ? { options: engine.options } : {}),
       }
-    : (projectDefault ?? appDefault);
+    : (appDefault ?? projectDefault);
 }

@@ -224,10 +224,7 @@ export function useBotThreadRuntime(
         setError(null);
         const createdAt = new Date().toISOString();
 
-        const modelSelection: ModelSelection =
-          effectiveModelSelection ??
-          activeProject.defaultModelSelection ??
-          appDefaultModelSelection;
+        const modelSelection: ModelSelection = effectiveModelSelection ?? appDefaultModelSelection;
 
         const runtimeMode = DEFAULT_BOT_RUNTIME_MODE;
         const title = threadTitle(prompt, files);

@@ -135,6 +135,10 @@ describe("ProviderCommandReactor", () => {
           text: "use the default provider",
           attachments: [],
         },
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("codex"),
+          model: "gpt-5-codex",
+        },
         interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
         runtimeMode: "approval-required",
         createdAt: "2026-01-01T00:00:00.000Z",

@@ -102,8 +102,7 @@ export function useCreateChat() {
             : { groupId: GroupId.make(owner.id) }),
           title: options.title ?? PLACEHOLDER_THREAD_TITLE,
           ...(owner.kind === "bot" && options.visibility ? { visibility: options.visibility } : {}),
-          modelSelection:
-            project.defaultModelSelection ?? resolveAppModelSelectionState(settings, providers),
+          modelSelection: resolveAppModelSelectionState(settings, providers),
           runtimeMode: DEFAULT_BOT_RUNTIME_MODE,
           interactionMode: DEFAULT_INTERACTION_MODE,
           branch: null,
