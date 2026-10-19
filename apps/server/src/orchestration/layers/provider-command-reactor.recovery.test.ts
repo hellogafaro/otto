@@ -302,6 +302,12 @@ describe("ProviderCommandReactor", () => {
       lastError: expect.stringContaining("Use Resume to continue"),
     });
     expect(thread?.latestTurn?.state).toBe("error");
+    // Every rung of the ladder tried before giving up, and each failure was recorded.
+    expect(harness.sendTurn).toHaveBeenCalledTimes(5);
+    expect(
+      thread?.activities.filter((activity) => activity.kind === "provider.recovery.attempt"),
+    ).toHaveLength(5);
+    expect(thread?.session?.lastError).toContain("Provider was temporarily unavailable.");
   });
 
   it.each(["approval", "user-input"] as const)(

@@ -1,3 +1,5 @@
+import * as Context from "effect/Context";
+
 /**
  * How long to wait before the next automatic wake after a recoverable death
  * (server restart, killed process, out of memory, provider drop).
@@ -10,18 +12,27 @@ export const RECOVERY_BACKOFF_MS = [0, 15_000, 30_000, 60_000, 120_000] as const
 
 export const RECOVERY_MAX_ATTEMPTS = RECOVERY_BACKOFF_MS.length;
 
+/** The delays the server actually uses. Tests replace it so the ladder runs without waiting. */
+export const RecoveryBackoffSchedule = Context.Reference<ReadonlyArray<number>>(
+  "otto/recoveryBackoffSchedule",
+  { defaultValue: () => RECOVERY_BACKOFF_MS },
+);
+
 /** Persisted on the turn so a second restart does not start the ladder over. */
 export const RECOVERY_ATTEMPT_KIND = "provider.recovery.attempt";
 
 export const RECOVERY_GIVE_UP_DETAIL =
   "Automatic recovery failed. Use Resume to continue.";
 
-export function recoveryBackoffDelayMs(attempt: number): number | null {
-  if (!Number.isInteger(attempt) || attempt < 0 || attempt >= RECOVERY_BACKOFF_MS.length) {
+export function recoveryBackoffDelayMs(
+  attempt: number,
+  schedule: ReadonlyArray<number> = RECOVERY_BACKOFF_MS,
+): number | null {
+  if (!Number.isInteger(attempt) || attempt < 0 || attempt >= schedule.length) {
     return null;
   }
 
-  return RECOVERY_BACKOFF_MS[attempt] ?? null;
+  return schedule[attempt] ?? null;
 }
 
 export function countRecoveryAttempts(

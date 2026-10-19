@@ -22,6 +22,7 @@ import { createTurns } from "./provider-command/turns.ts";
 import { createRequests } from "./provider-command/requests.ts";
 import { createRouting } from "./provider-command/routing.ts";
 import { createRecovery } from "./provider-command/recovery.ts";
+import { RecoveryBackoffSchedule } from "./provider-command/recovery-backoff.ts";
 
 export {
   type KeyedDrainableWorker,
@@ -221,7 +222,10 @@ const make = Effect.gen(function* () {
     processSessionStopRequested,
   });
 
+  const recoveryBackoffSchedule = yield* RecoveryBackoffSchedule;
+
   const { recoverStartupProviderWork } = createRecovery({
+    recoveryBackoffSchedule,
     orchestrationEngine,
     serverEventId,
     projectionSnapshotQuery,

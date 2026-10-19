@@ -34,6 +34,7 @@ import { OrchestrationProjectionSnapshotQueryLive } from "../projection-snapshot
 import * as ThreadBackgroundLiveness from "../../thread-background-liveness.ts";
 import * as ThreadPlanProgress from "../../thread-plan-progress.ts";
 import { ProviderCommandReactorLive } from "../provider-command-reactor.ts";
+import { RecoveryBackoffSchedule } from "../provider-command/recovery-backoff.ts";
 import { OrchestrationEngineService } from "../../services/orchestration-engine.ts";
 import { ProviderCommandReactor } from "../../services/provider-command-reactor.ts";
 import { ProjectionSnapshotQuery } from "../../services/projection-snapshot-query.ts";
@@ -327,6 +328,8 @@ export function createProviderCommandHarness() {
       Layer.provideMerge(ServerSettingsService.layerTest(serverSettingsOverride(input))),
       Layer.provideMerge(ServerConfig.layerTest(process.cwd(), baseDir)),
       Layer.provideMerge(NodeServices.layer),
+      // The real ladder waits minutes; tests run every attempt at once.
+      Layer.provideMerge(Layer.succeed(RecoveryBackoffSchedule, [0, 0, 0, 0, 0])),
     );
 
     const managedRuntime = ManagedRuntime.make(layer);

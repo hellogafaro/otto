@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import {
   RECOVERY_ATTEMPT_KIND,
+  RECOVERY_BACKOFF_MS,
   RECOVERY_GIVE_UP_DETAIL,
   countRecoveryAttempts,
   recoveryBackoffDelayMs,
@@ -40,7 +41,11 @@ export function createRecovery({
   resumeInterruptedTurn,
   setThreadSessionErrorOnTurnStartFailure,
   formatFailureDetail,
-}: Pick<
+  recoveryBackoffSchedule: schedule = RECOVERY_BACKOFF_MS,
+}: {
+  /** Delays between automatic wakes; tests pass zeros. */
+  readonly recoveryBackoffSchedule?: ReadonlyArray<number>;
+} & Pick<
   Effect.Success<ReturnType<typeof createDependencies>> &
     ReturnType<typeof createDelegations> &
     Effect.Success<ReturnType<typeof createRouting>> &
@@ -407,7 +412,7 @@ export function createRecovery({
           );
 
           while (true) {
-            const delay = recoveryBackoffDelayMs(attempt);
+            const delay = recoveryBackoffDelayMs(attempt, schedule);
 
             if (delay === null) {
               const createdAt = DateTime.formatIso(yield* DateTime.now);
