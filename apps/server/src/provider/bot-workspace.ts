@@ -11,7 +11,6 @@ import {
   type CreateRemoteBotWorkspaceInput,
   type OttoRemoteSession,
 } from "./workspace/bot-workspace-types.ts";
-import * as Predicate from "effect/Predicate";
 import {
   type BotWorkspaceRecord,
   wrap,
@@ -21,10 +20,6 @@ import {
 } from "./workspace/bot-workspace-lifecycle.ts";
 import { RemoteSandbox } from "./workspace/remote-sandbox.ts";
 import { BOAT_TTL_SECONDS, boat, boatFailure } from "./workspace/adapters/boat.ts";
-import { e2b } from "./workspace/adapters/e2b.ts";
-import { daytona } from "./workspace/adapters/daytona.ts";
-import { vercel, vercelCredentials } from "./workspace/adapters/vercel.ts";
-import { railway, railwayCredentials } from "./workspace/adapters/railway.ts";
 
 export function isRemoteBotSandbox(
   value: BotSandbox | null | undefined,
@@ -94,9 +89,9 @@ export async function createRemoteBotWorkspace(
     (await readIdentity(input.io, identityFile)) ??
     (legacyIdentityFile ? await readIdentity(input.io, legacyIdentityFile) : undefined);
 
-  if (persisted && persisted.provider !== input.sandbox)
+  if (persisted && persisted.provider !== "boat")
     throw new Error(
-      `Workspace '${input.workspaceId}' belongs to '${persisted.provider}', not '${input.sandbox}'.`,
+      `Workspace '${input.workspaceId}' belongs to '${persisted.provider}', not 'boat'.`,
     );
   const owner = { provider: input.sandbox, scope: input.threadId };
   let session: OttoRemoteSession;
@@ -196,8 +191,7 @@ export async function destroyRemoteComputer(input: {
 
     if (cause instanceof ResponseError && cause.response.status === 404) return;
 
-    if (Predicate.hasProperty(cause, "code") && cause.code === "SANDBOX_REATTACH_FAILED") return;
-    throw input.provider === "boat" ? await boatFailure(cause) : cause;
+    throw await boatFailure(cause);
   }
 }
 
@@ -207,8 +201,8 @@ async function rename(client: import("@boatdev/sdk").BoatApi, sandboxId: string,
 }
 
 async function connect(
-  provider: RemoteBotSandbox,
-  id: string,
+  _provider: RemoteBotSandbox,
+  _id: string,
   environment: Readonly<Record<string, string>> = {},
   persisted: BotWorkspaceRecord | undefined,
   saveCreateKey: (createKey: string) => Promise<void>,
@@ -217,71 +211,13 @@ async function connect(
   },
 ): Promise<OttoRemoteSession | undefined> {
   const providerId = persisted?.providerId;
-
-  // A confirmed-missing VM is replaced; any other failure keeps the saved identity.
-  const reattach = providerId
-    ? {
-        sandboxId: providerId,
-        ...(options.replaceMissing ? {} : { reattach: "required" as const }),
-      }
-    : {};
-
-  if (provider === "e2b") {
-    const { E2BSandbox } = await import("@mastra/e2b");
-    const apiKey = credential(environment, "E2B_API_KEY");
-
-    const sandbox = new E2BSandbox({
-      id,
-      apiKey,
-      lifecycle: { onTimeout: "pause" },
-      network: { allowPublicTraffic: false },
-      ...reattach,
-    });
-
-    await sandbox._start();
-
-    return e2b(sandbox, apiKey);
-  }
-
-  if (provider === "daytona") {
-    const { DaytonaSandbox } = await import("@mastra/daytona");
-
-    const sandbox = new DaytonaSandbox({
-      id,
-      name: id,
-      apiKey: credential(environment, "DAYTONA_API_KEY"),
-    });
-
-    await sandbox._start();
-
-    return daytona(sandbox);
-  }
-
-  if (provider === "vercel") {
-    const { VercelSandbox } = await import("@mastra/vercel");
-    const credentials = vercelCredentials(environment);
-    const sandbox = new VercelSandbox({ id, sandboxName: id, ...credentials });
-    await sandbox._start();
-
-    return vercel(sandbox, credentials);
-  }
-
-  if (provider === "railway") {
-    const { RailwaySandbox } = await import("@mastra/railway");
-    const credentials = await railwayCredentials(environment);
-    const sandbox = new RailwaySandbox({ id, ...credentials, ...reattach });
-    await sandbox._start();
-
-    return railway(sandbox, credentials);
-  }
-
   const { BoatApi, Configuration, ResponseError } = await import("@boatdev/sdk");
 
   const client = new BoatApi(
     new Configuration({ accessToken: credential(environment, "BOAT_API_KEY") }),
   );
 
-  // Boat shows the owner's id as the name, so a computer in its dashboard leads back to its bot.
+  // Boat shows the chat's scope so a computer in its dashboard leads back to its bot and chat.
   const name = options.scope;
 
   if (providerId) {
@@ -329,12 +265,4 @@ export {
   type CreateBotWorkspaceInput,
 } from "./workspace/bot-workspace-types.ts";
 
-export { railway, railwayWorkspaceState } from "./workspace/adapters/railway.ts";
-
 export { boat } from "./workspace/adapters/boat.ts";
-
-export { e2b } from "./workspace/adapters/e2b.ts";
-
-export { daytona } from "./workspace/adapters/daytona.ts";
-
-export { vercelWorkspaceState, vercel } from "./workspace/adapters/vercel.ts";

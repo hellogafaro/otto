@@ -612,7 +612,7 @@ describe("AgentControllerLive", () => {
     const mastra = mastraHarnessFixture();
 
     const access: OttoDelegationAccessGrant = {
-      sandbox: "e2b",
+      sandbox: "boat",
       runtimeMode: "full-access",
       enabledMcpServerIds: [],
       disabledMcpServerIds: [],
@@ -663,10 +663,9 @@ describe("AgentControllerLive", () => {
         providerInstanceId: codexInstanceId,
         modelSelection: codexSelection,
         runtimeMode: "full-access",
-        botSandbox: "e2b",
+        botSandbox: "boat",
         botSandboxEnvironment: {
-          UPSTASH_REDIS_REST_URL: "https://sandbox.example",
-          UPSTASH_REDIS_REST_TOKEN: "sandbox-token",
+          BOAT_API_KEY: "boat-token",
         },
         cwd: "/workspace/remote-project",
       });
@@ -677,10 +676,9 @@ describe("AgentControllerLive", () => {
         providerInstanceId: codexInstanceId,
         modelSelection: codexSelection,
         runtimeMode: "full-access",
-        botSandbox: "e2b",
+        botSandbox: "boat",
         botSandboxEnvironment: {
-          UPSTASH_REDIS_REST_URL: "https://sandbox.example",
-          UPSTASH_REDIS_REST_TOKEN: "sandbox-token",
+          BOAT_API_KEY: "boat-token",
         },
       });
       const reusedState = vi.mocked(mastra.session.state.set).mock.calls.at(-1)?.[0];
@@ -691,10 +689,9 @@ describe("AgentControllerLive", () => {
       expect(makeRemoteWorkspace).toHaveBeenCalledWith(
         expect.objectContaining({
           threadId: `thread-${codexThreadId}`,
-          sandbox: "e2b",
+          sandbox: "boat",
           environment: {
-            UPSTASH_REDIS_REST_URL: "https://sandbox.example",
-            UPSTASH_REDIS_REST_TOKEN: "sandbox-token",
+            BOAT_API_KEY: "boat-token",
           },
           workspaceId: expect.stringMatching(/^otto-[a-f0-9]{24}$/),
           identityFile: expect.stringMatching(/bot-workspaces\/otto-[0-9a-f]+\.json$/),

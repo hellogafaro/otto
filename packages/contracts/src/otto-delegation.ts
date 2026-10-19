@@ -15,7 +15,7 @@ import {
   TurnId,
 } from "./base-schemas.ts";
 import { McpServerId } from "./mcp-server.ts";
-import { BotSandbox } from "./orchestration/roster.ts";
+import { PersistedBotSandbox } from "./orchestration/roster.ts";
 import { RuntimeMode } from "./orchestration/model-selection.ts";
 
 const DelegationPhase = Data.taggedEnum<OttoDelegationPhase>();
@@ -57,7 +57,7 @@ export type OttoDelegationTrigger = typeof OttoDelegationTrigger.Type;
 
 /** The target bot's own settings when the work started. */
 export const OttoDelegationAccessGrant = Schema.Struct({
-  sandbox: Schema.NullOr(Schema.suspend((): Schema.Codec<BotSandbox> => BotSandbox)),
+  sandbox: PersistedBotSandbox,
   runtimeMode: Schema.suspend((): Schema.Codec<RuntimeMode> => RuntimeMode),
   enabledMcpServerIds: Schema.Array(McpServerId).pipe(
     Schema.withDecodingDefault(Effect.succeed([])),

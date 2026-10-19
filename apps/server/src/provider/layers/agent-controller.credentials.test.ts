@@ -147,71 +147,72 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("preserves the Railway VM when an active session rotates credentials", () => {
-    const bridge = makeBridge();
-    const mastra = mastraHarnessFixture();
-    const destroy = vi.fn(async () => undefined);
+  it.effect(
+    "starts a new Boat computer when the API key changes, without destroying the old one",
+    () => {
+      const bridge = makeBridge();
+      const mastra = mastraHarnessFixture();
+      const destroy = vi.fn(async () => undefined);
 
-    const makeRemoteWorkspace = vi.fn(
-      async (_input: import("../bot-workspace.ts").CreateRemoteBotWorkspaceInput) => ({
-        id: "railway-vm",
-        provider: "railway" as const,
-        workspace: new Workspace({
-          filesystem: new LocalFilesystem({ basePath: process.cwd() }),
-          sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
-        }),
-        inspect: async () => "running" as const,
-        wake: async () => undefined,
-        sleep: async () => undefined,
-        destroy,
-      }),
-    );
-
-    const layer = agentControllerLayerWith({
-      makeMastraHarness: mastra.factory,
-      makeRemoteWorkspace,
-    }).pipe(
-      Layer.provide(
-        Layer.mergeAll(
-          Layer.succeed(LegacyProviderBridge, bridge.service),
-          Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
-          ServerConfig.layerTest(process.cwd(), { prefix: "otto-railway-rotation-test-" }).pipe(
-            Layer.provide(NodeServices.layer),
-          ),
-          NodeServices.layer,
-        ),
-      ),
-    );
-
-    return Effect.gen(function* () {
-      const controller = yield* AgentController;
-      yield* resolveCodex(controller);
-
-      const input = {
-        threadId: codexThreadId,
-        provider: ProviderDriverKind.make("codex"),
-        providerInstanceId: codexInstanceId,
-        modelSelection: codexSelection,
-        runtimeMode: "full-access" as const,
-        botSandbox: "railway" as const,
-      };
-
-      for (const token of ["old", "new"]) {
-        yield* controller.startSession(codexThreadId, {
-          ...input,
-          botSandboxEnvironment: { RAILWAY_API_TOKEN: token, RAILWAY_ENVIRONMENT_ID: "env" },
-        });
-      }
-
-      expect(makeRemoteWorkspace).toHaveBeenCalledTimes(2);
-      expect(makeRemoteWorkspace.mock.calls[0]?.[0]).toEqual(
-        expect.objectContaining({
-          workspaceId: makeRemoteWorkspace.mock.calls[1]?.[0]?.workspaceId,
+      const makeRemoteWorkspace = vi.fn(
+        async (_input: import("../bot-workspace.ts").CreateRemoteBotWorkspaceInput) => ({
+          id: "boat-vm",
+          provider: "boat" as const,
+          workspace: new Workspace({
+            filesystem: new LocalFilesystem({ basePath: process.cwd() }),
+            sandbox: new LocalSandbox({ workingDirectory: process.cwd() }),
+          }),
+          inspect: async () => "running" as const,
+          wake: async () => undefined,
+          sleep: async () => undefined,
+          destroy,
         }),
       );
-      expect(destroy).not.toHaveBeenCalled();
-      yield* controller.startSession(codexThreadId, { ...input, botSandbox: "e2b" });
-      expect(destroy).not.toHaveBeenCalled();
-    }).pipe(Effect.provide(layer), Effect.orDie);
-  });
+
+      const layer = agentControllerLayerWith({
+        makeMastraHarness: mastra.factory,
+        makeRemoteWorkspace,
+      }).pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeed(LegacyProviderBridge, bridge.service),
+            Layer.succeed(BotUsageLedger, usageLedgerFixture().service),
+            ServerConfig.layerTest(process.cwd(), { prefix: "otto-boat-rotation-test-" }).pipe(
+              Layer.provide(NodeServices.layer),
+            ),
+            NodeServices.layer,
+          ),
+        ),
+      );
+
+      return Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+
+        const input = {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          modelSelection: codexSelection,
+          runtimeMode: "full-access" as const,
+          botSandbox: "boat" as const,
+        };
+
+        for (const token of ["old", "new"]) {
+          yield* controller.startSession(codexThreadId, {
+            ...input,
+            botSandboxEnvironment: { BOAT_API_KEY: token },
+          });
+        }
+
+        expect(makeRemoteWorkspace).toHaveBeenCalledTimes(2);
+        expect(makeRemoteWorkspace.mock.calls[0]?.[0]?.workspaceId).not.toBe(
+          makeRemoteWorkspace.mock.calls[1]?.[0]?.workspaceId,
+        );
+        expect(destroy).not.toHaveBeenCalled();
+        yield* controller.startSession(codexThreadId, { ...input, botSandbox: "local" });
+        expect(destroy).not.toHaveBeenCalled();
+      }).pipe(Effect.provide(layer), Effect.orDie);
+    },
+  );
 });

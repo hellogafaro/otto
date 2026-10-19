@@ -354,7 +354,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
       const engine = yield* OrchestrationEngineService;
       const snapshots = yield* ProjectionSnapshotQuery;
 
-      for (const sandbox of [null, "local", "vercel"] as const) {
+      for (const sandbox of [null, "local", "boat"] as const) {
         yield* engine.dispatch({
           type: "bot.create",
           commandId: CommandId.make(`cmd-bot-default-${sandbox ?? "null"}`),
@@ -379,7 +379,7 @@ it.layer(TestLayer)("bot persistence", (it) => {
         "full-access",
       );
       assert.equal(
-        bots.find((bot) => bot.id === BotId.make("bot-default-vercel"))?.runtimeMode,
+        bots.find((bot) => bot.id === BotId.make("bot-default-boat"))?.runtimeMode,
         "full-access",
       );
     }),

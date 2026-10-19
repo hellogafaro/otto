@@ -1,6 +1,4 @@
 export const memoryCatalog = {
-  "Run bots in a durable Railway VM. Idle VMs keep running and can incur charges. Previews require a Railway CLI tunnel.":
-    "Run bots in a durable Railway VM. Idle VMs keep running and can incur charges. Previews require a Railway CLI tunnel.",
   "Approval needed": "Approval needed",
   "Load older routine notes": "Load older routine notes",
   "Loading older routine notes…": "Loading older routine notes…",

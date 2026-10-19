@@ -18,18 +18,37 @@ import { Duration } from "effect";
 import type { OttoBotWorkspace } from "./bot-workspace.ts";
 
 /**
- * Every bot gets its own computer, named by its id; a thread without a bot gets its own. Its
- * chats share it, each in its own folder (see `bot-chat-folder.ts`).
+ * One computer per chat. The bot id stays in the name so sweep can delete a
+ * bot's computers and Boat's dashboard can show which bot a VM belongs to.
  */
 export function botRuntimeResourceScope(input: {
   readonly botId?: BotId;
   readonly threadId: string;
 }): string {
-  return input.botId ?? `thread-${input.threadId}`;
+  return input.botId ? `${input.botId}_${input.threadId}` : `thread-${input.threadId}`;
 }
 
-/** The scope a bot's computer had before it was named by the bot's id alone. */
-export const legacyBotResourceScope = (botId: string) => `bot-${botId}`;
+/** The bot that owns a computer scope, or undefined when the scope is an orphan thread. */
+export function botIdFromResourceScope(
+  scope: string | undefined,
+  botIds: Iterable<string>,
+): string | undefined {
+  if (!scope || scope.startsWith("thread-")) return undefined;
+  let found: string | undefined;
+
+  for (const botId of botIds) {
+    if (scope === botId || scope === `bot-${botId}` || scope.startsWith(`${botId}_`)) {
+      if (!found || botId.length > found.length) found = botId;
+    }
+  }
+
+  return found;
+}
+
+/** A computer keyed only by the bot, from before each chat had its own. */
+export function isLegacyBotComputerScope(scope: string | undefined, botId: string): boolean {
+  return scope === botId || scope === `bot-${botId}`;
+}
 
 export function botWorkspaceResourceKey(input: {
   readonly resourceScope: string;
@@ -91,10 +110,7 @@ export function defaultBotSandbox(
 }
 
 export function botWorkspaceIdentity(resourceKey: string): string {
-  // Credentials select a live client, not a new durable Railway VM.
-  const identityKey = resourceKey.replace(/^railway:[^:]*:/, "railway:");
-
-  return `otto-${NodeCrypto.createHash("sha256").update(identityKey).digest("hex").slice(0, 24)}`;
+  return `otto-${NodeCrypto.createHash("sha256").update(resourceKey).digest("hex").slice(0, 24)}`;
 }
 
 export interface BotWorkspaceLease {
@@ -141,7 +157,6 @@ export class BotWorkspacePool {
   private readonly failed = new Set<string>();
   private readonly retrying = new Set<string>();
   private readonly closing = new Map<string, Promise<void>>();
-  private readonly identityLocks = new Map<string, Promise<void>>();
 
   constructor(options: BotWorkspacePoolOptions = {}) {
     this.clock = options.clock;
@@ -187,12 +202,7 @@ export class BotWorkspacePool {
               Match.when("local", () =>
                 Effect.promise(() => workspace.destroy().catch(() => undefined)),
               ),
-              Match.when("boat", () => Effect.void),
-              Match.orElse(() =>
-                Effect.sync(() => {
-                  this.sleepers.set(key, workspace);
-                }),
-              ),
+              Match.orElse(() => Effect.void),
             ),
           ),
         ),
@@ -246,21 +256,7 @@ export class BotWorkspacePool {
     this.acquisitions.set(key, (this.acquisitions.get(key) ?? 0) + 1);
 
     try {
-      // Credential-scoped Railway keys share one VM; open them one at a time so only one creates it.
-      if (!key.startsWith("railway:")) return await this.acquireOnce(key, create);
-      const identity = botWorkspaceIdentity(key);
-      const previous = this.identityLocks.get(identity);
-      const lock = Promise.withResolvers<void>();
-      this.identityLocks.set(identity, lock.promise);
-      await previous;
-
-      try {
-        return await this.acquireOnce(key, create);
-      } finally {
-        lock.resolve();
-
-        if (this.identityLocks.get(identity) === lock.promise) this.identityLocks.delete(identity);
-      }
+      return await this.acquireOnce(key, create);
     } finally {
       const remaining = (this.acquisitions.get(key) ?? 1) - 1;
 

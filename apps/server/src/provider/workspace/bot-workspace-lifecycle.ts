@@ -3,11 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Match from "effect/Match";
 import type { BotWorkspaceIO } from "./bot-workspace-io.ts";
 import { Workspace } from "@mastra/core/workspace";
-import {
-  type RemoteBotSandbox,
-  type OttoBotWorkspace,
-  REMOTE_BOT_SANDBOXES,
-} from "./bot-workspace-types.ts";
+import { type RemoteBotSandbox, type OttoBotWorkspace } from "./bot-workspace-types.ts";
 
 export function wrap(workspace: Workspace, provider: "local" | RemoteBotSandbox): OttoBotWorkspace {
   return {
@@ -28,11 +24,23 @@ export function wrap(workspace: Workspace, provider: "local" | RemoteBotSandbox)
 
 /**
  * One record per computer, written before the provider creates it: who owns it (`scope` is
- * `bot-<id>` or `thread-<id>`), the provider's id once created, Boat's idempotency key, and
- * when a session last opened it.
+ * `{botId}_{chatId}` or `thread-{chatId}`), the provider's id once created, Boat's
+ * idempotency key, and when a session last opened it. Retired providers stay in the
+ * schema so leftover identity files decode and the sweep can drop them.
  */
 const BotWorkspaceRecord = Schema.Struct({
-  provider: Schema.Literals(["local", ...REMOTE_BOT_SANDBOXES]),
+  provider: Schema.Literals([
+    "local",
+    "boat",
+    "e2b",
+    "daytona",
+    "vercel",
+    "railway",
+    "ascii",
+    "upstash",
+    "tenki",
+    "otto-cloud",
+  ]),
   providerId: Schema.optional(Schema.String),
   createKey: Schema.optional(Schema.String),
   scope: Schema.optional(Schema.String),

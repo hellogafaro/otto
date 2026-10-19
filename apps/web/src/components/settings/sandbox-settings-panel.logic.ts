@@ -23,38 +23,6 @@ export interface SandboxProviderDefinition {
 const SANDBOX_PROVIDER_DEFINITION_BY_ID: Readonly<
   Record<CloudSandboxProvider, SandboxProviderDefinition>
 > = {
-  e2b: {
-    id: "e2b",
-    label: "E2B",
-    description: "Cloud workspaces managed by E2B. Requires an API key.",
-    fields: [{ name: "E2B_API_KEY", label: "API key", secret: true }],
-  },
-  daytona: {
-    id: "daytona",
-    label: "Daytona",
-    description: "Cloud workspaces managed by Daytona. Requires an API key.",
-    fields: [{ name: "DAYTONA_API_KEY", label: "API key", secret: true }],
-  },
-  vercel: {
-    id: "vercel",
-    label: "Vercel Sandbox",
-    description: "Cloud workspaces in your Vercel team and project.",
-    fields: [
-      { name: "VERCEL_TOKEN", label: "Token", secret: true },
-      { name: "VERCEL_TEAM_ID", label: "Team ID", secret: false },
-      { name: "VERCEL_PROJECT_ID", label: "Project ID", secret: false },
-    ],
-  },
-  railway: {
-    id: "railway",
-    label: "Railway",
-    description:
-      "Run bots in a durable Railway VM. Idle VMs keep running and can incur charges. Previews require a Railway CLI tunnel.",
-    fields: [
-      { name: "RAILWAY_API_TOKEN", label: "API token", secret: true },
-      { name: "RAILWAY_ENVIRONMENT_ID", label: "Environment ID", secret: false },
-    ],
-  },
   boat: {
     id: "boat",
     label: "Boat",
@@ -163,17 +131,4 @@ export function disconnectSandboxProvider(
     defaultProvider: settings.defaultProvider === provider ? "local" : settings.defaultProvider,
     providers: { ...settings.providers, [provider]: { environment: [] } },
   };
-}
-
-export type RailwayConnectionChange =
-  | { readonly kind: "disconnect" }
-  | { readonly kind: "save"; readonly draft: Readonly<Record<string, string>> };
-
-export function applyRailwayConnectionChange(
-  settings: SandboxSettings,
-  change: RailwayConnectionChange,
-) {
-  return change.kind === "disconnect"
-    ? disconnectSandboxProvider(settings, "railway")
-    : saveSandboxProviderConnection({ settings, provider: "railway", draft: change.draft });
 }

@@ -1,11 +1,4 @@
 export const connectionsCatalog = {
-  "Retire Railway VMs before changing access": "Retire Railway VMs before changing access",
-  "Open Railway dashboard": "Open Railway dashboard",
-  "Changing or removing credentials does not stop or delete Railway VMs. They can keep accruing charges. Stop active bot sessions, then open your environment in the Railway dashboard and destroy any VMs you no longer need before removing access. If you are rotating a token, keep access to the same environment to reconnect to existing VMs. Otto preserves saved VM identities and will not silently create replacements.":
-    "Changing or removing credentials does not stop or delete Railway VMs. They can keep accruing charges. Stop active bot sessions, then open your environment in the Railway dashboard and destroy any VMs you no longer need before removing access. If you are rotating a token, keep access to the same environment to reconnect to existing VMs. Otto preserves saved VM identities and will not silently create replacements.",
-  "Environment ID": "Environment ID",
-  "Otto pauses idle remote sandboxes when supported. Railway VMs keep running until cleanup.":
-    "Otto pauses idle remote sandboxes when supported. Railway VMs keep running until cleanup.",
   "Add Environment": "Add Environment",
   "Add environment": "Add environment",
   "All environments": "All environments",
@@ -347,14 +340,8 @@ export const connectionsCatalog = {
     "This environment has no {provider} runtime. Update the environment server to configure it here.",
   "this environment": "this environment",
   "Browser viewport": "Browser viewport",
-  "Cloud workspaces managed by E2B. Requires an API key.":
-    "Cloud workspaces managed by E2B. Requires an API key.",
   "Persistent Linux VMs managed by Boat. Requires an API key.":
     "Persistent Linux VMs managed by Boat. Requires an API key.",
-  "Cloud workspaces managed by Daytona. Requires an API key.":
-    "Cloud workspaces managed by Daytona. Requires an API key.",
-  "Cloud workspaces in your Vercel team and project.":
-    "Cloud workspaces in your Vercel team and project.",
   "Network access": "Network access",
   "No models available. Check your provider connection in Settings.":
     "No models available. Check your provider connection in Settings.",

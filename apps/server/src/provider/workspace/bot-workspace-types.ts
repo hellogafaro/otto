@@ -2,7 +2,7 @@ import type { BotWorkspaceIO } from "./bot-workspace-io.ts";
 import { Workspace } from "@mastra/core/workspace";
 import type { BotSandbox } from "@otto/contracts";
 
-export const REMOTE_BOT_SANDBOXES = ["e2b", "daytona", "vercel", "railway", "boat"] as const;
+export const REMOTE_BOT_SANDBOXES = ["boat"] as const;
 
 export type RemoteBotSandbox = (typeof REMOTE_BOT_SANDBOXES)[number];
 

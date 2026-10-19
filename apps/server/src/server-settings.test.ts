@@ -576,19 +576,17 @@ it.layer(NodeServices.layer)("server settings", (it) => {
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
 
-  it.effect("rejects incomplete sandbox connections", () =>
+  it.effect("rejects Boat as a connected sandbox without its API key", () =>
     Effect.gen(function* () {
       const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
 
       const error = yield* Effect.flip(
         serverSettings.updateSettings({
           sandbox: {
+            defaultProvider: "boat",
             providers: {
-              vercel: {
-                environment: [
-                  { name: "VERCEL_TOKEN", value: "secret", sensitive: true },
-                  { name: "VERCEL_TEAM_ID", value: "team", sensitive: false },
-                ],
+              boat: {
+                environment: [],
               },
             },
           },
@@ -597,8 +595,7 @@ it.layer(NodeServices.layer)("server settings", (it) => {
 
       assert.deepInclude(error, {
         operation: "validate-sandbox",
-        providerInstanceId: "sandbox:vercel",
-        environmentVariable: "VERCEL_PROJECT_ID",
+        environmentVariable: "BOAT_API_KEY",
       });
     }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
@@ -646,11 +643,8 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       const saved = yield* serverSettings.updateSettings({
         sandbox: {
           providers: {
-            railway: {
-              environment: [
-                { name: "RAILWAY_API_TOKEN", value: "token", sensitive: true },
-                { name: "RAILWAY_ENVIRONMENT_ID", value: "environment", sensitive: false },
-              ],
+            boat: {
+              environment: [{ name: "BOAT_API_KEY", value: "token", sensitive: true }],
             },
           },
         },

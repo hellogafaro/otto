@@ -24,7 +24,7 @@ describe("OttoSessionResources", () => {
 
     const botWorkspace = {
       ...localBotWorkspace(remote),
-      provider: "vercel" as const,
+      provider: "boat" as const,
       sleep: vi
         .fn()
         .mockRejectedValueOnce(new Error("pause unavailable"))
@@ -49,7 +49,7 @@ describe("OttoSessionResources", () => {
 
     const botWorkspace = {
       ...localBotWorkspace(remote),
-      provider: "vercel" as const,
+      provider: "boat" as const,
       sleep: vi
         .fn()
         .mockRejectedValueOnce(new Error("pause unavailable"))
@@ -73,7 +73,7 @@ describe("OttoSessionResources", () => {
   it("keeps a released computer awake for the idle time and sleeps it at shutdown", async () => {
     const botWorkspace = {
       ...localBotWorkspace(workspace()),
-      provider: "vercel" as const,
+      provider: "boat" as const,
       sleep: vi.fn(async () => undefined),
     };
 
