@@ -81,9 +81,30 @@ export function fakeClient(input?: {
   readonly toolkits?: ReadonlyArray<{
     readonly slug: string;
     readonly name: string;
-    readonly meta: { readonly toolsCount?: number };
+    readonly noAuth?: boolean;
+    readonly meta: {
+      readonly description?: string;
+      readonly logo?: string;
+      readonly toolsCount?: number;
+      readonly categories?: ReadonlyArray<{ readonly name: string }>;
+    };
+  }>;
+  readonly customToolkits?: ReadonlyArray<{
+    readonly slug: string;
+    readonly name: string;
+    readonly noAuth?: boolean;
+    readonly meta: {
+      readonly description?: string;
+      readonly logo?: string;
+      readonly toolsCount?: number;
+    };
   }>;
   readonly tools?: ReadonlyArray<{ readonly slug: string; readonly name: string }>;
+  readonly latestTools?: ReadonlyArray<{
+    readonly slug: string;
+    readonly name: string;
+    readonly description?: string;
+  }>;
   readonly triggerTypes?: ReadonlyArray<{
     readonly slug: string;
     readonly name: string;
@@ -151,8 +172,12 @@ export function fakeClient(input?: {
             authConfigDetails: [],
           },
       ),
+      listCustom: vi.fn(async () => input?.customToolkits ?? []),
     },
-    tools: { getRawComposioTools: vi.fn(async () => input?.tools ?? []) },
+    tools: {
+      getRawComposioTools: vi.fn(async () => input?.tools ?? []),
+      listLatest: vi.fn(async () => input?.latestTools ?? input?.tools ?? []),
+    },
     connectedAccounts: {
       list: vi.fn(async () => ({ items: input?.accounts ?? [], totalPages: 1 })),
       delete: vi.fn(async () => ({})),

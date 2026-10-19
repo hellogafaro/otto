@@ -10,34 +10,53 @@ import {
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 
 type ComposioSdk = InstanceType<typeof Composio>;
 
 type HostedSession = Awaited<ReturnType<ComposioSdk["sessions"]["create"]>>;
 
+/** One app from Composio's catalog, native or a project custom MCP toolkit. */
+export type ComposioListedToolkit = {
+  readonly slug: string;
+  readonly name: string;
+  /** Custom MCP toolkits that need no connected account. */
+  readonly noAuth?: boolean;
+  readonly meta: {
+    readonly description?: string | null | undefined;
+    readonly logo?: string | null | undefined;
+    readonly categories?: ReadonlyArray<{ readonly name: string }> | null | undefined;
+    readonly toolsCount?: number | null | undefined;
+  };
+};
+
+const COMPOSIO_API = "https://backend.composio.dev/api/v3.1";
+
 /** The part of the Composio SDK Otto uses, so tests can stand in for it. */
 export type ComposioClient = {
   toolkits: {
-    get: (...args: Parameters<ComposioSdk["toolkits"]["get"]>) => Promise<
-      ReadonlyArray<{
-        slug: string;
-        name: string;
-        meta: {
-          description?: string | null | undefined;
-          logo?: string | null | undefined;
-          categories?: ReadonlyArray<{ name: string }> | null | undefined;
-          toolsCount?: number | null | undefined;
-        };
-      }>
-    >;
+    get: (
+      ...args: Parameters<ComposioSdk["toolkits"]["get"]>
+    ) => ReturnType<ComposioSdk["toolkits"]["get"]>;
     /** One toolkit, including the auth schemes Composio lists for it. */
     getBySlug: (slug: string) => Promise<unknown>;
+    /**
+     * Project custom MCP toolkits. The SDK list does not forward `type` or `user_id`,
+     * so a custom Infisical never appears in `get`.
+     */
+    listCustom: (userId: string) => Promise<ReadonlyArray<ComposioListedToolkit>>;
   };
   tools: {
     getRawComposioTools: (query: {
       readonly toolkits: string[];
       readonly limit: number;
     }) => Promise<
+      ReadonlyArray<{ slug: string; name: string; description?: string | null | undefined }>
+    >;
+    /** Latest tools for a custom toolkit. The pinned v3 list can be empty after a sync. */
+    listLatest: (
+      slug: string,
+    ) => Promise<
       ReadonlyArray<{ slug: string; name: string; description?: string | null | undefined }>
     >;
   };
@@ -334,6 +353,81 @@ function connectRequest(value: {
   };
 }
 
+async function composioJson(
+  apiKey: string,
+  path: string,
+  query: Record<string, string | undefined>,
+): Promise<unknown> {
+  const url = new URL(`${COMPOSIO_API}${path}`);
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value) url.searchParams.set(key, value);
+  }
+
+  const response = await Effect.runPromise(
+    HttpClient.execute(
+      HttpClientRequest.get(url.toString()).pipe(HttpClientRequest.setHeader("x-api-key", apiKey)),
+    ).pipe(Effect.provide(FetchHttpClient.layer)),
+  );
+
+  if (response.status < 200 || response.status >= 300) {
+    throw Object.assign(new Error(`Composio returned ${response.status}.`), {
+      status: response.status,
+    });
+  }
+
+  return Effect.runPromise(response.json);
+}
+
+function listedToolkit(value: unknown): ComposioListedToolkit | undefined {
+  const item = asRecord(value);
+  const slug = text(item?.slug);
+  const name = text(item?.name);
+
+  if (!item || !slug || !name) return undefined;
+  const meta = asRecord(item.meta);
+  const categories = Array.isArray(meta?.categories)
+    ? meta.categories.flatMap((category) => {
+        const name = text(asRecord(category)?.name);
+
+        return name ? [{ name }] : [];
+      })
+    : undefined;
+  const toolsCount = meta?.tools_count ?? meta?.toolsCount;
+
+  return {
+    slug,
+    name,
+    noAuth: item.no_auth === true || item.noAuth === true,
+    meta: {
+      ...(text(meta?.description) ? { description: text(meta?.description) } : {}),
+      ...(text(meta?.logo) ? { logo: text(meta?.logo) } : {}),
+      ...(categories ? { categories } : {}),
+      ...(typeof toolsCount === "number" ? { toolsCount } : {}),
+    },
+  };
+}
+
+async function listPages(
+  apiKey: string,
+  path: string,
+  query: Record<string, string | undefined>,
+): Promise<readonly unknown[]> {
+  const items: unknown[] = [];
+  let cursor: string | undefined;
+
+  for (let page = 0; page < 20; page += 1) {
+    const body = asRecord(await composioJson(apiKey, path, { ...query, cursor }));
+    const next = Array.isArray(body?.items) ? body.items : [];
+    items.push(...next);
+    cursor = text(body?.next_cursor) ?? text(body?.nextCursor);
+
+    if (!cursor || next.length === 0) break;
+  }
+
+  return items;
+}
+
 export function createComposioClient(apiKey: string): ComposioClient {
   const sdk = new Composio({ apiKey });
 
@@ -341,8 +435,44 @@ export function createComposioClient(apiKey: string): ComposioClient {
     toolkits: {
       get: (...args) => sdk.toolkits.get(...args),
       getBySlug: (slug) => (sdk.toolkits.get as (slug: string) => Promise<unknown>)(slug),
+      listCustom: async (userId) =>
+        (
+          await listPages(apiKey, "/toolkits", {
+            type: "custom",
+            user_id: userId,
+            limit: "1000",
+          })
+        ).flatMap((item) => {
+          const toolkit = listedToolkit(item);
+
+          return toolkit ? [toolkit] : [];
+        }),
     },
-    tools: { getRawComposioTools: (query) => sdk.tools.getRawComposioTools(query) },
+    tools: {
+      getRawComposioTools: (query) => sdk.tools.getRawComposioTools(query),
+      listLatest: async (slug) =>
+        (
+          await listPages(apiKey, "/tools", {
+            toolkit_slug: slug,
+            toolkit_versions: "latest",
+            limit: "1000",
+          })
+        ).flatMap((item) => {
+          const tool = asRecord(item);
+          const toolSlug = text(tool?.slug);
+          const name = text(tool?.name);
+
+          if (!toolSlug || !name) return [];
+
+          return [
+            {
+              slug: toolSlug,
+              name,
+              ...(text(tool?.description) ? { description: text(tool?.description) } : {}),
+            },
+          ];
+        }),
+    },
     connectedAccounts: {
       list: (...args) => sdk.connectedAccounts.list(...args),
       delete: (...args) => sdk.connectedAccounts.delete(...args),

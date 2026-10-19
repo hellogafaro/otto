@@ -15,9 +15,9 @@ import { Predicate } from "effect";
 import { useEffect, useState } from "react";
 
 import { useI18n } from "../../i18n";
-import { SkeletonSettingsSections } from "../ui/skeleton";
+import { SkeletonIntegrationGroups } from "../ui/skeleton";
 import { cn } from "../../lib/utils";
-import { environmentMcpServersAtom } from "../../state/mcp-servers";
+import { environmentSnapshotAtom } from "../../state/shell";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -116,7 +116,10 @@ export function CustomizeIntegrations({
   const navigate = useNavigate();
   const composio = useComposio(environmentId);
   const github = useGitHubIntegration(environmentId);
-  const servers = useAtomValue(environmentMcpServersAtom(environmentId));
+  const snapshot = useAtomValue(environmentSnapshotAtom(environmentId));
+  const servers = snapshot?.mcpServers ?? [];
+  const composioSettled = composio.status.data !== null || composio.status.error !== null;
+  const waiting = snapshot === null || !composioSettled;
   const configured = composio.status.data?.configured === true;
   const connections = composio.status.data?.connections ?? [];
   const [mcpDialog, setMcpDialog] = useState<ComposioVisibility | null>(null);
@@ -130,8 +133,8 @@ export function CustomizeIntegrations({
     return () => window.removeEventListener("focus", refreshStatus);
   }, [refreshStatus]);
 
-  if (!composio.status.data || !github.loaded)
-    return <SkeletonSettingsSections label={t("Loading settings")} sections={[2, 2]} />;
+  if (waiting && connections.length === 0 && servers.length === 0)
+    return <SkeletonIntegrationGroups label={t("Loading settings")} />;
 
   const groups = (["user", "organization"] as const).map((visibility) => {
     const apps = connections.filter((connection) => connection.visibility === visibility);
@@ -140,13 +143,14 @@ export function CustomizeIntegrations({
 
     const team = visibility === "organization";
     const count = apps.length + mcps.length + (github.linked(team) ? 1 : 0);
+    const settled = !waiting;
 
     return (
       <CustomizeGroup
         key={visibility}
         title={visibility === "user" ? t("Yours") : t("Team")}
         empty={
-          count === 0
+          settled && count === 0
             ? {
                 icon: <RiPuzzleLine />,
                 description: t("No integrations"),
@@ -224,6 +228,11 @@ export function CustomizeIntegrations({
 
   return (
     <div className="flex flex-col gap-10">
+      {composio.status.error ? (
+        <p className="text-13px text-destructive-foreground">
+          {t("Could not reach Composio: {error}", { error: String(composio.status.error) })}
+        </p>
+      ) : null}
       {groups}
       {github.dialogs}
       {mcpDialog ? (

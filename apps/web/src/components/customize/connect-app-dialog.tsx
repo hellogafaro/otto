@@ -27,6 +27,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import { RadioCard, RadioGroup } from "../ui/radio-group";
+import { Skeleton } from "../ui/skeleton";
 import { Spinner } from "../ui/spinner";
 import { Textarea } from "../ui/textarea";
 import { useComposio } from "./customize-integrations";
@@ -211,8 +212,10 @@ export function ConnectAppDialog({
                 {t("Could not reach Composio: {error}", { error: String(setup.error) })}
               </p>
             ) : !data ? (
-              <div className="flex justify-center py-6">
-                <Spinner />
+              <div className="flex flex-col gap-3" aria-busy="true">
+                <span className="sr-only">{t("Loading settings")}</span>
+                <Skeleton className="h-8 w-full rounded-md" />
+                <Skeleton className="h-8 w-2/3 rounded-md" />
               </div>
             ) : (
               <>
