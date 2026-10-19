@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   isConversationAtEnd,
   didScrollAwayFromEnd,
+  isUnreadBoundaryLaidOut,
   reduceConversationFollowState,
   unreadBoundaryScrollTop,
 } from "./bot-conversation-scroll.logic";
@@ -36,6 +37,13 @@ describe("unreadBoundaryScrollTop", () => {
     expect(
       unreadBoundaryScrollTop({ scrollTop: 800, top: 100, bottom: 700 }, { top: 20, bottom: 40 }),
     ).toBe(720);
+  });
+
+  it("does not treat an unmeasured row as already visible", () => {
+    expect(isUnreadBoundaryLaidOut({ top: 0, bottom: 0 }, { top: 0, bottom: 0 })).toBe(false);
+    expect(
+      unreadBoundaryScrollTop({ scrollTop: 0, top: 0, bottom: 0 }, { top: 0, bottom: 0 }),
+    ).toBeNull();
   });
 });
 

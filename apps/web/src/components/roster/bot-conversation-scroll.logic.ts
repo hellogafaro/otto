@@ -42,9 +42,16 @@ export function isConversationAtEnd(
 
 /**
  * Scroll offset that puts an unread marker at the top of the viewport, or null
- * when that marker is already fully visible. A short new reply stays pinned to
- * the end; a longer one lands on the blue New line.
+ * when that marker is already fully visible or the row has not been laid out.
+ * A short new reply stays pinned to the end; a longer one lands on the blue New line.
  */
+export function isUnreadBoundaryLaidOut(
+  viewport: { readonly top: number; readonly bottom: number },
+  anchor: { readonly top: number; readonly bottom: number },
+): boolean {
+  return viewport.bottom - viewport.top >= 1 && anchor.bottom - anchor.top >= 1;
+}
+
 export function unreadBoundaryScrollTop(
   viewport: {
     readonly scrollTop: number;
@@ -53,6 +60,8 @@ export function unreadBoundaryScrollTop(
   },
   anchor: { readonly top: number; readonly bottom: number },
 ): number | null {
+  if (viewport.bottom - viewport.top < 1 || anchor.bottom - anchor.top < 1) return null;
+
   if (anchor.top >= viewport.top && anchor.bottom <= viewport.bottom) return null;
 
   return viewport.scrollTop + (anchor.top - viewport.top);

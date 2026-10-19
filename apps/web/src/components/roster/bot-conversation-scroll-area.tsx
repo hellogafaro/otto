@@ -12,6 +12,7 @@ import {
   isConversationAtEnd,
   reduceConversationFollowState,
   unreadBoundaryScrollTop,
+  isUnreadBoundaryLaidOut,
   type ConversationFollowEvent,
   type ConversationFollowState,
   type ConversationScrollMetrics,
@@ -117,6 +118,15 @@ export function BotConversationScrollArea({
 
     const viewportRect = viewport.getBoundingClientRect();
     const anchorRect = anchor.getBoundingClientRect();
+
+    if (
+      !isUnreadBoundaryLaidOut(
+        { top: viewportRect.top, bottom: viewportRect.bottom },
+        { top: anchorRect.top, bottom: anchorRect.bottom },
+      )
+    ) {
+      return;
+    }
 
     const nextTop = unreadBoundaryScrollTop(
       { scrollTop: viewport.scrollTop, top: viewportRect.top, bottom: viewportRect.bottom },

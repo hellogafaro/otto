@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   firstUnseenMessageId,
+  noteChatHidden,
+  noteChatShown,
   readOpenChatUnreadSince,
   resetOpenChatUnreadSinceForTests,
   retainOpenChatUnreadSince,
@@ -56,6 +58,11 @@ describe("firstUnseenMessageId", () => {
         turn,
       ),
     ).toBe("ask");
+  });
+
+  it("does not mark a reply the reader already saw just because the turn finished later", () => {
+    expect(firstUnseenMessageId(messages, "2026-10-19T10:50:00.000Z", turn)).toBeNull();
+    expect(firstUnseenMessageId([], "2026-10-19T10:00:00.000Z", turn)).toBeNull();
   });
 });
 
@@ -164,5 +171,41 @@ describe("open chat unread snapshot", () => {
         true,
       ),
     ).toBeNull();
+  });
+
+  it("draws a New line for a reply that finished while the window was hidden", () => {
+    readOpenChatUnreadSince("chat-1", "2026-10-19T10:00:00.000Z", "2026-10-19T09:00:00.000Z", true);
+    noteChatHidden(Date.parse("2026-10-19T10:30:00.000Z"));
+    noteChatHidden(Date.parse("2026-10-19T10:40:00.000Z"));
+
+    expect(noteChatShown("chat-1", "2026-10-19T11:00:00.000Z")).toBe("2026-10-19T10:30:00.000Z");
+    expect(firstUnseenMessageId(messages, "2026-10-19T10:30:00.000Z", turn)).toBe("reply");
+  });
+
+  it("does not move a New line already drawn for this open", () => {
+    readOpenChatUnreadSince("chat-1", "2026-10-19T10:00:00.000Z", "2026-10-19T11:00:00.000Z", true);
+    noteChatHidden(Date.parse("2026-10-19T10:30:00.000Z"));
+
+    expect(noteChatShown("chat-1", "2026-10-19T11:00:00.000Z")).toBe("2026-10-19T10:00:00.000Z");
+  });
+
+  it("does not let a closed chat clear the chat that replaced it", () => {
+    vi.useFakeTimers();
+    readOpenChatUnreadSince("chat-1", "2026-10-19T10:00:00.000Z", "2026-10-19T11:00:00.000Z", true);
+    const releaseChat1 = retainOpenChatUnreadSince("chat-1");
+
+    releaseChat1();
+    readOpenChatUnreadSince("chat-2", "2026-10-19T08:00:00.000Z", "2026-10-19T09:00:00.000Z", true);
+    retainOpenChatUnreadSince("chat-2");
+    vi.runAllTimers();
+
+    expect(
+      readOpenChatUnreadSince(
+        "chat-2",
+        "2026-10-19T12:00:00.000Z",
+        "2026-10-19T09:00:00.000Z",
+        true,
+      ),
+    ).toBe("2026-10-19T08:00:00.000Z");
   });
 });

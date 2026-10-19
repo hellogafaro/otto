@@ -44,6 +44,13 @@ export function firstUnseenMessageId(
 
   if (!latestTurn) return null;
 
+  const completedMs = latestTurn.completedAt ? Date.parse(latestTurn.completedAt) : Number.NaN;
+
+  const markUnreadRewind =
+    !Number.isNaN(completedMs) && visitedMs < completedMs && completedMs - visitedMs <= 1;
+
+  if (!markUnreadRewind) return null;
+
   if (latestTurn.assistantMessageId !== null) {
     const assistant = messages.find((message) => message.id === latestTurn.assistantMessageId);
 
@@ -63,6 +70,48 @@ type OpenCapture = {
 let capture: OpenCapture | null = null;
 
 let releaseTimer: ReturnType<typeof setTimeout> | null = null;
+
+let hiddenAtMs: number | null = null;
+
+/** Remember the moment the open chat left view, keeping the earliest hide. */
+export function noteChatHidden(atMs: number): void {
+  if (!Number.isFinite(atMs)) return;
+
+  if (hiddenAtMs === null || atMs < hiddenAtMs) hiddenAtMs = atMs;
+}
+
+/**
+ * A reply that finished while the chat was hidden becomes the New line when
+ * the reader comes back. An unread boundary from opening the chat stays put.
+ */
+export function noteChatShown(threadKey: string, completedAt: string | null): string | null {
+  const hidden = hiddenAtMs;
+
+  hiddenAtMs = null;
+
+  if (capture?.threadKey === threadKey && capture.settled && capture.unreadSince !== null) {
+    return capture.unreadSince;
+  }
+
+  const completedMs = completedAt ? Date.parse(completedAt) : Number.NaN;
+
+  const missedWhileHidden = hidden !== null && !Number.isNaN(completedMs) && completedMs > hidden;
+
+  if (!missedWhileHidden) {
+    return capture?.threadKey === threadKey && capture.settled ? capture.unreadSince : null;
+  }
+
+  const unreadSince = new Date(hidden).toISOString();
+
+  capture = {
+    threadKey,
+    unreadSince,
+    settled: true,
+    holders: capture?.threadKey === threadKey ? capture.holders : 0,
+  };
+
+  return unreadSince;
+}
 
 /**
  * Snapshot the visit for an open chat before the visit effect overwrites it.
@@ -107,7 +156,8 @@ export function retainOpenChatUnreadSince(threadKey: string): () => void {
 
   return () => {
     if (capture?.threadKey !== threadKey) return;
-    capture.holders -= 1;
+
+    if (capture.holders > 0) capture.holders -= 1;
 
     if (capture.holders > 0) return;
 
@@ -130,4 +180,5 @@ export function resetOpenChatUnreadSinceForTests(): void {
   }
 
   capture = null;
+  hiddenAtMs = null;
 }
