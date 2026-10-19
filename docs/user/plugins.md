@@ -35,8 +35,8 @@ configured OAuth clients keep their existing registration.
 
 ## Enable tools for a bot
 
-Otto enables a new plugin for every bot by default. To turn one off for a single bot, open the
-bot's settings and go to **Tools**. Each tool shows its connection status and a switch. Select
+A new plugin, app, or MCP server starts off for every bot. To turn one on for a single bot, open
+the bot's settings and go to **Tools**. Each tool shows its connection status and a switch. Select
 **Save** to apply the change. Changing the bot's provider starts a fresh provider session with the
 same enabled tools.
 
@@ -71,8 +71,9 @@ mobile app does not manage plugins.
 
 ## Custom MCP servers
 
-Use **Add server** under **Custom MCP servers** when a connector is not in the directory. Installed
-servers can be edited, disabled, or removed from the same section.
+Use **Add server** under **Custom MCP servers** when a connector is not in the directory. A new
+server starts off for every bot until you turn it on in that bot's **Tools**. Installed servers can
+be edited, disabled, or removed from the same section.
 
 Bots can also save short guidance for an MCP server, such as which tool
 to try first. Ask the bot to set it. The bot asks for approval, and the guidance applies to every

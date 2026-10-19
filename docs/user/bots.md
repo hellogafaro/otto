@@ -185,8 +185,10 @@ and plugin items have **Resolve** too, so you can clear them once the problem is
 
 ## Tools
 
-Open **Tools** in the bot editor to enable or disable installed plugins and MCP servers. New tools
-start enabled for every bot. A workspace-disabled tool stays unavailable to every bot.
+Open **Tools** in the bot editor to enable or disable installed plugins and MCP servers. A new
+skill, app, or MCP server starts off for every bot, whether it is shared with the team or private.
+Turn it on for the bots that should use it. Tools a bot already uses stay as they are. A
+workspace-disabled tool stays unavailable to every bot.
 
 Changing the provider starts a fresh provider session with the same enabled tool set.
 

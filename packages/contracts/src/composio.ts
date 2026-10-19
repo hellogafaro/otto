@@ -18,6 +18,12 @@ export type ComposioConnectionStatus = typeof ComposioConnectionStatus.Type;
 /** `user` accounts stay with the person who connected them; `organization` accounts serve every bot. */
 export const ComposioVisibility = Visibility;
 
+/**
+ * New accounts set this key to false so they start off for every bot. An explicit bot id
+ * still wins. Accounts connected before this have no entry and keep the previous default.
+ */
+export const COMPOSIO_BOT_ACCESS_DEFAULT = "*";
+
 export type ComposioVisibility = typeof ComposioVisibility.Type;
 
 export const ComposioConnection = Schema.Struct({
@@ -39,8 +45,8 @@ export const ComposioConnection = Schema.Struct({
   /** Who connected a workspace account, when it is someone else. */
   ownerName: Schema.optional(TrimmedNonEmptyString),
   /**
-   * Per-bot choices that differ from the default, by bot id: a team account is on for every
-   * bot and a personal one for the bots its owner owns, unless switched here.
+   * Per-bot choices, by bot id. A missing choice uses the account default: older accounts
+   * are on for the team or their owner, and a new account is off until someone turns it on.
    */
   botAccess: Schema.Record(Schema.String, Schema.Boolean).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),

@@ -1,3 +1,4 @@
+import { COMPOSIO_BOT_ACCESS_DEFAULT } from "@otto/contracts";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -383,7 +384,10 @@ describe("ComposioService", () => {
       );
 
       const status = yield* service.updateConnection(lend, viewer);
-      expect(status.connections[0]?.botAccess).toEqual({ [bensBot.botId]: true });
+      expect(status.connections[0]?.botAccess).toEqual({
+        [COMPOSIO_BOT_ACCESS_DEFAULT]: false,
+        [bensBot.botId]: true,
+      });
       expect(status.connections[0]?.visibility).toBe("user");
       expect(yield* service.connectedToolkits(bensBot)).toEqual(["gmail"]);
 
@@ -427,7 +431,7 @@ describe("ComposioService", () => {
       expect(createSession).toHaveBeenLastCalledWith(
         expect.any(String),
         expect.objectContaining({
-          connectedAccounts: { gmail: ["connection-new"], slack: ["slack-team"] },
+          connectedAccounts: { slack: ["slack-team"] },
           manageConnections: false,
         }),
       );
@@ -438,10 +442,7 @@ describe("ComposioService", () => {
         expect.objectContaining({ connectedAccounts: { slack: ["slack-team"] } }),
       );
 
-      expect(yield* service.connectedToolkits(botOwnedBy(viewer.personId))).toEqual([
-        "gmail",
-        "slack",
-      ]);
+      expect(yield* service.connectedToolkits(botOwnedBy(viewer.personId))).toEqual(["slack"]);
       expect(yield* service.connectedToolkits(botOwnedBy(ben.personId))).toEqual(["slack"]);
 
       yield* service.resolveRuntimeMcpServer("thread-3", noBot);

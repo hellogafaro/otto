@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import type * as PlatformError from "effect/PlatformError";
 import { OrchestrationCommandInvariantError } from "../errors.ts";
 import type { OrchestrationDispatchActor } from "../services/orchestration-engine.ts";
+import { optInMcpServerIds, optInSkillIds, unionIds } from "./added-tools.ts";
 import {
   hasBotOwnerAuthority,
   requireBot,
@@ -107,6 +108,11 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           ? null
           : yield* requireGroup({ readModel, command, groupId: command.groupId });
 
+      const disabledMcpServerIds = unionIds(
+        command.disabledMcpServerIds ?? [],
+        optInMcpServerIds(readModel.mcpServers),
+      );
+      const disabledSkillIds = optInSkillIds(readModel.libraryFolders);
       const botCreatedEvent: PlannedOrchestrationEvent = {
         ...(yield* withEventBase({
           aggregateKind: "bot",
@@ -122,7 +128,8 @@ export const decideBots = Effect.fn("decideBots")(function* ({
           label: command.label ?? null,
           description: command.description ?? null,
           instructions: command.instructions ?? null,
-          disabledMcpServerIds: command.disabledMcpServerIds ?? [],
+          disabledMcpServerIds,
+          ...(disabledSkillIds.length > 0 ? { disabledSkillIds } : {}),
           owner: command.owner ?? null,
           ...(command.owner?.kind === "person" && command.visibility !== undefined
             ? { visibility: command.visibility }
