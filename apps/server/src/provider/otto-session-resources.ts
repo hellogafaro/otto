@@ -275,6 +275,23 @@ export class OttoSessionResources {
     return this.workspaceLeases.get(threadId)?.workspace.keepAlive;
   }
 
+  /**
+   * After a turn: lets the thread's computer stop soon unless another turn starts first. A bot's
+   * chats share its computer, so it stays up while a turn in another of them still works.
+   */
+  idleComputer(
+    threadId: string,
+    workingThreadIds: Iterable<string>,
+  ): (() => Promise<void>) | undefined {
+    const workspace = this.workspaceLeases.get(threadId)?.workspace;
+
+    for (const other of workingThreadIds)
+      if (other !== threadId && this.workspaceLeases.get(other)?.workspace === workspace)
+        return undefined;
+
+    return workspace?.idle;
+  }
+
   async keepComputersAwake(threadIds: Iterable<string>): Promise<void> {
     await Promise.allSettled(
       [...threadIds].map((threadId) => this.keepComputerAwake(threadId)?.()),

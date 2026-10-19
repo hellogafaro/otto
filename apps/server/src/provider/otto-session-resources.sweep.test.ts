@@ -99,6 +99,24 @@ describe("OttoSessionResources computer sweep", () => {
   const recordFile = (workspaceId: string) =>
     NodePath.join(stateDir, "bot-workspaces", `${workspaceId}.json`);
 
+  it("lets a shared computer stop soon only when none of its chats still works", async () => {
+    const { BoatApi } = await import("@boatdev/sdk");
+    const target = resources();
+    await target.acquire(boatInput("ivy"));
+    await target.acquire({ ...boatInput("ivy"), threadId: "thread-ivy-2" });
+    await target.acquire(boatInput("oak"));
+    vi.mocked(BoatApi.prototype.update).mockClear();
+
+    // Another chat of the same bot still works on this computer: it stays up.
+    expect(target.idleComputer("thread-ivy", ["thread-ivy-2"])).toBeUndefined();
+    // Work on another bot's computer does not hold this one.
+    await target.idleComputer("thread-ivy", ["thread-oak"])?.();
+    expect(BoatApi.prototype.update).toHaveBeenCalledWith({
+      sandboxId: "vm-1",
+      updateSandboxRequest: { ttlSeconds: 120 },
+    });
+  });
+
   it("creates Boat computers with an idempotency key and a TTL that running turns push back", async () => {
     const { BoatApi } = await import("@boatdev/sdk");
     const target = resources();
