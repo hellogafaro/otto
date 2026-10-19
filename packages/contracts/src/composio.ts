@@ -106,18 +106,86 @@ export const ComposioToolkitDetail = Schema.Struct({
 
 export type ComposioToolkitDetail = typeof ComposioToolkitDetail.Type;
 
+/** One field Composio asks for when creating an auth config or connecting an account. */
+export const ComposioAuthField = Schema.Struct({
+  name: TrimmedNonEmptyString,
+  displayName: TrimmedNonEmptyString,
+  type: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  required: Schema.Boolean,
+  /** Mask it. Composio does not always flag secrets, so a secret-looking name counts too. */
+  secret: Schema.Boolean,
+  default: Schema.optional(Schema.String),
+});
+
+export type ComposioAuthField = typeof ComposioAuthField.Type;
+
+/** One way to authenticate an app Composio does not host, and the fields that way asks for. */
+export const ComposioAuthScheme = Schema.Struct({
+  mode: TrimmedNonEmptyString,
+  name: TrimmedNonEmptyString,
+  creationFields: Schema.Array(ComposioAuthField),
+  connectionFields: Schema.Array(ComposioAuthField),
+});
+
+export type ComposioAuthScheme = typeof ComposioAuthScheme.Type;
+
+/** An auth config already in the Composio project. Credentials stay there. */
+export const ComposioAuthConfigSummary = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  name: TrimmedNonEmptyString,
+  scheme: TrimmedNonEmptyString,
+  connections: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+});
+
+export type ComposioAuthConfigSummary = typeof ComposioAuthConfigSummary.Type;
+
+/**
+ * What connecting an app needs. Managed apps (Composio hosts the OAuth app) skip the config
+ * step. The rest pick an existing config or create one from `schemes`.
+ */
+export const ComposioAuthSetup = Schema.Struct({
+  managed: Schema.Boolean,
+  schemes: Schema.Array(ComposioAuthScheme),
+  configs: Schema.Array(ComposioAuthConfigSummary),
+});
+
+export type ComposioAuthSetup = typeof ComposioAuthSetup.Type;
+
+/** Fields forwarded to Composio to create an auth config. Otto does not keep them. */
+export const ComposioCreateAuthConfigInput = Schema.Struct({
+  toolkitSlug: TrimmedNonEmptyString,
+  scheme: TrimmedNonEmptyString,
+  credentials: Schema.Record(Schema.String, Schema.String),
+});
+
+export type ComposioCreateAuthConfigInput = typeof ComposioCreateAuthConfigInput.Type;
+
+export const ComposioCreateAuthConfigResult = Schema.Struct({
+  authConfigId: TrimmedNonEmptyString,
+});
+
+export type ComposioCreateAuthConfigResult = typeof ComposioCreateAuthConfigResult.Type;
+
 export const ComposioAuthorizeInput = Schema.Struct({
   toolkitSlug: TrimmedNonEmptyString,
   /** The person's label for the account, unique among their own accounts for this app. */
   alias: Schema.optional(TrimmedNonEmptyString),
   visibility: Schema.optional(ComposioVisibility),
+  /** An existing or just-created auth config. Managed apps omit this. */
+  authConfigId: Schema.optional(TrimmedNonEmptyString),
+  /** The scheme of that config, so connection fields are shaped the way Composio expects. */
+  authScheme: Schema.optional(TrimmedNonEmptyString),
+  /** Connection-time fields, such as a store name or an API key. Not stored. */
+  connection: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 
 export type ComposioAuthorizeInput = typeof ComposioAuthorizeInput.Type;
 
 export const ComposioAuthorizeResult = Schema.Struct({
   connectionId: TrimmedNonEmptyString,
-  redirectUrl: TrimmedNonEmptyString,
+  /** Absent when the account is already active, such as an API key. */
+  redirectUrl: Schema.optional(TrimmedNonEmptyString),
 });
 
 export type ComposioAuthorizeResult = typeof ComposioAuthorizeResult.Type;

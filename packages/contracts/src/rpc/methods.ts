@@ -74,6 +74,8 @@ export const WS_METHODS = {
   composioGetStatus: "composio.getStatus",
   composioSearchToolkits: "composio.searchToolkits",
   composioGetToolkit: "composio.getToolkit",
+  composioGetAuthSetup: "composio.getAuthSetup",
+  composioCreateAuthConfig: "composio.createAuthConfig",
   composioAuthorize: "composio.authorize",
   composioDisconnect: "composio.disconnect",
   composioUpdateConnection: "composio.updateConnection",

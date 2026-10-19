@@ -1,9 +1,12 @@
 import {
   ComposioLabelTakenError,
   ComposioOperationError,
+  type ComposioAuthSetup,
   type ComposioAuthorizeInput,
   type ComposioAuthorizeResult,
   type ComposioConnection,
+  type ComposioCreateAuthConfigInput,
+  type ComposioCreateAuthConfigResult,
   type ComposioStatus,
   type ComposioToolkit,
   type ComposioToolkitDetail,
@@ -18,6 +21,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { HostProcessEnvironment } from "@otto/shared/hostProcess";
 
@@ -40,6 +44,8 @@ import {
   composioStatus,
   createComposioClient,
   isNotFoundError,
+  normalizeAuthConfigs,
+  normalizeToolkitAuth,
   operationError,
   toConnection,
   tryComposio,
@@ -84,6 +90,10 @@ export interface ComposioServiceShape {
   readonly getToolkit: (
     slug: string,
   ) => Effect.Effect<ComposioToolkitDetail, ComposioOperationError>;
+  readonly getAuthSetup: (slug: string) => Effect.Effect<ComposioAuthSetup, ComposioOperationError>;
+  readonly createAuthConfig: (
+    input: ComposioCreateAuthConfigInput,
+  ) => Effect.Effect<ComposioCreateAuthConfigResult, ComposioOperationError>;
   readonly authorize: (
     input: ComposioAuthorizeInput,
     viewer: ComposioViewer,
@@ -155,6 +165,12 @@ export function make(
   accounts: ComposioAccountStore,
   apiKey: string | undefined,
   createClient: ComposioClientFactory = createComposioClient,
+  readUserId: Effect.Effect<string, ComposioOperationError> = secretStore
+    .getOrCreateRandom(USER_ID_SECRET, 16)
+    .pipe(
+      Effect.map(bytesToId),
+      Effect.mapError((cause) => operationError("prepare its local user", cause)),
+    ),
 ): ComposioServiceShape {
   let runtimeConfigurationGeneration = 0;
   let catalog: Promise<readonly ComposioToolkit[]> | null = null;
@@ -225,11 +241,6 @@ export function make(
   };
 
   const readApiKey = Effect.succeed(Option.fromUndefinedOr(apiKey?.trim() || undefined));
-
-  const readUserId = secretStore.getOrCreateRandom(USER_ID_SECRET, 16).pipe(
-    Effect.map(bytesToId),
-    Effect.mapError((cause) => operationError("prepare its local user", cause)),
-  );
 
   const withClient = <A>(
     operation: string,
@@ -428,6 +439,76 @@ export function make(
       return used ? yield* taken : taken;
     });
 
+  const IMMEDIATE_SCHEMES = new Set(["API_KEY", "BASIC", "BEARER_TOKEN"]);
+
+  const filledFields = (fields: Readonly<Record<string, string>> | undefined) =>
+    Object.fromEntries(Object.entries(fields ?? {}).filter(([, value]) => value.trim() !== ""));
+
+  const getAuthSetup: ComposioServiceShape["getAuthSetup"] = (slug) =>
+    withClient("load auth setup", async (client) => {
+      const toolkit = normalizeToolkitAuth(await client.toolkits.getBySlug(slug));
+
+      return {
+        managed: toolkit.managed,
+        schemes: toolkit.schemes,
+        configs: toolkit.managed
+          ? []
+          : normalizeAuthConfigs(await client.authConfigs.list({ toolkit: slug })),
+      };
+    });
+
+  const createAuthConfig: ComposioServiceShape["createAuthConfig"] = (input) =>
+    withClient("create an auth config", async (client) => {
+      const created = await client.authConfigs.create(input.toolkitSlug, {
+        authScheme: input.scheme,
+        credentials: filledFields(input.credentials),
+      });
+
+      return { authConfigId: created.id };
+    });
+
+  const authorizeWithConfig = async (
+    client: ComposioClient,
+    userId: string,
+    input: ComposioAuthorizeInput,
+    alias: string | undefined,
+  ) => {
+    const authConfigId = input.authConfigId;
+
+    if (!authConfigId) throw new Error("Choose an auth config before connecting.");
+
+    const connection = filledFields(input.connection);
+    const scheme = input.authScheme ?? "OAUTH2";
+    const request =
+      Object.keys(connection).length > 0
+        ? await client.connectedAccounts.initiate(userId, authConfigId, {
+            allowMultiple: true,
+            ...(alias ? { alias } : {}),
+            config: {
+              authScheme: scheme,
+              val: {
+                status: IMMEDIATE_SCHEMES.has(scheme) ? "ACTIVE" : "INITIALIZING",
+                ...connection,
+              },
+            },
+          })
+        : await client.connectedAccounts.link(userId, authConfigId, {
+            allowMultiple: true,
+            ...(alias ? { alias } : {}),
+          });
+    const redirectUrl = request.redirectUrl?.trim() || undefined;
+    const active = request.status === "ACTIVE" || (!redirectUrl && IMMEDIATE_SCHEMES.has(scheme));
+
+    if (!redirectUrl && !active) {
+      throw new Error("Composio did not return an authorization URL.");
+    }
+
+    return {
+      connectionId: request.id,
+      ...(redirectUrl ? { redirectUrl } : {}),
+    };
+  };
+
   const authorize: ComposioServiceShape["authorize"] = (input, viewer) =>
     Effect.gen(function* () {
       const label = input.alias;
@@ -437,64 +518,69 @@ export function make(
           ? undefined
           : yield* claimLabel(input.toolkitSlug, label, viewer.personId);
 
-      const authorization = yield* withClient(
-        "start account authorization",
-        async (client, userId) => {
-          await invalidateHostedSessions();
+      const alias = label === undefined ? undefined : composioAccountAlias(viewer, label);
 
-          const session = await client.sessions.create(userId, {
-            mcp: true,
-            toolkits: [input.toolkitSlug],
-            manageConnections: true,
-            multiAccount: { enable: true, maxAccountsPerToolkit: 10 },
-          });
+      const authorization = input.authConfigId
+        ? yield* withClient("start account authorization", async (client, userId) => {
+            try {
+              return await authorizeWithConfig(client, userId, input, alias);
+            } catch (cause) {
+              if (labelTaken && composioStatus(cause) === 409) return labelTaken;
+              throw cause;
+            }
+          })
+        : yield* withClient("start account authorization", async (client, userId) => {
+            await invalidateHostedSessions();
 
-          const deleteSession = () => session.delete().then(() => undefined);
-          pendingHostedSessionDeletes.add(deleteSession);
+            const session = await client.sessions.create(userId, {
+              mcp: true,
+              toolkits: [input.toolkitSlug],
+              manageConnections: true,
+              multiAccount: { enable: true, maxAccountsPerToolkit: 10 },
+            });
 
-          const authorization = await session
-            .authorize(
-              input.toolkitSlug,
-              label === undefined ? undefined : { alias: composioAccountAlias(viewer, label) },
-            )
-            .then((request) => {
-              if (!request.redirectUrl) {
-                throw new Error("Composio did not return an authorization URL.");
-              }
+            const deleteSession = () => session.delete().then(() => undefined);
+            pendingHostedSessionDeletes.add(deleteSession);
 
-              return { connectionId: request.id, redirectUrl: request.redirectUrl };
-            })
-            .then(
-              (value) => ({ ok: true as const, value }),
+            const authorization = await session
+              .authorize(input.toolkitSlug, alias === undefined ? undefined : { alias })
+              .then((request) => {
+                if (!request.redirectUrl) {
+                  throw new Error("Composio did not return an authorization URL.");
+                }
+
+                return { connectionId: request.id, redirectUrl: request.redirectUrl };
+              })
+              .then(
+                (value) => ({ ok: true as const, value }),
+                (cause: unknown) => ({ ok: false as const, error: cause }),
+              );
+
+            const cleanup = await deletePendingHostedSession(deleteSession).then(
+              () => ({ ok: true as const }),
               (cause: unknown) => ({ ok: false as const, error: cause }),
             );
 
-          const cleanup = await deletePendingHostedSession(deleteSession).then(
-            () => ({ ok: true as const }),
-            (cause: unknown) => ({ ok: false as const, error: cause }),
-          );
+            if (!authorization.ok) {
+              if (!cleanup.ok) {
+                throw new AggregateError(
+                  [authorization.error, cleanup.error],
+                  "Composio authorization and hosted-session cleanup both failed.",
+                  { cause: authorization.error },
+                );
+              }
 
-          if (!authorization.ok) {
-            if (!cleanup.ok) {
-              throw new AggregateError(
-                [authorization.error, cleanup.error],
-                "Composio authorization and hosted-session cleanup both failed.",
-                { cause: authorization.error },
-              );
+              if (labelTaken && composioStatus(authorization.error) === 409) return labelTaken;
+
+              throw authorization.error;
             }
 
-            if (labelTaken && composioStatus(authorization.error) === 409) return labelTaken;
+            if (!cleanup.ok) {
+              throw cleanup.error;
+            }
 
-            throw authorization.error;
-          }
-
-          if (!cleanup.ok) {
-            throw cleanup.error;
-          }
-
-          return authorization.value;
-        },
-      );
+            return authorization.value;
+          });
 
       if (isLabelTaken(authorization)) return yield* authorization;
 
@@ -930,6 +1016,8 @@ export function make(
     getStatus,
     searchToolkits,
     getToolkit,
+    getAuthSetup,
+    createAuthConfig,
     authorize,
     disconnect,
     updateConnection,
@@ -950,8 +1038,34 @@ export const layer = Layer.effect(
   ComposioService,
   Effect.gen(function* () {
     const secretStore = yield* ServerSecretStore;
+    const sql = yield* SqlClient.SqlClient;
     const { COMPOSIO_API_KEY } = yield* HostProcessEnvironment;
+    const readUserId = sql<{ readonly id: string }>`SELECT id FROM organizations LIMIT 1`.pipe(
+      Effect.flatMap((rows) => {
+        const id = rows[0]?.id?.trim();
 
-    return make(secretStore, yield* sqlComposioAccounts, COMPOSIO_API_KEY);
+        return id
+          ? Effect.succeed(id)
+          : Effect.fail(
+              new ComposioOperationError({
+                operation: "prepare its local user",
+                message: "Set up the workspace before connecting apps.",
+              }),
+            );
+      }),
+      Effect.mapError((cause) =>
+        Schema.is(ComposioOperationError)(cause)
+          ? cause
+          : operationError("prepare its local user", cause),
+      ),
+    );
+
+    return make(
+      secretStore,
+      yield* sqlComposioAccounts,
+      COMPOSIO_API_KEY,
+      createComposioClient,
+      readUserId,
+    );
   }),
 );

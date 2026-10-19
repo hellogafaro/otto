@@ -30,6 +30,8 @@ export type ComposioClient = {
         };
       }>
     >;
+    /** One toolkit, including the auth schemes Composio lists for it. */
+    getBySlug: (slug: string) => Promise<unknown>;
   };
   tools: {
     getRawComposioTools: (query: {
@@ -44,6 +46,30 @@ export type ComposioClient = {
       ...args: Parameters<ComposioSdk["connectedAccounts"]["list"]>
     ) => Promise<{ items: ReadonlyArray<Parameters<typeof toConnection>[0]> }>;
     delete: (...args: Parameters<ComposioSdk["connectedAccounts"]["delete"]>) => Promise<object>;
+    initiate: (
+      userId: string,
+      authConfigId: string,
+      options: {
+        readonly allowMultiple?: boolean;
+        readonly alias?: string;
+        readonly config?: {
+          readonly authScheme: string;
+          readonly val: Record<string, unknown>;
+        };
+      },
+    ) => Promise<{ id: string; redirectUrl?: string | null; status?: string | null }>;
+    link: (
+      userId: string,
+      authConfigId: string,
+      options: { readonly allowMultiple?: boolean; readonly alias?: string },
+    ) => Promise<{ id: string; redirectUrl?: string | null; status?: string | null }>;
+  };
+  authConfigs: {
+    list: (query: { readonly toolkit: string }) => Promise<unknown>;
+    create: (
+      toolkit: string,
+      options: { readonly authScheme: string; readonly credentials: Record<string, string> },
+    ) => Promise<{ id: string }>;
   };
   triggers: {
     listTypes: (query: { readonly toolkits: string[]; readonly limit: number }) => Promise<{
@@ -165,15 +191,190 @@ export function toConnection(input: {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function secretName(name: string): boolean {
+  return /secret|password|token|api_key|apikey/i.test(name);
+}
+
+function mapFields(value: unknown, required: boolean) {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    const field = asRecord(item);
+    const name = text(field?.name);
+
+    if (!field || !name) return [];
+    if (field.user_visible === false || field.userVisible === false) return [];
+
+    const displayName = text(field.displayName ?? field.display_name) ?? name;
+    const description = text(field.description);
+    const type = text(field.type);
+    const fallback = field.default;
+    const secret = field.is_secret === true || field.isSecret === true || secretName(name);
+
+    return [
+      {
+        name,
+        displayName,
+        required,
+        secret,
+        ...(type ? { type } : {}),
+        ...(description ? { description } : {}),
+        ...(typeof fallback === "string" && fallback ? { default: fallback } : {}),
+      },
+    ];
+  });
+}
+
+/** The auth schemes on a toolkit, whether Composio returns them camelCase or as the raw API. */
+export function normalizeToolkitAuth(input: unknown): {
+  readonly managed: boolean;
+  readonly schemes: ReadonlyArray<{
+    readonly mode: string;
+    readonly name: string;
+    readonly creationFields: ReturnType<typeof mapFields>;
+    readonly connectionFields: ReturnType<typeof mapFields>;
+  }>;
+} {
+  const record = asRecord(input) ?? {};
+  const managedSchemes = record.composioManagedAuthSchemes ?? record.composio_managed_auth_schemes;
+  const details = record.authConfigDetails ?? record.auth_config_details;
+  const schemes = Array.isArray(details)
+    ? details.flatMap((detail) => {
+        const item = asRecord(detail);
+        const mode = text(item?.mode);
+
+        if (!item || !mode) return [];
+
+        const fields = asRecord(item.fields) ?? {};
+        const creation = asRecord(fields.authConfigCreation ?? fields.auth_config_creation) ?? {};
+        const connection =
+          asRecord(fields.connectedAccountInitiation ?? fields.connected_account_initiation) ?? {};
+
+        return [
+          {
+            mode,
+            name: text(item.name) ?? mode,
+            creationFields: [
+              ...mapFields(creation.required, true),
+              ...mapFields(creation.optional, false),
+            ],
+            connectionFields: [
+              ...mapFields(connection.required, true),
+              ...mapFields(connection.optional, false),
+            ],
+          },
+        ];
+      })
+    : [];
+
+  return {
+    managed: Array.isArray(managedSchemes) && managedSchemes.length > 0,
+    schemes,
+  };
+}
+
+/** Enabled custom auth configs for one app. Managed and disabled configs are not choices. */
+export function normalizeAuthConfigs(input: unknown): ReadonlyArray<{
+  readonly id: string;
+  readonly name: string;
+  readonly scheme: string;
+  readonly connections: number;
+}> {
+  const record = asRecord(input);
+  const items = Array.isArray(input) ? input : record?.items;
+
+  if (!Array.isArray(items)) return [];
+
+  return items.flatMap((item) => {
+    const config = asRecord(item);
+    const id = text(config?.id);
+
+    if (!config || !id) return [];
+    if (text(config.status) === "DISABLED") return [];
+    if (config.isComposioManaged === true || config.is_composio_managed === true) return [];
+
+    const connections = config.noOfConnections ?? config.no_of_connections;
+
+    return [
+      {
+        id,
+        name: text(config.name) ?? id,
+        scheme: text(config.authScheme ?? config.auth_scheme) ?? "",
+        connections: typeof connections === "number" ? connections : 0,
+      },
+    ];
+  });
+}
+
+function connectRequest(value: {
+  readonly id?: string;
+  readonly redirectUrl?: string | null;
+  readonly redirect_url?: string | null;
+  readonly status?: string | null;
+  readonly connected_account_id?: string;
+}) {
+  const id = value.id ?? value.connected_account_id ?? "";
+
+  if (!id) throw new Error("Composio did not return a connection id.");
+
+  return {
+    id,
+    redirectUrl: value.redirectUrl ?? value.redirect_url ?? null,
+    ...(value.status ? { status: value.status } : {}),
+  };
+}
+
 export function createComposioClient(apiKey: string): ComposioClient {
   const sdk = new Composio({ apiKey });
 
   return {
-    toolkits: { get: (...args) => sdk.toolkits.get(...args) },
+    toolkits: {
+      get: (...args) => sdk.toolkits.get(...args),
+      getBySlug: (slug) => (sdk.toolkits.get as (slug: string) => Promise<unknown>)(slug),
+    },
     tools: { getRawComposioTools: (query) => sdk.tools.getRawComposioTools(query) },
     connectedAccounts: {
       list: (...args) => sdk.connectedAccounts.list(...args),
       delete: (...args) => sdk.connectedAccounts.delete(...args),
+      initiate: async (userId, authConfigId, options) =>
+        connectRequest(
+          await sdk.connectedAccounts.initiate(userId, authConfigId, {
+            allowMultiple: options.allowMultiple ?? true,
+            ...(options.alias ? { alias: options.alias } : {}),
+            ...(options.config ? { config: options.config } : {}),
+          } as Parameters<ComposioSdk["connectedAccounts"]["initiate"]>[2]),
+        ),
+      link: async (userId, authConfigId, options) =>
+        connectRequest(
+          await sdk.connectedAccounts.link(userId, authConfigId, {
+            allowMultiple: options.allowMultiple ?? true,
+            ...(options.alias ? { alias: options.alias } : {}),
+          }),
+        ),
+    },
+    authConfigs: {
+      list: (query) => sdk.authConfigs.list({ toolkit: query.toolkit, limit: 100 }),
+      create: async (toolkit, options) => {
+        const created = await sdk.authConfigs.create(toolkit, {
+          type: "use_custom_auth",
+          authScheme: options.authScheme,
+          credentials: options.credentials,
+        } as Parameters<ComposioSdk["authConfigs"]["create"]>[1]);
+
+        if (!created.id) throw new Error("Composio did not return an auth config id.");
+
+        return { id: created.id };
+      },
     },
     triggers: {
       listTypes: (query) => sdk.triggers.listTypes(query),

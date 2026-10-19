@@ -612,4 +612,15 @@ export const connectionsCatalog = {
   "GitHub couldn't be disconnected": "GitHub couldn't be disconnected",
   "Disconnect GitHub? Bots can no longer push or open pull requests for you. To revoke Otto on GitHub too, visit {url}.":
     "Disconnect GitHub? Bots can no longer push or open pull requests for you. To revoke Otto on GitHub too, visit {url}.",
+  "New configuration": "New configuration",
+  Scheme: "Scheme",
+  OAuth: "OAuth",
+  "Server credentials": "Server credentials",
+  "{name} is connected": "{name} is connected",
+  "Composio keeps these credentials. Otto does not store them.":
+    "Composio keeps these credentials. Otto does not store them.",
+  "Pick a configuration, or create one. Composio keeps the credentials. Otto does not store them.":
+    "Pick a configuration, or create one. Composio keeps the credentials. Otto does not store them.",
+  "Composio did not list a way to connect this app.":
+    "Composio did not list a way to connect this app.",
 } as const;
