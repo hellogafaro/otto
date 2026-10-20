@@ -1,6 +1,6 @@
 # Local verification
 
-Use this policy with the repository's web/desktop and mobile testing skills. The policy owns authorization, coverage, evidence, and process lifetime; the skills own launch and control steps.
+Use this policy with the repository's web/desktop testing skill. The policy owns authorization, coverage, evidence, and process lifetime; the skills own launch and control steps.
 
 ## Authorization
 
@@ -14,7 +14,7 @@ Before editing, identify the affected entry points, clients, providers, contract
 - For visible or interactive changes, exercise the affected flow end to end in a real client after integrating changes. The primary agent owns this pass; subagents do not launch separate environments.
 - Visit routes that share the changed state or components. Check the reverse action, relevant empty/error states, and existing surrounding behavior.
 - Check persistence after reload or reconnect when state is meant to survive it. For synchronization changes, check another client against the same environment.
-- Check desktop and mobile viewport sizes when web layout changes. Run native mobile verification for React Native changes; a narrow web viewport is not a mobile client.
+- Check desktop and mobile viewport sizes when web layout changes.
 - Run Electron for shell, IPC, native menu, protocol, preload, packaged-origin, startup, or lifecycle changes. Web verification covers shared renderer behavior only.
 - Keep provider calls bounded. Use fixtures or test adapters when they prove the change; do not invoke every paid provider merely because the checklist names them.
 - Wait on receipts and worker drains in server tests. Use observable UI state for client transitions, not fixed sleeps as proof of completion.
@@ -27,7 +27,7 @@ Use deterministic projection fixtures for visual states and safe snapshots of re
 
 ## Environment lifetime
 
-Retain the owned environment, authenticated client, and useful fixtures while the user is reviewing or iterating. Reuse them on later turns after confirming ownership and health. This applies to web, desktop, Metro, and simulator streams alike.
+Retain the owned environment, authenticated client, and useful fixtures while the user is reviewing or iterating. Reuse them on later turns after confirming ownership and health. This applies to web and desktop alike.
 
 Tear down when the user requests it or the task is finished without pending human review. Stop only captured process handles or owned process groups. Leave pre-existing apps, devices, and servers alone. Remove test connections and port forwarding before removing their environment. Delete only directories created for this test; preserve reproduction evidence when useful.
 

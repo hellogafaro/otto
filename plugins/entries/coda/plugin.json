@@ -19,7 +19,7 @@
   "logo": {
     "provenance": { "sourceUrl": "https://simpleicons.org/?q=coda", "license": "CC0-1.0" }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://coda.io/apis/mcp" },
   "connection": {
     "type": "verification-pending",

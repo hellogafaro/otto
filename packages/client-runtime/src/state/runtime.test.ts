@@ -16,7 +16,6 @@ import {
   mapAtomCommandResult,
   runAtomCommand,
   settleAsyncResult,
-  settlePromise,
   squashAtomCommandFailure,
 } from "./runtime.ts";
 import {
@@ -100,20 +99,6 @@ describe("atom command result helpers", () => {
     expect(isAtomCommandInterrupted(interrupted)).toBe(true);
     expect(isAtomCommandInterrupted(failed)).toBe(false);
     expect(squashAtomCommandFailure(failed)).toBe("nope");
-  });
-
-  it("settles raw promise boundaries as successes or defects", async () => {
-    const success = await settlePromise(() => Promise.resolve("done"));
-    expect(success._tag).toBe("Success");
-
-    const defect = new Error("raw promise rejected");
-    const failure = await settlePromise(() => Promise.reject(defect));
-    expect(failure._tag).toBe("Failure");
-
-    if (Predicate.isTagged(failure, "Failure")) {
-      expect(Cause.hasDies(failure.cause)).toBe(true);
-      expect(Cause.squash(failure.cause)).toBe(defect);
-    }
   });
 
   it("reports expected failures and defects through separate policies", async () => {

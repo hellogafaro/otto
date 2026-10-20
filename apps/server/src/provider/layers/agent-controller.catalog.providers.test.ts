@@ -256,11 +256,12 @@ describe("AgentControllerLive", () => {
           isError: true,
           denied: false,
         } as AgentControllerEvent);
+        // The server connected when the session started, which already counts as a success.
         expect(
           (yield* SubscriptionAuthService.forSecretsDir(
             NodePath.join(baseDir, "userdata", "secrets"),
           )).mcpRequestHealth(exaServer.id)?.health,
-        ).toBe("failed-first-request");
+        ).toBe("failed");
 
         mastra.emit({
           type: "tool_start",

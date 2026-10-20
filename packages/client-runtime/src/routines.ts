@@ -5,7 +5,6 @@ import type { PendingApproval } from "./pending-requests.ts";
 import * as Match from "effect/Match";
 import * as Predicate from "effect/Predicate";
 import type {
-  BotId,
   McpServer,
   Routine,
   RoutineApprovalPolicy,
@@ -218,40 +217,6 @@ export function toRoutinePanelItem(
   };
 }
 
-/** What a bot's routine list reads: its routines from the server, their runs and the plugins. */
-export interface BotRoutineSource {
-  readonly routines?: readonly Routine[] | undefined;
-  readonly routineRuns?: readonly RoutineRun[] | undefined;
-  readonly mcpServers?: readonly McpServer[] | undefined;
-}
-
-export type BotRoutinesView =
-  | { readonly kind: "loading" }
-  | { readonly kind: "unavailable" }
-  | { readonly kind: "ready"; readonly routines: readonly RoutineAdapterItem[] };
-
-/**
- * One bot's live routines. A source without a routines list could not read them, which is
- * different from a bot that has none.
- */
-export function botRoutinesView(
-  source: BotRoutineSource | null | undefined,
-  botId: BotId | string,
-): BotRoutinesView {
-  if (!source) return { kind: "loading" };
-
-  if (source.routines === undefined) return { kind: "unavailable" };
-
-  return {
-    kind: "ready",
-    routines: source.routines
-      .filter((routine) => routine.botId === botId && routine.lifecycle !== "deleted")
-      .map((routine) =>
-        toRoutinePanelItem(routine, source.routineRuns ?? [], source.mcpServers ?? []),
-      ),
-  };
-}
-
 /** The translator slice routine labels need. Helpers default to English outside React. */
 export type RoutineTranslator = Pick<ReturnType<typeof createTranslator>, "t" | "formatDate">;
 
@@ -355,57 +320,6 @@ export function routineScheduleLabel(
   });
 }
 
-export function boundedRunHistory(history: readonly RoutineAdapterRun[]) {
-  return history.slice(0, 5);
-}
-
-/**
- * The lifecycle state a routine is actually in, as the card and detail both label it.
- * A routine that was never approved is a Draft; one that was turned off is Off, and
- * the two take different routes back on.
- */
-type RoutineStatusResult = {
-  readonly label: MessageKey & ("Active" | "Paused" | "Off" | "Draft");
-  readonly variant: "success" | "warning" | "secondary";
-};
-
-export function routineStatus(routine: RoutineAdapterItem): RoutineStatusResult {
-  if (routine.paused) return { label: "Paused", variant: "warning" };
-
-  if (routine.enabled) return { label: "Active", variant: "success" };
-
-  if (routine.procedureApproved) return { label: "Off", variant: "secondary" };
-
-  return { label: "Draft", variant: "secondary" };
-}
-
-/** Why a routine is not running on schedule, or null when it is. */
-export function routineStateNote(routine: RoutineAdapterItem): (MessageKey & string) | null {
-  if (routine.paused) return "Paused until you resume it.";
-
-  if (routine.enabled) return null;
-
-  return routine.procedureApproved
-    ? "Off until you turn it back on."
-    : "Draft. Approve its procedure to schedule it.";
-}
-
-/**
- * The one lifecycle control a routine offers: the reverse of the state it is in. A draft
- * offers none, because approving its procedure comes first.
- */
-export function routineLifecycleAction(
-  routine: RoutineAdapterItem,
-): "resume" | "enable" | "pause" | null {
-  if (routine.paused) return "resume";
-
-  if (routine.enabled) return "pause";
-
-  if (routine.procedureApproved) return "enable";
-
-  return null;
-}
-
 const RUN_STATUS_TONE = {
   completed: { label: "Completed", variant: "success" },
   failed: { label: "Failed", variant: "error" },
@@ -439,13 +353,6 @@ export function absoluteRunTime(value: string, i18n: RoutineTranslator = english
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-/** An absolute run time, or "Not scheduled" when there is none. */
-export function routineDateLabel(value: string | null, i18n: RoutineTranslator) {
-  if (!value) return i18n.t("Not scheduled");
-
-  return absoluteRunTime(value, i18n);
 }
 
 /**
@@ -490,15 +397,6 @@ export function runSummaryLine(
   return line?.trim() || i18n.t(runStatusTone(run.status).label);
 }
 
-export interface RoutineApprovalSummary {
-  readonly name: string;
-  readonly instructions: string | null;
-  /** "Weekdays at 09:00", or null when the proposal has no time. */
-  readonly schedule: string | null;
-  /** "When GMAIL_NEW_GMAIL_MESSAGE in gmail (Work)", or null for a scheduled routine. */
-  readonly trigger: string | null;
-}
-
 /**
  * Otto: The app event a `routine_create` request starts on, as the bot named it, with the
  * account when it named one; null when the request has none.
@@ -515,64 +413,4 @@ export function routineTriggerProposalText(
   return Predicate.isString(trigger.account) && trigger.account.trim()
     ? `${text} (${trigger.account.trim()})`
     : text;
-}
-
-/**
- * What a bot's `routine_create` request proposes, read defensively from the raw
- * tool arguments so a malformed request still renders as a reviewable approval.
- */
-export function routineApprovalSummary(
-  args: PendingApproval["args"],
-  t: RoutineTranslator["t"] = englishTranslator.t,
-): RoutineApprovalSummary {
-  const record = asRecord(args);
-  const schedule = asRecord(record?.schedule);
-
-  const time = Predicate.isString(schedule?.time) ? schedule.time : null;
-
-  const weekdays = Array.isArray(schedule?.weekdays)
-    ? schedule.weekdays.filter((day): day is string => Predicate.isString(day))
-    : [];
-
-  const day = Predicate.isNumber(schedule?.day) ? schedule.day : 1;
-
-  const kind = Match.value(schedule?.kind).pipe(
-    Match.when("weekdays", () => t("Weekdays")),
-    Match.when("monthly", () => t("Monthly on day {count}", { count: day })),
-    Match.when("quarterly", () => t("Quarterly on day {count}", { count: day })),
-    Match.when("yearly", () => t("Yearly")),
-    Match.when("weekly", () =>
-      weekdays.length > 0
-        ? weekdays
-            .map((day) => {
-              const index = WEEKDAY_IDS.findIndex((weekday) => weekday === day);
-
-              return index === -1 ? day : t(WEEKDAY_LABELS[index]!);
-            })
-            .join(", ")
-        : t("Weekly"),
-    ),
-    Match.orElse(() => t("Daily")),
-  );
-
-  const everyHours = Predicate.isNumber(schedule?.everyHours) ? schedule.everyHours : 1;
-
-  const base = !time
-    ? null
-    : schedule?.kind === "hourly"
-      ? hourlyScheduleText(everyHours, time, t)
-      : t("{schedule} at {time}", { schedule: kind, time });
-
-  const timezone =
-    Predicate.isString(record?.timezone) && record.timezone.trim() ? record.timezone.trim() : null;
-
-  return {
-    name: Predicate.isString(record?.name) && record.name.trim() ? record.name : t("New routine"),
-    instructions:
-      Predicate.isString(record?.instructions) && record.instructions.trim()
-        ? record.instructions
-        : null,
-    schedule: base && timezone ? `${base} (${timezone})` : base,
-    trigger: routineTriggerProposalText(args, t),
-  };
 }

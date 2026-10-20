@@ -9,15 +9,6 @@ import {
   type SubscriptionProviderStatus,
 } from "@otto/contracts";
 import * as Schema from "effect/Schema";
-import type { MessageKey } from "./i18n/index.ts";
-
-export const PROVIDER_CONNECTIONS = [
-  { id: "openai-codex", label: "ChatGPT" },
-  { id: "anthropic", label: "Claude" },
-  { id: "xai", label: "Grok" },
-  { id: "kimi-for-coding", label: "Kimi For Coding" },
-  { id: "opencode-go", label: "OpenCode Go" },
-] as const satisfies ReadonlyArray<{ id: SubscriptionProviderId; label: string }>;
 
 export function providerSupportsBaseUrl(provider: SubscriptionProviderId): boolean {
   return provider !== "xai";
@@ -58,15 +49,6 @@ export function anyProviderHealthChecking(
   statuses: ReadonlyArray<SubscriptionProviderStatus> | undefined,
 ): boolean {
   return statuses?.some((status) => status.healthChecking === true) ?? false;
-}
-
-/** Catalog copy: render through `t`. */
-export function providerConnectionLabel(status: SubscriptionProviderStatus): MessageKey {
-  if (!status.connected) return "Not connected";
-
-  if (status.healthChecking === true) return "Checking health…";
-
-  return providerUsesApiKey(status) ? "API key saved" : "OAuth connected";
 }
 
 /** Subscription connection that backs each built-in driver's default instance. */

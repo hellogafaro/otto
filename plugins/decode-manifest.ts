@@ -22,14 +22,7 @@ import {
 
 const PLUGIN_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-const PLATFORMS: readonly PluginPlatform[] = [
-  "web",
-  "desktop",
-  "mobile",
-  "macos",
-  "windows",
-  "linux",
-];
+const PLATFORMS: readonly PluginPlatform[] = ["web", "desktop", "macos", "windows", "linux"];
 
 const AUTHENTICATION: readonly PluginAuthentication[] = [
   "none",

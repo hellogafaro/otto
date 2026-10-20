@@ -50,9 +50,11 @@ export function ConnectAppDialog({
 }) {
   const { t } = useI18n();
   const composio = useComposio(environmentId);
+
   const setup = useEnvironmentQuery(
     serverEnvironment.composioAuthSetup({ environmentId, input: { slug: toolkit.slug } }),
   );
+
   const [picked, setPicked] = useState<string | null>(null);
   const [createdConfig, setCreatedConfig] = useState<{ id: string; scheme: string } | null>(null);
   const [schemeMode, setSchemeMode] = useState<string | null>(null);
@@ -66,16 +68,20 @@ export function ConnectAppDialog({
   const managed = data?.managed ?? false;
   const selection = picked ?? (data && !data.managed ? (data.configs[0]?.id ?? "new") : "new");
   const creating = !managed && selection === "new";
+
   const selectedConfig =
     data?.configs.find((config) => config.id === selection) ??
     (createdConfig?.id === selection
       ? { id: createdConfig.id, name: createdConfig.id, scheme: createdConfig.scheme }
       : undefined);
+
   const scheme = creating
     ? (schemeMode ?? data?.schemes[0]?.mode ?? "")
     : (selectedConfig?.scheme ?? data?.schemes[0]?.mode ?? "");
+
   const activeScheme =
     data?.schemes.find((item) => item.mode === scheme) ?? (creating ? data?.schemes[0] : undefined);
+
   const creationFields = creating ? (activeScheme?.creationFields ?? []) : [];
   const connectionFields = managed ? [] : (activeScheme?.connectionFields ?? []);
 
@@ -138,6 +144,7 @@ export function ConnectAppDialog({
     }
 
     const connection = filled(connectionFields, values);
+
     const result = await composio.authorize({
       environmentId,
       input: {
@@ -412,7 +419,9 @@ function AuthFields({
 
 function schemeLabel(mode: string, t: ReturnType<typeof useI18n>["t"]): string {
   if (mode === "OAUTH2") return t("OAuth");
+
   if (mode === "S2S_OAUTH2") return t("Server credentials");
+
   if (mode === "API_KEY") return t("API key");
 
   return mode;

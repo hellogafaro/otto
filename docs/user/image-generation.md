@@ -124,15 +124,3 @@ Image requests count toward the usage of the bot that made them, under
 **Usage**. Prompts and images are not sent to bot memory or logs. The usage
 record keeps only the provider, the model, and the token counts the provider
 reports. Grok does not report tokens, so its requests count with zero tokens.
-
-## Mobile
-
-The mobile app shows the saved setup under **Settings > Image generation**,
-with the same provider details as the desktop page: health, supported
-operations, the last image, the last health test, the last failure, and the
-next step. A provider without a subscription shows only that it is not
-connected. If the status cannot load, select **Try again**. Change image
-generation from the desktop app or the web app.
-
-Images a bot made appear in mobile chats like any other image attachment. Tap
-one to see it full screen.

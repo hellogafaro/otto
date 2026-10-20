@@ -5,14 +5,11 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 RUN corepack enable
-# Manifests and the two file: dependencies only. A source-only change reuses this
-# install, including native builds. pnpm fetch alone does not.
+# Manifests only. A source-only change reuses this install, including native
+# builds. pnpm fetch alone does not.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches ./patches
 COPY apps/desktop/package.json apps/desktop/
-COPY apps/mobile/package.json apps/mobile/
-COPY apps/mobile/deps apps/mobile/deps
-COPY apps/mobile/modules/otto-markdown-text apps/mobile/modules/otto-markdown-text
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY oxlint-plugin-anti-slop/package.json oxlint-plugin-anti-slop/

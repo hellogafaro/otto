@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   collectComposerInlineTokens,
-  collectComposerMentionDisplays,
   collectComposerMentionReferences,
   collectComposerResourceMentions,
   serializeComposerBotMention,
@@ -239,22 +238,13 @@ describe("composer mention tokens", () => {
     });
   });
 
-  it("parses @bot:<id> as a bot mention and labels it by name", () => {
+  it("parses @bot:<id> as a bot mention", () => {
     const token = serializeComposerBotMention("bot-2");
     expect(token).toBe("@bot:bot-2");
     expect(collectComposerInlineTokens(`ask ${token} now`)).toEqual([
       { type: "bot-mention", value: "bot-2", source: "@bot:bot-2", start: 4, end: 14 },
     ]);
     expect(serializeComposerBotMention("bad id")).toBeNull();
-    const name = (id: string) => (id === "bot-2" ? "Mika" : null);
-    expect(
-      collectComposerMentionDisplays("@bot:bot-2 and @bot:gone", () => null, name).map(
-        (display) => [display.kind, display.label, display.botId],
-      ),
-    ).toEqual([
-      ["bot", "Mika", "bot-2"],
-      ["bot", "Unknown bot", "gone"],
-    ]);
   });
 });
 

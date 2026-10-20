@@ -1,13 +1,4 @@
 export const connectionsCatalog = {
-  "Add Environment": "Add Environment",
-  "Add environment": "Add environment",
-  "All environments": "All environments",
-  "Allow camera access to scan an environment pairing QR code.":
-    "Allow camera access to scan an environment pairing QR code.",
-  "Camera permission is required to scan a QR code.":
-    "Camera permission is required to scan a QR code.",
-  "Clearing caches never removes environment connections, credentials, account data, or appearance preferences.":
-    "Clearing caches never removes environment connections, credentials, account data, or appearance preferences.",
   Connect: "Connect",
   Connections: "Connections",
   "Data portability": "Data portability",
@@ -22,30 +13,15 @@ export const connectionsCatalog = {
   "Enter a pairing token to start a session with this environment.":
     "Enter a pairing token to start a session with this environment.",
   Environment: "Environment",
-  "Environment caches": "Environment caches",
   "Environment identification": "Environment identification",
-  Environments: "Environments",
-  "Invalid QR code": "Invalid QR code",
-  "Loading connections…": "Loading connections…",
-  "Offline cache records will appear here after environments are used.":
-    "Offline cache records will appear here after environments are used.",
-  "Open Settings from an environment to connect a provider.":
-    "Open Settings from an environment to connect a provider.",
-  "Opens environment settings": "Opens environment settings",
-  "Pairing code": "Pairing code",
   "Pick the default workspace mode for new chats on this environment.":
     "Pick the default workspace mode for new chats on this environment.",
   "Provider connection failed": "Provider connection failed",
-  "Provider connections": "Provider connections",
   Reconnect: "Reconnect",
-  "Reconnect key": "Reconnect key",
   "Remote environments": "Remote environments",
   Sandbox: "Sandbox",
   "Sandbox and browser sharing": "Sandbox and browser sharing",
   "Sandbox auto-idle": "Sandbox auto-idle",
-  "Scan QR Code": "Scan QR Code",
-  "Scanned QR code was not recognized.": "Scanned QR code was not recognized.",
-  "Show every workspace as its own project.": "Show every workspace as its own project.",
   "The environment sends this key to the selected endpoint.":
     "The environment sends this key to the selected endpoint.",
   "This environment accepts one-time pairing tokens. Pairing links can open this page directly, or you can paste the token here.":
@@ -58,26 +34,18 @@ export const connectionsCatalog = {
   "Environment: {environment}": "Environment: {environment}",
   "on {environment}": "on {environment}",
   "Backend paired": "Backend paired",
-  Connecting: "Connecting",
-  "Environment disconnected": "Environment disconnected",
   "Pair with this environment": "Pair with this environment",
   "Pairing backend": "Pairing backend",
   "Pairing failed": "Pairing failed",
   "Pairing token": "Pairing token",
   "Pairing with this environment": "Pairing with this environment",
-  "Pairing…": "Pairing…",
   "Paste a one-time token or pairing secret": "Paste a one-time token or pairing secret",
-  "Saved on this device only. System default follows this device when English or Simplified Chinese is available.":
-    "Saved on this device only. System default follows this device when English or Simplified Chinese is available.",
-  "Use the language of this device": "Use the language of this device",
   "Validating the pairing link and preparing your session.":
     "Validating the pairing link and preparing your session.",
   "Verify the backend is reachable from this browser, supports CORS for hosted clients, and is served over HTTPS when opening this page from HTTPS.":
     "Verify the backend is reachable from this browser, supports CORS for hosted clients, and is served over HTTPS when opening this page from HTTPS.",
   "Language applies only to this device.": "Language applies only to this device.",
   "In {environment}": "In {environment}",
-  "Controls this environment's web and desktop calls. Native mobile audio calls are not supported. Configure voice services in web or desktop Settings.":
-    "Controls this environment's web and desktop calls. Native mobile audio calls are not supported. Configure voice services in web or desktop Settings.",
   Workspace: "Workspace",
   "Connecting…": "Connecting…",
   "Reconnecting…": "Reconnecting…",
@@ -102,8 +70,6 @@ export const connectionsCatalog = {
   "This environment runs a version the app does not support.":
     "This environment runs a version the app does not support.",
   "Connecting to {environment}…": "Connecting to {environment}…",
-  "Reconnecting to {environment}…": "Reconnecting to {environment}…",
-  "Reconnecting {count} environments…": "Reconnecting {count} environments…",
   "{environment} is unavailable": "{environment} is unavailable",
   "{environment} is disconnected": "{environment} is disconnected",
   "Cached data remains available. The review will load when your connection returns.":
@@ -117,29 +83,6 @@ export const connectionsCatalog = {
   "Reconnect the environment to load the review.": "Reconnect the environment to load the review.",
   "Reconnect the environment to load the terminal.":
     "Reconnect the environment to load the terminal.",
-  "Try another search or environment.": "Try another search or environment.",
-  "Could not update environment": "Could not update environment",
-  "The environment could not be updated.": "The environment could not be updated.",
-  "This environment's server does not support snoozing yet. Update the server to use Snooze.":
-    "This environment's server does not support snoozing yet. Update the server to use Snooze.",
-  "This environment's server does not support snoozing yet. Update the server to wake this chat.":
-    "This environment's server does not support snoozing yet. Update the server to wake this chat.",
-  "This environment's server does not support pinning yet. Update the server to use Pin.":
-    "This environment's server does not support pinning yet. Update the server to use Pin.",
-  "This environment's server does not support title regeneration yet. Update the server to regenerate chat titles.":
-    "This environment's server does not support title regeneration yet. Update the server to regenerate chat titles.",
-  "This environment's server does not support pinned reordering yet. Update the server to reorder pins.":
-    "This environment's server does not support pinned reordering yet. Update the server to reorder pins.",
-  "This removes offline chats, server metadata, and cached branches for this environment. The saved connection and credentials stay intact.":
-    "This removes offline chats, server metadata, and cached branches for this environment. The saved connection and credentials stay intact.",
-  "This removes offline data for every environment. Connections, credentials, account data, and app preferences stay intact.":
-    "This removes offline data for every environment. Connections, credentials, account data, and app preferences stay intact.",
-  "Could not import shared content": "Could not import shared content",
-  "Cancel import": "Cancel import",
-  "Could not cancel import": "Could not cancel import",
-  "Retry import": "Retry import",
-  "Remove environment?": "Remove environment?",
-  "Disconnect and forget {label} on this device.": "Disconnect and forget {label} on this device.",
   "Connect your provider": "Connect your provider",
   "Connect {provider}": "Connect {provider}",
   "Connect an environment first": "Connect an environment first",
@@ -160,9 +103,6 @@ export const connectionsCatalog = {
   "The project for this channel is unavailable. Choose another project to reconnect it.":
     "The project for this channel is unavailable. Choose another project to reconnect it.",
   "Reconnect in this project": "Reconnect in this project",
-  "Reconnect in {project}": "Reconnect in {project}",
-  "Repair this channel from Settings > Bot channels on the host.":
-    "Repair this channel from Settings > Bot channels on the host.",
   "Connect an environment first.": "Connect an environment first.",
   "Set up a channel connection first.": "Set up a channel connection first.",
   "Needs reconnect": "Needs reconnect",
@@ -216,8 +156,6 @@ export const connectionsCatalog = {
   "Apply import": "Apply import",
   "Imported {imported}, changed {changed}, skipped {skipped}.":
     "Imported {imported}, changed {changed}, skipped {skipped}.",
-  "Routines are not available for this environment.":
-    "Routines are not available for this environment.",
   "Connect a provider to use skills.": "Connect a provider to use skills.",
   "Connect a provider to use its commands.": "Connect a provider to use its commands.",
   "No {provider} subscription connected": "No {provider} subscription connected",
@@ -279,11 +217,8 @@ export const connectionsCatalog = {
     "Boat refused its API key. Replace it in Settings > Computer, then try again.",
   "Check the environment connection, then send your message again.":
     "Check the environment connection, then send your message again.",
-  "Automatically read new replies in this chat on this device":
-    "Automatically read new replies in this chat on this device",
   "This preference could not be saved on this device.":
     "This preference could not be saved on this device.",
-  "This environment": "This environment",
   "Choose Connect and sign in with your ChatGPT account.":
     "Choose Connect and sign in with your ChatGPT account.",
   "Choose Connect and sign in with your Claude account.":
@@ -341,7 +276,6 @@ export const connectionsCatalog = {
     "Connect to an environment to set up providers.",
   "This environment has no {provider} runtime. Update the environment server to configure it here.":
     "This environment has no {provider} runtime. Update the environment server to configure it here.",
-  "this environment": "this environment",
   "Browser viewport": "Browser viewport",
   "Persistent Linux VMs managed by Boat. Requires an API key.":
     "Persistent Linux VMs managed by Boat. Requires an API key.",
@@ -409,9 +343,6 @@ export const connectionsCatalog = {
   "MCP transport": "MCP transport",
   "Remote URL": "Remote URL",
   "Connect an environment to manage plugins.": "Connect an environment to manage plugins.",
-  "Remote health": "Remote health",
-  "Health checks for this environment": "Health checks for this environment",
-  "Refresh remote health": "Refresh remote health",
   "No environment connected": "No environment connected",
   "Connect to an Otto environment to set up channels.":
     "Connect to an Otto environment to set up channels.",
@@ -437,11 +368,9 @@ export const connectionsCatalog = {
     "Reconnect {provider} to keep chatting with {bot}",
   "Checking your {provider} account…": "Checking your {provider} account…",
   "{provider} account": "{provider} account",
-  "In use": "In use",
   "Main account": "Main account",
   "Backup {number}": "Backup {number}",
   "Checking sign-in": "Checking sign-in",
-  "Usage limit reached, back at {time}": "Usage limit reached, back at {time}",
   "Signed out": "Signed out",
   "Can't reach {provider}": "Can't reach {provider}",
   "Sign in again": "Sign in again",

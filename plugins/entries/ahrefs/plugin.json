@@ -23,7 +23,7 @@
       "license": "Ahrefs brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://api.ahrefs.com/mcp/mcp"

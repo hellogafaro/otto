@@ -1,14 +1,7 @@
 import { BotId } from "@otto/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  botInboxItemCopy,
-  botInboxRepairDestination,
-  botInboxRowAction,
-  selectOpenBotInboxItems,
-  type BotInboxItem,
-} from "./bot-inbox.js";
-import { createTranslator } from "./i18n/index.ts";
+import { selectOpenBotInboxItems, type BotInboxItem } from "./bot-inbox.js";
 
 function incident(overrides: Partial<BotInboxItem> = {}): BotInboxItem {
   return {
@@ -67,54 +60,5 @@ describe("selectOpenBotInboxItems", () => {
         (item) => item.id,
       ),
     ).toEqual(["connector"]);
-  });
-});
-
-describe("botInboxItemCopy", () => {
-  it("keeps the server copy for other items", () => {
-    expect(botInboxItemCopy(incident(), createTranslator("en").t)).toEqual({
-      kind: "Provider connection failed",
-      detail: "The request failed.",
-      nextAction: "Reconnect the provider.",
-    });
-  });
-});
-
-describe("botInboxRepairDestination", () => {
-  it("opens Plugins for MCP incidents", () => {
-    expect(
-      botInboxRepairDestination(incident({ incidentKey: "access:mcp-builtin-exa:bot-1" })),
-    ).toBe("plugins");
-  });
-
-  it.each(["connector:anthropic:bot-1", "access:cursor-acp:bot-1"])(
-    "opens Providers for %s",
-    (incidentKey) => {
-      expect(botInboxRepairDestination(incident({ incidentKey }))).toBe("providers");
-    },
-  );
-
-  it("does not add a dead action for approval requests", () => {
-    expect(botInboxRepairDestination(incident({ incidentKey: "approval:req-1" }))).toBeNull();
-  });
-});
-
-describe("botInboxRowAction", () => {
-  it("resolves every incident without a repair destination", () => {
-    for (const [incidentKey, kind] of [
-      ["approval:req-1", "approval-request"],
-      ["user-action:bot-1:request_box_help:login", "approval-request"],
-      ["silence:bot-1", "silence-watchdog-failure"],
-      ["routine:routine-1", "routine-failure"],
-    ] as const) {
-      expect(botInboxRowAction(incident({ incidentKey, kind }))).toBe("resolve");
-    }
-  });
-
-  it("links repairable incidents to their fix instead of resolving them", () => {
-    expect(botInboxRowAction(incident())).toBe("providers");
-    expect(botInboxRowAction(incident({ incidentKey: "access:mcp-builtin-exa:bot-1" }))).toBe(
-      "plugins",
-    );
   });
 });

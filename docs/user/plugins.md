@@ -65,9 +65,8 @@ either, until that lifecycle is verified.
 Connect more than one account for an app when you need separate work and personal accounts. The bot
 asks you to select an account when a tool call could use more than one.
 
-Composio tools work in chats opened from web, desktop, or mobile after an environment has a key and
-at least one connected account. Manage the key and accounts from the web or desktop client; the
-mobile app does not manage plugins.
+Composio tools work in chats opened from web or desktop after an environment has a key and at least
+one connected account. Manage the key and accounts from the web or desktop client.
 
 ## Custom MCP servers
 

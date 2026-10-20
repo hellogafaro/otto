@@ -17,7 +17,7 @@
       "license": "Apify trademark; retrieved by Brand.dev"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.apify.com" },
   "connection": {
     "type": "verification-pending",

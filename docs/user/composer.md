@@ -3,12 +3,6 @@
 Messages can contain up to 120,000 characters. Otto keeps an oversized draft in the composer and
 shows how many characters you must remove. Shorten the draft or send it as several messages.
 
-On mobile, unsent drafts and queued messages stay on the device. If Otto cannot read a draft store,
-it leaves the saved work in place instead of treating it as empty. Readable queued messages still
-send after reconnect. An unreadable queued-message file stays on the device until it can be read. A
-send that fails because the connection dropped stays queued and retries when the environment is
-reachable again.
-
 ## Attach images
 
 On servers with direct uploads, an image starts uploading when you add it. Otto enables **Send**
@@ -54,13 +48,12 @@ discarded.
 
 Dictation needs a transcription provider for the connected environment. Turn on voice and connect
 a provider in **Settings > Providers > Voice**. Dictation is unavailable during an active voice call, while
-disconnected, or if the browser or device cannot use a microphone. On mobile, recording stops when
-Otto leaves the foreground.
+disconnected, or if the browser or device cannot use a microphone.
 
 ## Mention the browser or another chat
 
 Type `@` to open the mention menu. Use the arrow keys to move through it, `Enter` or `Tab` to pick,
-and `Escape` to close it. On mobile, tap a row.
+and `Escape` to close it.
 
 Pick **Browser** to ask the bot to use the preview browser for this message. Otto tells the bot to
 work in the same preview browser you see instead of starting its own. **Browser** only appears when

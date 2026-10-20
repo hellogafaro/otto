@@ -2,14 +2,14 @@
 
 > For maintainers. Using Otto? See [docs/user](../user/).
 
-The connection runtime is shared by web and mobile. It owns connectivity,
+The connection runtime is shared by web and desktop. It owns connectivity,
 authentication, retries, transport lifetime, cached environment data, and
 environment-scoped operations.
 
-Web and mobile mount this runtime once at the application root and compose it
-identically: `apps/web/src/connection/runtime.ts` and
-`apps/mobile/src/connection/runtime.ts` differ only in the platform layer they
-supply. There is no legacy connection owner or supported mixed mode.
+The web app mounts this runtime once at the application root in
+`apps/web/src/connection/runtime.ts`; the desktop renderer runs the same web app
+with its own platform layer. There is no legacy connection owner or supported
+mixed mode.
 
 ## Composition
 
@@ -64,7 +64,7 @@ Wakeup handling differs by phase, in [supervisor.ts][supervisor]:
 - During establishment, `waitForEstablishmentInterrupt` consumes and **ignores**
   plain application activation. Restarting an in-flight attempt because the app
   came to the foreground would only delay it. The exception is
-  `application-active-reconnect`, which mobile emits after a meaningful
+  `application-active-reconnect`, which a client emits after a meaningful
   background suspension; it interrupts establishment and resets the retry
   ladder, because the OS may have silently killed the socket underneath the
   attempt.
@@ -75,7 +75,7 @@ Wakeup handling differs by phase, in [supervisor.ts][supervisor]:
   delay.
 - Once connected, `monitorConnectedLease` handles plain activation by probing
   the existing session (`lease.session.probe`, with a shorter timeout for
-  mobile's `application-active-probe`) rather than reconnecting; a healthy
+  `application-active-probe`) rather than reconnecting; a healthy
   session survives foregrounding. `application-active-reconnect` skips the probe
   and replaces the lease outright.
 
@@ -114,14 +114,14 @@ Finite requests, durable subscriptions, and commands are separate APIs:
   (`createProjectEnvironmentAtoms`, `createThreadEnvironmentAtoms`), as are the
   shell and thread state factories (`createEnvironmentShellAtoms`,
   `createEnvironmentThreadStateAtoms`).
-- Web and mobile own their Atom runtimes, React hooks, and feature composition.
+- Each client owns its Atom runtime, React hooks, and feature composition.
 
 The Promise bridge exists only at the React/Atom boundary. Runtime and business
 logic remain Effect-native.
 
 ## Platform Layers
 
-Web and mobile provide:
+Each platform provides:
 
 - network status and network-change streams;
 - application lifecycle wakeups;
@@ -132,14 +132,7 @@ Web and mobile provide:
 Platform layers adapt operating-system capabilities. They do not implement
 connection policy. `EnvironmentOwnedDataCleanup` is part of this contract: on
 removal the registry clears its cache and calls the platform implementation, so
-web clears composer drafts and mobile clears drafts plus the thread outbox.
-Mobile draft loads fail closed: a read or decode error does not look like an
-empty store. Outbox hydration publishes readable queued messages and leaves
-unreadable files on disk with diagnostics. Environment cleanup still stops if
-any outbox record cannot be read, so unread attachment owners are not deleted.
-Queued delivery retries tagged transport failures (`RpcClientError`, disconnected
-or unregistered environments) and only restores a pending task after a server
-command or authorization rejection.
+web clears composer drafts.
 
 ## Source Boundaries
 
@@ -152,8 +145,8 @@ list. Files that are not exported are implementation details.
 ## Application Boundary
 
 The application root mounts the shared connection layer, creates its own Atom
-runtime, and selects the domain atom factories required by that platform. Web
-and mobile may expose different hooks and features without changing connection
+runtime, and selects the domain atom factories required by that platform.
+Clients may expose different hooks and features without changing connection
 ownership.
 
 Application code must not construct RPC clients, retry loops, or raw

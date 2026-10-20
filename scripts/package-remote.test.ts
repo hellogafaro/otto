@@ -17,6 +17,17 @@ import {
 
 const scripts = import.meta.dirname;
 
+// The installer verifies with the first OpenSSL 3 it finds; macOS ships LibreSSL as openssl.
+const openssl3 = [
+  "openssl",
+  "/opt/homebrew/opt/openssl@3/bin/openssl",
+  "/usr/local/opt/openssl@3/bin/openssl",
+].find((candidate) =>
+  /^OpenSSL [3-9]/.test(
+    NodeChildProcess.spawnSync(candidate, ["version"], { encoding: "utf8" }).stdout ?? "",
+  ),
+);
+
 const read = (name: string) => NodeFS.readFileSync(NodePath.join(scripts, name), "utf8");
 
 const temporary = () => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-package-test-"));
@@ -174,7 +185,9 @@ describe("package-remote", () => {
     const publicKeyPath = NodePath.join(directory, "manifest.pub");
     NodeFS.writeFileSync(publicKeyPath, publicKeyPem);
 
-    const verified = NodeChildProcess.spawnSync("openssl", [
+    expect(openssl3, "OpenSSL 3 is required to verify release manifests").toBeDefined();
+
+    const verified = NodeChildProcess.spawnSync(openssl3 ?? "openssl", [
       "pkeyutl",
       "-verify",
       "-pubin",

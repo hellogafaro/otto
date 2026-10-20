@@ -10,7 +10,7 @@ Speech composition uses explicitly selected file transcription, the existing bot
 
 The selected transcription service receives the microphone recording. The bot's existing agent provider receives the resulting normal chat turn. The selected synthesis service receives the completed reply. There is no automatic fallback to a different service or billing source.
 
-Browser media belongs on the client, including when the environment is remote. Web and Electron use browser capture and playback. Native mobile has no implemented audio capture/playback adapter and must describe this limitation rather than infer support from shared contracts.
+Browser media belongs on the client, including when the environment is remote. Web and Electron use browser capture and playback.
 
 ## Capabilities and failures
 

@@ -10,11 +10,7 @@ import {
   effectiveDefaultProvider,
   effectiveFallbackOrder,
   globalDefaultOptionLabel,
-  imageProviderAccessLabel,
-  imageProviderGenerationLabel,
   imageProviderHealthDisplay,
-  imageProviderHealthTestLabel,
-  imageProviderOperationsLabel,
   imageProviderTogglePatch,
 } from "./image-generation.js";
 
@@ -76,51 +72,9 @@ describe("imageProviderHealthDisplay", () => {
       imageProviderHealthDisplay(status("healthy", { healthTest: { status: "passed" } }), false),
     ).toEqual({ label: "Disabled", variant: "secondary" });
   });
-
-  it("names detected access", () => {
-    expect(imageProviderAccessLabel(status("detected"))).toBe("ChatGPT subscription detected");
-    expect(
-      imageProviderAccessLabel(status("missing", { provider: "grok", connected: false })),
-    ).toBe("No Grok subscription connected");
-  });
 });
 
 describe("image provider detail labels", () => {
-  const at = (iso: string) => `at ${iso}`;
-
-  it("names supported operations", () => {
-    expect(imageProviderOperationsLabel(status("healthy"))).toBe("Supports image generation");
-    expect(
-      imageProviderOperationsLabel(status("healthy", { operations: ["generate", "edit"] })),
-    ).toBe("Supports image generation and editing");
-    expect(imageProviderOperationsLabel(status("unsupported", { operations: [] }))).toBe(
-      "No supported operations reported",
-    );
-  });
-
-  it("shows the last generation time or an empty history", () => {
-    expect(imageProviderGenerationLabel(status("healthy"), at)).toBe("No images generated yet");
-    expect(imageProviderGenerationLabel(status("healthy", { lastGenerationAt: "T1" }), at)).toBe(
-      "Last image at T1",
-    );
-  });
-
-  it("shows the health test status and time", () => {
-    expect(imageProviderHealthTestLabel(status("detected"), at)).toBe("Health test not run");
-    expect(
-      imageProviderHealthTestLabel(status("detected", { healthTest: { status: "not-run" } }), at),
-    ).toBe("Health test not run");
-    expect(
-      imageProviderHealthTestLabel(
-        status("healthy", { healthTest: { status: "passed", checkedAt: "T2" } }),
-        at,
-      ),
-    ).toBe("Health test passed at T2");
-    expect(
-      imageProviderHealthTestLabel(status("failed", { healthTest: { status: "failed" } }), at),
-    ).toBe("Health test failed");
-  });
-
   it("annotates bot editor options that cannot create images", () => {
     expect(botImageProviderOptionLabel("chatgpt", BOTH, status("healthy"))).toBe("ChatGPT");
     expect(botImageProviderOptionLabel("chatgpt", NONE, status("healthy"))).toBe("ChatGPT (off)");

@@ -18,13 +18,10 @@
 - [Plugins](./user/plugins.md)
 - [Privacy and outbound data](./user/privacy.md)
 - [Review usage](./user/usage.md)
-- [Mobile appearance](./user/mobile-appearance.md)
 - [App language](./user/language.md)
 - [Remote access](./user/remote-access.md)
 - [Keeping app and server in sync](./user/updating.md)
 - [Background service](./user/background-service.md)
-
-Mobile app: [apps/mobile/README.md](../apps/mobile/README.md)
 
 ---
 
@@ -61,4 +58,3 @@ policy in [CONTRIBUTING.md](../CONTRIBUTING.md); agent rules in [AGENTS.md](../A
 - [Observability](./operations/observability.md)
 - [Provider model routing](./operations/provider-model-routing.md)
 - [Kimi Mastra verification](./operations/kimi-mastra-verification.md)
-- [Mobile app store screenshots](./operations/mobile-app-store-screenshots.md)

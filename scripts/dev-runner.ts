@@ -27,7 +27,7 @@ import { ChildProcess } from "effect/unstable/process";
 
 import { type DevShareError, shareDevServer, unshareDevServer } from "./lib/dev-share.ts";
 
-import { loadRepoEnv } from "./lib/public-config.ts";
+import { loadRepoEnv } from "./lib/repo-env.ts";
 
 import {
   BASE_SERVER_PORT,

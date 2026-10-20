@@ -125,10 +125,6 @@ const QuitConfirmationModeSetting = Schema.Union([QuitConfirmationMode, LegacyCo
  */
 export const OTTO_DOCUMENTATION_URL = "https://github.com/hellogafaro/otto/blob/main";
 
-export const OTTO_PRIVACY_POLICY_VERSION = "2026-08-31";
-
-export const OTTO_TERMS_VERSION = "2026-08-31";
-
 /**
  * Defaults for the in-app preview browser, applied whenever a tab is opened
  * without an explicit viewport/zoom/appearance — by the user opening a browser

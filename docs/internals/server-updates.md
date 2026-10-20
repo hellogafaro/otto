@@ -97,7 +97,7 @@ when there was none. Long text keeps its start and end, quoted text cannot close
 attachments are named, and answers to questions asked during the turn are repeated. The note never
 names the product. The manual Resume action uses the same note.
 
-If automatic recovery fails, the session stays in a recoverable error state. Web and mobile show a
+If automatic recovery fails, the session stays in a recoverable error state. Web and desktop show a
 Resume action that persists `thread.turn-resume-requested`; the continuation is not inserted as a
 visible user message. The provider is instructed to reconcile completed work, recreate only still-needed
 questions, and finish the interrupted request.

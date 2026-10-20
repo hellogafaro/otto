@@ -41,10 +41,8 @@ Web and desktop charts stay still when idle. Hover over a chart to inspect a val
 
 ## Per-bot usage
 
-On mobile, **Settings > General > Usage** lists the bots in each connected environment below the plan
-limits. Open a bot to see its input, output, Observer, and Reflector tokens, an estimated cost,
-subscription pool use, and reserved tokens. Archived bots remain in the list with an
-**archived** label so you can review their earlier usage.
+A bot's settings show **Bot usage**: its input, output, Observer, and Reflector tokens, an estimated
+cost, subscription pool use, and reserved tokens.
 
 A measurement a provider did not report reads **Unavailable** rather than zero, and a measurement
 that is only partly reported shows a trailing `+` so the number reads as a floor. A notice names the
@@ -54,13 +52,9 @@ Estimated cost comes from the model rate table. It is not subscription spend and
 billed. Subscription pool use is provider-reported as either a percentage or a token count; when a
 provider reports no meter, the row reads Unavailable.
 
-Per-bot usage reads when you open it, when the app returns to the foreground, and when you pull to
-refresh. It does not poll in the background.
-
 ## Refresh usage
 
 Otto refreshes usage every five minutes by default. Select the refresh button to reload it now. The
 page remembers the last tab and time range you selected.
 
-Change **Usage refresh** in **Settings > General** to a value from 1 to 60 minutes. Mobile also shows
-Usage under General settings and supports pull-to-refresh.
+Change **Usage refresh** in **Settings > General** to a value from 1 to 60 minutes.

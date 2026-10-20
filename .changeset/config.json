@@ -9,7 +9,7 @@
   "linked": [],
   "access": "restricted",
   "baseBranch": "main",
-  "ignore": ["@otto/marketing", "@otto/mobile"],
+  "ignore": ["@otto/marketing"],
   "updateInternalDependencies": "patch",
   "bumpVersionsWithWorkspaceProtocolOnly": true,
   "privatePackages": { "version": true, "tag": false }

@@ -27,7 +27,7 @@
       "license": "GitHub brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://api.githubcopilot.com/mcp/"

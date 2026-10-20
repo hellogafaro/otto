@@ -23,7 +23,7 @@
       "license": "Netlify brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://netlify-mcp.netlify.app/mcp"

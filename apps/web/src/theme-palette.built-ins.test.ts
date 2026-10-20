@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { BUILT_IN_THEME_IDS, BUILT_IN_THEMES, MOBILE_THEME_IDS } from "@otto/shared/themePalettes";
+import { BUILT_IN_THEME_IDS, BUILT_IN_THEMES } from "@otto/shared/themePalettes";
 import {
   OTTO_PAPER_THEME,
   getThemeColorsForMode,
@@ -15,7 +15,6 @@ import {
 describe("the shared Otto palette", () => {
   it("ships one palette with two appearances on every client", () => {
     expect(BUILT_IN_THEME_IDS).toEqual(["otto-paper"]);
-    expect(MOBILE_THEME_IDS).toEqual(BUILT_IN_THEME_IDS);
     expect(BUILT_IN_THEMES).toEqual([OTTO_PAPER_THEME]);
     expect(getThemeModes(OTTO_PAPER_THEME)).toEqual(["light", "dark"]);
   });

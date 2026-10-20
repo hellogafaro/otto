@@ -61,7 +61,17 @@ cp "$RELEASES/$(basename "$source")" "$destination"
 `,
     { mode: 0o755 },
   );
-  NodeFS.writeFileSync(NodePath.join(tools, "openssl"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  NodeFS.writeFileSync(
+    NodePath.join(tools, "openssl"),
+    '#!/bin/sh\n[ "$1" = version ] && echo "OpenSSL 3.0.0"\nexit 0\n',
+    { mode: 0o755 },
+  );
+  // Otto: pin the host so the installer asks for the linux-x64 archive on any machine.
+  NodeFS.writeFileSync(
+    NodePath.join(tools, "uname"),
+    '#!/bin/sh\n[ "$1" = -m ] && echo x86_64 || echo Linux\n',
+    { mode: 0o755 },
+  );
   NodeFS.writeFileSync(NodePath.join(installRoot, "versions", "1.0.0", "otto"), "old\n");
   NodeFS.symlinkSync(
     NodePath.join(installRoot, "versions", "1.0.0", "otto"),

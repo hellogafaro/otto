@@ -304,7 +304,7 @@ describe("AcpSessionRuntime", () => {
 });
 
 describe("AcpSessionRuntime", () => {
-  it.effect("suppresses generic placeholder tool updates until completion", () =>
+  it.effect("shows a generic placeholder once, then only its completion", () =>
     Effect.gen(function* () {
       const runtime = yield* AcpSessionRuntime.AcpSessionRuntime;
       yield* runtime.start();
@@ -315,14 +315,25 @@ describe("AcpSessionRuntime", () => {
 
       expect(promptResult).toMatchObject({ stopReason: "end_turn" });
 
-      const notes = Array.from(yield* Stream.runCollect(Stream.take(runtime.getEvents(), 1)));
-      expect(notes.map((note) => note._tag)).toEqual(["ToolCallUpdated"]);
-      const toolCall = notes[0];
-      expect(toolCall?._tag).toBe("ToolCallUpdated");
+      const notes = Array.from(yield* Stream.runCollect(Stream.take(runtime.getEvents(), 3)));
 
-      if (Predicate.isTagged(toolCall, "ToolCallUpdated")) {
-        expect(toolCall.toolCall.status).toBe("completed");
-        expect(toolCall.toolCall.title).toBe("Read file");
+      // The opening observation reaches ingestion so the silence watchdog pauses; the bare
+      // in-progress redraw counts only as provider activity.
+      expect(notes.map((note) => note._tag)).toEqual([
+        "ToolCallUpdated",
+        "ProviderActivity",
+        "ToolCallUpdated",
+      ]);
+
+      const [opening, , completion] = notes;
+
+      if (Predicate.isTagged(opening, "ToolCallUpdated")) {
+        expect(opening.toolCall.status).toBe("pending");
+      }
+
+      if (Predicate.isTagged(completion, "ToolCallUpdated")) {
+        expect(completion.toolCall.status).toBe("completed");
+        expect(completion.toolCall.title).toBe("Read file");
       }
     }).pipe(
       Effect.provide(

@@ -63,9 +63,8 @@ The command uses the existing `server-runtime.json`; it does not scan ports or c
   Recorded origins from stale files are historical, not proof that a server is running.
 - Makes credential-free HTTP HEAD checks only on loopback. It does not follow redirects or contact
   remote origins. HTTP responses show availability, not verified application readiness.
-- Reports desktop debug-port configuration and the command that resolves current mobile identity
-  from app configuration. It does not duplicate bundle IDs or infer installed clients from settings.
-  Provider credentials, native toolchains, and installed mobile apps are not checked.
+- Reports desktop debug-port configuration. It does not infer installed clients from settings.
+  Provider credentials and native toolchains are not checked.
 - Does not print pairing URLs, URL credentials, queries, fragments, or arbitrary environment values.
   It does not read the database, start a server or browser, or change state, including in live homes.
 
@@ -81,8 +80,7 @@ fixture writes. After pairing or business activity, create a fresh fixture home.
 [the fixture recipe](../../.agents/skills/test-ottoLegacy-app/references/sqlite-fixtures.md).
 
 Follow [local verification](verification.md) for client coverage, evidence, and environment lifetime.
-The app testing skill includes Electron debug attachment; mobile testing resolves development identity
-from app configuration rather than copied identifiers.
+The app testing skill includes Electron debug attachment.
 
 ## Build, check, test
 
@@ -99,7 +97,6 @@ from app configuration rather than copied identifiers.
   options, so workspace type checking runs separately.
 - `vp run typecheck`: Strict TypeScript checks for all packages.
 - `vp run test`: Runs workspace tests.
-- `vp run lint:mobile`: Mobile native static analysis (`scripts/mobile-native-static-check.ts`).
 - `node apps/server/scripts/otto-legacy-sqlite-state.ts <query|exec> --base-dir <path> ...`: Inspects or seeds
   an isolated OttoLegacy SQLite database; writes create a private backup first.
 

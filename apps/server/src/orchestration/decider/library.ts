@@ -278,6 +278,7 @@ export const decideLibrary = Effect.fn("decideLibrary")(function* ({
 
       const { occurredAt, base: eventBase } = yield* base("library-folder", folder.id);
       const parentId = command.parentId ?? null;
+
       const becomesSkill =
         moves &&
         parentId === LIBRARY_SKILLS_FOLDER_ID &&

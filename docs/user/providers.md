@@ -70,7 +70,7 @@ expired** come with **Sign in again**, and **Key rejected** comes with **Replace
 the provider comes with **Try again**.
 
 Use the arrows to change the order. The actions menu on each account has **Sign in again** (or
-**Replace key**) and **Remove**. On mobile, use **Move up**, **Move down**, and **Disconnect**.
+**Replace key**) and **Remove**.
 
 Backup accounts serve bots on the provider's main connection. A separate account added with **Add
 separate account** keeps its own sign-in and does not take part in the backup order.
@@ -83,4 +83,4 @@ The check covers ChatGPT/Codex, Claude, Grok, and Kimi For Coding logins, and Op
 
 ## Device codes
 
-For providers that use a device code, Otto shows the code beside the sign-in link, in Settings, in desktop onboarding, and on mobile. Choose **Copy sign-in code** (or **Copy code** on mobile) to copy it. **Code copied** confirms a successful copy. If the browser, desktop shell, or phone denies clipboard access, Otto says so. Select the code, copy it manually, and continue on the provider's sign-in page.
+For providers that use a device code, Otto shows the code beside the sign-in link, in Settings and in desktop onboarding. Choose **Copy sign-in code** to copy it. **Code copied** confirms a successful copy. If the browser or desktop shell denies clipboard access, Otto says so. Select the code, copy it manually, and continue on the provider's sign-in page.

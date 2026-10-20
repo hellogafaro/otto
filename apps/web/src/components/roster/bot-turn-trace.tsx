@@ -148,9 +148,9 @@ export function WorkingFor({
     return () => window.clearInterval(id);
   }, []);
 
-  return t("Working for {duration}", {
-    duration: formatLoadingElapsed(baseMs + Math.max(0, now - startedAt)),
-  });
+  const duration = formatLoadingElapsed(baseMs + Math.max(0, now - startedAt));
+
+  return t("Working for {duration}", { duration });
 }
 
 /** The status after the name: muted, at the name's weight, shimmering while the bot works. */

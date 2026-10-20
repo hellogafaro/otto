@@ -1,33 +1,16 @@
 export const settingsCatalog = {
   "API token": "API token",
-  "Otto runs locally. Provider prompts and enabled online features still send data to their listed services.":
-    "Otto runs locally. Provider prompts and enabled online features still send data to their listed services.",
-  "All providers": "All providers",
-  "Anonymous analytics": "Anonymous analytics",
-  "Camera access was denied for this app. Open Settings to enable it.":
-    "Camera access was denied for this app. Open Settings to enable it.",
-  "Cancel chat settings": "Cancel chat settings",
-  "Chat settings": "Chat settings",
-  "Close settings": "Close settings",
   "Code font": "Code font",
   "Custom font size": "Custom font size",
   "Default browser appearance": "Default browser appearance",
   "Fallback model": "Fallback model",
-  "Filter models": "Filter models",
-  "Find a model": "Find a model",
   "Font size": "Font size",
   "Font smoothing": "Font smoothing",
   "Grok uses its default endpoint.": "Grok uses its default endpoint.",
-  "Group by repository path": "Group by repository path",
   "Interface font": "Interface font",
-  "Keep monorepo paths separate.": "Keep monorepo paths separate.",
   Keybindings: "Keybindings",
   "Legacy models": "Legacy models",
-  "Model and reasoning settings": "Model and reasoning settings",
-  "Model filters": "Model filters",
-  "No matching models": "No matching models",
   "Open Settings": "Open Settings",
-  Privacy: "Privacy",
   "Privacy Policy": "Privacy Policy",
   "Prompt font": "Prompt font",
   Provider: "Provider",
@@ -35,13 +18,10 @@ export const settingsCatalog = {
   "Provider sign-in expired": "Provider sign-in expired",
   "Provider update checks": "Provider update checks",
   Providers: "Providers",
-  "Save chat settings": "Save chat settings",
   "Sets both light and dark appearances": "Sets both light and dark appearances",
-  "Show legacy models": "Show legacy models",
   "Stream token by token (legacy)": "Stream token by token (legacy)",
   "Terminal font": "Terminal font",
   Themes: "Themes",
-  "Update ready": "Update ready",
   "Voice provider": "Voice provider",
   "OpenAI API voice": "OpenAI API voice",
   "Default transcription provider": "Default transcription provider",
@@ -69,7 +49,6 @@ export const settingsCatalog = {
   Language: "Language",
   "The selected language could not load, so English is shown.":
     "The selected language could not load, so English is shown.",
-  "Opens filters, archived chats, and settings": "Opens filters, archived chats, and settings",
   "Image generation settings": "Image generation settings",
   "Grok images": "Grok images",
   "Default image provider": "Default image provider",
@@ -84,11 +63,6 @@ export const settingsCatalog = {
   "Privacy and data": "Privacy and data",
   "Loading settings": "Loading settings",
   "Update failed": "Update failed",
-  "The shared content reservation could not be updated.":
-    "The shared content reservation could not be updated.",
-  "Start a Codex chat first": "Start a Codex chat first",
-  "No response from {provider} for {duration}": "No response from {provider} for {duration}",
-  "Could not change the model": "Could not change the model",
   "Could not change the reasoning": "Could not change the reasoning",
   "Change model": "Change model",
   "Nothing stashed yet. Press {shortcut} with a prompt in the composer to stash it.":
@@ -132,7 +106,6 @@ export const settingsCatalog = {
   "WhatsApp rejected the access token.": "WhatsApp rejected the access token.",
   "A reply may not have reached {provider}. Check the chat before replying again.":
     "A reply may not have reached {provider}. Check the chat before replying again.",
-  "This bot's provider cannot hand off work.": "This bot's provider cannot hand off work.",
   "{consumed} / {limit} tokens": "{consumed} / {limit} tokens",
   "Subscription pool": "Subscription pool",
   "Some provider usage is unavailable.": "Some provider usage is unavailable.",
@@ -261,8 +234,6 @@ export const settingsCatalog = {
     "The key is API access, but only to OpenCode Go models through OpenCode.",
   "OpenCode Go limits use per 5-hour window, per week, and per month.":
     "OpenCode Go limits use per 5-hour window, per week, and per month.",
-  "No action needed. A provider request succeeded.":
-    "No action needed. A provider request succeeded.",
   "{models}, and {count} more.": "{models}, and {count} more.",
   "{models}.": "{models}.",
   "API billing can be separate from your subscription.":
@@ -292,7 +263,6 @@ export const settingsCatalog = {
   Computer: "Computer",
   Profile: "Profile",
   Shortcuts: "Shortcuts",
-  "Privacy & data": "Privacy & data",
   "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.":
     "This bot's provider cannot hand off work. It cannot send work to other bots or receive work from them.",
   "No provider ready": "No provider ready",

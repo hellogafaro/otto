@@ -15,5 +15,5 @@ export function groupModelSelection(
         model: engine.model,
         ...(engine.options ? { options: engine.options } : {}),
       }
-    : (appDefault ?? projectDefault);
+    : (appDefault ?? projectDefault ?? null);
 }

@@ -29,7 +29,7 @@ Global enable/default/fallback changes go through `server.updateSettings`; conne
 
 The row's `operations` come from the adapter capability tables, so a provider lists `edit` only when its adapter accepts input images.
 
-Shared row logic lives in `@otto/client-runtime/image-generation`: the health badge (a row reads healthy only after `healthTest.status === "passed"`), toggle patches that keep the default and fallback order coherent with what the server normalizes, and fallback-order validation. Web renders the editable page at the `image-generation` settings section, which is also the `image-generation` deep-link id. Mobile maps that id to a read-only summary. The bot editor saves `imageProvider` through `bot.update`; the chat composer has no image controls.
+Shared row logic lives in `@otto/client-runtime/image-generation`: the health badge (a row reads healthy only after `healthTest.status === "passed"`), toggle patches that keep the default and fallback order coherent with what the server normalizes, and fallback-order validation. Web renders the editable page at the `image-generation` settings section, which is also the `image-generation` deep-link id. The bot editor saves `imageProvider` through `bot.update`; the chat composer has no image controls.
 
 ## Request contract
 
@@ -56,7 +56,7 @@ When an edit carries input images and the route would move past the intended pro
 
 ## Runtime
 
-`ImageGenerationRuntime` runs one tool call for a chat. It resolves the responding bot (the latest turn's responding bot, so group chats charge the bot that answered), reads input images from attachments in that chat only, routes the request, and writes each image into the existing attachment store with `createAttachmentId`. There is no second file store. It then posts one assistant message (`image-generation-<id>`) through `thread.message.assistant.delta` and `thread.message.assistant.complete` carrying the attachments and empty text. The projection persists that message like any other, so images survive reload and restart and render in direct and group chats on web and mobile through the normal attachment paths.
+`ImageGenerationRuntime` runs one tool call for a chat. It resolves the responding bot (the latest turn's responding bot, so group chats charge the bot that answered), reads input images from attachments in that chat only, routes the request, and writes each image into the existing attachment store with `createAttachmentId`. There is no second file store. It then posts one assistant message (`image-generation-<id>`) through `thread.message.assistant.delta` and `thread.message.assistant.complete` carrying the attachments and empty text. The projection persists that message like any other, so images survive reload and restart and render in direct and group chats through the normal attachment paths.
 
 Usage goes through `BotUsageLedger.recordMeasurement` with category `tool` against the calling bot, using the provider's reported tokens or zero when none are reported. Provider health records success and failure under the `image:<provider>` keys.
 

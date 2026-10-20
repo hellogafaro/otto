@@ -38,7 +38,7 @@ cookie or a bearer access token.
 The server advertises two session methods:
 
 - `browser-session-cookie` for a browser served by that server.
-- `bearer-access-token` for saved remote, mobile, desktop, and SSH connections.
+- `bearer-access-token` for saved remote, desktop, and SSH connections.
 
 `POST /oauth/token` uses the OAuth token-exchange request shape. Requested scopes must be a subset
 of the bootstrap grant. A successful response has this form:

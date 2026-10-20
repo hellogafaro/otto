@@ -53,7 +53,7 @@ through the forwarded endpoint. Managed remote servers exec the resolved CLI wit
 so the recorded PID is the server itself. A stop that does not confirm exit keeps ownership files
 and reports failure; reconnect waits for that stop on the same target.
 
-SSH is a desktop capability because it requires local process and SSH access. Web and mobile can use
+SSH is a desktop capability because it requires local process and SSH access. The web app can use
 a directly reachable server after normal pairing.
 
 ## Desktop shell (hybrid)
@@ -100,7 +100,7 @@ always belongs to one environment.
 ## Connection ownership
 
 `packages/client-runtime` owns target resolution, retries, transport lifetime, cached projections,
-and environment-scoped commands. Web and mobile provide platform storage and lifecycle signals.
+and environment-scoped commands. Each client provides platform storage and lifecycle signals.
 React components do not create sockets or retry loops.
 
 See [connection runtime](./connection-runtime.md) and

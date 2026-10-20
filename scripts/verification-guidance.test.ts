@@ -10,9 +10,6 @@ const guidance = [
   "docs/internals/scripts.md",
   ".agents/skills/test-ottoLegacy-app/SKILL.md",
   ".agents/skills/test-ottoLegacy-app/references/sqlite-fixtures.md",
-  ".agents/skills/test-ottoLegacy-mobile/SKILL.md",
-  ".agents/skills/ios-debugger-agent/SKILL.md",
-  ".agents/skills/ios-simulator-browser/SKILL.md",
   "docs/internals/verification.md",
 ];
 

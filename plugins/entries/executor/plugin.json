@@ -17,7 +17,7 @@
       "license": "Executor brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile", "macos", "windows", "linux"],
+  "platforms": ["web", "desktop", "macos", "windows", "linux"],
   "transport": { "type": "url", "url": "https://executor.sh/mcp" },
   "connection": {
     "type": "verification-pending",

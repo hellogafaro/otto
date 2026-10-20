@@ -30,7 +30,7 @@ function discover(directory: string): string[] {
 
     if (!/\.tsx?$/.test(file) || /\.(test|spec)\./.test(file)) return [];
 
-    return /import[\s\S]*?\b(?:useMobileI18n|useI18n)\b[^;]*from/.test(read(file)) ? [file] : [];
+    return /import[\s\S]*?\buseI18n\b[^;]*from/.test(read(file)) ? [file] : [];
   });
 }
 
@@ -94,7 +94,6 @@ function literals(source: string, pattern: RegExp): string[] {
 function finiteLabelSources() {
   const settings = read("apps/web/src/components/settings/settings-search.ts");
   const dialog = read("apps/web/src/components/settings/settings-dialog.tsx");
-  const dictation = read("apps/mobile/src/components/DictationControls.tsx");
 
   return {
     "settingsSearch: item.title (SETTINGS_SEARCH_ITEMS)": literals(
@@ -104,10 +103,6 @@ function finiteLabelSources() {
     "SettingsDialog: group.label and item.label (SETTINGS_NAV_GROUPS)": literals(
       between(dialog, "export const SETTINGS_NAV_GROUPS:", "\n];"),
       /\blabel:\s*("(?:[^"\\]|\\.)*")/g,
-    ),
-    "DictationControls (mobile): announcements[status]": literals(
-      between(dictation, "const announcements = {", "\n};"),
-      /:\s*("(?:[^"\\]|\\.)*")/g,
     ),
   };
 }
@@ -140,16 +135,13 @@ describe("discovered interface message coverage", () => {
 
   it("covers static calls and finite label sources without translating identifiers", () => {
     const surfaces = [
-      ...discover("apps/mobile/src"),
       ...discover("apps/web/src"),
       "apps/web/src/components/command-palette.logic.ts",
       "apps/web/src/components/chat/composer-provider-menu-items.ts",
-      "apps/mobile/src/features/updates/app-updates.ts",
       "packages/client-runtime/src/bot-inbox.ts",
       "packages/client-runtime/src/channel-presentation.ts",
       "packages/client-runtime/src/errors/thread-error-presentation.ts",
       "packages/client-runtime/src/image-generation.ts",
-      "packages/client-runtime/src/provider-access-guide.ts",
       "packages/client-runtime/src/provider-availability.ts",
       "apps/web/src/components/roster/bot-engine-selection.ts",
       "apps/web/src/components/roster/routine-receipts.ts",

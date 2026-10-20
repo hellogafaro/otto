@@ -44,9 +44,7 @@ A saved login or key does not make a provider ready. Access is **Ready** only af
 
 ## Where to find it
 
-On desktop and web, each provider row shows its state and next step. Choose **Access details** to see what unlocks the provider, which models the environment offers, whether the subscription includes API access, the published limits, and what this environment has saved.
-
-On mobile, open **Settings > Provider connections**. Each provider shows the same state and next step, and **Access details** shows the rest.
+On desktop and web, each provider row in **Settings > Providers** shows its state and next step.
 
 Connections belong to one environment. A provider that is ready on one Otto server can still be missing on another.
 

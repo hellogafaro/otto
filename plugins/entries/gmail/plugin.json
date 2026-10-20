@@ -19,7 +19,7 @@
       "license": "Google brand asset served by Composio"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "unavailable" },
   "connection": {
     "type": "brokered",

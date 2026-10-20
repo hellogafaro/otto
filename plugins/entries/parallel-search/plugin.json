@@ -14,7 +14,7 @@
   "logo": {
     "provenance": { "sourceUrl": "https://parallel.ai", "license": "Parallel brand asset" }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://search.parallel.ai/mcp-oauth" },
   "connection": {
     "type": "verification-pending",

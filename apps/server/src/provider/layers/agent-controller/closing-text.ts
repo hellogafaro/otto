@@ -12,6 +12,7 @@ export function withheldClosingText(input: {
   const text = input.text.trim();
 
   if (!input.posted || text.length === 0 || text === GROUP_NO_REPLY) return null;
+
   if (input.lastPostedText !== null && text === input.lastPostedText.trim()) return null;
 
   return text;

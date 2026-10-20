@@ -1,6 +1,5 @@
 import type {
   ComposioConnection,
-  ComposioToolkit,
   ComposioVisibility,
   EnvironmentId,
   LibraryVisibility,

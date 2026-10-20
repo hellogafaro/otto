@@ -1,5 +1,6 @@
 import { DEFAULT_LOCAL_EXECUTION_MODE, type RuntimeMode, type SandboxSize } from "@otto/contracts";
 import { createTranslator } from "@otto/client-runtime/i18n";
+import * as Match from "effect/Match";
 
 import type { useI18n } from "../../i18n";
 import type { Bot } from "./types";
@@ -33,5 +34,10 @@ export function botSandboxLabel(
 }
 
 export function sandboxSizeLabel(size: SandboxSize, t: Translate = translateEnglish): string {
-  return size === "small" ? t("Small") : size === "medium" ? t("Medium") : t("Large");
+  return Match.value(size).pipe(
+    Match.when("small", () => t("Small")),
+    Match.when("medium", () => t("Medium")),
+    Match.when("large", () => t("Large")),
+    Match.exhaustive,
+  );
 }

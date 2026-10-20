@@ -29,7 +29,7 @@ Other writers change the file too: Mastra's `AuthStorage` rewrites it in place, 
 
 A file that cannot be decoded does not look like a logout, and the UI and runtime always agree on what it means:
 
-- **Damaged after a good read.** If this process already read or wrote a good version, the store keeps serving that last good state everywhere. The state carries a typed `SubscriptionCredentialStoreError` and `servingLastGood: true`, and the store logs a warning once when the damage first appears. Provider statuses keep their real `connected`, health, and test fields and add a `credentialWarning` with the time the damage was first seen. Settings on web and mobile show the warning under each provider row. Runtime getters keep returning the last good credentials.
+- **Damaged after a good read.** If this process already read or wrote a good version, the store keeps serving that last good state everywhere. The state carries a typed `SubscriptionCredentialStoreError` and `servingLastGood: true`, and the store logs a warning once when the damage first appears. Provider statuses keep their real `connected`, health, and test fields and add a `credentialWarning` with the time the damage was first seen. Settings on web and desktop show the warning under each provider row. Runtime getters keep returning the last good credentials.
 - **Damaged with no good read.** If the file was already damaged when the store first loaded it, there is nothing to fall back on. The store state is empty, every provider status reports `connected: false` and `failed-first-request` with a reconnect message, and `getAccessToken`, `getApiKeyCredential`, and `isConnected` report no credential.
 
 Either way the damaged file stays on disk until the next successful write. That write builds on the served state (the last good credentials, or nothing), moves the damaged file to `subscription-auth.json.corrupt`, and writes the new file. A repaired file clears the error on the next read. A file the server cannot read at all reports reason `unreadable`, and updates refuse to overwrite it.
@@ -43,12 +43,6 @@ Removing a custom instance through the settings RPC also deletes its credential 
 update succeeds. Removing a default instance override keeps the default account connected.
 
 Local desktop, a remote server, and a future hosted control plane use the same boundary. The storage adapter can move from the local file to an encrypted tenant secret store without changing the client contract.
-
-## Access copy in Settings
-
-`providerAccessGuide` in `packages/client-runtime/src/provider-access-guide.ts` turns a `SubscriptionProviderStatus` into the access lines that web and mobile Settings show: what unlocks the provider, the other credential, whether the subscription includes API access, published limits, what the environment has saved, and one next step. Web renders it in `ProviderAccessDetails` and mobile in `ProviderAccessSummary`. Both pass their locale's translator, so the copy lives once in the shared catalogs.
-
-The guide calls access ready only when `health` is `healthy` or `recovered`, meaning the server recorded a successful provider request. `detected` stays "Not verified yet", and the optional `healthChecking` flag shows "Checking access" while the post-login check runs. Subscription statuses never report `unsupported` or `disabled`, so the guide has no state for them. The guide does not run checks; the server's health test owns that. Model names come from the default instance's `ServerProvider.models` in the environment config, so the list matches the environment the user is looking at. Custom instances keep their own credentials and are not listed.
 
 ## Sandbox boundary
 

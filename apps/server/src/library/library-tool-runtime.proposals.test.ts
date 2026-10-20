@@ -168,6 +168,14 @@ it.live("applies an approved fix only to the version the bot read", () =>
         skillId: string;
       };
 
+      // New skills start off on every bot; Ana turns this one on for Nova.
+      yield* (yield* Effect.service(OrchestrationEngineService)).dispatch({
+        type: "bot.update",
+        commandId: CommandId.make("proposals-skill-on"),
+        botId: nova,
+        disabledSkillIds: [],
+      });
+
       const read = (yield* tools.readSkillFile(caller, { skillId })) as { updatedAt: string };
 
       const fix = {

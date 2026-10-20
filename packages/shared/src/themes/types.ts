@@ -1,21 +1,10 @@
 export const BUILT_IN_THEME_IDS = ["otto-paper"] as const;
 
-export const MOBILE_DEFAULT_THEME_ID = "otto-paper";
-
-/**
- * Every palette the mobile app can render. Declared here so host-side tooling
- * (the app-store screenshot harness) can validate a requested theme without
- * importing React Native application code.
- */
-export const MOBILE_THEME_IDS = BUILT_IN_THEME_IDS;
-
 export type BuiltInThemeId = (typeof BUILT_IN_THEME_IDS)[number];
-
-export type MobileThemeId = (typeof MOBILE_THEME_IDS)[number];
 
 export type ThemeAppearance = "light" | "dark";
 
-/** Product roles shared by web CSS, React Native tokens, and native surfaces. */
+/** Product roles shared by web CSS and desktop native surfaces. */
 export const THEME_COLOR_ROLES = [
   "canvas",
   "chrome",

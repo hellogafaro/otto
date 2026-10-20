@@ -45,8 +45,10 @@ const builtinAccountNames = new Set(
 function namesSameProvider(contextName: string | null | undefined, instanceId: string): boolean {
   if (!contextName) return true;
   const driver = isProviderDriverKind(instanceId) ? instanceId : instanceId.toLowerCase();
+
   if (!isProviderDriverKind(driver)) return true;
   const fromError = PROVIDER_ACCOUNT_NAMES[driver] ?? instanceId;
+
   if (contextName === fromError || contextName === instanceId) return true;
 
   return !builtinAccountNames.has(contextName);

@@ -29,7 +29,7 @@
       "license": "Hoplite brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://api.hoplite.sh/mcp"

@@ -279,8 +279,6 @@ export {
   settleAsyncResult,
   executeAtomCommand,
   executeAtomQuery,
-  reportAtomCommandResult,
-  settlePromise,
 } from "./atom-command-result.ts";
 
 export {
