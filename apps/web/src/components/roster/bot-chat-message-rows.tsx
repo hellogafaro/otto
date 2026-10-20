@@ -50,9 +50,10 @@ const NO_ENVIRONMENT = "" as EnvironmentId;
 
 // Otto: Every message, yours, other people's and bots', carries its actions in the same small
 // toolbar floating over the top right of its block on hover or focus, 8px in from the block's right
-// edge and taking no space in the transcript: above the author's name on a group's first message,
-// over the gap above on later ones. Held open while a control's menu is. Touch and narrow screens
-// keep it inline under the message.
+// edge and taking no space in the transcript: beside the author's name or clock when the block has
+// one, otherwise in the gap above with only its bottom 4px over the bubble, so it never covers the
+// text. Held open while a control's menu is. Touch and narrow screens keep it inline under the
+// message.
 const MESSAGE_TOOLBAR_CLASS = cn(
   "flex opacity-0 transition-opacity pointer-events-none",
   "group-hover/message:opacity-100 group-hover/message:pointer-events-auto",
@@ -63,11 +64,11 @@ const MESSAGE_TOOLBAR_CLASS = cn(
   "pointer-fine:md:absolute pointer-fine:md:end-2 pointer-fine:md:z-10 pointer-fine:md:rounded-lg pointer-fine:md:border pointer-fine:md:border-border/70 pointer-fine:md:bg-popover pointer-fine:md:p-0.5 pointer-fine:md:shadow-md",
 );
 
-/** Above the author's name on a group's first message, over the gap above on later ones. */
-function toolbarClass(startsGroup: boolean) {
+/** Beside a name or clock header; without one, 26px up so the 30px toolbar overlaps only 4px. */
+function toolbarClass(hasHeader: boolean) {
   return cn(
     MESSAGE_TOOLBAR_CLASS,
-    startsGroup ? "pointer-fine:md:-top-3" : "pointer-fine:md:-top-5",
+    hasHeader ? "pointer-fine:md:-top-3" : "pointer-fine:md:-top-6.5",
   );
 }
 
@@ -264,7 +265,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
               />
             </div>
           ) : null}
-          <div className={toolbarClass(startsGroup)}>
+          <div className={toolbarClass(Boolean(trace || live) || startsGroup)}>
             <MessageControls
               copyText={copyText}
               {...(readAloud ? { readAloud } : {})}
@@ -450,7 +451,7 @@ export const UserMessageRow = memo(function UserMessageRow({
             />
           </div>
         ) : null}
-        <div className={cn(toolbarClass(startsGroup), "items-center gap-1")}>
+        <div className={cn(toolbarClass(false), "items-center gap-1")}>
           <time
             dateTime={message.createdAt}
             className="px-1 text-xs whitespace-nowrap tabular-nums text-muted-foreground"
