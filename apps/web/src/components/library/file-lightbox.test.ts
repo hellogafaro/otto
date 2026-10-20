@@ -17,7 +17,8 @@ describe("file lightbox kinds", () => {
     expect(kind("letter.docx")).toBe("docx");
     expect(kind("server.log")).toBe("text");
     expect(kind("config.yaml")).toBe("text");
-    expect(kind("page.html")).toBe("text");
+    expect(kind("page.html")).toBe("html");
+    expect(kind("legacy.HTM")).toBe("html");
     expect(kind("bundle.zip")).toBe("zip");
   });
 
@@ -26,6 +27,7 @@ describe("file lightbox kinds", () => {
     expect(kind("upload", "text/csv")).toBe("sheet");
     expect(kind("upload", "text/plain")).toBe("text");
     expect(kind("upload", "application/json")).toBe("text");
+    expect(kind("upload", "text/html; charset=utf-8")).toBe("html");
     expect(kind("upload", "application/zip")).toBe("zip");
     expect(kind("upload", "image/heic")).toBe("image");
   });

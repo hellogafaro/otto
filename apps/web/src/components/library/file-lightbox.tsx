@@ -11,6 +11,7 @@ import {
   RiFileVideoLine,
   RiFileWord2Line,
   RiFileZipLine,
+  RiHtml5Line,
   RiImageLine,
   RiListCheck,
   RiMarkdownLine,
@@ -44,6 +45,7 @@ export type FileLightboxKind =
   | "pdf"
   | "video"
   | "markdown"
+  | "html"
   | "sheet"
   | "docx"
   | "text"
@@ -71,6 +73,7 @@ const FILE_KINDS: ReadonlyArray<{
     extensions: ["md", "markdown"],
     mimeTypes: ["text/markdown"],
   },
+  { kind: "html", icon: RiHtml5Line, extensions: ["html", "htm"], mimeTypes: ["text/html"] },
   {
     kind: "sheet",
     icon: RiFileExcel2Line,
@@ -102,8 +105,6 @@ const FILE_KINDS: ReadonlyArray<{
       "yml",
       "toml",
       "xml",
-      "html",
-      "htm",
       "css",
       "js",
       "jsx",
@@ -113,7 +114,7 @@ const FILE_KINDS: ReadonlyArray<{
       "sh",
       "sql",
     ],
-    mimeTypes: ["application/json", "application/xml", "application/yaml", "text/html"],
+    mimeTypes: ["application/json", "application/xml", "application/yaml"],
   },
   { kind: "text", icon: RiFileTextLine, extensions: ["txt", "log"], mimeTypes: ["text/"] },
 ];
@@ -346,6 +347,7 @@ function FilePreview({
   if (
     file.url &&
     (file.kind === "markdown" ||
+      file.kind === "html" ||
       file.kind === "sheet" ||
       file.kind === "docx" ||
       file.kind === "text" ||

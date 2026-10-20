@@ -12,6 +12,7 @@ export const libraryCatalog = {
   File: "文件",
   "File details": "文件详情",
   Files: "文件",
+  "HTML preview": "HTML 预览",
   "Files can be at most 100 MB.": "文件最大为 100 MB。",
   Folder: "文件夹",
   "Folder name": "文件夹名称",

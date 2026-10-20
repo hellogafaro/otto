@@ -45,6 +45,11 @@ export async function fetchPreviewBytes(url: string, signal: AbortSignal): Promi
   return bytes;
 }
 
+/** The whole page, never capped: a cut-off document would render broken. */
+export function previewHtml(bytes: ArrayBuffer) {
+  return new TextDecoder().decode(bytes);
+}
+
 export function previewText(bytes: ArrayBuffer) {
   const text = new TextDecoder().decode(bytes);
   const lines = text.split("\n");
