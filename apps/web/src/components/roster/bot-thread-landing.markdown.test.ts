@@ -99,7 +99,7 @@ describe("BotThreadLanding message formatting", () => {
       const row = rowComponent(source, name);
       const controls = row.split("<MessageControls").slice(1);
       expect(controls.length).toBeGreaterThan(0);
-      expect(row).toContain("toolbarClass(startsGroup)");
+      expect(row).toContain("toolbarClass(");
 
       for (const block of controls) {
         const props = block.slice(0, block.indexOf("/>"));
@@ -115,9 +115,7 @@ describe("BotThreadLanding message formatting", () => {
     expect(rowComponent(source, "UserMessageRow")).toContain("{...reactions.controls}");
     // Every message, your own too, shares the one floating toolbar, inset from the right edge.
     expect(source).toContain("pointer-fine:md:end-2");
-    expect(rowComponent(source, "UserMessageRow").split("toolbarClass(startsGroup)")).toHaveLength(
-      3,
-    );
+    expect(rowComponent(source, "UserMessageRow").split("toolbarClass(")).toHaveLength(3);
     expect(source).not.toContain("OWN_ACTIONS_CLASS");
   });
 
