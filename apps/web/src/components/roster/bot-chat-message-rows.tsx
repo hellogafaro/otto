@@ -174,8 +174,9 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   const copyText = message.text || "Attachment";
   const label = author?.name ?? t("Unavailable bot");
 
-  // Otto: A bot's reply is the work itself, so it never folds and may use the whole column;
-  // only people's messages fold behind Show more.
+  // Otto: A bot's reply is the work itself, so it never folds; only people's messages fold behind
+  // Show more. It may run a little wider than a person's (85%, not 78%) to fit tables and code,
+  // while still reading as a chat bubble.
   const markdown = message.text ? (
     <div
       className="mt-0.5 w-fit max-w-full rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6"
@@ -191,7 +192,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
         id={`chat-message-${message.id}`}
         tabIndex={-1}
         className={cn(
-          `group/message relative mt-3 w-fit min-w-56 max-w-full first:mt-0 ${ROW_VISIBILITY_CLASS}`,
+          `group/message relative mt-3 w-fit min-w-56 max-w-17/20 first:mt-0 ${ROW_VISIBILITY_CLASS}`,
           arrived && "motion-message-enter",
         )}
         data-testid={testId}
@@ -234,7 +235,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
         <div aria-hidden="true" className="size-7 shrink-0" />
       )}
       <div className="min-w-0 flex-1">
-        <div className="relative w-fit max-w-full">
+        <div className="relative w-fit max-w-17/20">
           {/* Otto: One clock per turn. The turn's first reply carries "Cody · Worked for 24s" in
               place of the name; the rest of the turn stacks under it as bare bubbles. */}
           {trace ? (

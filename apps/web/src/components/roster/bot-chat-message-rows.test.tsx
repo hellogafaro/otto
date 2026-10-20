@@ -83,15 +83,15 @@ const personMessage = (authorName: string | null) =>
   );
 
 describe("bot chat message rows", () => {
-  it("shows a bot's whole reply across the column, never folded", () => {
+  it("shows a bot's whole reply, never folded, a little wider than a person's", () => {
     for (const author of [CODY, null]) {
       const markup = botReply(author);
 
       expect(markup).toContain("Line 80 of the reply.");
       expect(markup).toContain('data-testid="bot-message-body"');
       expect(markup).not.toContain('data-fold="true"');
+      expect(markup).toContain("max-w-17/20");
       expect(markup).not.toContain("max-w-39/50");
-      expect(markup).not.toContain("max-w-17/20");
     }
   });
 
