@@ -317,9 +317,20 @@ export function GroupThreadLanding({
   const todayLabel = t("Today");
   const newLabel = t("New");
 
+  const readerPersonId = peopleIdentity.current?.id;
+  const hostPersonId = peopleIdentity.host?.id;
+
   const newMessageId = useMemo(
-    () => firstUnseenMessageId(messages, unreadSince, runtime.latestTurn),
-    [messages, runtime.latestTurn, unreadSince],
+    () =>
+      firstUnseenMessageId(
+        messages,
+        unreadSince,
+        runtime.latestTurn,
+        (message) =>
+          message.role === "user" &&
+          isCurrentGroupPerson(message.authorPersonId, readerPersonId, hostPersonId),
+      ),
+    [messages, runtime.latestTurn, unreadSince, readerPersonId, hostPersonId],
   );
 
   const entries = useMemo(

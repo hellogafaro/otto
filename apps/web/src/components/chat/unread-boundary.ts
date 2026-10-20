@@ -9,6 +9,9 @@ export interface UnreadBoundaryMessage {
   readonly turnId: string | null;
 }
 
+/** True for a message the reader wrote; it never counts as unread for them. */
+export type IsReaderMessage<M extends UnreadBoundaryMessage> = (message: M) => boolean;
+
 export interface UnreadBoundaryTurn {
   readonly turnId: string;
   readonly completedAt: string | null;
@@ -20,11 +23,13 @@ export interface UnreadBoundaryTurn {
  * `unreadSince` is the visit captured before this open recorded a new one.
  * Mark unread rewinds that visit to 1ms before the turn finished, which can
  * sit after every message in the turn, so the turn's reply is the fallback.
+ * The reader's own messages are never new to them, so the line skips past them.
  */
-export function firstUnseenMessageId(
-  messages: ReadonlyArray<UnreadBoundaryMessage>,
+export function firstUnseenMessageId<M extends UnreadBoundaryMessage>(
+  messages: ReadonlyArray<M>,
   unreadSince: string | null,
   latestTurn: UnreadBoundaryTurn | null,
+  isReaderMessage: IsReaderMessage<M> = () => false,
 ): string | null {
   if (!unreadSince || !hasUnseenCompletion(latestTurn?.completedAt, unreadSince)) {
     return null;
@@ -35,6 +40,8 @@ export function firstUnseenMessageId(
   if (Number.isNaN(visitedMs)) return null;
 
   for (const message of messages) {
+    if (isReaderMessage(message)) continue;
+
     const createdMs = Date.parse(message.createdAt);
 
     if (!Number.isNaN(createdMs) && createdMs > visitedMs) {
@@ -57,7 +64,10 @@ export function firstUnseenMessageId(
     if (assistant) return assistant.id;
   }
 
-  return messages.find((message) => message.turnId === latestTurn.turnId)?.id ?? null;
+  return (
+    messages.find((message) => message.turnId === latestTurn.turnId && !isReaderMessage(message))
+      ?.id ?? null
+  );
 }
 
 type OpenCapture = {
