@@ -23,7 +23,7 @@
       "license": "Attio trademark"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://mcp.attio.com/mcp"

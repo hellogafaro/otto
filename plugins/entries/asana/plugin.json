@@ -20,7 +20,7 @@
   "logo": {
     "provenance": { "sourceUrl": "https://simpleicons.org/?q=asana", "license": "CC0-1.0" }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.asana.com/v2/mcp" },
   "connection": {
     "type": "approval-pending",

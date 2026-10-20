@@ -14,8 +14,6 @@ the task commands.
   components, and web-specific platform layers.
 - `apps/desktop` (`@otto/desktop`): Electron shell. Supervises a desktop-scoped `ottoLegacy` backend,
   loads the web bundle over the `otto://` protocol, and owns SSH-managed remote environments.
-- `apps/mobile` (`@otto/mobile`): Expo/React Native client. Same client runtime composition as
-  web, different platform layer and UI.
 
 ## packages
 
@@ -24,7 +22,7 @@ the task commands.
 - `packages/shared` (`@otto/shared`): framework-agnostic utilities used by server and clients
   (`DrainableWorker`, git and remote-URL helpers, semver, logging, observability, and more).
 - `packages/client-runtime` (`@otto/client-runtime`): connection lifecycle, authorization, RPC
-  session, environment registry, and Atom-based domain state shared by web and mobile. See its
+  session, environment registry, and Atom-based domain state used by the web app. See its
   [README](../../packages/client-runtime/README.md).
 - `packages/ssh` (`@otto/ssh`): SSH config parsing, auth prompts, command execution, and the
   tunnel/environment manager behind desktop-managed SSH environments.
@@ -38,7 +36,7 @@ the task commands.
 ## Other top-level directories
 
 - `scripts/`: workspace tooling run through `vp run`. Dev runner, desktop artifact builds, release
-  helpers, mobile static checks and showcase capture, update-manifest merging.
+  helpers, update-manifest merging.
 - `assets/`: brand and app icon sources for development and production builds.
 - `patches/`: pnpm patches for pinned upstream dependencies.
 - `oxlint-plugin-otto/`: repo-specific lint rules.

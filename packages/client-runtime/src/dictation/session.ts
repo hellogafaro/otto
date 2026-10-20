@@ -19,7 +19,7 @@ export interface DictationLimits {
   readonly maxDraftCharacters: number;
 }
 
-export const DEFAULT_DICTATION_LIMITS: DictationLimits = {
+const DEFAULT_DICTATION_LIMITS: DictationLimits = {
   maxRecordingMs: 60_000,
   maxAudioBytes: 10 * 1024 * 1024,
   maxTranscriptionMs: 30_000,
@@ -45,7 +45,7 @@ export interface DictationDependencies {
     /**
      * A finished piece of a long recording, in order. A capture may cut a long recording into
      * pieces so each one transcribes while the person keeps talking; stop() returns the last one.
-     * A capture that records one file, as on mobile, never calls it.
+     * A capture that records one file never calls it.
      */
     onSegment?(audio: DictationAudio): void;
   }): Promise<DictationCapture>;

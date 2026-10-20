@@ -37,8 +37,7 @@ straight there. The model list also shows providers that cannot run right now, s
 signed out or turned off. Their models are dimmed and say why.
 
 Reasoning controls how much thinking the bot spends before answering. Change it under **Reasoning**
-in the bot's settings on web or desktop. On mobile, open **Model and reasoning settings** in the
-chat. The choices depend on the selected model: some offer levels, some offer a thinking switch,
+in the bot's settings on web or desktop. The choices depend on the selected model: some offer levels, some offer a thinking switch,
 and models with fixed reasoning have no control.
 
 The choice is saved with the bot and appears on other clients connected to the same environment.
@@ -67,8 +66,7 @@ silent never appears.
 
 When you connect or turn on a provider, its models become available right away. You do not need to
 restart Otto. A brief provider error does not turn **Send** off, so you can try again. The same
-check covers new-bot setup and the voice call button. On mobile, the composer shows the same note
-and keeps **Send** off.
+check covers new-bot setup and the voice call button.
 
 In a group chat, you can still message a member with a configured provider even when the boss
 cannot reply. Mention that member in your message to direct the turn to them.
@@ -142,14 +140,11 @@ Bots whose provider cannot take handed-off work appear in the list but can't be 
 Each run then sends the instructions to the other bot, and a work card in the routine's chat shows
 the work as it runs. The run finishes, fails, or is canceled along with that work, and canceling the
 run cancels the work. Pausing the routine stops future runs but lets work that already started
-finish. The routine detail on web and desktop and the routine card on mobile show **Done by** with
+finish. The routine detail on web and desktop shows **Done by** with
 the other bot's name. If that bot is archived or cannot take work from other bots, the run is
 blocked and says why.
 
-On mobile, open a bot's chat, open chat settings, and select **Routines**. Each routine shows its
-schedule, status, next and last run, and recent runs. You can approve its procedure, test it, run it,
-pause, resume, or turn it back on, and delete it. Creating and editing routines needs the desktop or
-web app, or you can ask the bot in chat. When a bot asks to create a routine, the approval card shows
+When a bot asks to create a routine, the approval card shows
 the routine's name, schedule, and instructions before you allow it. For a routine proposed through
 the built-in create-routine tool, an unanswered review closes after an hour. No routine is created,
 and the bot learns that the review expired.
@@ -178,10 +173,8 @@ If a required connector, provider, bot, or workspace is unavailable, Otto pauses
 adds one item to the bot inbox, which you can open from **Settings > Advanced > Bot inbox**. The routine card
 says it was paused and points you to the bot inbox. Fix the dependency, then resume the routine. Restoring an archived bot does not resume its routines.
 
-Every bot inbox item offers a way to clear it on desktop, web, and mobile. A disconnected provider or
-connector links to provider settings. A plugin access problem links to **Plugins**; on mobile the
-item tells you to fix it on the desktop or web app. Other items have **Resolve**. On mobile, provider
-and plugin items have **Resolve** too, so you can clear them once the problem is fixed.
+Every bot inbox item offers a way to clear it. A disconnected provider or connector links to
+provider settings. A plugin access problem links to **Plugins**. Other items have **Resolve**.
 
 ## Tools
 
@@ -243,8 +236,7 @@ provider that is turned off or signed out gets a **Settings > Providers** link. 
 limit gets a **Bot settings** button so you can switch the bot to another provider. When the cause is unknown, try sending
 the message again. Expand **Technical details** to see the underlying error, or select **Resume**
 when an interrupted request can continue. If your message was saved but the bot never started, the
-chat says so under your message instead of leaving the reply empty. Group chats do the same and name the bot that was asked to reply. On mobile, the resume card
-shows the same summary.
+chat says so under your message instead of leaving the reply empty. Group chats do the same and name the bot that was asked to reply.
 
 ## Voice calls
 
@@ -265,8 +257,7 @@ Open the bot's settings and choose a provider under **Workspace > Image generati
 
 ## Delete a bot
 
-Open the bot's settings page and select **Delete** under **Danger**, then confirm. On mobile, open
-the chat's settings and select **Delete bot** under **Danger**. Deleting removes the bot from the
+Open the bot's settings page and select **Delete** under **Danger**, then confirm. Deleting removes the bot from the
 roster. Its chats stay in your history and move to **Settings > Archived**.
 
 Deleting stops anything the bot is doing. Running replies stop, work it handed to other bots or

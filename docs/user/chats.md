@@ -30,8 +30,6 @@ Open the **⋯** menu at the top right of the open chat, or right-click a chat i
 
 The chat header shows **Snoozed until** with the wake time while the chat is snoozed. The same actions are in the command palette under **This chat** while the chat is open. The palette lists each snooze choice as its own entry, such as **Snooze chat: Tomorrow**, with its wake time. Search in the chat sidebar opens that palette on the Chats tab.
 
-On mobile, the chat list keeps its own menu for each chat, and you can swipe left on a chat for
-archive and delete.
 Date labels in bot and group chats follow your device's local day and update when the day changes.
 
 ## Older chats
@@ -39,8 +37,6 @@ Date labels in bot and group chats follow your device's local day and update whe
 On web and desktop, a bot's chats are listed under its row in the sidebar, newest first, up to eight, with how long ago each one was active. The chat you are looking at is highlighted. Select a chat to open it. The bot row does not open a chat. Hover the bot and select the plus to start a new chat with that bot. Archived chats stay in **Settings > Archived**.
 
 Reloading the page, or archiving the open chat, leaves the bot in the sidebar. Open another of its chats, or start a new one, from there.
-
-On mobile, the chat list shows every chat, so older chats are already one tap away.
 
 ## Find a chat
 
@@ -70,10 +66,7 @@ The command palette's **Archived chats** action opens the same page.
 
 ## Pinned order
 
-On mobile, pinned chats appear above active bot work across projects and environments. Open a
-pinned chat's menu and select **Move up** or **Move down** to reorder it.
-
-The environment server stores the order. An older server can still pin a chat but keeps its default
+The environment server stores the order of pinned chats. An older server can still pin a chat but keeps its default
 newest-first order until it is updated.
 
 ## Group chats
@@ -94,8 +87,7 @@ The boss answers every message by default. Type `@` and a bot's name, such as `@
 message to that bot instead. It answers with its own provider and model. If a message mentions
 several bots, the last mention wins. If two bots in the group share a name, Otto cannot tell them
 apart, so it holds the message and asks you to rename one of them. Mentions of people, such as
-`@Leo`, stay plain text and the boss answers. On mobile, a reply shows the bot's avatar and name
-whenever a different bot starts speaking.
+`@Leo`, stay plain text and the boss answers.
 
 Groups hold bots only. You cannot add people to a group yet.
 
@@ -103,9 +95,7 @@ Groups hold bots only. You cannot add people to a group yet.
 
 A bot can hand part of a request to another bot. The bot does not wait for that work. It replies
 first, and a work card in the chat shows the other bot, the task, and its state: queued, running,
-blocked, completed, failed, or canceled. On mobile the same card appears inline in the chat and
-stays visible when that turn's work log is collapsed. Its **Let it finish**, **Cancel**, and **Try again**
-buttons work the same as on web and desktop.
+blocked, completed, failed, or canceled.
 
 On web and desktop, each card sits right after the exchange that started the work, and it stays
 there when you reload or come back later. Work started in three different replies shows up as
@@ -142,7 +132,7 @@ its own chat. When it finishes, it posts the result in the group as **Finished w
 
 Bots on standard OpenCode cannot hand off work or take it from other bots. OpenCode Go bots can.
 The bot's Tools sheet says so, the `@` menu in a group chat marks the bot with **Cannot take
-handed-off work**, and on mobile the chat settings show the same note under Options. A bot that
+handed-off work**. A bot that
 tries to hand them work is told to pick a bot on another provider.
 
 If the bot that did the work leaves the group before it finishes, its result stays on its card but
@@ -151,7 +141,7 @@ is not posted in the group.
 Work that has a deadline stops at the deadline. Work without one stops after 4 hours if the other
 bot has not reported back. Either way the card shows it as failed because it timed out.
 
-On web, desktop, and mobile, a card's buttons change with the state of the work:
+On web and desktop, a card's buttons change with the state of the work:
 
 - **Let it finish** keeps running work going even if you stop the reply that started it. A bot can
   also mark its own work this way. Once work is kept, the button goes away.
@@ -187,16 +177,10 @@ While a reply is still streaming, Otto waits for a table's header to finish befo
 table, and it waits for a partial code fence, list marker, or heading underline to complete. The
 reply looks the same after it finishes and after you reload the chat.
 
-On mobile, tables, checklists, file references, and links look the same as on desktop. Diffs appear
-as a plain code block without the tinted lines or counts, and checklists do not show the progress
-summary. Settings chips open the matching mobile screen, or the main Settings screen when mobile
-has no matching screen.
-
 A reply can also include a chart, a row of stats, a task list, a timeline, a flow diagram, or a set
 of choices. These blocks use your theme's colors in light and dark mode. Selecting a choice sends its
 reply to the bot; when the bot cannot take a message yet, the choices stay visible but disabled. If a
-block arrives malformed, the reply shows it as a plain code block. On mobile, these blocks appear as
-plain code blocks.
+block arrives malformed, the reply shows it as a plain code block.
 
 ## Answer a bot's questions
 

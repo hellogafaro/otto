@@ -18,7 +18,7 @@
       "license": "Context.dev brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.context.dev/mcp" },
   "connection": {
     "type": "verification-pending",

@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 import { FetchHttpClient, HttpClient } from "effect/unstable/http";
 
-import { loadRepoEnv } from "./lib/public-config.ts";
+import { loadRepoEnv } from "./lib/repo-env.ts";
 
 // Read the existing server-runtime.json without importing server implementation code.
 const decodeRuntime = Schema.decodeUnknownEffect(
@@ -126,8 +126,6 @@ export function describeStatusClients(env: Readonly<Record<string, string | unde
 
   return {
     desktop: `${validDebugPort ? `debug port ${String(Number(debugPort))} configured` : debugPort ? "invalid debug port" : "debug port not configured"}; running unknown`,
-    mobile:
-      "installed/running unknown; resolve development identity with node .agents/skills/test-ottoLegacy-mobile/scripts/app-identity.mjs <scheme|ios-bundle-id|android-package>",
   };
 }
 
@@ -251,7 +249,6 @@ export function formatDevStatus(
     `Trace: ${status.trace.path} (${status.trace.present ? "present" : "missing"})`,
     `Desktop: ${status.desktop}`,
     `Desktop build (optional): ${status.desktopArtifactsMissing.length ? `not built (${status.desktopArtifactsMissing.join("; ")})` : "built"}`,
-    `Mobile configuration: ${status.mobile}`,
     `Missing prerequisites: ${status.missing.length ? status.missing.join("; ") : "none detected (provider and native tools not checked)"}`,
   ].join("\n");
 }

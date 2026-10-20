@@ -15,7 +15,7 @@ import pkg from "./package.json" with { type: "json" };
 
 import { DEV_PROXIED_PATH_PREFIXES } from "@otto/shared/devProxy";
 
-import { loadRepoEnv } from "../../scripts/lib/public-config";
+import { loadRepoEnv } from "../../scripts/lib/repo-env";
 import { stageReleaseLegalFiles } from "../../scripts/lib/release-legal";
 
 const reactGrabEntry = NodeURL.fileURLToPath(import.meta.resolve("react-grab"));

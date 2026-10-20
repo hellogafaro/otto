@@ -17,7 +17,7 @@
       "license": "Tavily trademark; retrieved by Brand.dev"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.tavily.com/mcp/" },
   "connection": {
     "type": "verification-pending",

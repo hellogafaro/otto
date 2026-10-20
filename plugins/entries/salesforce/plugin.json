@@ -23,7 +23,7 @@
       "license": "Salesforce trademark"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "unavailable"
   },

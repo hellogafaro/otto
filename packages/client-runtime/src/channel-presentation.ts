@@ -1,6 +1,5 @@
 import type {
   ChannelBinding,
-  ChannelBindingStatus,
   ChannelFailureCategory,
   ChannelProvider,
   ProjectId,
@@ -65,25 +64,6 @@ export function channelFailureReason(
       return t("{provider} did not reconnect after a restart. Reconnect to resume.", {
         provider: name,
       });
-  }
-}
-
-export function channelHealthLabel(status: ChannelBindingStatus): string {
-  switch (status) {
-    case "connecting":
-      return "Connecting";
-    case "connected":
-      return "Connected";
-    case "disconnected":
-      return "Disconnected";
-    case "needs-reconnect":
-      return "Reconnect required";
-    case "failed":
-      return "Connection failed";
-    case "blocked":
-      return "Choose another project";
-    case "not-live":
-      return "Not live";
   }
 }
 
@@ -168,33 +148,6 @@ export function channelRepairLabel(action: ChannelRepairAction): string | null {
     case "configure-public-url":
       return "Set a public URL";
   }
-}
-
-export function channelBindingPresentation(
-  binding: ChannelBinding,
-  projects: ReadonlyArray<{ readonly id: ProjectId; readonly title: string }>,
-) {
-  const deliveredCount = new Set(binding.sentMessageIds).size;
-  const needsProject = channelBindingNeedsProject(binding, projects);
-
-  return {
-    provider: channelProviderLabel(binding.provider),
-    health: channelHealthLabel(binding.status),
-    needsProjectConfirmation: needsProject,
-    warning: needsProject
-      ? "Choose a project before reconnecting"
-      : binding.lastError
-        ? "Channel needs attention"
-        : null,
-    project: binding.projectId
-      ? (projects.find((project) => project.id === binding.projectId)?.title ??
-        "Project unavailable")
-      : "No project selected",
-    delivery:
-      deliveredCount === 0
-        ? "No confirmed deliveries"
-        : `${deliveredCount} confirmed ${deliveredCount === 1 ? "delivery" : "deliveries"}`,
-  };
 }
 
 /** Where a failed reassignment puts the channel back: its old project while live, else the attempted one. */

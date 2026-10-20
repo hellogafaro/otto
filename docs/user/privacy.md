@@ -37,7 +37,7 @@ or client storage. A run receives only the short-lived access that it needs.
 
 Open **Settings > Privacy & data** to control voice calls.
 You can also export or import environment data under **Backup and
-transfer**. Mobile exposes the sharing controls for the connected environment.
+transfer**.
 
 Turning a control off stops new transfers for that feature. Provider requests still leave the
 environment when you run a connected online model.

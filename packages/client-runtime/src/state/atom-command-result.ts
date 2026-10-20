@@ -97,7 +97,7 @@ export async function executeAtomQuery<A, E>(
   return executeAtomCommand(() => Effect.runPromiseExit(query), options, reporter);
 }
 
-export function reportAtomCommandResult(
+function reportAtomCommandResult(
   result: AtomCommandResult<unknown, unknown>,
   options: AtomCommandOptions = {},
   reporter: AtomCommandReporter = console,
@@ -114,15 +114,5 @@ export function reportAtomCommandResult(
     }
   } else if (options.reportFailure ?? true) {
     reporter.warn(`[atom-command] ${label} failed`, result.cause);
-  }
-}
-
-export async function settlePromise<A>(
-  execute: () => Promise<A>,
-): Promise<AtomCommandResult<A, never>> {
-  try {
-    return AsyncResult.success(await execute());
-  } catch (defect) {
-    return AsyncResult.failure(Cause.die(defect));
   }
 }

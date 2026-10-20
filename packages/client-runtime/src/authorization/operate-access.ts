@@ -16,18 +16,14 @@ export type OperateAccess = "granted" | "denied" | "pending";
  * treating that as unknown would flip a working panel back to loading and
  * discard in-progress edits.
  *
- * `missingScopesAccess` decides the case where the session resolved but did
- * not report scopes: the primary serves the web app itself so its server
- * always reports them (absence means denial), while a remote device may run an
- * older server version that predates scope reporting, where denial would lock
- * out a legitimate session. The environment RPC layer stays authoritative
- * either way.
+ * The primary serves the web app itself, so its server always reports scopes;
+ * a resolved session without them is denied. The environment RPC layer stays
+ * authoritative either way.
  */
 function resolveSessionOperateAccess(input: {
   readonly session: Pick<AuthSessionState, "authenticated" | "scopes"> | null;
   readonly isPending: boolean;
   readonly hasError: boolean;
-  readonly missingScopesAccess: "granted" | "denied";
 }): OperateAccess {
   if (input.session === null) {
     if (input.isPending) {
@@ -44,11 +40,7 @@ function resolveSessionOperateAccess(input: {
     return "denied";
   }
 
-  if (input.session.scopes === undefined) {
-    return input.missingScopesAccess;
-  }
-
-  return input.session.scopes.includes(AuthOrchestrationOperateScope) ? "granted" : "denied";
+  return input.session.scopes?.includes(AuthOrchestrationOperateScope) ? "granted" : "denied";
 }
 
 /** Operate access for the primary environment's own browser session. */
@@ -67,21 +59,5 @@ export function resolvePrimaryOperateAccess(input: {
     session: input.session,
     isPending: input.isPending,
     hasError: input.hasError,
-    missingScopesAccess: "denied",
-  });
-}
-
-/**
- * Operate access for a non-primary environment, derived from the scopes its
- * `/api/auth/session` endpoint reports for this client's credential.
- */
-export function resolveRemoteOperateAccess(input: {
-  readonly session: Pick<AuthSessionState, "authenticated" | "scopes"> | null;
-  readonly isPending: boolean;
-  readonly hasError: boolean;
-}): OperateAccess {
-  return resolveSessionOperateAccess({
-    ...input,
-    missingScopesAccess: "granted",
   });
 }

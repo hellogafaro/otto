@@ -750,8 +750,6 @@ export * from "./composer-path-search.ts";
 
 export * from "./thread-commands.ts";
 
-export * from "./thread-feedback.ts";
-
 export * from "./thread-detail.ts";
 
 export * from "./thread-reducer.ts";

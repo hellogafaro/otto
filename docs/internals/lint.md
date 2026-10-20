@@ -85,10 +85,6 @@ visibility. Everything else comes from a variant or size. Contracts open more fo
 default layout-only policy. When a call site needs a look no variant provides, add the variant to
 the primitive and use it by name.
 
-`apps/mobile` is out of scope. Its theme tokens live in uniwind `@layer theme` blocks that
-`@shadcn/lint` does not read, so real classes such as `bg-screen` come back as unknown. React
-Native also styles through `style` objects, which `no-inline-styles` would reject everywhere.
-
 ### Raw palette colors
 
 `shadcn/no-raw-colors` only reads `className` attributes and `cn()` calls, so palette colors in
@@ -161,7 +157,7 @@ values, and service doubles by hand on purpose, and Proxy-based SDK doubles need
 keep getter receivers.
 
 These test harnesses also turn off `no-module-mocking`. Existing client and native integration
-suites replace module-bound runtimes such as Electron, Expo, and React hooks, which cannot run
+suites replace module-bound runtimes such as Electron and React hooks, which cannot run
 in the Node test process as shipped. The exception covers test files and their shared harnesses,
 including `*.test-support.*` and the macOS signing test; production code still rejects module mocks. Prefer dependency
 injection when the code already exposes a suitable seam. The rule recognizes `vi` imports from

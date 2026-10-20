@@ -102,19 +102,6 @@ export function deriveLocalBranchNameFromRemoteRef(branchName: string): string {
   return branchName.slice(firstSeparatorIndex + 1);
 }
 
-export function buildTemporaryWorktreeBranchName(
-  randomHex: (byteLength: number) => string,
-): string {
-  // Normalize to exactly 8 lowercase hex chars so a UUID-shaped callback
-  // still produces the canonical temporary branch form.
-  const token = randomHex(4)
-    .toLowerCase()
-    .replace(/[^0-9a-f]/g, "")
-    .slice(0, 8);
-
-  return `${WORKTREE_BRANCH_PREFIX}/${token}`;
-}
-
 export function isTemporaryWorktreeBranch(refName: string): boolean {
   return TEMP_WORKTREE_BRANCH_PATTERN.test(refName.trim().toLowerCase());
 }

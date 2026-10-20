@@ -197,8 +197,7 @@ A new install reports storage and update state as not created yet until the serv
 them. That warning clears on its own.
 
 The section does not appear on environments that are not Otto Remote installs, or for devices
-paired with standard access. The mobile app does not show remote health yet. Run
-`otto remote doctor` on the server machine instead.
+paired with standard access. Run `otto remote doctor` on the server machine instead.
 
 ## Connect through SSH
 
@@ -223,7 +222,7 @@ ssh user@example.com 'sh -lc "command -v node && node --version"'
 
 Configure the remote version manager until that command prints a supported version.
 
-SSH access is a desktop capability. Web and mobile clients connect to a directly reachable
+SSH access is a desktop capability. Web clients connect to a directly reachable
 server through normal pairing.
 
 ## Connect through a user-managed tunnel
@@ -264,8 +263,7 @@ offers **Open app**. It does not sign the browser in to the address that served 
 **Open app** shows the saved server only when this browser already uses that address. Otherwise
 the address asks you to pair it first. When `host` names the address that served the page, the
 link pairs that address directly and opens the app. You can also paste the whole link into
-**Settings > Connections > Add environment** on web or desktop, or scan it with the mobile app. The
-token still works only once.
+**Settings > Connections > Add environment** on web or desktop. The token still works only once.
 
 If the page said the link was incomplete, or still asks for a pairing token, open the complete
 link in the same tab. The page reads the link again without a reload.
@@ -363,8 +361,7 @@ admin-scoped clients, and `otto auth --help` covers the same operations from the
   than posting it somewhere persistent.
 - The client connects directly to the server. No Otto service relays the session.
 
-Web and desktop show saved servers under **Connections > Remote environments**. Mobile shows them
-under **Environments**. Removing a saved environment deletes it from that client. Revoke the server
+Web and desktop show saved servers under **Connections > Remote environments**. Removing a saved environment deletes it from that client. Revoke the server
 session under **Connections > Authorized clients** when the device must lose access. That section
 appears when the current environment is reachable remotely and this client can manage access.
 

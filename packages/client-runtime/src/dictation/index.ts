@@ -11,7 +11,7 @@ export {
 
 export type { DictationControlStatus } from "./presentation.ts";
 
-export { createDictationSession, DEFAULT_DICTATION_LIMITS } from "./session.ts";
+export { createDictationSession } from "./session.ts";
 
 export type {
   DictationAudio,
@@ -24,7 +24,6 @@ export type {
 
 export {
   DICTATION_TRANSCRIPTION_UNAVAILABLE,
-  MOBILE_DICTATION_LIMITS,
   VOICE_DICTATION_LIMITS,
   createVoiceDictationTranscriber,
   dictationAudioMediaType,

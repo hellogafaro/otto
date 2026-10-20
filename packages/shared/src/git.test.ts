@@ -3,7 +3,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyGitStatusStreamEvent,
-  buildTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
@@ -67,28 +66,10 @@ describe("parseGitHubRepositoryNameWithOwnerFromRemoteUrl", () => {
 });
 
 describe("isTemporaryWorktreeBranch", () => {
-  it("matches the generated temporary worktree refName format", () => {
-    expect(
-      isTemporaryWorktreeBranch(
-        buildTemporaryWorktreeBranchName((byteLength) => {
-          expect(byteLength).toBe(4);
-
-          return "DEADBEEF";
-        }),
-      ),
-    ).toBe(true);
-  });
-
   it("matches generated temporary worktree refs", () => {
     expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/deadbeef`)).toBe(true);
     expect(isTemporaryWorktreeBranch(` ${WORKTREE_BRANCH_PREFIX}/deadbeef `)).toBe(true);
     expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/DEADBEEF`)).toBe(true);
-  });
-
-  it("normalizes a UUID-shaped random callback to the canonical 8-hex form", () => {
-    expect(buildTemporaryWorktreeBranchName(() => "f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(
-      `${WORKTREE_BRANCH_PREFIX}/f4ae4e0e`,
-    );
   });
 
   it("matches legacy UUID-shaped temporary worktree refs from older mobile builds", () => {

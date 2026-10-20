@@ -26,6 +26,6 @@ The incident key is `silence:<threadId>:<turnId>`, so a turn has at most one inb
 
 ## Clients
 
-`packages/client-runtime/src/silent-run.ts` exports `threadSilentRun(activities, turnId)`. It returns the provider, its display name, and the last output time when the latest silent-run activity for the running turn is `turn.silent`, and `null` otherwise. Web keeps the working line and shows the inbox card below. Mobile replaces the working row with "No response from <provider>" and a timer counted from the last output. Both clients keep silent-run activities out of the work log.
+`packages/client-runtime/src/silent-run.ts` exports `threadSilentRun(activities, turnId)`. It returns the provider, its display name, and the last output time when the latest silent-run activity for the running turn is `turn.silent`, and `null` otherwise. Web keeps the working line and shows the inbox card below. It keeps silent-run activities out of the work log.
 
 The inbox card is separate. Web shows an open `silence-watchdog-failure` only in the chat named by `silence:<threadId>:<turnId>`. Dismiss resolves the item and refreshes the subscription inbox the chat reads. `botInbox.list` alone does not update the card.

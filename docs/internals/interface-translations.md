@@ -1,10 +1,10 @@
 # Interface translations
 
-Interface language is a client preference, not environment state. A browser profile, an Electron profile, and a mobile installation must be able to choose independently while connected to the same environment. Language changes must never dispatch orchestration commands or rewrite stored content.
+Interface language is a client preference, not environment state. A browser profile and an Electron profile must be able to choose independently while connected to the same environment. Language changes must never dispatch orchestration commands or rewrite stored content.
 
 ## Catalog conventions
 
-The framework-free implementation lives in `packages/client-runtime/src/i18n`. React and React Native adapters own subscriptions and persistence. Device locale resolution is explicit so shared code does not depend on browser or native globals.
+The framework-free implementation lives in `packages/client-runtime/src/i18n`. React adapters own subscriptions and persistence. Device locale resolution is explicit so shared code does not depend on browser or native globals.
 
 English is the source and fallback language. The initial shipped set is English and Simplified Chinese (`zh-CN`). Traditional Chinese and other locales fall back to English. Test-only catalogs do not count as shipped translations. Additional languages load through the same lazy registry.
 
@@ -25,31 +25,31 @@ Never pass these values through translation lookup:
 
 Display translated explanatory error copy by matching a stable error code at the client boundary. Keep raw provider diagnostics intact and separate. Unknown codes need a generic English explanation, not a translation key. Adding translation infrastructure does not make existing raw error displays localized.
 
-Connection failures follow this rule. `EnvironmentConnectionPresentation.errorCode` in `packages/client-runtime/src/connection/presentation.ts` carries the failure reason from the connection state machine (`ConnectionTransientReason` or `ConnectionBlockedReason`). `connectionFailureMessage` maps each code to one catalog sentence, and `translateConnectionStatus` builds the status line from the phase and that sentence. The raw `error` string never goes through translation. Web shows it in the status tooltip's `title`; mobile shows it in the expanded environment row and in the connection notice detail. A new failure code must be added to `connectionFailureMessage`, which the type checker enforces.
+Connection failures follow this rule. `EnvironmentConnectionPresentation.errorCode` in `packages/client-runtime/src/connection/presentation.ts` carries the failure reason from the connection state machine (`ConnectionTransientReason` or `ConnectionBlockedReason`). `connectionFailureMessage` maps each code to one catalog sentence, and `translateConnectionStatus` builds the status line from the phase and that sentence. The raw `error` string never goes through translation. Web shows it in the status tooltip's `title`. A new failure code must be added to `connectionFailureMessage`, which the type checker enforces.
 
 ## Coverage and release gate
 
 English extraction is incremental. A catalog's existence is not evidence that every route uses it. `coverage.test.ts` snapshots every file that calls the translator, the number of literal messages, and the finite label sources it checks, so a change in coverage shows up in review.
 
-| Interface area                      | Web and desktop renderer                                                         | Native mobile                                         |
-| ----------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Language preference and selector    | Client settings, Settings > General                                              | Installation storage, Settings                        |
-| Settings                            | Rail, breadcrumb, searchable row titles, General, Providers, Connections pairing | Root screen and subscreens, except those listed below |
-| Settings search and command palette | Translated labels plus English search aliases                                    | No command palette; Settings navigation is translated |
-| Pairing                             | Pairing route                                                                    | Connections list and new connection screens           |
-| Roster and home                     | Roster sidebar, empty roster, new bot and new group dialogs, group details       | Home, chat list, swipe actions, archived chats        |
-| Chat                                | Bot and group chat views, landing pages, prompts, delegation cards, composer     | Chat screen, composer, approvals, empty workspace     |
-| Chat dates and times                | Date dividers and routine receipt times use the interface locale                 | Message times use the interface locale                |
-| Provider availability               | Model pickers, bot engine row, no-provider banner                                | Composer send block, model picker, new chat flow      |
-| Bot settings                        | Settings page, details panel, channels and tools sheets, usage, model pickers    | No bot settings screen                                |
-| Onboarding and errors               | Desktop onboarding and the root error view                                       | Not applicable                                        |
-| Connection errors                   | Stable-code status line; raw detail in tooltip                                   | Stable-code status line; raw detail kept separate     |
-| Confirm dialogs and alerts          | Dialog buttons and fallback title; caller messages translated where owned        | Native alerts and the confirm dialog Cancel fallback  |
-| Memory                              | Memory sheet, durable facts, transfer and import review, Privacy > Memory        | Memory screen, durable facts, Settings > Memory       |
-| Routines                            | Routine panel, routine form, and routine receipts in chat                        | Chat settings routine screen, approvals, and receipts |
-| Approved non-English catalogs       | Simplified Chinese (`zh-CN`)                                                     | Simplified Chinese (`zh-CN`)                          |
+| Interface area                      | Web and desktop renderer                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| Language preference and selector    | Client settings, Settings > General                                              |
+| Settings                            | Rail, breadcrumb, searchable row titles, General, Providers, Connections pairing |
+| Settings search and command palette | Translated labels plus English search aliases                                    |
+| Pairing                             | Pairing route                                                                    |
+| Roster and home                     | Roster sidebar, empty roster, new bot and new group dialogs, group details       |
+| Chat                                | Bot and group chat views, landing pages, prompts, delegation cards, composer     |
+| Chat dates and times                | Date dividers and routine receipt times use the interface locale                 |
+| Provider availability               | Model pickers, bot engine row, no-provider banner                                |
+| Bot settings                        | Settings page, details panel, channels and tools sheets, usage, model pickers    |
+| Onboarding and errors               | Desktop onboarding and the root error view                                       |
+| Connection errors                   | Stable-code status line; raw detail in tooltip                                   |
+| Confirm dialogs and alerts          | Dialog buttons and fallback title; caller messages translated where owned        |
+| Memory                              | Memory sheet, durable facts, transfer and import review, Privacy > Memory        |
+| Routines                            | Routine panel, routine form, and routine receipts in chat                        |
+| Approved non-English catalogs       | Simplified Chinese (`zh-CN`)                                                     |
 
-The coverage test scans every file that imports `useI18n` or `useMobileI18n`, plus a short explicit list of plain modules that translate through a passed-in or module-level translator: `command-palette.logic.ts`, `composer-provider-menu-items.ts`, the mobile `app-updates.ts`, the onboarding logic modules, `botInbox.ts`, `durable-memory.ts`, `imageGeneration.ts`, `provider-availability.ts`, and `errors/thread-error-presentation.ts` in client-runtime, and `bot-engine-selection.ts`, `routine-receipts.ts`, and `settings-panels.logic.ts` in the web app. Plural forms passed to `plural` are extracted as messages too. Mobile code outside React uses `translateOutsideReact` from `apps/mobile/src/lib/i18n.tsx`, which follows the mounted language provider.
+The coverage test scans every file that imports `useI18n`, plus a short explicit list of plain modules that translate through a passed-in or module-level translator: `command-palette.logic.ts`, `composer-provider-menu-items.ts`, the onboarding logic modules, `botInbox.ts`, `durable-memory.ts`, `imageGeneration.ts`, `provider-availability.ts`, and `errors/thread-error-presentation.ts` in client-runtime, and `bot-engine-selection.ts`, `routine-receipts.ts`, and `settings-panels.logic.ts` in the web app. Plural forms passed to `plural` are extracted as messages too.
 
 ### Untranslated exceptions
 
@@ -61,8 +61,6 @@ These surfaces render English in every language. Each is a known gap, not a clai
 - Desktop update tooltips and toasts built in `desktop-update.logic.ts` and `provider-updates.logic.ts`.
 - Web roster timestamps and the chat timestamp tooltip format with the browser or host locale, not the interface language (`roster.logic.ts`, `bot-roster-sidebar.tsx`, `timestamp-format.ts`).
 - Channel origin labels and shared composer mention labels in `packages/client-runtime` and `packages/shared`.
-- Mobile screens: chat channels, the composer command popover, files, usage and bot usage, image generation settings, legal documents, and the activity widget.
-- Mobile relative times in chat lists and archived chats (`lib/time.ts` `relativeTime`) stay English.
 - Toast titles and descriptions raised from non-component code outside the translated areas, and confirm dialog messages passed by callers in those areas.
 - Raw error text from providers, the environment server, git, and the operating system. It is shown as received, next to a translated explanation where a stable code exists.
 - Raw provider diagnostics in Settings > Providers and desktop onboarding: command failure messages, login flow errors, a failed API key save reason, and the last failed request message from a provider check. The page shows them as received and falls back to translated copy only when the server sends no message.
@@ -91,4 +89,4 @@ The first extra startup file is Vite's preload helper, split out by the catalog'
 
 ### Verification still owed
 
-Verify every translated route in Simplified Chinese and in English. Exercise switching back, reset to system, restart and reconnect, two clients with different languages, unsupported locales, missing messages, connection errors, long strings, narrow layouts, CJK text, and large native text sizes. Browser screenshots alone do not prove these behaviors; native mobile and Electron need their own integrated checks.
+Verify every translated route in Simplified Chinese and in English. Exercise switching back, reset to system, restart and reconnect, two clients with different languages, unsupported locales, missing messages, connection errors, long strings, narrow layouts, CJK text, and large text sizes. Browser screenshots alone do not prove these behaviors; Electron needs its own integrated checks.

@@ -1,6 +1,6 @@
 # Voice calls
 
-Call a bot from its chat using the microphone and speaker on your current client. Calls work in web and desktop. Native mobile audio calls are not supported. Mobile's voice privacy switch controls whether the connected environment permits web and desktop calls.
+Call a bot from its chat using the microphone and speaker on your current client. Calls work in web and desktop.
 
 ## Choose how the call works
 

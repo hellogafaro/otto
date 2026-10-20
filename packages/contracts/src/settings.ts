@@ -44,8 +44,6 @@ export {
   QuitConfirmationMode,
   DEFAULT_QUIT_CONFIRMATION_MODE,
   OTTO_DOCUMENTATION_URL,
-  OTTO_PRIVACY_POLICY_VERSION,
-  OTTO_TERMS_VERSION,
   DEFAULT_BROWSER_VIEWPORT,
   ClientSettingsSchema,
   type ClientSettings,

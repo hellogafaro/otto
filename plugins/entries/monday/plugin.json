@@ -17,7 +17,7 @@
       "license": "monday.com trademark; vector from VectorLogoZone"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.monday.com/mcp" },
   "connection": {
     "type": "approval-pending",

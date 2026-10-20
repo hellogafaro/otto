@@ -8,11 +8,7 @@ import * as Cause from "effect/Cause";
 import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity";
 import { expect, it } from "vite-plus/test";
 
-import {
-  createThreadSearchResultsAtomFamily,
-  makeThreadSearchKey,
-  threadSearchMatchKey,
-} from "./thread-search.ts";
+import { createThreadSearchResultsAtomFamily, makeThreadSearchKey } from "./thread-search.ts";
 
 const envA = EnvironmentId.make("env-a");
 
@@ -35,20 +31,6 @@ it("creates keys without array methods unavailable in Hermes", () => {
       Reflect.defineProperty(Array.prototype, "toSorted", descriptor);
     }
   }
-});
-
-it("encodes scoped thread keys without delimiter collisions", () => {
-  const first = threadSearchMatchKey({
-    environmentId: EnvironmentId.make("env\u0000thread"),
-    threadId: ThreadId.make("id"),
-  });
-
-  const second = threadSearchMatchKey({
-    environmentId: EnvironmentId.make("env"),
-    threadId: ThreadId.make("thread\u0000id"),
-  });
-
-  expect(first).not.toBe(second);
 });
 
 it("accepts search keys at the maximum decoded query length", () => {
@@ -134,7 +116,6 @@ it("merges successful environments and silently ignores failures", () => {
     matches: [{ ...result.matches[0], environmentId: envA }],
     isLoading: false,
   });
-  expect(threadSearchMatchKey(state.matches[0]!)).toBe('["env-a","thread-a"]');
 
   registry.dispose();
 });

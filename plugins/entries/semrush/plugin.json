@@ -23,7 +23,7 @@
       "license": "Semrush brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://mcp.semrush.com/v2/mcp"

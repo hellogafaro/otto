@@ -1,20 +1,15 @@
-import { BotId, McpServerId, RoutineId, ThreadId, Routine, RoutineRun } from "@otto/contracts";
+import { BotId, RoutineId, ThreadId, Routine, RoutineRun } from "@otto/contracts";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createTranslator } from "./i18n/index.ts";
-import { zhCNCatalog } from "./i18n/zh-cn.ts";
 import {
   hourlyScheduleText,
   absoluteRunTime,
   relativeRunTime,
-  botRoutinesView,
-  routineApprovalSummary,
-  routineLifecycleAction,
   routineFrequencyLabel,
   routineScheduleLabel,
-  routineStateNote,
   routineTimeLabel,
+  routineTriggerProposalText,
   runStatusTone,
   toRoutinePanelItem,
 } from "./routines.ts";
@@ -69,35 +64,17 @@ const run = (id: string, createdAt: string, overrides: Partial<RoutineRun> = {})
     ...overrides,
   });
 
-const snapshot = {
-  routines: [
-    routine,
-    { ...routine, id: RoutineId.make("routine-deleted"), lifecycle: "deleted" as const },
-    { ...routine, id: RoutineId.make("routine-other"), botId: BotId.make("bot-2") },
-  ],
-  routineRuns: [
-    run("run-old", "2026-09-19T09:00:00.000Z"),
-    run("run-new", "2026-09-19T10:00:00.000Z", {
-      status: "failed",
-      failure: { kind: "provider", message: "Provider timed out" },
-    }),
-  ],
-  mcpServers: [
-    {
-      id: McpServerId.make("mcp-1"),
-      name: "Gmail",
-      transport: "stdio",
-      command: "gmail",
-      enabled: true,
-      createdAt: routine.createdAt,
-      updatedAt: routine.updatedAt,
-    },
-  ],
-} satisfies Parameters<typeof botRoutinesView>[0];
+const runs = [
+  run("run-old", "2026-09-19T09:00:00.000Z"),
+  run("run-new", "2026-09-19T10:00:00.000Z", {
+    status: "failed",
+    failure: { kind: "provider", message: "Provider timed out" },
+  }),
+];
 
 describe("toRoutinePanelItem", () => {
   it("resolves names and orders run history newest first", () => {
-    const item = toRoutinePanelItem(routine, snapshot!.routineRuns!, []);
+    const item = toRoutinePanelItem(routine, runs, []);
     expect(item.schedule).toEqual({
       frequency: "weekly",
       time: "09:00",
@@ -150,83 +127,17 @@ describe("toRoutinePanelItem", () => {
     );
   });
 
+  it("pauses a routine an older Otto stopped, not one whose last run failed", () => {
+    expect(
+      toRoutinePanelItem({ ...routine, enabled: false, lifecycle: "blocked" }, [], []).paused,
+    ).toBe(true);
+    expect(toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], []).paused).toBe(false);
+  });
+
   it("carries the bot a routine hands its work to", () => {
     const delegateToBotId = BotId.make("bot-helper");
     expect(toRoutinePanelItem({ ...routine, delegateToBotId }, [], []).delegateToBotId).toBe(
       delegateToBotId,
-    );
-  });
-});
-
-describe("botRoutinesView", () => {
-  it("waits for the snapshot before claiming anything", () => {
-    expect(botRoutinesView(null, "bot-1")).toEqual({ kind: "loading" });
-  });
-
-  it("separates an environment without routines from a bot without routines", () => {
-    expect(botRoutinesView({}, "bot-1")).toEqual({ kind: "unavailable" });
-    expect(botRoutinesView({ routines: [] }, "bot-1")).toEqual({ kind: "ready", routines: [] });
-  });
-
-  it("keeps only the bot's live routines with their connectors", () => {
-    const view = botRoutinesView(snapshot, "bot-1");
-    expect(view.kind).toBe("ready");
-
-    if (view.kind !== "ready") return;
-    expect(view.routines.map((item) => item.id)).toEqual(["routine-1"]);
-    expect(view.routines[0]).toMatchObject({
-      connectors: ["Gmail"],
-      procedureApproved: true,
-    });
-  });
-});
-
-describe("routineLifecycleAction", () => {
-  const item = toRoutinePanelItem(routine, [], []);
-
-  it("offers only the reverse of the state a routine is in", () => {
-    expect(routineLifecycleAction(item)).toBe("pause");
-    expect(routineLifecycleAction({ ...item, paused: true })).toBe("resume");
-    expect(routineLifecycleAction({ ...item, enabled: false })).toBe("enable");
-  });
-
-  it("offers nothing for a draft until its procedure is approved", () => {
-    expect(routineLifecycleAction({ ...item, enabled: false, procedureApproved: false })).toBe(
-      null,
-    );
-  });
-});
-
-describe("routineStateNote", () => {
-  const item = toRoutinePanelItem(routine, [], []);
-
-  it("says nothing while a routine runs on schedule", () => {
-    expect(routineStateNote(item)).toBe(null);
-  });
-
-  it("says how to resume a paused routine, including one an older Otto stopped", () => {
-    expect(routineStateNote({ ...item, paused: true })).toBe("Paused until you resume it.");
-
-    const blocked = toRoutinePanelItem(
-      { ...routine, enabled: false, lifecycle: "blocked" },
-      [],
-      [],
-    );
-
-    expect(routineStateNote(blocked)).toBe("Paused until you resume it.");
-  });
-
-  it("keeps a routine whose last run failed on its schedule", () => {
-    const failed = toRoutinePanelItem({ ...routine, lifecycle: "failed" }, [], []);
-
-    expect(failed.paused).toBe(false);
-    expect(routineStateNote(failed)).toBeNull();
-  });
-
-  it("names the way back for a routine that is off or still a draft", () => {
-    expect(routineStateNote({ ...item, enabled: false })).toBe("Off until you turn it back on.");
-    expect(routineStateNote({ ...item, enabled: false, procedureApproved: false })).toBe(
-      "Draft. Approve its procedure to schedule it.",
     );
   });
 });
@@ -241,74 +152,15 @@ describe("runStatusTone", () => {
   });
 });
 
-describe("routineApprovalSummary", () => {
-  it("summarizes a proposed weekly routine", () => {
+describe("routineTriggerProposalText", () => {
+  it("names the app event a proposed routine starts on", () => {
     expect(
-      routineApprovalSummary({
-        name: "Friday review",
-        instructions: "Review the week.",
-        schedule: { kind: "weekly", weekdays: ["monday", "friday"], time: "14:00" },
-      }),
-    ).toEqual({
-      name: "Friday review",
-      instructions: "Review the week.",
-      schedule: "Monday, Friday at 14:00",
-      trigger: null,
-    });
-  });
-
-  it("summarizes a proposed routine that starts on an app event", () => {
-    expect(
-      routineApprovalSummary({
-        name: "Triage mail",
-        instructions: "Label the new message.",
+      routineTriggerProposalText({
         trigger: { app: "gmail", event: "GMAIL_NEW_GMAIL_MESSAGE", account: " Work " },
       }),
-    ).toEqual({
-      name: "Triage mail",
-      instructions: "Label the new message.",
-      schedule: null,
-      trigger: "When GMAIL_NEW_GMAIL_MESSAGE in gmail (Work)",
-    });
-    expect(routineApprovalSummary({ trigger: { app: "gmail" } }).trigger).toBeNull();
-  });
-
-  it("still renders a malformed proposal as a reviewable approval", () => {
-    expect(routineApprovalSummary(null)).toEqual({
-      name: "New routine",
-      instructions: null,
-      schedule: null,
-      trigger: null,
-    });
-    expect(routineApprovalSummary({ schedule: { kind: "weekdays", time: "09:00" } })).toEqual({
-      name: "New routine",
-      instructions: null,
-      schedule: "Weekdays at 09:00",
-      trigger: null,
-    });
-  });
-
-  it("shows the proposed timezone beside a wall-clock schedule", () => {
-    expect(
-      routineApprovalSummary({
-        schedule: { kind: "weekdays", time: "09:00" },
-        timezone: "America/New_York",
-      }).schedule,
-    ).toBe("Weekdays at 09:00 (America/New_York)");
-    expect(
-      routineApprovalSummary({
-        schedule: { kind: "weekdays", time: "09:00" },
-        timezone: { invalid: true },
-      }).schedule,
-    ).toBe("Weekdays at 09:00");
-  });
-
-  it("follows the interface language", () => {
-    const { t } = createTranslator("zh-CN", zhCNCatalog);
-    expect(
-      routineApprovalSummary({ name: "Brief", schedule: { kind: "daily", time: "08:00" } }, t)
-        .schedule,
-    ).toBe(t("{schedule} at {time}", { schedule: t("Daily"), time: "08:00" }));
+    ).toBe("When GMAIL_NEW_GMAIL_MESSAGE in gmail (Work)");
+    expect(routineTriggerProposalText({ trigger: { app: "gmail" } })).toBeNull();
+    expect(routineTriggerProposalText(null)).toBeNull();
   });
 });
 

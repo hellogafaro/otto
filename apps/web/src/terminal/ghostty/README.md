@@ -1,6 +1,6 @@
 # Ghostty web terminal
 
-This directory is the browser adapter for the same official `libghostty-vt` C ABI used by Android.
+This directory is the browser adapter for the official `libghostty-vt` C ABI.
 It is intentionally not an xterm compatibility layer.
 
 - `runtime.ts` owns the singleton WebAssembly instance and runtime ABI layouts.

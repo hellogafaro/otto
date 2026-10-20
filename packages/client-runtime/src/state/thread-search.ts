@@ -37,12 +37,6 @@ function parseThreadSearchKey(key: string) {
   return decodeThreadSearchKey(key);
 }
 
-export function threadSearchMatchKey(
-  match: Pick<EnvironmentThreadSearchMatch, "environmentId" | "threadId">,
-): string {
-  return JSON.stringify([match.environmentId, match.threadId]);
-}
-
 /**
  * Combines one search query atom per environment. Invalid search keys, failed
  * requests, and disconnected environments contribute no content matches,
