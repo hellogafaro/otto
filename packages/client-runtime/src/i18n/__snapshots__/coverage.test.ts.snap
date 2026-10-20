@@ -2,7 +2,7 @@
 
 exports[`discovered interface message coverage > covers static calls and finite label sources without translating identifiers 1`] = `
 {
-  "directMessageCount": 1714,
+  "directMessageCount": 1744,
   "expressions": {
     "apps/mobile/src/components/DictationControls.tsx": [
       "announcements[status]);",
@@ -197,6 +197,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
       "Providers",
       "Sandboxes",
       "Default sandbox",
+      "Default sandbox size",
       "Bot browser access",
       "Default browser viewport",
       "Default browser zoom",
@@ -318,6 +319,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/command-palette.tsx",
     "apps/web/src/components/confirm-dialog-host.tsx",
     "apps/web/src/components/copy-menu-items.tsx",
+    "apps/web/src/components/customize/connect-app-dialog.tsx",
     "apps/web/src/components/customize/customize-apps.tsx",
     "apps/web/src/components/customize/customize-detail.tsx",
     "apps/web/src/components/customize/customize-integrations.tsx",
@@ -476,6 +478,7 @@ exports[`discovered interface message coverage > covers static calls and finite 
     "apps/web/src/components/work/project-secrets.tsx",
     "apps/web/src/components/work/task-due-date.tsx",
     "apps/web/src/components/work/task-page.tsx",
+    "apps/web/src/components/work/task-priority.tsx",
     "apps/web/src/components/work/task-repeat.tsx",
     "apps/web/src/components/work/tasks-table.tsx",
     "apps/web/src/components/work/work-detail.tsx",

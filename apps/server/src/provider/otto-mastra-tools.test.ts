@@ -1,6 +1,11 @@
 import { probeTool } from "./test-support/tool-probe.ts";
 import { toolRuntimeFixture } from "./test-support/tool-runtime-fixture.ts";
-import { OTTO_TOOL_CATALOG, OttoToolInputSchemas } from "@otto/contracts";
+import {
+  OTTO_TOOL_CATALOG,
+  OTTO_TOOL_CLEARABLE_FIELDS,
+  OttoToolInputSchemas,
+} from "@otto/contracts";
+import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import type { Tool } from "@mastra/core/tools";
@@ -9,7 +14,7 @@ import { z } from "zod";
 import type { JSONSchema } from "zod/v4/core";
 
 import { oversizedImageNote } from "./chat-history.ts";
-import { createOttoMastraTools, foldConstraintAllOf } from "./otto-mastra-tools.ts";
+import { createOttoMastraTools, foldConstraintAllOf, omitNullValues } from "./otto-mastra-tools.ts";
 
 describe("createOttoMastraTools", () => {
   it("builds every registered Otto tool schema", () => {
@@ -73,6 +78,34 @@ describe("createOttoMastraTools", () => {
     await expect(shell.execute({ command: "pwd" }, {} as never)).rejects.toThrow(
       "has no call identity",
     );
+  });
+
+  it("shows bots each task field's rule in the schema they read", () => {
+    const update = foldConstraintAllOf(
+      // SAFETY: Effect's Standard JSON Schema output for draft-07 is a JSON Schema object.
+      Schema.toStandardJSONSchemaV1(OttoToolInputSchemas.task_update)["~standard"].jsonSchema.input(
+        { target: "draft-07" },
+      ) as JSONSchema.JSONSchema,
+    );
+
+    expect(JSON.stringify(update.properties?.taskId)).toContain("ID of the task to change.");
+    expect(JSON.stringify(update.properties?.owner)).toContain("Must be a person, not a bot.");
+    expect(JSON.stringify(update.properties?.assignees)).toContain("Replaces the current list");
+  });
+
+  it("keeps a null only where the tool clears that field", () => {
+    const decodeUpdate = Schema.decodeUnknownOption(OttoToolInputSchemas.task_update);
+    const clearable = new Set(OTTO_TOOL_CLEARABLE_FIELDS.task_update);
+
+    for (const field of ["title", "status", "assignees", "resources", ...clearable]) {
+      expect(Option.isSome(decodeUpdate({ taskId: "task-1", [field]: null }))).toBe(
+        clearable.has(field),
+      );
+    }
+
+    expect(
+      omitNullValues({ taskId: "task-1", title: null, dueDate: null, owner: null }, clearable),
+    ).toEqual({ taskId: "task-1", dueDate: null, owner: null });
   });
 
   it("caps a tool's result where it is created", async () => {

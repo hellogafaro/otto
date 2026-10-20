@@ -6,13 +6,15 @@ import { Atom } from "effect/unstable/reactivity";
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import { request } from "../rpc/client.ts";
 import {
-  addTaskTime,
   createTask,
-  removeTaskTime,
+  createTaskTime,
+  deleteTask,
+  deleteTaskTime,
   updateTask,
-  type AddTaskTimeInput,
   type CreateTaskInput,
-  type RemoveTaskTimeInput,
+  type CreateTaskTimeInput,
+  type DeleteTaskInput,
+  type DeleteTaskTimeInput,
   type UpdateTaskInput,
 } from "../operations/commands.ts";
 import { createAtomCommandScheduler, createEnvironmentCommand } from "./runtime.ts";
@@ -27,9 +29,10 @@ export {
 } from "./task-cache.ts";
 
 export type {
-  AddTaskTimeInput,
   CreateTaskInput,
-  RemoveTaskTimeInput,
+  CreateTaskTimeInput,
+  DeleteTaskInput,
+  DeleteTaskTimeInput,
   UpdateTaskInput,
 } from "../operations/commands.ts";
 
@@ -75,15 +78,21 @@ export function createTaskEnvironmentAtoms<R, E>(
       scheduler,
       concurrency,
     }),
-    addTime: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:task:time:add",
-      execute: (input: AddTaskTimeInput) => addTaskTime(input),
+    delete: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:task:delete",
+      execute: (input: DeleteTaskInput) => deleteTask(input),
       scheduler,
       concurrency,
     }),
-    removeTime: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:task:time:remove",
-      execute: (input: RemoveTaskTimeInput) => removeTaskTime(input),
+    createTime: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:task:time:create",
+      execute: (input: CreateTaskTimeInput) => createTaskTime(input),
+      scheduler,
+      concurrency,
+    }),
+    deleteTime: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:task:time:delete",
+      execute: (input: DeleteTaskTimeInput) => deleteTaskTime(input),
       scheduler,
       concurrency,
     }),

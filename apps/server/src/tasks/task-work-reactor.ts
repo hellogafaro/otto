@@ -160,7 +160,7 @@ export const makeTaskWorkReactor = (
           : "";
 
         yield* engine.dispatch({
-          type: "task.comment.add",
+          type: "task.comment.create",
           commandId: CommandId.make(`task-work:comment:${NodeCrypto.randomUUID()}`),
           taskId: task.id,
           commentId: NodeCrypto.randomUUID(),
@@ -292,7 +292,7 @@ export const makeTaskWorkReactor = (
         return;
       }
 
-      if (event.type === "task.commented") {
+      if (event.type === "task.comment-created") {
         const { task, comment: posted } = event.payload;
 
         if (posted.actor.type !== "person") return;
@@ -376,7 +376,7 @@ export const makeTaskWorkReactor = (
         Stream.runForEach(events, (event) =>
           event.type === "task.created" ||
           event.type === "task.updated" ||
-          event.type === "task.commented" ||
+          event.type === "task.comment-created" ||
           event.type === "thread.message-sent" ||
           event.type === "thread.session-set"
             ? worker.enqueue(event)

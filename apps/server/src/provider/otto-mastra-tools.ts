@@ -1,7 +1,7 @@
 import * as Predicate from "effect/Predicate";
 import type { ToolsInput } from "@mastra/core/agent";
 import { type Tool, createTool } from "@mastra/core/tools";
-import { OttoToolInputSchemas, type OttoToolId } from "@otto/contracts";
+import { OTTO_TOOL_CLEARABLE_FIELDS, OttoToolInputSchemas, type OttoToolId } from "@otto/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { z } from "zod";
@@ -78,10 +78,16 @@ export function foldConstraintAllOf(schema: JsonSchemaNode): JsonSchemaNode {
     : { ...node, allOf: allOf.map(foldConstraintAllOf) };
 }
 
-function omitNullValues<Input>(input: Input) {
+/**
+ * Some models send null for a field they leave out. A null is dropped unless the tool clears that
+ * field with it (a task's due date or owner).
+ */
+export function omitNullValues<Input>(input: Input, keep: ReadonlySet<string> = new Set()) {
   if (!input || !Predicate.isObjectOrArray(input) || Array.isArray(input)) return input;
 
-  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== null));
+  return Object.fromEntries(
+    Object.entries(input).filter(([key, value]) => value !== null || keep.has(key)),
+  );
 }
 
 export function createOttoMastraTools(
@@ -96,22 +102,25 @@ export function createOttoMastraTools(
       const standardSchema = Schema.toStandardJSONSchemaV1(schema);
       const providerOptions = search ? deferredToolOptions(search, definition.id) : undefined;
 
+      const jsonSchema = foldConstraintAllOf(
+        // SAFETY: Effect's Standard JSON Schema output for draft-07 is a JSON Schema object.
+        standardSchema["~standard"].jsonSchema.input({ target: "draft-07" }) as JsonSchemaNode,
+      );
+
+      const clearable = new Set(OTTO_TOOL_CLEARABLE_FIELDS[definition.id] ?? []);
+
       // A throw here ends the whole turn, so input the runtime cannot decode
       // goes on to execute, which rejects it as a tool error the model can fix.
       // Execute checks approval again, so this never skips a required review.
       const approval: NonNullable<Tool["needsApprovalFn"]> = (input) =>
-        runtime.requiresApproval(threadId, definition.id, omitNullValues(input)).catch(() => false);
+        runtime
+          .requiresApproval(threadId, definition.id, omitNullValues(input, clearable))
+          .catch(() => false);
 
       const tool = createTool({
         id: definition.id,
         description: definition.description,
-        inputSchema: z.fromJSONSchema(
-          foldConstraintAllOf(
-            // SAFETY: Effect's Standard JSON Schema output for draft-07 is a JSON Schema object.
-            standardSchema["~standard"].jsonSchema.input({ target: "draft-07" }) as JsonSchemaNode,
-          ),
-          { defaultTarget: "draft-7" },
-        ),
+        inputSchema: z.fromJSONSchema(jsonSchema, { defaultTarget: "draft-7" }),
         requireApproval: approval,
         ...(providerOptions ? { providerOptions } : {}),
         ...(definition.id === "read"
@@ -157,7 +166,7 @@ export function createOttoMastraTools(
               threadId,
               toolId: definition.id,
               toolCallId,
-              input: omitNullValues(input),
+              input: omitNullValues(input, clearable),
               approvalMode: "require-grant",
               ...(search ? { webSearch: search } : {}),
               ...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),

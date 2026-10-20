@@ -32,7 +32,7 @@ describe("organization accounts client for the desktop app", () => {
       }
 
       const state: typeof OrganizationAccountState.Encoded = {
-        organization: { id: "o1", name: "Org" },
+        organization: { id: "o1", name: "Org", timezone: "Europe/Madrid" },
         user: null,
         role: "admin",
         mailConfigured: false,

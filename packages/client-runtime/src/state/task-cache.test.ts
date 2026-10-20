@@ -17,8 +17,13 @@ const task = {
   resources: [],
   dueDate: null,
   repeat: null,
+  priority: null,
   status: "pending" as const,
   timeEntries: [],
+  createdBy: null,
+  updatedBy: null,
+  completedAt: null,
+  completedBy: null,
   createdAt: "2026-10-01T00:00:00.000Z",
   updatedAt: "2026-10-01T00:00:00.000Z",
 };
@@ -51,6 +56,21 @@ describe("task cache", () => {
     recordTaskShellItem(registry, environmentId, { kind: "synchronized" });
 
     expect(registry.get(taskChangesAtom(environmentId))).toBe(3);
+  });
+
+  it("drops a deleted task and counts the change, so open lists reload without it", () => {
+    const registry = AtomRegistry.make();
+
+    recordTaskShellItem(registry, environmentId, { kind: "task-upserted", sequence: 1, task });
+    recordTaskShellItem(registry, environmentId, {
+      kind: "task-deleted",
+      sequence: 2,
+      taskId: task.id,
+    });
+
+    expect(registry.get(taskCacheAtom(environmentId)).tasks.has(task.id)).toBe(false);
+    expect(registry.get(taskCacheAtom(environmentId)).current.has(task.id)).toBe(false);
+    expect(registry.get(taskChangesAtom(environmentId))).toBe(2);
   });
 
   it("keeps the newer task when an older one arrives late", () => {

@@ -83,14 +83,24 @@ export const createWsOrchestrationStreams = ({
         );
       case "task.created":
       case "task.updated":
-      case "task.time-added":
-      case "task.time-removed":
-      case "task.commented":
+      case "task.time-created":
+      case "task.time-deleted":
+      case "task.comment-created":
+      case "task.comment-updated":
+      case "task.comment-deleted":
         return Effect.succeed(
           Option.some({
             kind: "task-upserted" as const,
             sequence: event.sequence,
             task: event.payload.task,
+          }),
+        );
+      case "task.deleted":
+        return Effect.succeed(
+          Option.some({
+            kind: "task-deleted" as const,
+            sequence: event.sequence,
+            taskId: event.payload.taskId,
           }),
         );
       case "library.folder-created":

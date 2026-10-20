@@ -93,25 +93,36 @@ export function taskState(
     owner: read.owner ? person(read.owner) : null,
     assignees: read.assignees.map(person),
     links: read.resources.map((resource) =>
-      resource.type === "link"
+      resource.type === "url"
         ? `${resource.title} ${resource.url}`
-        : `${resource.type} ${resource.id}`,
+        : `${resource.type} ${resource.title}`,
     ),
     description: capped(read.description, DESCRIPTION_LIMIT),
-    activity: read.activity.slice(-ACTIVITY_LIMIT).map((entry) => ({
-      id: entry.id,
-      at: localTime(entry.at, timeZone),
-      by: entry.by ?? "Someone",
-      mine: botName !== undefined && entry.by === botName,
-      text:
-        "content" in entry
-          ? `commented (comment ${entry.id}): ${capped(commentText(entry.content), COMMENT_LIMIT)}`
-          : "changed" in entry
-            ? `changed ${entry.changed.join(", ")}`
+    // Otto: task_read lists both newest first; the timeline reads oldest first.
+    activity: [
+      ...read.comments.toReversed().map((entry) => ({
+        ...entry,
+        text: `commented (comment ${entry.id}): ${capped(commentText("content" in entry ? entry.content : ""), COMMENT_LIMIT)}`,
+      })),
+      ...read.history.toReversed().map((entry) => ({
+        ...entry,
+        text:
+          "changes" in entry
+            ? `changed ${Object.keys(entry.changes).join(", ")}`
             : "minutes" in entry
-              ? `logged ${entry.minutes} min`
+              ? `${entry.type === "time_deleted" ? "deleted" : "logged"} ${entry.minutes} min`
               : entry.type,
-    })),
+      })),
+    ]
+      .toSorted((left, right) => left.at.localeCompare(right.at))
+      .slice(-ACTIVITY_LIMIT)
+      .map((entry) => ({
+        id: entry.id,
+        at: localTime(entry.at, timeZone),
+        by: entry.by?.name ?? "Someone",
+        mine: botName !== undefined && entry.by?.name === botName,
+        text: entry.text,
+      })),
   };
 }
 

@@ -1,5 +1,5 @@
-import { TaskId, type WorkResource } from "@otto/contracts";
-import { RiAddLine, RiCloseLine, RiLink } from "@remixicon/react";
+import { type EnvironmentId, TaskId, type WorkResource } from "@otto/contracts";
+import { RiAddLine, RiAttachment2, RiCloseLine, RiLink } from "@remixicon/react";
 import { Link } from "@tanstack/react-router";
 import * as Match from "effect/Match";
 import * as Schema from "effect/Schema";
@@ -13,6 +13,8 @@ import ChatMarkdown from "../chat-markdown";
 import { CONTENT_ROW_CLASS } from "../content-row";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../../right-panel-layout";
 import { DetailsAside, detailsGroupStorageKey, type PickerOpenState } from "../details-aside";
+import { useLibraryFile, useLibraryPages } from "../library/use-library";
+import { LIBRARY_TYPE_ICONS } from "../library/library-visuals";
 import { SETTINGS_SECTION_TITLE_CLASS } from "../settings/settings-layout";
 import { PickerList, handlePickerKey, type PickerItem } from "../picker-list";
 import { RichTextEditor } from "../rich-text-editor";
@@ -277,10 +279,54 @@ const RESOURCE_ROW_CLASS =
   "flex h-full min-w-0 flex-1 items-center gap-2 rounded-md ps-4 pe-8 text-13px outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground";
 
 /**
+ * A Library file kept next to the work, by its current title, opening where the Library opens
+ * it: a document its page, any other file the lightbox in its folder. A file this person can't
+ * see, or one deleted since, reads as a Library file and opens nothing.
+ */
+function ResourceFileRow({
+  environmentId,
+  fileId,
+}: {
+  readonly environmentId: EnvironmentId | null;
+  readonly fileId: string;
+}) {
+  const { t } = useI18n();
+  const { file } = useLibraryFile(environmentId, fileId);
+
+  if (file === null) {
+    return (
+      <span className={RESOURCE_ROW_CLASS}>
+        <RiAttachment2 aria-hidden />
+        <span className="truncate text-muted-foreground">{t("Library file")}</span>
+      </span>
+    );
+  }
+
+  const Icon = LIBRARY_TYPE_ICONS[file.type];
+
+  return file.type === "document" ? (
+    <Link to="/library/$fileId" params={{ fileId }} className={RESOURCE_ROW_CLASS}>
+      <Icon aria-hidden />
+      <span className="truncate text-foreground">{file.title}</span>
+    </Link>
+  ) : (
+    <Link
+      to="/library"
+      search={{ ...(file.folderId ? { folder: file.folderId } : {}), preview: file.id }}
+      className={RESOURCE_ROW_CLASS}
+    >
+      <Icon aria-hidden />
+      <span className="truncate text-foreground">{file.title}</span>
+    </Link>
+  );
+}
+
+/**
  * Anything worth keeping next to the work, in 28px rows like the roster's:
- * web links, and other tasks and projects shown by their current title. The
- * list ends in a quiet "Add link, task or project…" row, also the whole empty
- * state, whose popover takes a pasted link or searches tasks and projects.
+ * web links, other tasks and projects, and Library files, shown by their current title. The
+ * list ends in a quiet "Add link, task, project or file…" row, also the whole empty
+ * state, whose popover takes a pasted link or searches tasks, projects and Library files.
+ * Removing one never touches the file, task or page itself.
  */
 export function WorkResourcesSection({
   self,
@@ -300,6 +346,13 @@ export function WorkResourcesSection({
   const taken = new Set([...resources.map(resourceKey), `${self.type}:${self.id}`]);
   const text = query.trim();
   const entities = useEntities(adding ? text : null);
+
+  const { files } = useLibraryPages(adding && text.length > 0 ? environmentId : null, {
+    everywhere: true,
+    type: ["document", "image", "file"],
+    title: text.slice(0, 200),
+    limit: 5,
+  });
 
   const tasks = useCachedTasks(
     environmentId,
@@ -335,6 +388,19 @@ export function WorkResourcesSection({
           id: item.id,
         },
       })),
+    ...files
+      .filter((file) => !taken.has(`file:${file.id}`))
+      .map((file) => {
+        const Icon = LIBRARY_TYPE_ICONS[file.type];
+
+        return {
+          key: `file:${file.id}`,
+          label: file.title,
+          icon: <Icon />,
+          hint: t("Library"),
+          resource: { type: "file" as const, id: file.id },
+        };
+      }),
   ];
 
   const close = () => {
@@ -360,6 +426,7 @@ export function WorkResourcesSection({
             { type: "task" },
             (item) => tasks.get(TaskId.make(item.id))?.title ?? t("Task"),
           ),
+          Match.when({ type: "file" }, () => t("Library file")),
           Match.orElse(
             (item) => projects.find((project) => project.id === item.id)?.title ?? t("Project"),
           ),
@@ -389,6 +456,9 @@ export function WorkResourcesSection({
                   {entityIcon("task")}
                   <span className="truncate text-foreground">{label}</span>
                 </Link>
+              )),
+              Match.when({ type: "file" }, (item) => (
+                <ResourceFileRow environmentId={environmentId} fileId={item.id} />
               )),
               Match.orElse((item) => (
                 <Link
@@ -427,13 +497,13 @@ export function WorkResourcesSection({
           }
         >
           <RiAddLine aria-hidden className="size-3.5 shrink-0" />
-          {t("Add link, task or project…")}
+          {t("Add link, task, project or file…")}
         </PopoverTrigger>
         <PopoverPopup side="bottom" align="start" viewportPadding="none" className="w-80">
           <input
             autoFocus
             aria-label={t("Add resource")}
-            placeholder={t("Paste a link or search tasks and projects")}
+            placeholder={t("Paste a link or search tasks, projects and files")}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);

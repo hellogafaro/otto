@@ -21,6 +21,8 @@ const projectId = asProjectId("project-planning");
 
 const taskId = TaskId.make("task-1");
 
+const scout = { type: "bot" as const, id: BotId.make("bot-scout") };
+
 const person = {
   kind: "person" as const,
   personId: AuthSessionId.make("session-ada"),
@@ -146,8 +148,13 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
           resources: [],
           dueDate: null,
           repeat: null,
+          priority: null,
           status: "backlog",
           timeEntries: [],
+          createdBy: null,
+          updatedBy: null,
+          completedAt: null,
+          completedBy: null,
           createdAt: now,
           updatedAt: now,
         },
@@ -279,7 +286,7 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
     }),
   );
 
-  it.effect("logs time as the signed-in person and only they remove it", () =>
+  it.effect("logs a person's own time and lets anyone delete it, keeping what it said", () =>
     Effect.gen(function* () {
       const ada = { personId: AuthSessionId.make("user-ada") };
       const ben = { personId: AuthSessionId.make("user-ben") };
@@ -297,12 +304,14 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
         decideAndProject(
           readModel,
           {
-            type: "task.time.add",
+            type: "task.time.create",
             commandId: CommandId.make(`cmd-${entryId}`),
             taskId,
             entryId,
             duration,
             description: "Outline",
+            // A person signed in to a client logs their own time, whoever the command names.
+            personId: ben.personId,
             createdAt: now,
           },
           ada,
@@ -311,29 +320,211 @@ it.layer(NodeServices.layer)("decider tasks", (it) => {
       const first = yield* logTime(created.readModel, "entry-1", 15 * 60_000);
       const second = yield* logTime(first.readModel, "entry-2", 5 * 60_000);
 
-      expect(second.events[0]?.type).toBe("task.time-added");
+      expect(second.events[0]?.type).toBe("task.time-created");
       expect(second.readModel.tasks?.[0]?.timeEntries.map((entry) => entry.duration)).toEqual([
         15 * 60_000,
         5 * 60_000,
       ]);
-      expect(second.readModel.tasks?.[0]?.timeEntries[0]?.createdBy).toBe(ada.personId);
+      expect(second.readModel.tasks?.[0]?.timeEntries[0]).toMatchObject({
+        personId: ada.personId,
+        date: "2026-01-01",
+        createdBy: { type: "person", id: ada.personId },
+      });
 
-      const remove = {
-        type: "task.time.remove" as const,
-        commandId: CommandId.make("cmd-time-remove"),
-        taskId,
-        entryId: "entry-1",
-      };
+      const deleted = yield* decideAndProject(
+        second.readModel,
+        {
+          type: "task.time.delete",
+          commandId: CommandId.make("cmd-time-delete"),
+          taskId,
+          entryId: "entry-1",
+        },
+        ben,
+      );
 
-      const byOther = yield* Effect.flip(decideAndProject(second.readModel, remove, ben));
-      expect(byOther.message).toContain("Only the person who logged this time");
-
-      const removed = yield* decideAndProject(second.readModel, remove, ada);
-      expect(removed.readModel.tasks?.[0]?.timeEntries.map((entry) => entry.id)).toEqual([
+      expect(deleted.events[0]).toMatchObject({
+        type: "task.time-deleted",
+        payload: {
+          entryId: "entry-1",
+          entry: { duration: 15 * 60_000, personId: ada.personId },
+          actor: { type: "person", id: ben.personId },
+        },
+      });
+      expect(deleted.readModel.tasks?.[0]?.timeEntries.map((entry) => entry.id)).toEqual([
         "entry-2",
       ]);
     }),
   );
+
+  it.effect("lets a bot log a person's time, never on a future day", () =>
+    Effect.gen(function* () {
+      const created = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-bot-time"),
+        taskId,
+        projectId,
+        title: "Close out the sprint",
+        createdAt: now,
+      });
+
+      const logTime = (input: { readonly date?: string; readonly personId?: AuthSessionId }) =>
+        decideAndProject(created.readModel, {
+          type: "task.time.create",
+          commandId: CommandId.make(`cmd-bot-time-${input.date ?? "today"}`),
+          taskId,
+          entryId: `entry-${input.date ?? "today"}`,
+          duration: 30 * 60_000,
+          ...input,
+          by: scout,
+          timezone: "Europe/Madrid",
+          createdAt: "2026-10-20T08:00:00.000Z",
+        });
+
+      const nobody = yield* Effect.flip(logTime({ date: "2026-10-19" }));
+      expect(nobody.message).toContain("whose time");
+
+      const logged = yield* logTime({ date: "2026-10-19", personId: person.personId });
+      expect(logged.readModel.tasks?.[0]?.timeEntries[0]).toMatchObject({
+        personId: person.personId,
+        date: "2026-10-19",
+        createdBy: scout,
+      });
+
+      const today = yield* logTime({ personId: person.personId });
+      expect(today.readModel.tasks?.[0]?.timeEntries[0]?.date).toBe("2026-10-20");
+
+      const ahead = yield* Effect.flip(logTime({ date: "2026-10-21", personId: person.personId }));
+      expect(ahead.message).toContain("future day");
+    }),
+  );
+
+  it.effect("lets a bot complete a task and set a person as owner, never a bot", () =>
+    Effect.gen(function* () {
+      const created = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-bot-complete"),
+        taskId,
+        projectId,
+        title: "Ship it",
+        priority: "high",
+        by: scout,
+        createdAt: now,
+      });
+
+      expect(created.readModel.tasks?.[0]).toMatchObject({
+        priority: "high",
+        createdBy: scout,
+        completedAt: null,
+      });
+
+      const completed = yield* decideAndProject(created.readModel, {
+        type: "task.update",
+        commandId: CommandId.make("cmd-task-bot-done"),
+        taskId,
+        status: "completed",
+        owner: person,
+        priority: null,
+        by: scout,
+      });
+
+      const done = completed.readModel.tasks?.[0];
+      expect(done).toMatchObject({
+        status: "completed",
+        owner: person,
+        priority: null,
+        completedBy: scout,
+        updatedBy: scout,
+      });
+      expect(done?.completedAt).not.toBeNull();
+      expect(completed.events[0]?.payload).toMatchObject({
+        changes: {
+          owner: { from: null, to: person },
+          priority: { from: "high", to: null },
+          status: { from: "backlog", to: "completed" },
+        },
+      });
+
+      const reopened = yield* decideAndProject(completed.readModel, {
+        type: "task.update",
+        commandId: CommandId.make("cmd-task-bot-reopen"),
+        taskId,
+        status: "in_progress",
+        by: scout,
+      });
+
+      expect(reopened.readModel.tasks?.[0]).toMatchObject({ completedAt: null, completedBy: null });
+
+      const botOwner = yield* Effect.flip(
+        decideAndProject(reopened.readModel, {
+          type: "task.update",
+          commandId: CommandId.make("cmd-task-bot-owner"),
+          taskId,
+          owner: { kind: "bot", botId: scout.id },
+          by: scout,
+        }),
+      );
+
+      expect(botOwner.message).toContain("owner must be a person");
+    }),
+  );
+
+  it.effect("deletes a task and drops the links other tasks had to it", () =>
+    Effect.gen(function* () {
+      const linkedId = TaskId.make("task-linking");
+
+      const created = yield* decideAndProject(yield* withProject, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-delete-target"),
+        taskId,
+        projectId,
+        title: "Old plan",
+        createdAt: now,
+      });
+
+      const linking = yield* decideAndProject(created.readModel, {
+        type: "task.create",
+        commandId: CommandId.make("cmd-task-delete-linking"),
+        taskId: linkedId,
+        projectId,
+        title: "New plan",
+        resources: [
+          { type: "task", id: taskId },
+          { type: "link", title: "Spec", url: "https://example.com/spec" },
+        ],
+        createdAt: now,
+      });
+
+      const deleted = yield* decideAndProject(linking.readModel, {
+        type: "task.delete",
+        commandId: CommandId.make("cmd-task-delete"),
+        taskId,
+        by: scout,
+      });
+
+      expect(deleted.events.map((event) => event.type)).toEqual(["task.deleted", "task.updated"]);
+      expect(deleted.events[0]?.payload).toMatchObject({
+        taskId,
+        projectId,
+        title: "Old plan",
+        actor: scout,
+      });
+      expect(deleted.readModel.tasks?.map((task) => task.id)).toEqual([linkedId]);
+      expect(deleted.readModel.tasks?.[0]?.resources).toEqual([
+        { type: "link", title: "Spec", url: "https://example.com/spec" },
+      ]);
+
+      const again = yield* Effect.flip(
+        decideAndProject(deleted.readModel, {
+          type: "task.delete",
+          commandId: CommandId.make("cmd-task-delete-again"),
+          taskId,
+        }),
+      );
+
+      expect(again.message).toContain(taskId);
+    }),
+  );
+
   it("schedules the next occurrence after today, counted from the due date", () => {
     expect(nextTaskDueDate("daily", "2026-03-10", "2026-03-09")).toBe("2026-03-11");
     expect(nextTaskDueDate("daily", "2026-03-10", "2026-03-14")).toBe("2026-03-15");

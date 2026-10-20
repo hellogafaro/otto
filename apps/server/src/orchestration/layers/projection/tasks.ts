@@ -9,16 +9,22 @@ export function createTasks({
       switch (event.type) {
         case "task.created":
         case "task.updated":
-        case "task.commented":
+        case "task.comment-created":
+        case "task.comment-updated":
+        case "task.comment-deleted":
           yield* projectionTaskRepository.upsert(event.payload.task);
 
           return;
-        case "task.time-added":
+        case "task.deleted":
+          yield* projectionTaskRepository.delete(event.payload.taskId);
+
+          return;
+        case "task.time-created":
           yield* projectionTaskRepository.insertTimeEntry(event.payload.entry);
           yield* projectionTaskRepository.upsert(event.payload.task);
 
           return;
-        case "task.time-removed":
+        case "task.time-deleted":
           yield* projectionTaskRepository.deleteTimeEntry(event.payload.entryId);
           yield* projectionTaskRepository.upsert(event.payload.task);
 

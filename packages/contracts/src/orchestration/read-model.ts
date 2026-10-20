@@ -9,6 +9,7 @@ import {
   NonNegativeInt,
   PositiveInt,
   ProjectId,
+  TaskId,
   ThreadId,
   TrimmedNonEmptyString,
   Visibility,
@@ -210,6 +211,11 @@ export const OrchestrationShellStreamEvent = Schema.Union([
     kind: Schema.Literal("task-upserted"),
     sequence: NonNegativeInt,
     task: OrchestrationTask,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("task-deleted"),
+    sequence: NonNegativeInt,
+    taskId: TaskId,
   }),
   Schema.Struct({
     kind: Schema.Literal("library-folder-upserted"),

@@ -2,6 +2,7 @@ import * as NodeSqlite from "node:sqlite";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   createOrganizationAccountsRuntime,
+  serverTimeZone,
   type AccountMail,
 } from "./organization-accounts-runtime.ts";
 
@@ -270,6 +271,36 @@ describe("installation accounts", () => {
     expect(() =>
       database.prepare("UPDATE members SET role = 'owner' WHERE id = ?").run(membership!.id!),
     ).toThrow();
+  });
+});
+
+describe("organization time zone", () => {
+  it("follows the server's zone until an admin chooses a real one", async () => {
+    const { runtime, setup } = await fixture();
+    const admin = await setup();
+    const organizationId = runtime.getOrganization()!.id;
+
+    expect(runtime.timeZone()).toBe(serverTimeZone());
+    expect(runtime.getOrganization()?.timezone).toBe(serverTimeZone());
+
+    const update = (timezone: string) =>
+      runtime.handle(
+        new Request(`${origin}/api/accounts/organization/update`, {
+          method: "POST",
+          headers: {
+            origin,
+            "content-type": "application/json",
+            authorization: `Bearer ${admin.token}`,
+          },
+          body: JSON.stringify({ organizationId, data: { timezone } }),
+        }),
+      );
+
+    expect((await update("America/New_York")).status).toBe(200);
+    expect(runtime.timeZone()).toBe("America/New_York");
+
+    expect((await update("Mars/Olympus_Mons")).status).toBeGreaterThanOrEqual(400);
+    expect(runtime.timeZone()).toBe("America/New_York");
   });
 });
 

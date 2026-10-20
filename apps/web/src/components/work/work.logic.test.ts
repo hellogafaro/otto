@@ -33,9 +33,14 @@ describe("duePresetRange", () => {
 describe("parseTaskSearch", () => {
   it("reads the sort and order, and writes statuses back as one comma list", () => {
     expect(parseTaskSearch({ sort: "due", order: "desc" })).toEqual({ sort: "due", order: "desc" });
-    expect(parseTaskSearch({ sort: "priority" })).toEqual({});
-    expect(encodeTaskSearch({ status: ["pending", "in_progress"] })).toEqual({
+    expect(parseTaskSearch({ sort: "loudness" })).toEqual({});
+    expect(parseTaskSearch({ sort: "priority", priority: "high,low" })).toEqual({
+      sort: "priority",
+      priority: ["high", "low"],
+    });
+    expect(encodeTaskSearch({ status: ["pending", "in_progress"], priority: ["high"] })).toEqual({
       status: "pending,in_progress",
+      priority: "high",
     });
   });
 

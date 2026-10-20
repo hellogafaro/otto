@@ -10,13 +10,15 @@ export {
 } from "./commands/project.ts";
 
 export {
-  type AddTaskTimeInput,
   type CreateTaskInput,
-  type RemoveTaskTimeInput,
+  type CreateTaskTimeInput,
+  type DeleteTaskInput,
+  type DeleteTaskTimeInput,
   type UpdateTaskInput,
-  addTaskTime,
   createTask,
-  removeTaskTime,
+  createTaskTime,
+  deleteTask,
+  deleteTaskTime,
   updateTask,
 } from "./commands/task.ts";
 

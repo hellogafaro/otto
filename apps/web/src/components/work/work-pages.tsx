@@ -6,6 +6,7 @@ import {
   type ProjectListSort,
   ProjectListView,
   TASK_LIST_SORTS,
+  TASK_PRIORITIES,
   type TaskListItem,
   type TaskListSort,
   type TaskListView,
@@ -18,6 +19,7 @@ import {
   RiAddLine,
   RiBox3Line,
   RiCalendarLine,
+  RiFlagLine,
   RiListCheck3,
   RiProgress4Line,
   RiUserLine,
@@ -65,6 +67,7 @@ import { WorkspacePageContainer, PageTitle } from "../workspace-page-container";
 import { WorkspaceBackButton, WorkspacePageHeader } from "../workspace-page-header";
 import type { encodeLibrarySearch } from "../library/library.logic";
 import { ProjectCover } from "./project-cover";
+import { useTaskPriorityLabel } from "./task-priority";
 import { TasksTable } from "./tasks-table";
 import {
   DUE_PRESETS,
@@ -245,6 +248,7 @@ export function NoMatches({
 /** Each sort's natural order, the one a fresh list uses. */
 const TASK_SORT_ORDER: Record<TaskListSort, "asc" | "desc"> = {
   status: "asc",
+  priority: "asc",
   due: "asc",
   updated: "desc",
   created: "desc",
@@ -347,6 +351,7 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
   );
 
   const duePreset = duePresetOf(view, today);
+  const priorityLabel = useTaskPriorityLabel();
 
   const dueLabels: Record<DuePreset, string> = {
     overdue: t("Overdue"),
@@ -356,6 +361,27 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
 
   const filters: ListFilter[] = [
     statusFilter,
+    {
+      id: "priority",
+      label: t("Priority"),
+      icon: <RiFlagLine aria-hidden />,
+      multiple: true,
+      options: TASK_PRIORITIES.map((priority) => ({
+        value: priority,
+        label: priorityLabel(priority),
+      })),
+      selected: view.priority ?? [],
+      onChange: (next) =>
+        setView(
+          withField(
+            view,
+            "priority",
+            next.length > 0
+              ? TASK_PRIORITIES.filter((priority) => next.includes(priority))
+              : undefined,
+          ),
+        ),
+    },
     {
       id: "owner",
       label: t("Owner"),
@@ -416,6 +442,7 @@ export function TasksPage({ view }: { readonly view: TaskListView }) {
 
   const sortLabels: Record<TaskListSort, string> = {
     status: t("Status"),
+    priority: t("Priority"),
     due: t("Due date"),
     updated: t("Last updated"),
     created: t("Created"),

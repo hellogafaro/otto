@@ -1,10 +1,15 @@
 import {
   OrchestrationTaskCreatedPayload,
-  OrchestrationTaskTimeAddedPayload,
-  OrchestrationTaskTimeRemovedPayload,
+  OrchestrationTaskDeletedPayload,
+  OrchestrationTaskTimeCreatedPayload,
+  OrchestrationTaskTimeDeletedPayload,
   OrchestrationTaskUpdatedPayload,
 } from "./work.ts";
-import { OrchestrationTaskCommentedPayload } from "./activity.ts";
+import {
+  OrchestrationTaskCommentCreatedPayload,
+  OrchestrationTaskCommentDeletedPayload,
+  OrchestrationTaskCommentUpdatedPayload,
+} from "./activity.ts";
 import {
   LibraryFileDeletedPayload,
   LibraryFileId,
@@ -248,18 +253,33 @@ export const OrchestrationEvent = Schema.Union([
   }),
   Schema.Struct({
     ...EventBaseFields,
-    type: Schema.Literal("task.time-added"),
-    payload: OrchestrationTaskTimeAddedPayload,
+    type: Schema.Literal("task.deleted"),
+    payload: OrchestrationTaskDeletedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,
-    type: Schema.Literal("task.time-removed"),
-    payload: OrchestrationTaskTimeRemovedPayload,
+    type: Schema.Literal("task.time-created"),
+    payload: OrchestrationTaskTimeCreatedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,
-    type: Schema.Literal("task.commented"),
-    payload: OrchestrationTaskCommentedPayload,
+    type: Schema.Literal("task.time-deleted"),
+    payload: OrchestrationTaskTimeDeletedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.comment-created"),
+    payload: OrchestrationTaskCommentCreatedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.comment-updated"),
+    payload: OrchestrationTaskCommentUpdatedPayload,
+  }),
+  Schema.Struct({
+    ...EventBaseFields,
+    type: Schema.Literal("task.comment-deleted"),
+    payload: OrchestrationTaskCommentDeletedPayload,
   }),
   Schema.Struct({
     ...EventBaseFields,

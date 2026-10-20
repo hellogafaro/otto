@@ -1,10 +1,17 @@
 import {
+  Actor,
+  AuthSessionId,
+  IsoDateTime,
   OrchestrationTask,
+  TASK_PRIORITIES,
   TaskAssignees,
+  TaskDueDate,
   TaskId,
   type TaskListQuery,
   type TaskListSort,
-  TaskTimeEntry,
+  TaskTimeDuration,
+  type TaskTimeEntry,
+  TaskTimeEntryId,
   WORK_STATUS_ORDER,
   WorkParticipant,
   WorkResources,
@@ -26,13 +33,78 @@ import {
   type ProjectionTaskRepositoryShape,
 } from "../services/projection-tasks.ts";
 
+const ActorJson = Schema.NullOr(Schema.fromJsonString(Actor));
+
 const ProjectionTaskDbRow = OrchestrationTask.mapFields(Struct.omit(["timeEntries"])).mapFields(
   Struct.assign({
     owner: Schema.NullOr(Schema.fromJsonString(WorkParticipant)),
     assignees: Schema.fromJsonString(TaskAssignees),
     resources: Schema.fromJsonString(WorkResources),
+    createdBy: ActorJson,
+    updatedBy: ActorJson,
+    completedBy: ActorJson,
   }),
 );
+
+/** Every task column under the name `OrchestrationTask` gives it. */
+const TASK_COLUMNS = `
+  task_id AS id,
+  project_id AS "projectId",
+  title,
+  description,
+  owner_json AS owner,
+  assignees_json AS assignees,
+  resources_json AS resources,
+  due_date AS "dueDate",
+  repeat,
+  priority,
+  status,
+  created_by_json AS "createdBy",
+  updated_by_json AS "updatedBy",
+  completed_at AS "completedAt",
+  completed_by_json AS "completedBy",
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`;
+
+const TimeEntryDbRow = Schema.Struct({
+  id: TaskTimeEntryId,
+  taskId: TaskId,
+  duration: TaskTimeDuration,
+  description: Schema.String,
+  personId: AuthSessionId,
+  date: TaskDueDate,
+  createdBy: Schema.fromJsonString(Actor),
+  createdAt: IsoDateTime,
+});
+
+const TimeEntryListDbRow = TimeEntryDbRow.mapFields(
+  Struct.assign({
+    sortKey: Schema.fromJsonString(Schema.Array(Schema.Union([Schema.String, Schema.Number]))),
+  }),
+);
+
+/** Qualified, so the timesheet query can join the tasks for their project. */
+const TIME_ENTRY_COLUMNS = `
+  projection_timesheets.entry_id AS id,
+  projection_timesheets.task_id AS "taskId",
+  projection_timesheets.duration_ms AS duration,
+  projection_timesheets.description,
+  projection_timesheets.person_id AS "personId",
+  projection_timesheets.work_date AS date,
+  projection_timesheets.created_by_json AS "createdBy",
+  projection_timesheets.created_at AS "createdAt"
+`;
+
+/** Time entries newest first: the day worked, then when it was logged. */
+const TIME_ENTRY_SORT: ListSortSql = {
+  natural: "desc",
+  keys: [
+    { sql: "projection_timesheets.work_date", direction: "desc" },
+    { sql: "projection_timesheets.created_at", direction: "desc" },
+    { sql: "projection_timesheets.entry_id", direction: "desc" },
+  ],
+};
 
 const TaskListDbRow = ProjectionTaskDbRow.mapFields(
   Struct.assign({
@@ -46,12 +118,25 @@ const STATUS_RANK = `CASE status ${WORK_STATUS_ORDER.map(
   (status, rank) => `WHEN '${status}' THEN ${rank}`,
 ).join(" ")} END`;
 
+const PRIORITY_RANK = `CASE priority ${TASK_PRIORITIES.map(
+  (priority, rank) => `WHEN '${priority}' THEN ${rank}`,
+).join(" ")} ELSE ${TASK_PRIORITIES.length} END`;
+
 /** Each sort's natural order and its keys; the task id breaks ties so every row has a place. */
 const TASK_SORTS: Record<TaskListSort, ListSortSql> = {
   status: {
     natural: "asc",
     keys: [
       { sql: STATUS_RANK, direction: "asc" },
+      { sql: "updated_at", direction: "desc" },
+      { sql: "task_id", direction: "desc" },
+    ],
+  },
+  priority: {
+    natural: "asc",
+    keys: [
+      { sql: "priority IS NULL", direction: "asc", fixed: true },
+      { sql: PRIORITY_RANK, direction: "asc" },
       { sql: "updated_at", direction: "desc" },
       { sql: "task_id", direction: "desc" },
     ],
@@ -116,6 +201,11 @@ function taskFilterSql(query: TaskListQuery) {
     conditions.push("status <> 'archived'");
   }
 
+  if (query.priority !== undefined && query.priority.length > 0) {
+    conditions.push(`priority IN (${query.priority.map(() => "?").join(", ")})`);
+    params.push(...query.priority);
+  }
+
   if (query.dueFrom !== undefined) {
     conditions.push("due_date >= ?");
     params.push(query.dueFrom);
@@ -141,6 +231,9 @@ function taskFilterSql(query: TaskListQuery) {
   return { conditions, params };
 }
 
+const actorJson = (actor: typeof Actor.Encoded | null | undefined) =>
+  actor == null ? null : JSON.stringify(actor);
+
 const makeProjectionTaskRepository = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
@@ -158,7 +251,12 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           resources_json,
           due_date,
           repeat,
+          priority,
           status,
+          created_by_json,
+          updated_by_json,
+          completed_at,
+          completed_by_json,
           created_at,
           updated_at
         )
@@ -172,7 +270,12 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           ${JSON.stringify(row.resources)},
           ${row.dueDate},
           ${row.repeat},
+          ${row.priority},
           ${row.status},
+          ${actorJson(row.createdBy)},
+          ${actorJson(row.updatedBy)},
+          ${row.completedAt},
+          ${actorJson(row.completedBy)},
           ${row.createdAt},
           ${row.updatedAt}
         )
@@ -186,7 +289,12 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
           resources_json = excluded.resources_json,
           due_date = excluded.due_date,
           repeat = excluded.repeat,
+          priority = excluded.priority,
           status = excluded.status,
+          created_by_json = excluded.created_by_json,
+          updated_by_json = excluded.updated_by_json,
+          completed_at = excluded.completed_at,
+          completed_by_json = excluded.completed_by_json,
           updated_at = excluded.updated_at
       `,
   });
@@ -195,102 +303,52 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
     Request: Schema.Void,
     Result: ProjectionTaskDbRow,
     execute: () =>
-      sql`
-        SELECT
-          task_id AS id,
-          project_id AS "projectId",
-          title,
-          description,
-          owner_json AS owner,
-          assignees_json AS assignees,
-          resources_json AS resources,
-          due_date AS "dueDate",
-          repeat,
-          status,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
-        FROM projection_tasks
-        ORDER BY created_at ASC, task_id ASC
-      `,
+      sql.unsafe(
+        `SELECT ${TASK_COLUMNS} FROM projection_tasks ORDER BY created_at ASC, task_id ASC`,
+      ),
   });
 
   const listEntryRows = SqlSchema.findAll({
     Request: Schema.Void,
-    Result: TaskTimeEntry,
+    Result: TimeEntryDbRow,
     execute: () =>
-      sql`
-        SELECT
-          entry_id AS id,
-          task_id AS "taskId",
-          duration_ms AS duration,
-          description,
-          created_by AS "createdBy",
-          created_at AS "createdAt"
-        FROM projection_timesheets
-        ORDER BY created_at ASC, entry_id ASC
-      `,
+      sql.unsafe(
+        `SELECT ${TIME_ENTRY_COLUMNS} FROM projection_timesheets ORDER BY created_at ASC, entry_id ASC`,
+      ),
   });
 
   const getRow = SqlSchema.findOneOption({
     Request: TaskId,
     Result: ProjectionTaskDbRow,
     execute: (taskId) =>
-      sql`
-        SELECT
-          task_id AS id,
-          project_id AS "projectId",
-          title,
-          description,
-          owner_json AS owner,
-          assignees_json AS assignees,
-          resources_json AS resources,
-          due_date AS "dueDate",
-          repeat,
-          status,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
-        FROM projection_tasks
-        WHERE task_id = ${taskId}
-      `,
+      sql.unsafe(`SELECT ${TASK_COLUMNS} FROM projection_tasks WHERE task_id = ?`, [taskId]),
   });
 
   const listTaskEntryRows = SqlSchema.findAll({
     Request: TaskId,
-    Result: TaskTimeEntry,
+    Result: TimeEntryDbRow,
     execute: (taskId) =>
-      sql`
-        SELECT
-          entry_id AS id,
-          task_id AS "taskId",
-          duration_ms AS duration,
-          description,
-          created_by AS "createdBy",
-          created_at AS "createdAt"
-        FROM projection_timesheets
-        WHERE task_id = ${taskId}
-        ORDER BY created_at ASC, entry_id ASC
-      `,
+      sql.unsafe(
+        `SELECT ${TIME_ENTRY_COLUMNS} FROM projection_timesheets WHERE task_id = ? ORDER BY created_at ASC, entry_id ASC`,
+        [taskId],
+      ),
   });
 
-  const insertEntryRow = SqlSchema.void({
-    Request: TaskTimeEntry,
-    execute: (entry) =>
-      sql`
-        INSERT INTO projection_timesheets (
-          entry_id, task_id, duration_ms, description, created_by, created_at
-        )
-        VALUES (
-          ${entry.id}, ${entry.taskId}, ${entry.duration}, ${entry.description},
-          ${entry.createdBy}, ${entry.createdAt}
-        )
-        ON CONFLICT (entry_id) DO NOTHING
-      `,
-  });
+  const insertEntryRow = (entry: TaskTimeEntry) =>
+    sql`
+      INSERT INTO projection_timesheets (
+        entry_id, task_id, duration_ms, description, person_id, work_date, created_by_json,
+        created_at
+      )
+      VALUES (
+        ${entry.id}, ${entry.taskId}, ${entry.duration}, ${entry.description}, ${entry.personId},
+        ${entry.date}, ${JSON.stringify(entry.createdBy)}, ${entry.createdAt}
+      )
+      ON CONFLICT (entry_id) DO NOTHING
+    `;
 
-  const deleteEntryRow = SqlSchema.void({
-    Request: Schema.String,
-    execute: (entryId) => sql`DELETE FROM projection_timesheets WHERE entry_id = ${entryId}`,
-  });
+  const deleteEntryRow = (entryId: string) =>
+    sql`DELETE FROM projection_timesheets WHERE entry_id = ${entryId}`;
 
   const upsert: ProjectionTaskRepositoryShape["upsert"] = (row) =>
     upsertRow(row).pipe(
@@ -331,18 +389,7 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
         sql.unsafe(
           `
             SELECT
-              task_id AS id,
-              project_id AS "projectId",
-              title,
-              description,
-              owner_json AS owner,
-              assignees_json AS assignees,
-              resources_json AS resources,
-              due_date AS "dueDate",
-              repeat,
-              status,
-              created_at AS "createdAt",
-              updated_at AS "updatedAt",
+              ${TASK_COLUMNS},
               ${page.sortKey} AS "sortKey"
             FROM projection_tasks
             WHERE ${conditions.join(" AND ")}
@@ -379,13 +426,96 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
 
   const insertTimeEntry: ProjectionTaskRepositoryShape["insertTimeEntry"] = (entry) =>
     insertEntryRow(entry).pipe(
+      Effect.asVoid,
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.insertTimeEntry:query")),
     );
 
   const deleteTimeEntry: ProjectionTaskRepositoryShape["deleteTimeEntry"] = (entryId) =>
     deleteEntryRow(entryId).pipe(
+      Effect.asVoid,
       Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.deleteTimeEntry:query")),
     );
+
+  const deleteTask: ProjectionTaskRepositoryShape["delete"] = (taskId) =>
+    Effect.all([
+      sql`DELETE FROM projection_timesheets WHERE task_id = ${taskId}`,
+      sql`DELETE FROM projection_tasks WHERE task_id = ${taskId}`,
+    ]).pipe(
+      Effect.asVoid,
+      Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.delete:query")),
+    );
+
+  const listTimeEntries: ProjectionTaskRepositoryShape["listTimeEntries"] = ({
+    filter,
+    limit,
+    after,
+  }) => {
+    const page = listPageSql(TIME_ENTRY_SORT, undefined, after);
+    const conditions: string[] = [];
+    const params: Array<string | number> = [];
+
+    if (filter.taskId !== undefined) {
+      conditions.push("projection_timesheets.task_id = ?");
+      params.push(filter.taskId);
+    }
+
+    if (filter.personId !== undefined) {
+      conditions.push("projection_timesheets.person_id = ?");
+      params.push(filter.personId);
+    }
+
+    if (filter.projectId !== undefined) {
+      conditions.push("projection_tasks.project_id = ?");
+      params.push(filter.projectId);
+    }
+
+    if (filter.from !== undefined) {
+      conditions.push("projection_timesheets.work_date >= ?");
+      params.push(filter.from);
+    }
+
+    if (filter.to !== undefined) {
+      conditions.push("projection_timesheets.work_date <= ?");
+      params.push(filter.to);
+    }
+
+    const where = conditions.length === 0 ? "1 = 1" : conditions.join(" AND ");
+    const from = `projection_timesheets JOIN projection_tasks ON projection_tasks.task_id = projection_timesheets.task_id`;
+
+    const rows = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: TimeEntryListDbRow,
+      execute: () =>
+        sql.unsafe(
+          `
+            SELECT ${TIME_ENTRY_COLUMNS}, ${page.sortKey} AS "sortKey"
+            FROM ${from}
+            WHERE ${page.after ? `${where} AND ${page.after.condition}` : where}
+            ORDER BY ${page.orderBy}
+            LIMIT ?
+          `,
+          [...params, ...(page.after?.params ?? []), limit + 1],
+        ),
+    });
+
+    const total = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: Schema.Struct({ total: Schema.Number }),
+      execute: () =>
+        sql.unsafe(
+          `SELECT COALESCE(SUM(projection_timesheets.duration_ms), 0) AS total FROM ${from} WHERE ${where}`,
+          params,
+        ),
+    });
+
+    return Effect.all([rows(), total()]).pipe(
+      Effect.map(([entryRows, [sum]]) => ({
+        rows: entryRows.map(({ sortKey, ...entry }) => ({ entry, key: sortKey })),
+        totalDuration: sum?.total ?? 0,
+      })),
+      Effect.mapError(toPersistenceSqlError("ProjectionTaskRepository.listTimeEntries:query")),
+    );
+  };
 
   return {
     upsert,
@@ -394,6 +524,8 @@ const makeProjectionTaskRepository = Effect.gen(function* () {
     list,
     insertTimeEntry,
     deleteTimeEntry,
+    delete: deleteTask,
+    listTimeEntries,
   } satisfies ProjectionTaskRepositoryShape;
 });
 

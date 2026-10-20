@@ -3,6 +3,7 @@ import {
   type OrchestrationProjectShell,
   ProjectId,
   TaskId,
+  type TaskPriority,
   type WorkParticipant,
   type WorkStatus,
 } from "@otto/contracts";
@@ -20,6 +21,7 @@ import type { PickerOpenState } from "../details-aside";
 import { PromptDialog } from "../prompt-dialog";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { TaskDueDate } from "./task-due-date";
+import { TaskPrioritySelect } from "./task-priority";
 import { AssigneesMenu, OwnerSelect, type WorkParticipants } from "./work-participants";
 import { WorkStatusSelect } from "./work-status";
 
@@ -78,7 +80,7 @@ export function ProjectSelect({
 
 /**
  * Otto: New task, the routine composer: the title, then the description as the prompt, with
- * status, project, owner, assignees and due date as composer controls.
+ * status, priority, project, owner (a person), assignees and due date as composer controls.
  */
 export function NewTaskDialog({
   open,
@@ -100,6 +102,7 @@ export function NewTaskDialog({
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<ProjectId | null>(null);
   const [status, setStatus] = useState<WorkStatus>("backlog");
+  const [priority, setPriority] = useState<TaskPriority | null>(null);
   const [owner, setOwner] = useState<WorkParticipant | null>(null);
   const [assignees, setAssignees] = useState<WorkParticipant[]>([]);
   const [dueDate, setDueDate] = useState<string | null>(null);
@@ -109,6 +112,7 @@ export function NewTaskDialog({
     setTitle("");
     setProjectId(null);
     setStatus("backlog");
+    setPriority(null);
     setOwner(null);
     setAssignees([]);
     setDueDate(null);
@@ -129,6 +133,7 @@ export function NewTaskDialog({
         assignees,
         dueDate,
         status,
+        priority,
       },
     });
 
@@ -146,6 +151,7 @@ export function NewTaskDialog({
       pickers={
         <>
           <WorkStatusSelect variant="composer" value={status} onChange={setStatus} />
+          <TaskPrioritySelect variant="composer" value={priority} onChange={setPriority} />
           <ProjectSelect
             variant="composer"
             value={chosenProjectId}
@@ -157,6 +163,7 @@ export function NewTaskDialog({
             value={owner}
             onChange={setOwner}
             participants={participants}
+            peopleOnly
           />
           <AssigneesMenu
             variant="composer"

@@ -66,6 +66,7 @@ export function applyShellStreamEvent(
         snapshotSequence: event.sequence,
       };
     case "task-upserted":
+    case "task-deleted":
       return { ...snapshot, snapshotSequence: event.sequence };
 
     case "mcp-server-upserted": {

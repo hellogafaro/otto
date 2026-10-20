@@ -49,7 +49,28 @@ const assertProfileImage = (image: string | null | undefined) => {
 
 const signUpInvitation = z.object({ email: z.email(), invitationId: z.string() });
 
-const organizationRow = z.object({ id: z.string(), name: z.string() });
+const isTimeZone = (value: string) => {
+  try {
+    return new Intl.DateTimeFormat("en", { timeZone: value }).resolvedOptions().timeZone !== "";
+  } catch {
+    return false;
+  }
+};
+
+/** An IANA time zone such as `Europe/Madrid`. */
+const timeZoneName = z.string().trim().min(1).max(100).refine(isTimeZone, "Choose a time zone.");
+
+/** The server's own time zone, which an organization keeps until an admin chooses one. */
+export const serverTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+const organizationRow = z.object({
+  id: z.string(),
+  name: z.string(),
+  timezone: z
+    .string()
+    .nullable()
+    .transform((value) => (value !== null && isTimeZone(value) ? value : serverTimeZone())),
+});
 
 const principalRow = z.object({
   sessionId: z.string(),
@@ -288,7 +309,18 @@ export async function createOrganizationAccountsRuntime(options: {
         disableOrganizationDeletion: true,
         requireEmailVerificationOnInvitation: options.mailConfigured,
         schema: {
-          organization: { modelName: "organizations" },
+          organization: {
+            modelName: "organizations",
+            // Otto: the organization's own day, for task due dates, repeats and time entries.
+            additionalFields: {
+              timezone: {
+                type: "string",
+                required: false,
+                input: true,
+                validator: { input: timeZoneName },
+              },
+            },
+          },
           member: { modelName: "members" },
           invitation: { modelName: "invitations" },
         },
@@ -302,6 +334,14 @@ export async function createOrganizationAccountsRuntime(options: {
           });
         },
         organizationHooks: {
+          beforeUpdateOrganization: async ({ organization }) => {
+            if (
+              organization.timezone !== undefined &&
+              !timeZoneName.safeParse(organization.timezone).success
+            ) {
+              throw new APIError("BAD_REQUEST", { message: "Choose a time zone." });
+            }
+          },
           beforeCreateInvitation: async ({ invitation }) => {
             if (invitation.role !== "admin" && invitation.role !== "member") {
               throw new APIError("BAD_REQUEST", { message: "Choose admin or member." });
@@ -349,7 +389,9 @@ export async function createOrganizationAccountsRuntime(options: {
     BEGIN DELETE FROM user_sessions WHERE userId = OLD.userId; END;
   `);
 
-  const selectOrganization = database.prepare("SELECT id, name FROM organizations LIMIT 1");
+  const selectOrganization = database.prepare(
+    "SELECT id, name, timezone FROM organizations LIMIT 1",
+  );
 
   const selectPrincipal = database.prepare(`
     SELECT s.id AS sessionId, s.userId, u.email, u.firstName, u.lastName,
@@ -366,6 +408,9 @@ export async function createOrganizationAccountsRuntime(options: {
 
     return row ? organizationRow.parse(row) : null;
   };
+
+  /** The organization's time zone: the one an admin chose, or the server's own. */
+  const timeZone = () => getOrganization()?.timezone ?? serverTimeZone();
 
   const selectPeople = database.prepare(`
     SELECT u.id AS userId, u.firstName, u.lastName, u.email, u.image
@@ -533,6 +578,7 @@ export async function createOrganizationAccountsRuntime(options: {
   return {
     auth,
     getOrganization,
+    timeZone,
     getPrincipal,
     listPeople,
     authenticate,

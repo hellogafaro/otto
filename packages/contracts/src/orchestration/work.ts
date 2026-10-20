@@ -101,9 +101,9 @@ export const WorkLinkResource = Schema.Struct({
   url: TrimmedNonEmptyString.check(Schema.isMaxLength(2048), Schema.isPattern(/^https?:\/\//i)),
 });
 
-/** Another Otto entity, shown by its current title; new entity types join this list. */
+/** Another Otto entity or a Library file, shown by its current title; new types join this list. */
 export const WorkEntityResource = Schema.Struct({
-  type: Schema.Literals(["task", "project"]),
+  type: Schema.Literals(["task", "project", "file"]),
   id: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
 });
 
@@ -140,25 +140,88 @@ export type TaskRepeat = typeof TaskRepeat.Type;
 
 export const TASK_REPEATS = TaskRepeat.literals;
 
+/** How urgent a task is; null when nobody has said. */
+export const TaskPriority = Schema.Literals(["low", "medium", "high"]);
+
+export type TaskPriority = typeof TaskPriority.Type;
+
+/** Most urgent first, the order the Tasks page sorts and lists them in. */
+export const TASK_PRIORITIES: readonly TaskPriority[] = ["high", "medium", "low"];
+
+/** Who did something: a signed-in person or a bot. */
+export const Actor = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("person"), id: AuthSessionId }),
+  Schema.Struct({ type: Schema.Literal("bot"), id: BotId }),
+]);
+
+export type Actor = typeof Actor.Type;
+
 /** Logged time, millisecond precision so start/stop timers can be added later. */
 export const TaskTimeDuration = Schema.Int.check(
   Schema.isGreaterThanOrEqualTo(1),
   Schema.isLessThanOrEqualTo(1000 * 60 * 60 * 1000),
 );
 
+/** One new entry covers at most a day; entries saved before the cap keep their length. */
+export const TASK_TIME_ENTRY_MAX_MS = 24 * 60 * 60 * 1000;
+
 export const TaskTimeEntryId = TrimmedNonEmptyString.check(Schema.isMaxLength(100));
 
-/** One timesheet entry: someone logged this much time on a task, optionally saying on what. */
-export const TaskTimeEntry = Schema.Struct({
+const TaskTimeNote = TrimmedString.check(Schema.isMaxLength(500));
+
+/**
+ * One timesheet entry: `personId` worked `duration` on `date`, optionally saying on what.
+ * `createdBy` is whoever logged it, that person or a bot.
+ */
+const CurrentTaskTimeEntry = Schema.Struct({
   id: TaskTimeEntryId,
   taskId: TaskId,
   duration: TaskTimeDuration,
-  description: TrimmedString.check(Schema.isMaxLength(500)),
+  description: TaskTimeNote,
+  personId: AuthSessionId,
+  date: TaskDueDate,
+  createdBy: Actor,
+  createdAt: IsoDateTime,
+});
+
+const LegacyTaskTimeEntry = Schema.Struct({
+  id: TaskTimeEntryId,
+  taskId: TaskId,
+  duration: TaskTimeDuration,
+  description: TaskTimeNote,
   createdBy: AuthSessionId,
   createdAt: IsoDateTime,
 });
 
-export type TaskTimeEntry = typeof TaskTimeEntry.Type;
+/** Entries saved before bots logged time: the person logged their own time on its creation day. */
+const LegacyTaskTimeEntryUpgrade = LegacyTaskTimeEntry.pipe(
+  Schema.decodeTo(
+    CurrentTaskTimeEntry,
+    SchemaTransformation.transform<
+      typeof CurrentTaskTimeEntry.Encoded,
+      typeof LegacyTaskTimeEntry.Type
+    >({
+      decode: (entry) => ({
+        ...entry,
+        personId: entry.createdBy,
+        date: entry.createdAt.slice(0, 10),
+        createdBy: { type: "person", id: entry.createdBy },
+      }),
+      encode: (entry) => ({
+        id: TaskTimeEntryId.make(entry.id),
+        taskId: TaskId.make(entry.taskId),
+        duration: entry.duration,
+        description: entry.description,
+        createdBy: AuthSessionId.make(entry.personId),
+        createdAt: entry.createdAt,
+      }),
+    }),
+  ),
+);
+
+export const TaskTimeEntry = Schema.Union([CurrentTaskTimeEntry, LegacyTaskTimeEntryUpgrade]);
+
+export type TaskTimeEntry = typeof CurrentTaskTimeEntry.Type;
 
 export const OrchestrationTask = Schema.Struct({
   id: TaskId,
@@ -170,21 +233,20 @@ export const OrchestrationTask = Schema.Struct({
   resources: WorkResources,
   dueDate: Schema.NullOr(TaskDueDate),
   repeat: Schema.NullOr(TaskRepeat).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  priority: Schema.NullOr(TaskPriority).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   status: WorkStatus,
   timeEntries: Schema.Array(TaskTimeEntry).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+  /** Null for tasks saved before Otto kept who made and changed them. */
+  createdBy: Schema.NullOr(Actor).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  updatedBy: Schema.NullOr(Actor).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  /** Set while the task is completed; any other status clears both, reopening it. */
+  completedAt: Schema.NullOr(IsoDateTime).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  completedBy: Schema.NullOr(Actor).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
 
 export type OrchestrationTask = typeof OrchestrationTask.Type;
-
-/** Who did something: a signed-in person or a bot. */
-export const Actor = Schema.Union([
-  Schema.Struct({ type: Schema.Literal("person"), id: AuthSessionId }),
-  Schema.Struct({ type: Schema.Literal("bot"), id: BotId }),
-]);
-
-export type Actor = typeof Actor.Type;
 
 export const TaskCreateCommand = Schema.Struct({
   type: Schema.Literal("task.create"),
@@ -197,13 +259,15 @@ export const TaskCreateCommand = Schema.Struct({
   assignees: Schema.optional(TaskAssignees),
   resources: Schema.optional(WorkResources),
   dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
+  repeat: Schema.optional(Schema.NullOr(TaskRepeat)),
+  priority: Schema.optional(Schema.NullOr(TaskPriority)),
   status: Schema.optional(WorkStatus),
   /** Otto: The bot acting, for commands the server dispatches; a person's command is theirs. */
   by: Schema.optional(Actor),
   createdAt: IsoDateTime,
 });
 
-/** Absent fields stay unchanged; null clears the owner, due date or repeat. */
+/** Absent fields stay unchanged; null clears the owner, due date, repeat or priority. */
 export const TaskUpdateCommand = Schema.Struct({
   type: Schema.Literal("task.update"),
   commandId: CommandId,
@@ -216,39 +280,69 @@ export const TaskUpdateCommand = Schema.Struct({
   resources: Schema.optional(WorkResources),
   dueDate: Schema.optional(Schema.NullOr(TaskDueDate)),
   repeat: Schema.optional(Schema.NullOr(TaskRepeat)),
+  priority: Schema.optional(Schema.NullOr(TaskPriority)),
   status: Schema.optional(WorkStatus),
   by: Schema.optional(Actor),
-  /** The sender's IANA time zone; completing a repeating task counts the next due day from its today. */
+  /** The organization's IANA time zone, set by the server; the next repeat counts from its today. */
   timezone: Schema.optional(TrimmedNonEmptyString),
 });
 
-/** The server records the person logging time as the entry's creator. */
-export const TaskTimeAddCommand = Schema.Struct({
-  type: Schema.Literal("task.time.add"),
+/** Deleting is permanent: the task leaves every list, and tasks that link to it lose the link. */
+export const TaskDeleteCommand = Schema.Struct({
+  type: Schema.Literal("task.delete"),
+  commandId: CommandId,
+  taskId: TaskId,
+  by: Schema.optional(Actor),
+});
+
+/**
+ * Logs time for `personId` (a person's own time when absent) on `date` (today in the
+ * organization's time zone when absent, never later). The server records who logged it.
+ */
+export const TaskTimeCreateCommand = Schema.Struct({
+  type: Schema.Literal("task.time.create"),
   commandId: CommandId,
   taskId: TaskId,
   entryId: TaskTimeEntryId,
-  duration: TaskTimeDuration,
-  description: Schema.optional(TrimmedString.check(Schema.isMaxLength(500))),
+  duration: TaskTimeDuration.check(Schema.isLessThanOrEqualTo(TASK_TIME_ENTRY_MAX_MS)),
+  description: Schema.optional(TaskTimeNote),
+  personId: Schema.optional(AuthSessionId),
+  date: Schema.optional(TaskDueDate),
+  by: Schema.optional(Actor),
+  timezone: Schema.optional(TrimmedNonEmptyString),
   createdAt: IsoDateTime,
 });
 
-/** Only the person who logged an entry removes it. */
-export const TaskTimeRemoveCommand = Schema.Struct({
-  type: Schema.Literal("task.time.remove"),
+/** Anyone on the organization deletes any entry; the task's history keeps what it said. */
+export const TaskTimeDeleteCommand = Schema.Struct({
+  type: Schema.Literal("task.time.delete"),
   commandId: CommandId,
   taskId: TaskId,
   entryId: TaskTimeEntryId,
+  by: Schema.optional(Actor),
 });
 
-export const OrchestrationTaskTimeAddedPayload = Schema.Struct({
+export const OrchestrationTaskTimeCreatedPayload = Schema.Struct({
   task: OrchestrationTask,
   entry: TaskTimeEntry,
+  actor: Schema.optional(Actor),
 });
 
-export const OrchestrationTaskTimeRemovedPayload = Schema.Struct({
+/** Events saved before deletions kept the entry carry only its id. */
+export const OrchestrationTaskTimeDeletedPayload = Schema.Struct({
   task: OrchestrationTask,
   entryId: TaskTimeEntryId,
+  entry: Schema.optional(TaskTimeEntry),
+  actor: Schema.optional(Actor),
+});
+
+/** What is left of a deleted task: enough for its project's history to say who deleted what. */
+export const OrchestrationTaskDeletedPayload = Schema.Struct({
+  taskId: TaskId,
+  projectId: ProjectId,
+  title: WorkTitle,
+  actor: Schema.optional(Actor),
+  deletedAt: IsoDateTime,
 });
 
 /** What one task update changed, each field before and after. */
@@ -264,6 +358,9 @@ export const TaskChanges = Schema.Struct({
   ),
   repeat: Schema.optional(
     Schema.Struct({ from: Schema.NullOr(TaskRepeat), to: Schema.NullOr(TaskRepeat) }),
+  ),
+  priority: Schema.optional(
+    Schema.Struct({ from: Schema.NullOr(TaskPriority), to: Schema.NullOr(TaskPriority) }),
   ),
   projectId: Schema.optional(Schema.Struct({ from: ProjectId, to: ProjectId })),
   resources: Schema.optional(Schema.Struct({ from: WorkResources, to: WorkResources })),
@@ -309,6 +406,19 @@ export const WorkStatusList = Schema.String.pipe(
   ),
 );
 
+/** Priorities travel as one comma list, `high,medium`, like statuses. */
+export const TaskPriorityList = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Array(TaskPriority),
+    SchemaTransformation.transform({
+      decode: (list) =>
+        // SAFETY: decodeTo validates each entry against TaskPriority right after this split.
+        list.split(",").map((priority) => priority.trim()) as ReadonlyArray<TaskPriority>,
+      encode: (priorities) => priorities.join(","),
+    }),
+  ),
+);
+
 const TaskListText = TrimmedNonEmptyString.check(Schema.isMaxLength(300));
 
 /** Every field narrows the list; no `status` means everything except archived. */
@@ -317,6 +427,7 @@ export const TaskListFilter = Schema.Struct({
   owner: Schema.optional(WorkParticipantKey),
   assignee: Schema.optional(WorkParticipantKey),
   status: Schema.optional(WorkStatusList),
+  priority: Schema.optional(TaskPriorityList),
   /** Inclusive calendar days; tasks without a due date never match either bound. */
   dueFrom: Schema.optional(TaskDueDate),
   dueTo: Schema.optional(TaskDueDate),
@@ -330,10 +441,17 @@ export type TaskListFilter = typeof TaskListFilter.Type;
 
 /**
  * How the task list is ordered: by status (moving work first, newest change first within it),
- * due date (undated last), last change, creation or title. Each has a natural order that
- * `order` may reverse.
+ * priority (high first, none last), due date (undated last), last change, creation or title.
+ * Each has a natural order that `order` may reverse.
  */
-export const TASK_LIST_SORTS = ["status", "due", "updated", "created", "title"] as const;
+export const TASK_LIST_SORTS = [
+  "status",
+  "priority",
+  "due",
+  "updated",
+  "created",
+  "title",
+] as const;
 
 export const TaskListSort = Schema.Literals(TASK_LIST_SORTS);
 

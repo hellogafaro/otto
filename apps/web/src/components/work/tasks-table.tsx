@@ -5,7 +5,7 @@ import {
   WORK_STATUS_ORDER,
   workParticipantKey,
 } from "@otto/contracts";
-import { RiBox3Line, RiCalendarLine, RiRepeatLine } from "@remixicon/react";
+import { RiBox3Line, RiCalendarLine, RiFlagLine, RiRepeatLine } from "@remixicon/react";
 
 import { useI18n } from "../../i18n";
 import { formatRelativeTime, localDateKey } from "../../timestamp-format";
@@ -16,6 +16,7 @@ import {
   type DataTableColumn,
   type DataTablePaging,
 } from "../ui/data-table";
+import { useTaskPriorityLabel } from "./task-priority";
 import { useTaskRepeatLabel } from "./task-repeat";
 import { ParticipantStack } from "./work-participants";
 import { WorkStatusIcon, useWorkStatusLabel } from "./work-status";
@@ -32,12 +33,14 @@ function formatDueDate(dueDate: string): string {
 function taskColumns({
   t,
   repeatLabel,
+  priorityLabel,
   projects,
   bots,
   showProject,
 }: {
   readonly t: ReturnType<typeof useI18n>["t"];
   readonly repeatLabel: ReturnType<typeof useTaskRepeatLabel>;
+  readonly priorityLabel: ReturnType<typeof useTaskPriorityLabel>;
   readonly projects: readonly OrchestrationProjectShell[];
   readonly bots: readonly Bot[];
   readonly showProject: boolean;
@@ -77,6 +80,12 @@ function taskColumns({
 
         return (
           <>
+            {task.priority !== null ? (
+              <DataTableChip>
+                <RiFlagLine aria-hidden />
+                {priorityLabel(task.priority)}
+              </DataTableChip>
+            ) : null}
             {project ? (
               <DataTableChip>
                 <RiBox3Line aria-hidden />
@@ -140,11 +149,12 @@ export function TasksTable({
   const { t } = useI18n();
   const statusLabel = useWorkStatusLabel();
   const repeatLabel = useTaskRepeatLabel();
+  const priorityLabel = useTaskPriorityLabel();
 
   return (
     <DataTable
       rows={tasks}
-      columns={taskColumns({ t, repeatLabel, projects, bots, showProject })}
+      columns={taskColumns({ t, repeatLabel, priorityLabel, projects, bots, showProject })}
       getRowKey={(task) => task.id}
       getRowLabel={(task) => `${task.title}, ${statusLabel(task.status)}`}
       onRowClick={onOpenTask}

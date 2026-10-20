@@ -212,17 +212,20 @@ function participantsByName(participants: WorkParticipants): WorkParticipant[] {
   );
 }
 
-/** One owner, a person or a bot, or nobody. */
+/** One owner, a person or a bot (a task's owner is always a person), or nobody. */
 export function OwnerSelect({
   value,
   onChange,
   participants,
+  peopleOnly = false,
   variant,
   picker,
 }: {
   readonly value: WorkParticipant | null;
   readonly onChange: (owner: WorkParticipant | null) => void;
   readonly participants: WorkParticipants;
+  /** Only people can own a task, so its picker leaves bots out. */
+  readonly peopleOnly?: boolean;
   /** `ghost` is the quiet property row on a task page; `composer` a composer control. */
   readonly variant?: "ghost" | "composer";
   readonly picker?: PickerOpenState;
@@ -264,22 +267,24 @@ export function OwnerSelect({
         <SelectItem hideIndicator value="none">
           {t("No owner")}
         </SelectItem>
-        {participantsByName(participants).map((participant) => (
-          <SelectItem
-            key={workParticipantKey(participant)}
-            hideIndicator
-            value={workParticipantKey(participant)}
-          >
-            <span className="flex items-center gap-2">
-              <ParticipantAvatar
-                participant={participant}
-                bots={participants.allBots}
-                className="size-4"
-              />
-              {participantName(participant, participants.allBots)}
-            </span>
-          </SelectItem>
-        ))}
+        {participantsByName(participants)
+          .filter((participant) => !peopleOnly || participant.kind === "person")
+          .map((participant) => (
+            <SelectItem
+              key={workParticipantKey(participant)}
+              hideIndicator
+              value={workParticipantKey(participant)}
+            >
+              <span className="flex items-center gap-2">
+                <ParticipantAvatar
+                  participant={participant}
+                  bots={participants.allBots}
+                  className="size-4"
+                />
+                {participantName(participant, participants.allBots)}
+              </span>
+            </SelectItem>
+          ))}
       </SelectPopup>
     </Select>
   );

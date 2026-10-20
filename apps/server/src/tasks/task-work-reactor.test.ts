@@ -48,8 +48,13 @@ const task: OrchestrationTask = {
   resources: [],
   dueDate: null,
   repeat: null,
+  priority: null,
   status: "pending",
   timeEntries: [],
+  createdBy: null,
+  updatedBy: null,
+  completedAt: null,
+  completedBy: null,
   createdAt: NOW,
   updatedAt: NOW,
 };
@@ -191,7 +196,7 @@ describe("TaskWorkReactor", () => {
         yield* reply("Drafted it <in> the Library.");
         yield* session("ready");
 
-        expect(ofType(dispatched, "task.comment.add")).toMatchObject([
+        expect(ofType(dispatched, "task.comment.create")).toMatchObject([
           {
             taskId: task.id,
             content: "Drafted it &lt;in&gt; the Library.",
@@ -212,7 +217,7 @@ describe("TaskWorkReactor", () => {
         const comment = (
           actor: { type: "person"; id: AuthSessionId } | { type: "bot"; id: BotId },
         ) =>
-          publish("task.commented", {
+          publish("task.comment-created", {
             task,
             comment: { id: "comment-1", content: mention, fileIds: [], actor, createdAt: NOW },
           });
@@ -251,7 +256,7 @@ describe("TaskWorkReactor", () => {
       Effect.gen(function* () {
         const { dispatched, publish, session, reply } = yield* harness;
 
-        yield* publish("task.commented", {
+        yield* publish("task.comment-created", {
           task,
           comment: {
             id: "comment-2",
@@ -270,7 +275,7 @@ describe("TaskWorkReactor", () => {
         yield* reply("Done.");
         yield* session("ready");
 
-        expect(ofType(dispatched, "task.comment.add")[0]?.content).toBe(
+        expect(ofType(dispatched, "task.comment.create")[0]?.content).toBe(
           '<mention type="comment" id="comment-2">Ada</mention> Done.',
         );
       }),

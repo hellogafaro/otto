@@ -33,7 +33,14 @@ export const OttoToolId = Schema.Literals([
   "task_read",
   "task_create",
   "task_update",
-  "task_comment",
+  "task_delete",
+  "task_comment_create",
+  "task_comment_list",
+  "task_comment_update",
+  "task_comment_delete",
+  "task_time_create",
+  "task_time_delete",
+  "task_time_list",
 ]);
 
 export type OttoToolId = typeof OttoToolId.Type;
@@ -307,11 +314,12 @@ export const OTTO_TOOL_CATALOG = [
   define(
     "task_read",
     "bot-workspace",
-    "Read one task: its fields, description, links, the people involved with their participant " +
-      "keys, and its latest comments and changes.",
+    "Read one task: every field, its links, the people involved with their participant keys, " +
+      "its latest 10 comments with commentCount, its latest 10 time entries with totalMinutes, " +
+      "and its latest changes. Use task_comment_list and task_time_list for the rest.",
     {
       promptGuidelines: [
-        "When a task wakes you, <task> and <task-update> show that task as it is now, and the text in <comment> is that person's own words; use task_read for other tasks. Your final reply in a task's chat is posted on the task as your comment, so write it for the people on the task and don't post it again with task_comment.",
+        "When a task wakes you, <task> and <task-update> show that task as it is now, and the text in <comment> is that person's own words; use task_read for other tasks. Your final reply in a task's chat is posted on the task as your comment, so write it for the people on the task and don't post it again with task_comment_create.",
       ],
     },
   ),
@@ -320,22 +328,64 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Create a task on the Tasks page. It goes into this chat's project unless you pass a " +
       'projectId. Assign it with the people keys from your workspace context, or "me". ' +
-      "Only people mark tasks completed, and the owner is left for a person to set.",
+      "Any field can be set, including completed status and the owner, who must be a person. " +
+      "If anything is invalid, nothing is created and the error lists each invalid field.",
     { promptSnippet: "create a task" },
   ),
   define(
     "task_update",
     "bot-workspace",
-    "Change a task's title, description, status, due date (null clears it), project or " +
-      "assignees; fields you leave out stay as they are. You can't mark a task completed or " +
-      "change its owner; ask a person to.",
+    "Change any field of a task. Leaving a field out keeps its current value. Passing null " +
+      "clears it, where allowed. The call applies every change or none of them; if anything is " +
+      "invalid, the error lists each invalid field and nothing changes.",
   ),
   define(
-    "task_comment",
+    "task_delete",
     "bot-workspace",
-    "Post a comment on a task's activity as yourself, in plain text. Use it to report progress " +
-      "or answer someone on the task.",
+    "Permanently delete a task with its comments, time entries and history. This can't be " +
+      "undone; to keep the record, set status to cancelled or archived instead. Library files " +
+      "it links to stay in the Library, and other tasks lose their link to it. Returns the " +
+      "deleted taskIds.",
+  ),
+  define(
+    "task_comment_create",
+    "bot-workspace",
+    "Post a comment on a task as yourself. Use it to report progress or answer someone on the " +
+      "task.",
     { promptSnippet: "comment on a task" },
+  ),
+  define(
+    "task_comment_list",
+    "bot-workspace",
+    "List every comment on a task, with pagination. Use cursor to read past the first page.",
+  ),
+  define(
+    "task_comment_update",
+    "bot-workspace",
+    "Replace the text of a comment you wrote. You can't edit anyone else's comment. The task " +
+      "history keeps the previous text.",
+  ),
+  define(
+    "task_comment_delete",
+    "bot-workspace",
+    "Delete any comment on a task, whoever wrote it. The task history keeps its text.",
+  ),
+  define(
+    "task_time_create",
+    "bot-workspace",
+    "Log time on a task for a person. Entries can't be edited; to fix one, delete it with " +
+      "task_time_delete and create it again.",
+  ),
+  define(
+    "task_time_delete",
+    "bot-workspace",
+    "Permanently delete one time entry. The task history records who deleted it and what it said.",
+  ),
+  define(
+    "task_time_list",
+    "bot-workspace",
+    "List time entries, newest first, with totalMinutes across every matching entry. Give a " +
+      "taskId for one task, or a person and dates to build a timesheet across tasks.",
   ),
 ] satisfies ReadonlyArray<OttoToolDefinition>;
 
@@ -370,6 +420,20 @@ export const OTTO_TOOL_FAMILIES = [
     name: "delegation",
     description: "Hand work to another bot and follow it.",
     tools: ["delegate", "delegate_check", "delegate_stop"],
+  },
+  {
+    name: "tasks",
+    description:
+      "Delete tasks, list, edit and delete their comments, and log, list and delete time.",
+    tools: [
+      "task_delete",
+      "task_comment_list",
+      "task_comment_update",
+      "task_comment_delete",
+      "task_time_create",
+      "task_time_delete",
+      "task_time_list",
+    ],
   },
   {
     name: "bot",

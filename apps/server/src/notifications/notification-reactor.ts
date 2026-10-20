@@ -173,7 +173,7 @@ export const makeNotificationReactor = (
         });
       }
 
-      if (event.type === "task.commented") {
+      if (event.type === "task.comment-created") {
         const { task, comment } = event.payload;
         const replied = repliedComment(comment.content);
 
@@ -236,7 +236,7 @@ export const makeNotificationReactor = (
           Stream.runForEach(events, (event) =>
             event.type === "task.created" ||
             event.type === "task.updated" ||
-            event.type === "task.commented" ||
+            event.type === "task.comment-created" ||
             event.type === "thread.message-sent"
               ? worker.enqueue(event)
               : Effect.void,

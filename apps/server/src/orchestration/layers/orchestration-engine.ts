@@ -149,9 +149,12 @@ function commandToAggregateRef(command: OrchestrationCommand): CommandAggregateR
       };
     case "task.create":
     case "task.update":
-    case "task.time.add":
-    case "task.time.remove":
-    case "task.comment.add":
+    case "task.delete":
+    case "task.time.create":
+    case "task.time.delete":
+    case "task.comment.create":
+    case "task.comment.update":
+    case "task.comment.delete":
       return {
         aggregateKind: "task",
         aggregateId: command.taskId,

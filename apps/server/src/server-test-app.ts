@@ -586,7 +586,7 @@ export const buildAppUnderTest = (options?: {
           Layer.succeed(ActivityStore, {
             list: () => Effect.succeed({ entries: [] }),
             getComment: () => Effect.die("Activity is not part of this test."),
-            removeComment: () => Effect.void,
+            listComments: () => Effect.succeed({ rows: [], total: 0 }),
           }),
           Layer.succeed(NotificationStore, {
             insert: () => Effect.void,
