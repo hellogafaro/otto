@@ -265,8 +265,8 @@ function SkeletonAppDetail({ label }: { readonly label: string }) {
           <Skeleton className="h-2.5 w-2/3" tone="faint" />
         </div>
       </div>
-      {[2, 4].map((rows, section) => (
-        <div key={section} className="flex flex-col gap-3">
+      {[2, 4].map((rows) => (
+        <div key={rows} className="flex flex-col gap-3">
           <div className="flex h-7 items-center">
             <Skeleton className="h-3 w-20" />
           </div>

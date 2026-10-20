@@ -36,11 +36,7 @@ import {
 import { ChannelSendApproval } from "./channel-send-approval";
 import type { MessageReactionHandler } from "./use-message-reaction-updater";
 
-export {
-  assistantRowPropsEqual,
-  type MessageReplyHandler,
-  type PluginResultEntry,
-} from "./bot-message-row-equality";
+export { assistantRowPropsEqual, type MessageReplyHandler } from "./bot-message-row-equality";
 
 export { type ChannelApprovalTarget, ChannelSendApproval } from "./channel-send-approval";
 

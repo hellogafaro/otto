@@ -91,6 +91,7 @@ export function desktopHistoryShortcut(
 
   if (mac && !options?.typing && !event.shiftKey) {
     if (event.key === "ArrowLeft") return "back";
+
     if (event.key === "ArrowRight") return "forward";
   }
 

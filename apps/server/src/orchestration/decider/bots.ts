@@ -112,7 +112,9 @@ export const decideBots = Effect.fn("decideBots")(function* ({
         command.disabledMcpServerIds ?? [],
         optInMcpServerIds(readModel.mcpServers),
       );
+
       const disabledSkillIds = optInSkillIds(readModel.libraryFolders);
+
       const botCreatedEvent: PlannedOrchestrationEvent = {
         ...(yield* withEventBase({
           aggregateKind: "bot",

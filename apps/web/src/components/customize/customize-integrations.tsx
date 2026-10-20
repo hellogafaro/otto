@@ -34,9 +34,11 @@ export function useComposio(environmentId: EnvironmentId) {
   );
 
   const authorize = useAtomCommand(serverEnvironment.authorizeComposio, { reportFailure: false });
+
   const createAuthConfig = useAtomCommand(serverEnvironment.createComposioAuthConfig, {
     reportFailure: false,
   });
+
   const disconnect = useAtomCommand(serverEnvironment.disconnectComposio, { reportFailure: false });
 
   const update = useAtomCommand(serverEnvironment.updateComposioConnection, {

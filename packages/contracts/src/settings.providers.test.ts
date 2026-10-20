@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { DEFAULT_SANDBOX_SIZE } from "./orchestration/roster.ts";
 import { ProviderDriverKind, ProviderInstanceId } from "./provider-instance.ts";
 import {
   DEFAULT_SERVER_SETTINGS,
@@ -52,6 +53,7 @@ describe("ServerSettings sandbox providers", () => {
   it("defaults to local with cloud providers disconnected", () => {
     expect(decodeServerSettings({}).sandbox).toEqual({
       defaultProvider: "local",
+      defaultSize: DEFAULT_SANDBOX_SIZE,
       autoIdle: true,
       providers: {
         boat: { environment: [] },
@@ -123,6 +125,7 @@ describe("ServerSettings sandbox providers", () => {
       }).sandbox,
     ).toEqual({
       defaultProvider: "local",
+      defaultSize: DEFAULT_SANDBOX_SIZE,
       autoIdle: true,
       providers: { boat: { environment: [] } },
     });

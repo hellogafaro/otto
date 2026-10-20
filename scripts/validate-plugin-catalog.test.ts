@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe("plugin catalog validation", () => {
   it("validates the live plugin directory", () => {
-    expect(validatePluginCatalog()).toHaveLength(54);
+    expect(validatePluginCatalog()).toHaveLength(53);
   });
 
   it("validates isolated manifests and official local assets", () => {

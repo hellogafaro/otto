@@ -390,6 +390,7 @@ export function SidebarChatMenu({
 
               if (!title) return;
               setRenaming(false);
+
               if (title !== shell.title) void actions.rename(threadRef, title);
             }}
           >

@@ -11,6 +11,7 @@ import { useSettingsEnvironmentId } from "../../settings-dialog-store";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { AddMenu, CardCountRow, LogoTile } from "../customize/customize-group";
+import { sandboxSizeLabel } from "../roster/bot-sandbox";
 import { Button } from "../ui/button";
 import { MenuItem } from "../ui/menu";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
@@ -35,10 +36,6 @@ const SANDBOX_PROVIDER_LABELS: Readonly<Record<SandboxProvider, string>> = {
 };
 
 const SANDBOX_SIZES = ["small", "medium", "large"] as const satisfies readonly SandboxSize[];
-
-function sandboxSizeLabel(size: SandboxSize, t: (message: string) => string) {
-  return size === "small" ? t("Small") : size === "medium" ? t("Medium") : t("Large");
-}
 
 function errorMessage(
   result: Parameters<typeof squashAtomCommandFailure>[0],

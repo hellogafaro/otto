@@ -119,6 +119,8 @@ vi.mock("./details-panel-open", () => ({
   useChatDetailsOpen: () => [false, () => undefined],
 }));
 
+vi.mock("../chat/use-open-chat-unread-since", () => ({ useOpenChatUnreadSince: () => null }));
+
 vi.mock("../chat/chat-actions-menu", () => ({
   ChatActionsMenu: () => null,
   useMarkChatVisited: () => undefined,

@@ -52,12 +52,14 @@ async function boatErrorCode(cause: unknown): Promise<string | undefined> {
   const { ResponseError } = await import("@boatdev/sdk");
 
   if (!(cause instanceof ResponseError)) return undefined;
+
   const body: unknown = await cause.response
     .clone()
     .json()
     .catch(() => undefined);
 
   if (Predicate.hasProperty(body, "code") && Predicate.isString(body.code)) return body.code;
+
   if (
     Predicate.hasProperty(body, "error") &&
     Predicate.hasProperty(body.error, "code") &&

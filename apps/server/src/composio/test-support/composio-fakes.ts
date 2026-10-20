@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import { vi } from "vite-plus/test";
 
 import type { ServerSecretStore } from "../../auth/server-secret-store.ts";
+import type { ComposioAuthConfigs, ComposioToolkitAuth } from "../composio-client.ts";
 
 export const viewer = { personId: "person-ana", displayName: "Ana" };
 
@@ -117,8 +118,8 @@ export function fakeClient(input?: {
     readonly id: string;
     readonly redirectUrl?: string;
   }>;
-  readonly toolkitAuth?: unknown;
-  readonly authConfigs?: unknown;
+  readonly toolkitAuth?: ComposioToolkitAuth;
+  readonly authConfigs?: ComposioAuthConfigs;
   readonly deleteSession?: () => Promise<void>;
   readonly sessionCreationGate?: Promise<void>;
   readonly sessionCreationGates?: readonly Promise<void>[];

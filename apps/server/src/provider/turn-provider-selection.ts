@@ -11,30 +11,33 @@ import {
  */
 export interface TurnProviderSnapshot {
   readonly instanceId: string;
-  readonly enabled?: boolean;
-  readonly installed?: boolean;
-  readonly status?: string;
-  readonly availability?: string;
-  readonly driver?: string;
+  readonly enabled?: boolean | undefined;
+  readonly installed?: boolean | undefined;
+  readonly status?: string | undefined;
+  readonly availability?: string | undefined;
+  readonly driver?: string | undefined;
   readonly models?: ReadonlyArray<{
     readonly slug: string;
-    readonly isDefault?: boolean;
-    readonly isLegacy?: boolean;
+    readonly isDefault?: boolean | undefined;
+    readonly isLegacy?: boolean | undefined;
   }>;
 }
 
 export interface TurnModelSelectionInput {
   /** A saved bot engine is a choice. It is returned even when it cannot run. */
-  readonly botEngine?: {
-    readonly provider: string;
-    readonly model: string;
-    readonly options?: ModelSelection["options"];
-  } | null;
-  readonly requested?: ModelSelection | null;
-  readonly stored?: ModelSelection | null;
+  readonly botEngine?:
+    | {
+        readonly provider: string;
+        readonly model: string;
+        readonly options?: ModelSelection["options"];
+      }
+    | null
+    | undefined;
+  readonly requested?: ModelSelection | null | undefined;
+  readonly stored?: ModelSelection | null | undefined;
   readonly liveDefault: ModelSelection;
   readonly isBotThread: boolean;
-  readonly providers?: ReadonlyArray<TurnProviderSnapshot>;
+  readonly providers?: ReadonlyArray<TurnProviderSnapshot> | undefined;
 }
 
 function sameSelection(

@@ -41,7 +41,8 @@ describe("BotThreadLanding message formatting", () => {
     );
 
     expect(assistantRow).toContain("<ChatMarkdown");
-    expect(assistantRow).toContain('className="relative w-fit min-w-56 max-w-full"');
+    // A bot reply shows in full, capped at 85% of the chat column.
+    expect(assistantRow).toContain('className="relative w-fit max-w-17/20"');
     expect(assistantRow).not.toContain("onTaskListChange");
     const userRow = rowComponent(readSibling("bot-chat-message-rows.tsx"), "UserMessageRow");
     // Sent text goes through SentMessageText, which keeps a reply's backlink compact.
@@ -102,7 +103,7 @@ describe("BotThreadLanding message formatting", () => {
 
       for (const block of controls) {
         const props = block.slice(0, block.indexOf("/>"));
-        expect(props).toContain("onReply=");
+        expect(props).toMatch(/onReply[=:]/);
 
         if (name === "AssistantMessageRow") expect(props).toContain("readAloud");
       }

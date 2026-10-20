@@ -249,6 +249,7 @@ export class OttoSessionResources {
             cause instanceof Error && cause.message.length > 0
               ? cause.message
               : "The MCP server failed to connect.";
+
           this.reportMcpConnections(input.mcpServers, manager, message);
           throw cause;
         }
