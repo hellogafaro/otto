@@ -6,12 +6,22 @@
   margin-bottom: 0;
 }
 
-/* Otto: chat uses a compact typeset preset; typeset owns paragraphs, headings and lists. */
+/* Otto: chat uses a compact typeset preset; typeset owns paragraphs, headings and lists. Its body
+   matches a sent message (text-sm leading-6: 13px on a 24px line), so a bot's reply reads at the
+   same size as yours. */
 
 .typeset-chat {
-  --typeset-size: 0.875rem;
-  --typeset-leading: 1.625;
+  --typeset-size: var(--text-sm);
+  --typeset-leading: calc(1.5 / 0.8125);
   --typeset-flow: 0.75em;
+}
+
+/* Otto: typeset enlarges body text by 1/8 below 48rem; chat keeps one size on every screen, as
+   sent messages do. Same layer as typeset, so a text-* utility on the element still wins. */
+@layer components {
+  .typeset-chat {
+    font-size: var(--typeset-size);
+  }
 }
 
 .chat-markdown .katex-display {
