@@ -38,7 +38,7 @@ import { OtlpTracer } from "effect/unstable/observability";
 import * as ServerConfig from "./config.ts";
 import { ASSET_ROUTE_PREFIX, resolveAsset } from "./assets/asset-access.ts";
 import { OrganizationAccounts } from "./auth/organization-accounts.ts";
-import { canReadAttachment } from "./orchestration/group-visibility.ts";
+import { readableAttachment } from "./orchestration/group-visibility.ts";
 import { ProjectionSnapshotQuery } from "./orchestration/services/projection-snapshot-query.ts";
 import { ProjectionBotRepository } from "./persistence/services/projection-bots.ts";
 import { ProjectionGroupRepository } from "./persistence/services/projection-groups.ts";
@@ -71,6 +71,28 @@ const OTLP_TRACES_PROXY_PATH = "/api/observability/v1/traces";
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "::1", "localhost"]);
 
 const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+const INLINE_ATTACHMENT_TYPES = ["image/", "video/", "audio/", "application/pdf"];
+
+/**
+ * A chat attachment saves under the name it was sent with, whatever extension it is stored
+ * under: images, video, audio and PDFs show in place, anything else downloads. The type the
+ * stored file is served with is unchanged, so an HTML attachment never renders on this origin.
+ */
+export function attachmentDisposition(attachment: {
+  readonly name: string;
+  readonly mimeType: string;
+}) {
+  const inline = INLINE_ATTACHMENT_TYPES.some((type) =>
+    attachment.mimeType.toLowerCase().startsWith(type),
+  );
+
+  const name = attachment.name.replace(/[/\\:*?"<>|\p{Cc}]/gu, "-");
+
+  return {
+    "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name)}`,
+  };
+}
 
 export function assetResponseHeaders(filePath: string) {
   const lowerPath = filePath.toLowerCase();
@@ -266,24 +288,32 @@ export const assetRouteLayer = HttpRouter.add(
       return HttpServerResponse.text("Not Found", { status: 404 });
     }
 
-    if (
-      "attachmentId" in asset &&
-      !(yield* canReadAttachment(
-        {
-          projectionSnapshotQuery: yield* ProjectionSnapshotQuery,
-          projectionGroups: yield* ProjectionGroupRepository,
-          projectionThreadMessages: yield* ProjectionThreadMessageRepository,
-        },
-        asset.attachmentId,
-        AuthSessionId.make(principal.userId),
-      ))
-    ) {
+    const attachment =
+      "attachmentId" in asset && asset.attachmentId !== undefined
+        ? yield* readableAttachment(
+            {
+              projectionSnapshotQuery: yield* ProjectionSnapshotQuery,
+              projectionGroups: yield* ProjectionGroupRepository,
+              projectionThreadMessages: yield* ProjectionThreadMessageRepository,
+            },
+            asset.attachmentId,
+            AuthSessionId.make(principal.userId),
+          )
+        : undefined;
+
+    if (attachment === null) {
       return HttpServerResponse.text("Not Found", { status: 404 });
     }
 
     return yield* HttpServerResponse.file(asset.path, {
       status: 200,
-      headers: "headers" in asset ? asset.headers : assetResponseHeaders(asset.path),
+      headers:
+        "headers" in asset && asset.headers
+          ? asset.headers
+          : {
+              ...assetResponseHeaders(asset.path),
+              ...(attachment ? attachmentDisposition(attachment) : {}),
+            },
     }).pipe(
       Effect.orElseSucceed(() => HttpServerResponse.text("Internal Server Error", { status: 500 })),
     );

@@ -6,7 +6,7 @@ import {
   type LibraryFileId,
 } from "@otto/contracts";
 import { RiDownloadLine, RiFileTextLine } from "@remixicon/react";
-import { useNavigate } from "@tanstack/react-router";
+import { Navigate, useNavigate } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -57,6 +57,17 @@ export function LibraryDocumentPage({ fileId }: { readonly fileId: LibraryFileId
   };
 
   if (!data.loaded || loading) return <WorkPage back={back}>{null}</WorkPage>;
+
+  // Otto: A link to a file that isn't a document (HTML, PDF, images) opens it in the Library's lightbox.
+  if (file && file.type !== "document") {
+    return (
+      <Navigate
+        to="/library"
+        search={{ ...(file.folderId ? { folder: file.folderId } : {}), preview: file.id }}
+        replace
+      />
+    );
+  }
 
   if (!file || file.type !== "document" || data.environmentId === null) {
     return (

@@ -489,11 +489,18 @@ layer("ProjectionThreadMessageRepository", (it) => {
 
       assert.deepStrictEqual(
         yield* repository.listAttachmentMessages({ attachmentId: "thread-attachment-owner-1" }),
-        [{ threadId, authorPersonId: AuthSessionId.make("person-attachment-owner") }],
+        [
+          {
+            threadId,
+            authorPersonId: AuthSessionId.make("person-attachment-owner"),
+            name: "notes.txt",
+            mimeType: "text/plain",
+          },
+        ],
       );
       assert.deepStrictEqual(
         yield* repository.listAttachmentMessages({ attachmentId: "thread-attachment-owner-10" }),
-        [{ threadId, authorPersonId: null }],
+        [{ threadId, authorPersonId: null, name: "notes.txt", mimeType: "text/plain" }],
       );
       assert.deepStrictEqual(
         yield* repository.listAttachmentMessages({ attachmentId: "thread-attachment-owner" }),
