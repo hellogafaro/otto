@@ -5,7 +5,7 @@ description: Use when work is finished and checked, to post the result where it 
 
 - Keep failed and unverified checks visible.
 - Name the exact state: draft, PR open, merged, deployed, checked live.
-- Move what people need out of your computer: files to the Library, code to a PR.
+- Move what people need out of your computer: approved files to the Library, code to a PR. Drafts go in the chat as attachments until a person approves one.
 - Chat: message_post with the result first and the proof attached.
 - Task: leave it in progress and task_comment the result, links and proof, asking a person to review. Only people mark tasks done.
 - Name the next step and who owns it.

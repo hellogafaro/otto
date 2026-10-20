@@ -1,6 +1,10 @@
 # Page
 
-One self-contained HTML file: CSS inline, data and images (as data URIs) inside, no scripts unless asked. Title, a one-line result, then sections. Serve it from your computer, open it in a browser, check it with a screenshot, then save it with library_create.
+One self-contained HTML file with no external requests: CSS and scripts inline, data and images as data URIs. Use plain JS for interaction; inline any small library you truly need. Render mermaid diagrams to inline SVG while you build the page (mermaid-cli), not in the browser. Title, a one-line status (proposal v2, evidence), then the content. It must work at 375px and 1280px wide.
+
+Serve it from your computer, open it in a browser, check it with screenshots, then attach it to the chat. Save it with library_create only once a person approves it.
+
+Start from this base and match the product's real look when the design calls for it. For interaction, `<details>` covers expand and collapse without a script; add a short inline script for tabs, toggles, filters and live states.
 
 ```html
 <!doctype html>
