@@ -115,6 +115,7 @@ export const rosterCatalog = {
   "Sent to {channel}": "已发送到 {channel}",
   "Unavailable bot": "不可用的机器人",
   "{botName} did not reply. {title}.": "{botName} 没有回复。{title}。",
+  "Chat with {name}": "与 {name} 的聊天",
   "{name} group chat": "{name} 群组聊天",
   "{name} plugin": "{name} 插件",
   "This bot is no longer available.": "此机器人已不可用。",

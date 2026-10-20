@@ -9,7 +9,11 @@ import {
   RiUnpinLine,
 } from "@remixicon/react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
-import { PLACEHOLDER_THREAD_TITLE, type ScopedThreadRef } from "@otto/contracts";
+import {
+  type OrchestrationThreadShell,
+  PLACEHOLDER_THREAD_TITLE,
+  type ScopedThreadRef,
+} from "@otto/contracts";
 
 import { useNavigate } from "@tanstack/react-router";
 import { memo, useMemo, useRef, useState } from "react";
@@ -33,6 +37,8 @@ import { ChatStatusIcon, ThreadStatusIcon } from "./chat-status-icon";
 import { useChatActions } from "../../hooks/use-chat-actions";
 import { RosterRowAction, RosterRowMore } from "./roster-row-actions";
 import { GroupMemberStack } from "./group-member-stack";
+import { PersonAvatar } from "./person-avatar";
+import { usePersonDmPartner } from "./person-thread-landing";
 import {
   resolveLatestRosterMessage,
   resolveRosterIndicator,
@@ -524,6 +530,112 @@ export const ChatRosterRow = memo(function ChatRosterRow({
             label={t("Actions for {name}", { name: title })}
             triggerRef={menuTriggerRef}
           >
+            <MenuItem onClick={() => actions.markUnread(threadRef)}>
+              <RiRadioButtonLine />
+              {t("Mark unread")}
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem variant="destructive" onClick={() => void actions.delete(threadRef)}>
+              <RiDeleteBinLine />
+              {t("Delete chat")}
+            </MenuItem>
+          </RosterRowMore>
+        </span>
+      </span>
+    </li>
+  );
+});
+
+/** Otto: A person DM's row, under DMs: the other person's face and name, then the chat's state. */
+export const PersonChatRosterRow = memo(function PersonChatRosterRow({
+  shell,
+  openThreadId,
+  pinned,
+  onPin,
+}: {
+  shell: OrchestrationThreadShell;
+  /** The chat on screen, if any. */
+  openThreadId: string | null;
+  pinned: boolean;
+  onPin: (item: RosterItemRef, pinned: boolean) => void;
+}) {
+  const { t } = useI18n();
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const item = useMemo(() => ({ kind: "chat" as const, id: shell.id }), [shell.id]);
+  const environmentId = usePrimaryEnvironmentId();
+  const navigate = useNavigate();
+  const actions = useChatActions();
+
+  const threadRef = useMemo(
+    () => (environmentId ? scopeThreadRef(environmentId, shell.id) : null),
+    [environmentId, shell.id],
+  );
+
+  const partner = usePersonDmPartner(threadRef);
+
+  if (!environmentId || !threadRef) return null;
+
+  const current = openThreadId === shell.id;
+  const relative = formatRelativeTime(shell.updatedAt);
+  const name = partner?.displayName ?? t("Someone");
+
+  return (
+    <li
+      role="listitem"
+      data-roster-item
+      {...(pinned ? { "data-pinned": true } : {})}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        menuTriggerRef.current?.click();
+      }}
+      className={cn(
+        "group/row relative flex w-full flex-none items-center rounded-md",
+        ROSTER_ROW_FOCUS_CLASS,
+        current ? "sidebar-row-current" : "sidebar-row-plain hover:sidebar-row-hovered",
+      )}
+    >
+      <button
+        type="button"
+        data-roster-row={rosterItemKey(item)}
+        aria-current={current || undefined}
+        onClick={() => void navigate({ to: "/chats/$threadId", params: { threadId: shell.id } })}
+        className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md ps-1.5 pe-2 text-left outline-none"
+      >
+        <PersonAvatar name={name} personId={partner?.personId} className="size-4 text-8px" />
+        <span
+          className={cn(
+            ROSTER_NAME_CLASS,
+            current && "text-sidebar-foreground dark:text-sidebar-foreground",
+          )}
+        >
+          {name}
+        </span>
+      </button>
+      <span className={ROSTER_TRAIL_CLASS}>
+        <span className={ROSTER_TRAIL_INFO_CLASS}>
+          <ThreadStatusIcon
+            environmentId={environmentId}
+            shell={shell}
+            current={current}
+            fallback={
+              <span className={ROSTER_TIME_CLASS}>
+                {relative?.suffix ? relative.value : t("now")}
+              </span>
+            }
+          />
+        </span>
+        <span className={ROSTER_TRAIL_ACTIONS_CLASS}>
+          <RosterRowAction
+            label={pinned ? t("Unpin") : t("Pin")}
+            icon={pinned ? RiUnpinLine : RiPushpinLine}
+            onClick={() => onPin(item, !pinned)}
+          />
+          <RosterRowAction
+            label={t("Archive")}
+            icon={RiArchiveLine}
+            onClick={() => void actions.archive(threadRef)}
+          />
+          <RosterRowMore label={t("Actions for {name}", { name })} triggerRef={menuTriggerRef}>
             <MenuItem onClick={() => actions.markUnread(threadRef)}>
               <RiRadioButtonLine />
               {t("Mark unread")}

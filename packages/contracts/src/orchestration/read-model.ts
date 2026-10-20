@@ -91,6 +91,8 @@ export const OrchestrationThreadShell = Schema.Struct({
   projectId: ProjectId,
   botId: Schema.optional(Schema.NullOr(BotId)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),
+  /** Otto: The other person in a person-to-person DM; no bot answers there. */
+  personId: Schema.optional(Schema.NullOr(AuthSessionId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationIdSchema)),
   respondingBotId: Schema.optional(Schema.NullOr(BotId)),

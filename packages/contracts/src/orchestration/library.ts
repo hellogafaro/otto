@@ -411,15 +411,26 @@ export interface LibraryVisibilityContext {
 /** What decides who sees a chat that is not a group chat. */
 export interface DirectChatAccess {
   readonly botId?: BotId | null | undefined;
+  /** The other person in a person-to-person DM. */
+  readonly personId?: AuthSessionId | null | undefined;
   readonly createdBy?: AuthSessionId | null | undefined;
   readonly visibility?: Visibility | undefined;
 }
 
 /**
  * Otto: A DM is the organization's unless its creator made it `user`: then only they, and
- * its own bot, see it. A chat with no recorded creator stays the organization's.
+ * its own bot, see it. A chat with no recorded creator stays the organization's. A person DM
+ * is its two people's alone.
  */
 export function canSeeDirectChat(chat: DirectChatAccess, viewer: LibraryViewer): boolean {
+  // Otto: A person DM is only ever its two people's; no bot is in it.
+  if (chat.personId != null) {
+    return (
+      viewer.kind === "person" &&
+      (viewer.personId === chat.createdBy || viewer.personId === chat.personId)
+    );
+  }
+
   if (chat.visibility !== "user" || chat.createdBy == null) return true;
 
   return viewer.kind === "person"

@@ -262,6 +262,8 @@ export const OrchestrationThread = Schema.Struct({
   projectId: ProjectId,
   botId: Schema.optional(Schema.NullOr(BotId)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),
+  /** Otto: The other person in a person-to-person DM; no bot answers there. */
+  personId: Schema.optional(Schema.NullOr(AuthSessionId)),
   // Child work threads retain their owning chat and delegation without
   // changing the bot's continuous conversation. Optional for old snapshots.
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),

@@ -20,7 +20,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { PromptDialog } from "../prompt-dialog";
 import { toast } from "sonner";
 import { AssigneesMenu, useWorkParticipants } from "../work/work-participants";
-import { useStartChat } from "./chat-navigation";
+import { useOpenPersonChat, useStartChat } from "./chat-navigation";
 import { ProjectComposerControl, useProjectChoice } from "./project-composer-control";
 import { VisibilityComposerControl } from "./visibility-composer-control";
 import { type NewChatPreset, useRosterStore } from "./roster-store";
@@ -40,13 +40,15 @@ export function NewChatDialogHost() {
 
 /**
  * Otto: Every chat starts here, in the routine composer: an optional title, the prompt,
- * its members and its project, "No project" (the home project) by default. One bot makes a DM; anyone more makes a group, even
+ * its members and its project, "No project" (the home project) by default. One bot makes a DM,
+ * one person a person DM (reopened when it exists); anyone more makes a group, even
  * the same people again, and a group of people only is fine. A blank title is the first
  * message's, as for any chat.
  */
 function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
   const { t } = useI18n();
   const startChat = useStartChat();
+  const openPersonChat = useOpenPersonChat();
   const environmentId = usePrimaryEnvironmentId();
   const snapshot = useAtomValue(environmentSnapshotAtom(environmentId ?? NO_ENVIRONMENT));
   const participants = useWorkParticipants(snapshot ?? null);
@@ -107,6 +109,15 @@ function NewChatDialog({ preset }: { readonly preset: NewChatPreset }) {
     try {
       if (bots.length === 1 && people.length === 0 && onlyBot) {
         if ((await startChat({ kind: "bot", id: onlyBot }, options)) !== null) close();
+
+        return;
+      }
+
+      // Otto: One person makes a person DM; an existing one with them opens instead.
+      const [onlyPerson] = people;
+
+      if (bots.length === 0 && people.length === 1 && onlyPerson) {
+        if (await openPersonChat(onlyPerson.personId, options)) close();
 
         return;
       }

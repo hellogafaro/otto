@@ -396,7 +396,10 @@ export const orchestrationHttpApiLayer = HttpApiBuilder.group(
             const providerId = selection?.instanceId ?? thread?.session?.providerName;
             const model = selection?.model ?? "";
 
-            if (providerId && model && (!groupId || botId)) {
+            // Otto: No bot answers a person DM, so it needs no provider.
+            const personDm = thread?.personId != null || bootstrapThread?.personId != null;
+
+            if (providerId && model && !personDm && (!groupId || botId)) {
               const providerInstanceConfig = settings
                 ? deriveProviderInstanceConfigMap(settings)[ProviderInstanceId.make(providerId)]
                 : undefined;

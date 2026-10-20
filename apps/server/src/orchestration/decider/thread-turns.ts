@@ -205,9 +205,24 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         });
       }
 
-      const { acknowledgedDelegations, acknowledgementEvents } = isGroupThread
-        ? { acknowledgedDelegations: [], acknowledgementEvents: [] }
-        : yield* acknowledgeDelegations(readModel, command, respondingBotId);
+      // Otto: Only a person DM's two people write in it, and no bot answers.
+      const isPersonThread = targetThread.personId != null;
+
+      if (
+        isPersonThread &&
+        command.senderPersonId !== targetThread.createdBy &&
+        command.senderPersonId !== targetThread.personId
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Only the two people in chat '${command.threadId}' can write in it.`,
+        });
+      }
+
+      const { acknowledgedDelegations, acknowledgementEvents } =
+        isGroupThread || isPersonThread
+          ? { acknowledgedDelegations: [], acknowledgementEvents: [] }
+          : yield* acknowledgeDelegations(readModel, command, respondingBotId);
 
       const userMessageEvent: Omit<OrchestrationEvent, "sequence"> = {
         ...(yield* withEventBase({
@@ -304,8 +319,9 @@ export const decideThreadTurns = Effect.fn("decideThreadTurns")(function* ({
         ...lifecycleResetEvents,
         ...acknowledgementEvents,
         userMessageEvent,
-        // A group message only lands here; its round then starts each bot's turn.
-        ...(isGroupThread ? [] : [turnStartRequestedEvent]),
+        // A group message only lands here; its round then starts each bot's turn. A person
+        // DM has no bot to answer.
+        ...(isGroupThread || isPersonThread ? [] : [turnStartRequestedEvent]),
       ];
     }
 

@@ -244,6 +244,7 @@ export function createThreadRows({ sql }: Pick<ProjectionSnapshotDependencies, "
           project_id AS "projectId",
           bot_id AS "botId",
           group_id AS "groupId",
+          person_id AS "personId",
           parent_thread_id AS "parentThreadId",
           parent_delegation_id AS "parentDelegationId",
           created_by AS "createdBy",

@@ -356,6 +356,7 @@ export function createLookups({
         projectId: threadRow.value.projectId,
         botId: threadRow.value.botId,
         groupId: threadRow.value.groupId,
+        personId: threadRow.value.personId ?? null,
         parentThreadId: threadRow.value.parentThreadId ?? null,
         parentDelegationId: threadRow.value.parentDelegationId ?? null,
         createdBy: threadRow.value.createdBy ?? null,

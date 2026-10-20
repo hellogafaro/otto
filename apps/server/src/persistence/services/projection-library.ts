@@ -64,6 +64,7 @@ export interface LibraryChatThread {
   readonly id: ThreadId;
   readonly groupId: GroupId | null;
   readonly botId?: BotId | null;
+  readonly personId?: AuthSessionId | null;
   readonly createdBy?: AuthSessionId | null;
   readonly visibility?: Visibility;
   readonly deletedAt: string | null;

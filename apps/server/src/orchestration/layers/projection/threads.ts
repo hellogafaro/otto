@@ -79,6 +79,7 @@ export function createThreads({
             projectId: event.payload.projectId,
             botId: event.payload.botId ?? null,
             groupId: event.payload.groupId ?? null,
+            personId: event.payload.personId ?? null,
             ...parentLink,
             createdBy: event.payload.createdBy ?? null,
             visibility: event.payload.visibility ?? "organization",

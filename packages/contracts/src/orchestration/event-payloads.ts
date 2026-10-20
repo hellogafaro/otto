@@ -360,6 +360,8 @@ export const ThreadCreatedPayload = Schema.Struct({
   projectId: ProjectId,
   botId: Schema.optional(Schema.NullOr(BotId)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),
+  /** Otto: The other person in a person-to-person DM; no bot answers there. */
+  personId: Schema.optional(Schema.NullOr(AuthSessionId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationIdSchema)),
   /** Otto: The person who started the chat; null for server-started chats and older ones. */
