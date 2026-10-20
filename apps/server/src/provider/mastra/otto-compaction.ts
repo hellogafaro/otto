@@ -102,21 +102,31 @@ export function replyTokenLimit(modelId: string): number {
   );
 }
 
-// A long base64 run or data URL in the stored JSON is an inline file; "JVBERi" is "%PDF" in base64.
-const INLINE_FILE = /"(?:data:[^"]{1024,}|[A-Za-z0-9+/=]{1024,})"/g;
+// Any character outside base64. A linear search: a quantified pattern such as
+// `[A-Za-z0-9+/=]{1024,}` overflows V8's regex stack on a multi-megabyte image.
+const NOT_BASE64 = /[^A-Za-z0-9+/=]/;
+
+/** A long base64 run or data URL is an inline file. */
+function isInlineFile(value: string): boolean {
+  return value.length >= 1024 && (value.startsWith("data:") || !NOT_BASE64.test(value));
+}
 
 /** About four characters a token; each inline image or PDF counts a fixed amount. */
 export function estimateTokens(messages: ReadonlyArray<MastraDBMessage>): number {
   let files = 0;
 
-  const json = JSON.stringify(messages.map((message) => message.content)).replace(
-    INLINE_FILE,
-    (file) => {
-      files += /^"(?:data:application\/pdf|JVBERi)/.test(file)
-        ? OTTO_PDF_TOKENS
-        : OTTO_IMAGE_TOKENS;
+  const json = JSON.stringify(
+    messages.map((message) => message.content),
+    (_key, value) => {
+      if (!Predicate.isString(value) || !isInlineFile(value)) return value;
 
-      return '""';
+      // "JVBERi" is "%PDF" in base64.
+      files +=
+        value.startsWith("data:application/pdf") || value.startsWith("JVBERi")
+          ? OTTO_PDF_TOKENS
+          : OTTO_IMAGE_TOKENS;
+
+      return "";
     },
   );
 

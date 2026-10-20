@@ -3,7 +3,11 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
-import { IMAGE_DIMENSIONS_HEADER_BYTES, readImageDimensions } from "@otto/shared/imageDimensions";
+import {
+  IMAGE_DIMENSIONS_HEADER_BYTES,
+  MODEL_IMAGE_MAX_SIDE,
+  readImageDimensions,
+} from "@otto/shared/imageDimensions";
 import { GROUP_NO_REPLY, isGroupTurnNote } from "../orchestration/group-responder.ts";
 
 /** Message metadata naming the bot that wrote an assistant reply. */
@@ -32,12 +36,6 @@ export const modelReadsAttachment = (attachment: {
   readonly mimeType: string;
   readonly sizeBytes: number;
 }) => modelReadsFile(attachment.mimeType) && attachment.sizeBytes <= MODEL_FILE_MAX_BYTES;
-
-/**
- * The widest or tallest image a model gets. Anthropic refuses a request holding many images
- * if any is larger, and a chat's screenshots add up; Claude scales images to about 1,568 anyway.
- */
-export const MODEL_IMAGE_MAX_SIDE = 2000;
 
 // Base64 for the header bytes that hold any image's size.
 const IMAGE_HEADER_CHARS = Math.ceil(IMAGE_DIMENSIONS_HEADER_BYTES / 3) * 4;
