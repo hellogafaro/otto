@@ -29,18 +29,13 @@ export function boatMachineType(size: SandboxSize): BoatMachineType {
 const DEFAULT_MACHINE_TYPE: BoatMachineTypeRef = { current: "default" };
 
 /**
- * Boat stops a computer by itself this long after Otto last used it, even if Otto is down. Its
- * disk is kept and it resumes on the next turn; running turns push this back well before it
- * runs out (see `COMPUTER_KEEP_AWAKE_INTERVAL`).
+ * Boat stops a computer by itself this long after Otto last pushed it back, even if Otto is
+ * down. Its disk is kept and its next use wakes it. Working turns push it back every
+ * `COMPUTER_KEEP_AWAKE_INTERVAL` and once more when they end, so a reply within this time finds
+ * the computer awake instead of spending one of the account's limited daily starts, and a turn
+ * waiting on a person keeps it this long.
  */
-export const BOAT_TTL_SECONDS = 300;
-
-/**
- * After a turn, Boat stops the computer this long after it unless another turn starts first:
- * short enough that an idle computer stops soon, long enough that a quick reply finds it awake
- * without spending one of the account's limited starts.
- */
-export const BOAT_IDLE_SECONDS = 120;
+export const BOAT_TTL_SECONDS = 900;
 
 /** Where a command's environment is written, under the only folders Boat's file API accepts. */
 const ENVIRONMENT_FOLDER = "/home/user/.otto/env";
@@ -149,23 +144,35 @@ export function boat(
     await waitUntilReady(client, sandboxId, { timeoutMs: 300_000 });
   };
 
+  // Calls that find the computer stopped together share one wake, so Boat counts one start.
+  let waking: Promise<void> | undefined;
+
+  const wakeOnce = () =>
+    (waking ??= wake().finally(() => {
+      waking = undefined;
+    }));
+
   /**
-   * Runs a call that needs the machine; a computer Boat stopped meanwhile, such as while its
-   * turn waited on a person, is resumed and the call is sent again, once.
+   * Runs a call that needs the machine. Nothing wakes a computer before its first use, so a turn
+   * that never touches it spends none of the account's limited daily starts: Boat refuses a
+   * call to a stopped computer with 409 at once, which wakes it and sends the call again, once.
+   * Failures carry Boat's own message, such as which start limit was hit.
    */
   const whenAwake = async <A>(call: () => Promise<A>): Promise<A> => {
     try {
-      return await call();
+      return await call().catch(async (cause: unknown) => {
+        const { ResponseError } = await import("@boatdev/sdk");
+
+        if (!(cause instanceof ResponseError) || cause.response.status !== 409) throw cause;
+        const current = await state();
+
+        if (current !== "archived" && current !== "archiving") throw cause;
+        await wakeOnce();
+
+        return call();
+      });
     } catch (cause) {
-      const { ResponseError } = await import("@boatdev/sdk");
-
-      if (!(cause instanceof ResponseError) || cause.response.status !== 409) throw cause;
-      const current = await state();
-
-      if (current !== "archived" && current !== "archiving") throw cause;
-      await wake();
-
-      return call();
+      throw await boatFailure(cause);
     }
   };
 
@@ -179,20 +186,7 @@ export function boat(
           encoding: "base64",
         },
       }),
-    ).catch(async (cause: unknown) => {
-      throw await boatFailure(cause);
-    });
-  };
-
-  // A turn's end and the next turn's start both set the auto-stop; they reach Boat in the
-  // order Otto made them, so a late "idle" never shortens a working turn's computer.
-  let deadlineChanges: Promise<unknown> = Promise.resolve();
-
-  const inOrder = (change: () => Promise<void>): Promise<void> => {
-    const next = deadlineChanges.then(change, change);
-    deadlineChanges = next.catch(() => undefined);
-
-    return next;
+    );
   };
 
   /**
@@ -226,7 +220,6 @@ export function boat(
 
       return current === "error" || current === "gone" ? "missing" : "sleeping";
     },
-    wake,
     // Stop takes a native lifecycle snapshot; never force-stop and discard VM changes. A VM that
     // Boat's auto-stop already archived, or that is gone, needs nothing.
     sleep: async () => {
@@ -254,26 +247,21 @@ export function boat(
         result = await client.getDeletionOperation({ operationId: result.operation.id });
       }
     },
-    // Resumes a computer Boat's auto-stop archived, or pushes the auto-stop back on a running one.
-    keepAlive: () =>
-      inOrder(async () => {
-        const current = await state();
+    // Pushes the auto-stop back on a running computer. A stopped one stays stopped until its
+    // next use wakes it.
+    keepAlive: async () => {
+      const current = await state();
 
-        if (current === "archived" || current === "archiving") return wake();
-        await client.update({ sandboxId, updateSandboxRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
-      }),
-    // After a turn: Boat stops the computer soon unless another turn pushes it back first.
-    idle: () =>
-      inOrder(async () => {
-        const current = await state();
-
-        if (current === "archived" || current === "archiving" || current === "gone") return;
-        await client.update({ sandboxId, updateSandboxRequest: { ttlSeconds: BOAT_IDLE_SECONDS } });
-      }),
+      if (current === "archived" || current === "archiving" || current === "gone") return;
+      await client.update({ sandboxId, updateSandboxRequest: { ttlSeconds: BOAT_TTL_SECONDS } });
+    },
+    // Opening the desktop is a use: a stopped computer wakes for it.
     desktopUrl: async () => {
-      const { desktopUrl } = await client.desktop({ sandboxId }).catch(async (cause: unknown) => {
-        throw await boatFailure(cause);
-      });
+      const { desktopUrl } = await wakeOnce()
+        .then(() => client.desktop({ sandboxId }))
+        .catch(async (cause: unknown) => {
+          throw await boatFailure(cause);
+        });
 
       if (!desktopUrl) throw new Error("Boat has no desktop for this computer yet. Try again.");
 

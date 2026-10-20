@@ -43,11 +43,18 @@ Otto stops a Boat computer when that chat is idle and reconnects to the saved VM
 chat resumes. A later turn in the same chat resumes the existing VM instead of creating a new one.
 If a remote pause fails, Otto reconnects to the saved VM on the next use.
 
+Boat counts every create and resume as one start, and each plan allows a limited number per day.
+So Otto creates a chat's VM only when the bot first uses its computer, and resumes a stopped VM only
+when a turn uses it. A turn that only answers in text starts nothing. The first time a turn uses the
+computer, Otto also installs its tools, signs in to GitHub as the person who asked, and clones the
+project's repositories.
+
 While a chat is working, Otto pushes Boat's auto-stop back every 2 minutes. When a turn ends, Boat
-stops the VM 2 minutes later unless another turn in that chat starts first, and it stops by itself
-5 minutes after Otto last reached it, even when Otto is down. A turn waiting on your answer lets
-the VM stop; your answer resumes it with its files in place. Running processes such as dev servers
-do not survive a stop. Boat's dashboard names each VM `{bot id}_{chat id}`.
+stops the VM 15 minutes later unless another turn in that chat uses it first, and it stops by itself
+even when Otto is down. A turn waiting on your answer keeps the VM for those 15 minutes; a later
+answer resumes it with its files in place. Running processes such as dev servers do not survive a
+stop. When Boat refuses to create or resume a VM, such as when the daily start limit is reached, the
+bot gets Boat's own message. Boat's dashboard names each VM `{bot id}_{chat id}`.
 
 Secrets reach Boat commands through a private file on the VM, never in the command text, because Boat
 keeps each command's text in its history. Otto requests protected, token-authenticated access for its browser-control

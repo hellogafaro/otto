@@ -9,6 +9,7 @@ import {
   type CreateBotWorkspaceInput,
   type OttoBotWorkspace,
   type CreateRemoteBotWorkspaceInput,
+  type OttoRemoteComputer,
   type OttoRemoteSession,
 } from "./workspace/bot-workspace-types.ts";
 import {
@@ -90,7 +91,7 @@ export async function createRemoteBotWorkspace(
 ): Promise<OttoBotWorkspace> {
   if (!input.identityFile || !input.workspaceId)
     throw new Error(`Remote sandbox '${input.sandbox}' needs a stable workspace identity.`);
-  const { identityFile, legacyIdentityFile } = input;
+  const { identityFile, legacyIdentityFile, workspaceId } = input;
 
   const persisted =
     (await readIdentity(input.io, identityFile)) ??
@@ -101,51 +102,66 @@ export async function createRemoteBotWorkspace(
       `Workspace '${input.workspaceId}' belongs to '${persisted.provider}', not 'boat'.`,
     );
   const owner = { provider: input.sandbox, scope: input.threadId };
-  let session: OttoRemoteSession;
 
-  try {
-    const opened = input.openSession
-      ? await input.openSession(persisted?.providerId)
-      : await connect(
-          input.sandbox,
-          input.workspaceId,
-          input.environment,
-          persisted,
-          (createKey) => writeIdentity(input.io, identityFile, { ...owner, createKey }),
-          {
-            replaceMissing: true,
-            scope: input.threadId,
-            ...(input.machineType ? { machineType: input.machineType } : {}),
-          },
-        );
+  const open = async (): Promise<OttoRemoteSession> => {
+    let session: OttoRemoteSession;
 
-    if (!opened) throw new Error(`Remote ${input.sandbox} workspace is missing.`);
-    session = opened;
-  } catch (cause) {
-    if (!persisted?.providerId) throw cause;
-    throw new Error(`Remote ${input.sandbox} workspace '${persisted.providerId}' is unavailable.`, {
-      cause,
-    });
-  }
+    try {
+      const opened = input.openSession
+        ? await input.openSession(persisted?.providerId)
+        : await connect(
+            input.sandbox,
+            workspaceId,
+            input.environment,
+            persisted,
+            (createKey) => writeIdentity(input.io, identityFile, { ...owner, createKey }),
+            {
+              replaceMissing: true,
+              scope: input.threadId,
+              ...(input.machineType ? { machineType: input.machineType } : {}),
+            },
+          );
 
-  const created = persisted?.providerId !== session.providerId;
+      if (!opened) throw new Error(`Remote ${input.sandbox} workspace is missing.`);
+      session = opened;
+    } catch (cause) {
+      if (!persisted?.providerId) throw cause;
+      throw new Error(
+        `Remote ${input.sandbox} workspace '${persisted.providerId}' is unavailable.`,
+        { cause },
+      );
+    }
 
-  const record = {
-    ...owner,
-    providerId: session.providerId,
-    ...(!created && persisted?.usedAt ? { usedAt: persisted.usedAt } : {}),
+    const created = persisted?.providerId !== session.providerId;
+
+    const record = {
+      ...owner,
+      providerId: session.providerId,
+      ...(!created && persisted?.usedAt ? { usedAt: persisted.usedAt } : {}),
+    };
+
+    if (JSON.stringify(record) !== JSON.stringify(persisted)) {
+      try {
+        await writeIdentity(input.io, identityFile, record);
+
+        if (legacyIdentityFile) await input.io.remove(legacyIdentityFile);
+      } catch (cause) {
+        if (created) await session.destroy().catch(() => undefined);
+        throw cause;
+      }
+    }
+
+    return session;
   };
 
-  if (JSON.stringify(record) !== JSON.stringify(persisted)) {
-    try {
-      await writeIdentity(input.io, identityFile, record);
+  // A missing key fails now, so the chat says how to fix it before any computer is needed.
+  if (!input.openSession) credential(input.environment ?? {}, "BOAT_API_KEY");
 
-      if (legacyIdentityFile) await input.io.remove(legacyIdentityFile);
-    } catch (cause) {
-      if (created) await session.destroy().catch(() => undefined);
-      throw cause;
-    }
-  }
+  // A chat that already has a computer reconnects to it now, which starts nothing. A chat
+  // without one creates it on first use, so chats and routine runs that never use a computer
+  // spend none of the account's limited daily starts.
+  const existing = persisted?.providerId ? await open() : undefined;
+  const session = existing ?? createOnFirstUse(open);
 
   const workspace = new Workspace({
     id: input.workspaceId,
@@ -158,18 +174,57 @@ export async function createRemoteBotWorkspace(
   return {
     id: input.workspaceId,
     provider: input.sandbox,
-    providerId: session.providerId,
+    ...(existing ? { providerId: existing.providerId } : {}),
     workspace,
     inspect: session.inspect,
     ...(session.desktopUrl ? { desktopUrl: session.desktopUrl } : {}),
     ...(session.keepAlive ? { keepAlive: session.keepAlive } : {}),
-    ...(session.idle ? { idle: session.idle } : {}),
     ...(session.writePrivateFile ? { writePrivateFile: session.writePrivateFile } : {}),
     wake: () => workspace.init(),
     sleep: () => workspace.stop(),
     destroy: async () => {
       await workspace.destroy();
       await input.io.remove(identityFile);
+    },
+  };
+}
+
+/**
+ * A computer that does not exist yet: its first use creates it, and a failed create is tried
+ * again on the next use. Until then there is nothing to keep awake, stop or delete.
+ */
+function createOnFirstUse(open: () => Promise<OttoRemoteSession>): OttoRemoteComputer {
+  let opening: Promise<OttoRemoteSession> | undefined;
+
+  const opened = () =>
+    (opening ??= open().catch((cause: unknown) => {
+      opening = undefined;
+      throw cause;
+    }));
+
+  const ifCreated = async (use: (session: OttoRemoteSession) => Promise<void> | undefined) => {
+    if (opening) await use(await opening);
+  };
+
+  return {
+    inspect: async () => (opening ? (await opening).inspect() : "sleeping"),
+    run: async (command, args, options) => (await opened()).run(command, args, options),
+    sleep: () => ifCreated((session) => session.sleep()),
+    destroy: () => ifCreated((session) => session.destroy()),
+    keepAlive: () => ifCreated((session) => session.keepAlive?.()),
+    desktopUrl: async () => {
+      const session = await opened();
+
+      if (!session.desktopUrl) throw new Error("This computer has no desktop.");
+
+      return session.desktopUrl();
+    },
+    writePrivateFile: async (path, content) => {
+      const session = await opened();
+
+      if (!session.writePrivateFile) throw new Error("This computer cannot write private files.");
+
+      return session.writePrivateFile(path, content);
     },
   };
 }

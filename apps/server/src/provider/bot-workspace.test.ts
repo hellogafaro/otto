@@ -123,11 +123,13 @@ describe("Boat", () => {
     get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
     await session.sleep();
     expect(stop).toHaveBeenCalledOnce();
+    vi.spyOn(client, "desktop").mockResolvedValue({ desktopUrl: "https://desktop" } as never);
     get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
-    await session.wake();
+    // Opening the desktop is a use, so a stopped computer resumes for it.
+    expect(await session.desktopUrl!()).toBe("https://desktop");
     expect(resume).toHaveBeenCalledWith({
       sandboxId: "boat-id",
-      resumeRequest: { ttlSeconds: 300, type: "default" },
+      resumeRequest: { ttlSeconds: 900, type: "default" },
     });
     expect(await session.inspect()).toBe("running");
     await session.destroy();
@@ -168,7 +170,9 @@ describe("Boat", () => {
         get.mockResolvedValueOnce(archiving).mockResolvedValueOnce(archived);
         let completed = false;
 
-        const operation = session[action]().then(() => {
+        vi.spyOn(client, "desktop").mockResolvedValue({ desktopUrl: "https://desktop" } as never);
+
+        const operation = (action === "wake" ? session.desktopUrl!() : session.sleep()).then(() => {
           completed = true;
         });
 
@@ -181,7 +185,7 @@ describe("Boat", () => {
         if (action === "wake")
           expect(resume).toHaveBeenCalledWith({
             sandboxId: "boat-id",
-            resumeRequest: { ttlSeconds: 300, type: "default" },
+            resumeRequest: { ttlSeconds: 900, type: "default" },
           });
         else expect(stop).toHaveBeenCalledOnce();
       } finally {
@@ -238,7 +242,7 @@ describe("Boat", () => {
       get.mockResolvedValue({ ...current, sandbox: { ...current.sandbox, state: "archiving" } });
       const resume = vi.spyOn(client, "resume");
       const remove = vi.spyOn(client, "deleteSandbox");
-      const failure = expect(session.wake()).rejects.toThrow("snapshot archival timed out");
+      const failure = expect(session.desktopUrl!()).rejects.toThrow("snapshot archival timed out");
       await vi.advanceTimersByTimeAsync(300_000);
       await failure;
       expect(resume).not.toHaveBeenCalled();
@@ -379,66 +383,6 @@ describe("Boat", () => {
     expect(command).toHaveBeenCalledTimes(3);
   });
 
-  it("resumes a computer Boat stopped while its turn waited, then sends the command again", async () => {
-    const { ResponseError } = await import("@boatdev/sdk");
-    const { client, get, session } = await setup();
-    const current = await client.get({ sandboxId: "boat-id" });
-    const archived = { ...current, sandbox: { ...current.sandbox, state: "archived" as const } };
-
-    const resume = vi
-      .spyOn(client, "resume")
-      .mockResolvedValue({ ok: true, type: "sandbox.resumed", id: "boat-id", status: "ready" });
-
-    const command = vi
-      .spyOn(client, "command")
-      .mockRejectedValueOnce(new ResponseError(new Response(null, { status: 409 })))
-      .mockResolvedValue({
-        ok: true,
-        type: "command.finished",
-        success: true,
-        exitCode: 0,
-        stdout: "done",
-        stderr: "",
-        timedOut: false,
-      });
-
-    get.mockResolvedValueOnce(archived).mockResolvedValueOnce(archived);
-    expect((await session.run("true", [])).stdout).toBe("done");
-    expect(resume).toHaveBeenCalledOnce();
-    expect(command).toHaveBeenCalledTimes(2);
-
-    // A conflict on a running computer is Boat's answer, not a stop: it is not retried.
-    command.mockRejectedValueOnce(new ResponseError(new Response(null, { status: 409 })));
-    await expect(session.run("true", [])).rejects.toBeInstanceOf(ResponseError);
-    expect(resume).toHaveBeenCalledOnce();
-  });
-
-  it("lets an idle computer stop soon, in order with the next turn's keep-alive", async () => {
-    const { client, get, session } = await setup();
-    const current = await client.get({ sandboxId: "boat-id" });
-    const update = vi.spyOn(client, "update").mockResolvedValue({} as never);
-    let answer = (_: typeof current) => undefined as void;
-    get.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
-
-    const idle = session.idle!();
-    const keepAlive = session.keepAlive!();
-    await Promise.resolve();
-    expect(update).not.toHaveBeenCalled();
-    answer(current);
-    await Promise.all([idle, keepAlive]);
-    expect(
-      update.mock.calls.map(
-        ([request]) => (request as import("@boatdev/sdk").UpdateRequest).updateSandboxRequest,
-      ),
-    ).toEqual([{ ttlSeconds: 120 }, { ttlSeconds: 300 }]);
-
-    // A computer that already stopped has nothing to shorten.
-    update.mockClear();
-    get.mockResolvedValueOnce({ ...current, sandbox: { ...current.sandbox, state: "archived" } });
-    await session.idle!();
-    expect(update).not.toHaveBeenCalled();
-  });
-
   it.each([900_000, 0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
     "rejects unsupported command timeout %s before executing",
     async (timeout) => {
@@ -460,7 +404,7 @@ describe("Boat", () => {
     const clock = vi.spyOn(Date, "now").mockReturnValueOnce(0).mockReturnValue(300_001);
 
     try {
-      await expect(session.wake()).rejects.toThrow("Timed out waiting for sandbox state");
+      await expect(session.desktopUrl!()).rejects.toThrow("Timed out waiting for sandbox state");
       expect(deleteSandbox).not.toHaveBeenCalled();
     } finally {
       clock.mockRestore();
@@ -516,15 +460,23 @@ describe("Boat", () => {
       };
 
       const first = await createRemoteBotWorkspace(input);
+      // A new chat creates its computer on first use, not when it opens.
+      expect(create).not.toHaveBeenCalled();
+      expect(first.providerId).toBeUndefined();
+      await first.workspace.sandbox!.executeCommand!("true");
       expect(create).toHaveBeenCalledWith({
         idempotencyKey: expect.any(String),
-        createSandboxRequest: { ttlSeconds: 300, noEnv: true, type: "default" },
+        createSandboxRequest: { ttlSeconds: 900, noEnv: true, type: "default" },
       });
       const client = create.mock.contexts[0] as import("@boatdev/sdk").BoatApi;
       expect((await client.createRequestOpts({})).headers.Authorization).toBe(
         "Bearer configured-key",
       );
-      expect(first.providerId).toBe("boat-id");
+      expect(JSON.parse(await NodeFS.promises.readFile(input.identityFile, "utf8"))).toEqual({
+        provider: "boat",
+        scope: "thread",
+        providerId: "boat-id",
+      });
       // Boat's dashboard names the computer after its owner.
       expect(update).toHaveBeenCalledWith({
         sandboxId: "boat-id",
@@ -594,6 +546,16 @@ describe("Boat", () => {
 
       const update = vi.spyOn(BoatApi.prototype, "update").mockResolvedValue({} as never);
 
+      const command = vi.spyOn(BoatApi.prototype, "command").mockResolvedValue({
+        ok: true,
+        type: "command.finished",
+        success: true,
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        timedOut: false,
+      });
+
       try {
         await NodeFS.promises.writeFile(identityFile, JSON.stringify(previous));
 
@@ -616,10 +578,10 @@ describe("Boat", () => {
             createKey: expect.any(String),
           });
           const workspace = await createRemoteBotWorkspace(input);
+          await workspace.workspace.sandbox!.executeCommand!("true");
           expect(create).toHaveBeenLastCalledWith(
             expect.objectContaining({ idempotencyKey: pending.createKey }),
           );
-          expect(workspace.providerId).toBe("replacement-id");
           expect(JSON.parse(await NodeFS.promises.readFile(identityFile, "utf8"))).toEqual({
             provider: "boat",
             scope: "thread",
@@ -627,7 +589,7 @@ describe("Boat", () => {
           });
           expect(create).toHaveBeenLastCalledWith({
             idempotencyKey: expect.any(String),
-            createSandboxRequest: { ttlSeconds: 300, noEnv: true, type: "default" },
+            createSandboxRequest: { ttlSeconds: 900, noEnv: true, type: "default" },
           });
         } else {
           await expect(createRemoteBotWorkspace(input)).rejects.toThrow("is unavailable");
@@ -640,6 +602,7 @@ describe("Boat", () => {
         get.mockRestore();
         create.mockRestore();
         update.mockRestore();
+        command.mockRestore();
         await NodeFS.promises.rm(root, { recursive: true, force: true });
       }
     },
@@ -660,16 +623,24 @@ describe("Boat", () => {
     const root = await NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "otto-boat-"));
 
     try {
-      await expect(
-        createRemoteBotWorkspace({
-          io: workspaceIO,
-          threadId: "thread",
-          sandbox: "boat",
-          workspaceId: "workspace",
-          identityFile: NodePath.join(root, "identity.json"),
-          environment: { BOAT_API_KEY: "configured-key" },
-        }),
-      ).rejects.toThrow("Boat: Start the $20/month Boat plan to create sandboxes.");
+      const workspace = await createRemoteBotWorkspace({
+        io: workspaceIO,
+        threadId: "thread",
+        sandbox: "boat",
+        workspaceId: "workspace",
+        identityFile: NodePath.join(root, "identity.json"),
+        environment: { BOAT_API_KEY: "configured-key" },
+      });
+
+      await expect(workspace.workspace.sandbox!.executeCommand!("true")).rejects.toThrow(
+        "Boat: Start the $20/month Boat plan to create sandboxes.",
+      );
+
+      // A refused create is tried again on the next use.
+      await expect(workspace.workspace.sandbox!.executeCommand!("true")).rejects.toThrow(
+        "Boat: Start the $20/month Boat plan to create sandboxes.",
+      );
+      expect(create).toHaveBeenCalledTimes(2);
     } finally {
       create.mockRestore();
       await NodeFS.promises.rm(root, { recursive: true, force: true });
@@ -809,6 +780,9 @@ describe("createBotWorkspace", () => {
     };
 
     const created = await createRemoteBotWorkspace(input);
+    // A new chat creates its computer only when it first uses it.
+    expect(openSession).not.toHaveBeenCalled();
+    await created.workspace.sandbox!.executeCommand!("true");
     const reattached = await createRemoteBotWorkspace(input);
 
     expect(created.id).toBe("otto-stable-id");

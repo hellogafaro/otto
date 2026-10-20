@@ -84,7 +84,7 @@ import {
 import { toMcpServerConfigs } from "./agent-controller/mcp-configuration.ts";
 import { storeChatFile } from "../tools/otto-chat-files.ts";
 
-/** How often running turns push back their computer's auto-stop; well inside Boat's 5 minutes. */
+/** How often working turns push back their computer's auto-stop; well inside Boat's 15 minutes. */
 export const COMPUTER_KEEP_AWAKE_INTERVAL = "2 minutes";
 
 const APPROVAL_FREE_MASTRA_TOOL_NAMES: ReadonlySet<string> = new Set(["ask_user"]);
@@ -170,7 +170,6 @@ const make = (options?: AgentControllerLiveOptions) =>
       sessionResources,
       computerSetup,
       turnUsageByThread,
-      workingThreadIds: () => workingThreadIds(),
       get publishSessionState() {
         return publishSessionState;
       },
@@ -548,11 +547,11 @@ const make = (options?: AgentControllerLiveOptions) =>
       Effect.forkScoped,
     );
 
-    // Otto: computers of working turns are pushed back well inside Boat's 5 minute auto-stop,
+    // Otto: computers of working turns are pushed back well inside Boat's 15 minute auto-stop,
     // so a long turn never loses its computer. Idle computers, and those of turns waiting on a
-    // person, stop on their own.
+    // person, stop on their own once the auto-stop runs out.
     yield* runMastra("resources.keepComputersAwake", () =>
-      // A turn waiting on a person lets its computer stop; the answer wakes it again.
+      // A turn waiting on a person keeps its computer for one auto-stop; a later answer wakes it.
       sessionResources.keepComputersAwake(workingThreadIds()),
     ).pipe(
       Effect.ignoreCause({ log: true }),

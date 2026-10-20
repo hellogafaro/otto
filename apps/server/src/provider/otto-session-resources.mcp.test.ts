@@ -227,7 +227,6 @@ describe("OttoSessionResources", () => {
         providerId: providerId ?? "boat-vm",
         inspect: async () => "running",
         run: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-        wake: async () => undefined,
         sleep: async () => undefined,
         destroy,
       }),
@@ -269,6 +268,7 @@ describe("OttoSessionResources", () => {
 
     const first = input("first-turn");
     await resources.acquire(first);
+    await resources.getWorkspace("first-turn")!.sandbox!.executeCommand!("true");
     expect(openSession).toHaveBeenNthCalledWith(1, undefined);
     await resources.shutdown();
 

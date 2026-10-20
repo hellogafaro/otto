@@ -408,6 +408,7 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
 
           if (!filesystem) throw new Error("Editing files needs your computer.");
           failureCode = "internal";
+          await session.prepareComputer?.();
           result = await editWorkspaceFile(filesystem, execution.input);
         } else if (execution.toolId === "message_react") {
           if (!session.reactToMessage) {
@@ -418,7 +419,12 @@ export function createOttoToolRuntime(options?: OttoToolRuntimeOptions): OttoToo
           result = await session.reactToMessage(execution.input, input.toolCallId);
         } else {
           const secrets = (await options?.secrets?.(input.threadId)) ?? {};
-          const environment = { ...secrets, ...session.commandEnvironment };
+
+          const commandEnvironment = session.workspace
+            ? await session.prepareComputer?.()
+            : undefined;
+
+          const environment = { ...secrets, ...commandEnvironment };
 
           const workspace =
             execution.toolId === "shell" && session.workspace && Object.keys(environment).length > 0

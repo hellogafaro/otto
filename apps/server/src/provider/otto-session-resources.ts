@@ -311,28 +311,12 @@ export class OttoSessionResources {
   }
 
   /**
-   * Wakes the thread's computer if its provider stopped it and pushes back the provider's
-   * auto-stop, so a computer stays up while a turn runs and stops on its own after.
+   * Pushes back the provider's auto-stop on the thread's computer while it runs, so a working
+   * turn keeps it and a turn's end gives the next reply the full auto-stop. A stopped computer
+   * stays stopped until its next use.
    */
   keepComputerAwake(threadId: string): (() => Promise<void>) | undefined {
     return this.workspaceLeases.get(threadId)?.workspace.keepAlive;
-  }
-
-  /**
-   * After a turn: lets the chat's computer stop soon unless another turn on this same
-   * computer is still running.
-   */
-  idleComputer(
-    threadId: string,
-    workingThreadIds: Iterable<string>,
-  ): (() => Promise<void>) | undefined {
-    const workspace = this.workspaceLeases.get(threadId)?.workspace;
-
-    for (const other of workingThreadIds)
-      if (other !== threadId && this.workspaceLeases.get(other)?.workspace === workspace)
-        return undefined;
-
-    return workspace?.idle;
   }
 
   async keepComputersAwake(threadIds: Iterable<string>): Promise<void> {
