@@ -68,14 +68,16 @@ type ChatShell = DirectChatAccess & {
 };
 
 /**
- * Otto: The people a bot's answer in a chat reaches: a DM's person, or a group's people. A
+ * Otto: The people a bot's answer in a chat reaches: a DM's person (both, in a person DM), or a group's people. A
  * group with no people predates people in groups and names no one.
  */
 export function chatPeople(
   thread: ChatShell,
   groups: ReadonlyArray<GroupMembers>,
 ): ReadonlyArray<AuthSessionId> {
-  if (thread.groupId == null) return thread.createdBy == null ? [] : [thread.createdBy];
+  if (thread.groupId == null) {
+    return [thread.createdBy, thread.personId].filter((personId) => personId != null);
+  }
 
   return (
     groups

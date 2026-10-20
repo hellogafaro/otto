@@ -1,12 +1,4 @@
 export const connectionsCatalog = {
-  "Add Environment": "添加环境",
-  "Add environment": "添加环境",
-  "All environments": "全部环境",
-  "Allow camera access to scan an environment pairing QR code.":
-    "允许相机访问以扫描环境配对二维码。",
-  "Camera permission is required to scan a QR code.": "扫描二维码需要相机权限。",
-  "Clearing caches never removes environment connections, credentials, account data, or appearance preferences.":
-    "清除缓存不会删除环境连接、凭据、账户数据或外观偏好。",
   Connect: "连接",
   Connections: "连接",
   "Data portability": "数据可移植性",
@@ -21,29 +13,15 @@ export const connectionsCatalog = {
   "Enter a pairing token to start a session with this environment.":
     "输入配对令牌以开始与此环境的会话。",
   Environment: "环境",
-  "Environment caches": "环境缓存",
   "Environment identification": "环境标识",
-  Environments: "环境",
-  "Invalid QR code": "无效二维码",
-  "Loading connections…": "正在加载连接…",
-  "Offline cache records will appear here after environments are used.":
-    "使用环境后，离线缓存记录将显示在此处。",
-  "Open Settings from an environment to connect a provider.": "从某个环境打开设置以连接提供商。",
-  "Opens environment settings": "打开环境设置",
-  "Pairing code": "配对码",
   "Pick the default workspace mode for new chats on this environment.":
     "为此环境上的新聊天选择默认工作区模式。",
   "Provider connection failed": "提供商连接失败",
-  "Provider connections": "提供商连接",
   Reconnect: "重新连接",
-  "Reconnect key": "重新连接密钥",
   "Remote environments": "远程环境",
   Sandbox: "沙箱",
   "Sandbox and browser sharing": "沙箱与浏览器共享",
   "Sandbox auto-idle": "沙箱自动空闲",
-  "Scan QR Code": "扫描二维码",
-  "Scanned QR code was not recognized.": "扫描的二维码无法识别。",
-  "Show every workspace as its own project.": "将每个工作区显示为独立项目。",
   "The environment sends this key to the selected endpoint.": "环境会将此密钥发送到所选端点。",
   "This environment accepts one-time pairing tokens. Pairing links can open this page directly, or you can paste the token here.":
     "此环境接受一次性配对令牌。配对链接可以直接打开此页面，也可以在此粘贴令牌。",
@@ -55,25 +33,17 @@ export const connectionsCatalog = {
   "Environment: {environment}": "环境：{environment}",
   "on {environment}": "在 {environment} 上",
   "Backend paired": "后端已配对",
-  Connecting: "正在连接",
-  "Environment disconnected": "环境已断开",
   "Pair with this environment": "与此环境配对",
   "Pairing backend": "正在配对后端",
   "Pairing failed": "配对失败",
   "Pairing token": "配对令牌",
   "Pairing with this environment": "正在与此环境配对",
-  "Pairing…": "正在配对…",
   "Paste a one-time token or pairing secret": "粘贴一次性令牌或配对密钥",
-  "Saved on this device only. System default follows this device when English or Simplified Chinese is available.":
-    "仅保存在此设备上。系统默认会在英语或简体中文可用时跟随此设备。",
-  "Use the language of this device": "使用此设备的语言",
   "Validating the pairing link and preparing your session.": "正在验证配对链接并准备会话。",
   "Verify the backend is reachable from this browser, supports CORS for hosted clients, and is served over HTTPS when opening this page from HTTPS.":
     "请确认后端可从此浏览器访问、对托管客户端支持 CORS，并且在通过 HTTPS 打开此页面时也通过 HTTPS 提供服务。",
   "Language applies only to this device.": "语言设置仅应用于此设备。",
   "In {environment}": "位于 {environment}",
-  "Controls this environment's web and desktop calls. Native mobile audio calls are not supported. Configure voice services in web or desktop Settings.":
-    "控制此环境的网页端和桌面端通话。不支持原生移动端语音通话。请在网页端或桌面端设置中配置语音服务。",
   Workspace: "工作区",
   "Connecting…": "正在连接…",
   "Reconnecting…": "正在重新连接…",
@@ -94,8 +64,6 @@ export const connectionsCatalog = {
   "This device does not have access to the environment.": "此设备无权访问该环境。",
   "This environment runs a version the app does not support.": "该环境运行的版本不受此应用支持。",
   "Connecting to {environment}…": "正在连接到 {environment}…",
-  "Reconnecting to {environment}…": "正在重新连接到 {environment}…",
-  "Reconnecting {count} environments…": "正在重新连接 {count} 个环境…",
   "{environment} is unavailable": "{environment} 不可用",
   "{environment} is disconnected": "{environment} 已断开连接",
   "Cached data remains available. The review will load when your connection returns.":
@@ -106,29 +74,6 @@ export const connectionsCatalog = {
   "The terminal will load as soon as the environment is ready.": "环境就绪后将立即加载终端。",
   "Reconnect the environment to load the review.": "重新连接环境以加载审查内容。",
   "Reconnect the environment to load the terminal.": "重新连接环境以加载终端。",
-  "Try another search or environment.": "请尝试其他搜索词或环境。",
-  "Could not update environment": "无法更新环境",
-  "The environment could not be updated.": "无法更新该环境。",
-  "This environment's server does not support snoozing yet. Update the server to use Snooze.":
-    "此环境的服务器尚不支持延后。请更新服务器后再使用“延后”。",
-  "This environment's server does not support snoozing yet. Update the server to wake this chat.":
-    "此环境的服务器尚不支持延后。请更新服务器后再唤醒此聊天。",
-  "This environment's server does not support pinning yet. Update the server to use Pin.":
-    "此环境的服务器尚不支持置顶。请更新服务器后再使用“置顶”。",
-  "This environment's server does not support title regeneration yet. Update the server to regenerate chat titles.":
-    "此环境的服务器尚不支持重新生成标题。请更新服务器后再重新生成聊天标题。",
-  "This environment's server does not support pinned reordering yet. Update the server to reorder pins.":
-    "此环境的服务器尚不支持调整置顶顺序。请更新服务器后再调整置顶顺序。",
-  "This removes offline chats, server metadata, and cached branches for this environment. The saved connection and credentials stay intact.":
-    "这会移除此环境的离线聊天、服务器元数据和缓存的分支。已保存的连接和凭据会保留。",
-  "This removes offline data for every environment. Connections, credentials, account data, and app preferences stay intact.":
-    "这会移除所有环境的离线数据。连接、凭据、账户数据和应用偏好设置会保留。",
-  "Could not import shared content": "无法导入共享内容",
-  "Cancel import": "取消导入",
-  "Could not cancel import": "无法取消导入",
-  "Retry import": "重试导入",
-  "Remove environment?": "移除环境？",
-  "Disconnect and forget {label} on this device.": "在此设备上断开并忘记 {label}。",
   "Connect your provider": "连接你的提供商",
   "Connect {provider}": "连接 {provider}",
   "Connect an environment first": "请先连接一个环境",
@@ -149,9 +94,6 @@ export const connectionsCatalog = {
   "The project for this channel is unavailable. Choose another project to reconnect it.":
     "此频道的项目不可用。请选择其他项目以重新连接。",
   "Reconnect in this project": "在此项目中重新连接",
-  "Reconnect in {project}": "在 {project} 中重新连接",
-  "Repair this channel from Settings > Bot channels on the host.":
-    "请在主机的“设置”>“机器人频道”中修复此频道。",
   "Connect an environment first.": "请先连接一个环境。",
   "Set up a channel connection first.": "请先设置一个频道连接。",
   "Needs reconnect": "需要重新连接",
@@ -202,7 +144,6 @@ export const connectionsCatalog = {
   "Apply import": "应用导入",
   "Imported {imported}, changed {changed}, skipped {skipped}.":
     "已导入 {imported} 条，更改 {changed} 条，跳过 {skipped} 条。",
-  "Routines are not available for this environment.": "此环境不支持例行任务。",
   "Connect a provider to use skills.": "连接提供方后即可使用技能。",
   "Connect a provider to use its commands.": "连接提供方后即可使用其命令。",
   "No {provider} subscription connected": "未连接 {provider} 订阅",
@@ -262,10 +203,7 @@ export const connectionsCatalog = {
     "Boat 拒绝了它的 API 密钥。请在“设置 > 计算机”中更换密钥，然后重试。",
   "Check the environment connection, then send your message again.":
     "请检查环境连接，然后重新发送消息。",
-  "Automatically read new replies in this chat on this device":
-    "在此设备上自动朗读此聊天中的新回复",
   "This preference could not be saved on this device.": "无法在此设备上保存此偏好设置。",
-  "This environment": "此环境",
   "Choose Connect and sign in with your ChatGPT account.":
     "选择“连接”，然后使用你的 ChatGPT 账号登录。",
   "Choose Connect and sign in with your Claude account.":
@@ -318,7 +256,6 @@ export const connectionsCatalog = {
   "Connect to an environment to set up providers.": "连接到环境以设置提供商。",
   "This environment has no {provider} runtime. Update the environment server to configure it here.":
     "此环境没有 {provider} 运行时。请更新环境服务器后在此处配置。",
-  "this environment": "此环境",
   "Browser viewport": "浏览器视口",
   "Persistent Linux VMs managed by Boat. Requires an API key.":
     "由 Boat 管理的持久 Linux 虚拟机。需要 API 密钥。",
@@ -384,9 +321,6 @@ export const connectionsCatalog = {
   "MCP transport": "MCP 传输方式",
   "Remote URL": "远程 URL",
   "Connect an environment to manage plugins.": "连接一个环境以管理插件。",
-  "Remote health": "远程健康状态",
-  "Health checks for this environment": "此环境的健康检查",
-  "Refresh remote health": "刷新远程健康状态",
   "No environment connected": "未连接环境",
   "Connect to an Otto environment to set up channels.": "连接到 Otto 环境以设置频道。",
   "This device can chat with {name} but can't change its channels. Open Otto on the computer that runs it to connect a channel.":
@@ -406,11 +340,9 @@ export const connectionsCatalog = {
   "Reconnect {provider} to keep chatting with {bot}": "重新连接 {provider} 以继续与 {bot} 聊天",
   "Checking your {provider} account…": "正在检查你的 {provider} 账户…",
   "{provider} account": "{provider} 账户",
-  "In use": "使用中",
   "Main account": "主账户",
   "Backup {number}": "备用 {number}",
   "Checking sign-in": "正在检查登录",
-  "Usage limit reached, back at {time}": "已达用量上限，{time} 恢复",
   "Signed out": "已退出登录",
   "Can't reach {provider}": "无法连接 {provider}",
   "Sign in again": "重新登录",

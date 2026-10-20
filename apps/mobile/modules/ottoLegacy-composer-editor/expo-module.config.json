@@ -1,9 +1,0 @@
-{
-  "platforms": ["apple", "android"],
-  "apple": {
-    "modules": ["OttoLegacyComposerEditorModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.ottocomposereditor.OttoLegacyComposerEditorModule"]
-  }
-}

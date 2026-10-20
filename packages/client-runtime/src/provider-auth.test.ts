@@ -9,9 +9,7 @@ import {
   apiKeyStartInput,
   apiKeyValidationError,
   filterProvidersBySubscriptionConnection,
-  PROVIDER_CONNECTIONS,
   anyProviderHealthChecking,
-  providerConnectionLabel,
   providerUsesApiKey,
   providerSupportsBaseUrl,
   withRefreshableSubscriptionLogin,
@@ -26,16 +24,6 @@ const status: SubscriptionProviderStatus = {
 };
 
 describe("provider API key forms", () => {
-  it("only offers providers supported by API-key login", () => {
-    expect(PROVIDER_CONNECTIONS.map((provider) => provider.id)).toEqual([
-      "openai-codex",
-      "anthropic",
-      "xai",
-      "kimi-for-coding",
-      "opencode-go",
-    ]);
-  });
-
   it("starts key authentication without sending the key in the start request", () => {
     expect(apiKeyStartInput("anthropic", " https://proxy.example/v1 ")).toEqual({
       provider: "anthropic",
@@ -79,22 +67,7 @@ describe("provider API key forms", () => {
     },
   );
 
-  it("does not claim a saved key passed a health check", () => {
-    expect(providerConnectionLabel({ ...status, authMode: "api-key", health: "detected" })).toBe(
-      "API key saved",
-    );
-    expect(providerConnectionLabel({ ...status, connected: false })).toBe("Not connected");
-    expect(providerConnectionLabel(status)).toBe("OAuth connected");
-  });
-
-  it("labels an in-flight health check and reports when to keep refreshing", () => {
-    expect(providerConnectionLabel({ ...status, healthChecking: true })).toBe("Checking health…");
-    expect(providerConnectionLabel({ ...status, authMode: "api-key", healthChecking: true })).toBe(
-      "Checking health…",
-    );
-    expect(providerConnectionLabel({ ...status, connected: false, healthChecking: true })).toBe(
-      "Not connected",
-    );
+  it("reports when to keep refreshing during a health check", () => {
     expect(anyProviderHealthChecking([status, { ...status, healthChecking: true }])).toBe(true);
     expect(anyProviderHealthChecking([status, { ...status, healthChecking: false }])).toBe(false);
     expect(anyProviderHealthChecking(undefined)).toBe(false);

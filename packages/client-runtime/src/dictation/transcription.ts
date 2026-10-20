@@ -16,12 +16,6 @@ export const VOICE_DICTATION_LIMITS: Partial<DictationLimits> = {
   maxTranscriptCharacters: 16_000,
 };
 
-/** Mobile records one file without pieces, so it keeps the one-minute default. */
-export const MOBILE_DICTATION_LIMITS: Partial<DictationLimits> = {
-  maxAudioBytes: VOICE_AUDIO_MAX_BYTES,
-  maxTranscriptCharacters: 16_000,
-};
-
 export const DICTATION_TRANSCRIPTION_UNAVAILABLE = {
   noProvider: "Connect a transcription provider in Settings, Transcription.",
 } as const;

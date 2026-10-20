@@ -115,18 +115,6 @@ describe("sidebar footer", () => {
     }
   });
 
-  it("mints fresh mobile threads from the local execution setting", () => {
-    const mobileSource = NodeFS.readFileSync(
-      new URL(
-        "../../../../mobile/src/features/threads/new-task-flow-provider.tsx",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-
-    expect(mobileSource).toContain("selectedEnvironmentServerConfig?.settings.localExecutionMode");
-  });
-
   it("keeps the footer independently scrollable", () => {
     const sidebarSource = NodeFS.readFileSync(
       new URL("./sidebar-chrome.tsx", import.meta.url),

@@ -212,8 +212,6 @@ export function threadWokeAt(
 
 const HOUR_MS = 60 * 60 * 1_000;
 
-const DAY_MS = 24 * HOUR_MS;
-
 const EVENING_HOUR = 18;
 
 const MORNING_HOUR = 9;
@@ -241,7 +239,7 @@ function snoozeAtHour(base: Date, hour: number): Date {
   return next;
 }
 
-// Calendar-day advance instead of adding DAY_MS: fixed millisecond offsets
+// Calendar-day advance instead of adding a day in milliseconds: fixed offsets
 // land on the wrong local day across DST transitions (a spring-forward day
 // is 23 hours, so 23:30 + 24h skips the whole next day).
 function addSnoozeDays(base: Date, days: number): Date {
@@ -307,25 +305,4 @@ export function resolveSnoozePresets(now: Date): ReadonlyArray<SnoozePreset> {
   });
 
   return presets;
-}
-
-/**
- * Compact "wakes in" label for snoozed rows: "2h", "18h", "3d". Minutes
- * round up so a snooze never reads "0m" while still hidden. Shared by web
- * and mobile so the same wake time never reads differently per client.
- */
-export function snoozeWakeLabel(snoozedUntil: string, options: { readonly now: string }): string {
-  const wakeMs = Date.parse(snoozedUntil);
-  const nowMs = Date.parse(options.now);
-
-  if (Number.isNaN(wakeMs) || Number.isNaN(nowMs)) return "now";
-  const remainingMs = wakeMs - nowMs;
-
-  if (remainingMs <= 0) return "now";
-
-  if (remainingMs < HOUR_MS) return `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
-
-  if (remainingMs < DAY_MS) return `${Math.ceil(remainingMs / HOUR_MS)}h`;
-
-  return `${Math.ceil(remainingMs / DAY_MS)}d`;
 }

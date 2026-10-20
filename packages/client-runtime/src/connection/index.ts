@@ -16,19 +16,6 @@ export * as Connection from "./layer.ts";
 
 export * from "./model.ts";
 
-export {
-  type BearerConnectionUpdateInput,
-  ConnectionOnboarding,
-  type PairingConnectionInput,
-  type SshConnectionInput,
-  prepareBearerConnectionUpdate,
-  preparePairingRegistration,
-  prepareSshRegistration,
-  registerPairingConnection,
-  registerSshConnection,
-  updateBearerConnection,
-} from "./onboarding.ts";
-
 export * from "./presentation.ts";
 
 export * as ProfileStore from "./profile-store.ts";

@@ -1,6 +1,6 @@
 # Third-party notices
 
-Otto includes third-party code, fonts, icons, and brand assets. The exact license files for redistributable components live in [`legal/licenses`](legal/licenses). Release builds copy this notice and that directory into the web, CLI, desktop, and mobile artifacts.
+Otto includes third-party code, fonts, icons, and brand assets. The exact license files for redistributable components live in [`legal/licenses`](legal/licenses). Release builds copy this notice and that directory into the web, CLI, and desktop artifacts.
 
 ## Project origin
 
@@ -14,8 +14,6 @@ Otto is an independent fork of [Akeru Bot](https://github.com/opencoredev/akeru-
 | Claude Agent SDK                 | Claude provider runtime                                          | [Anthropic Claude Agent SDK terms](legal/licenses/Anthropic-Claude-Agent-SDK.txt)                            |
 | Pierre Trees and Diffs           | File trees, diffs, and generated file icons                      | [Apache License 2.0](legal/licenses/Apache-Pierre.txt) and [Pierre notice](legal/licenses/NOTICE-Pierre.txt) |
 | Project Nayuki QR Code generator | QR code generation in `packages/shared/src/qr-code.ts`           | MIT text retained in the source file                                                                         |
-| Bluesky markdown text            | Native markdown renderer adapted from Bluesky                    | [MIT](legal/licenses/MIT-Bluesky.txt)                                                                        |
-| Expo composer editor             | Native composer editor adapted from Expo                         | [MIT](legal/licenses/MIT-Expo.txt)                                                                           |
 | Khroma                           | Color utilities bundled through Mermaid                          | [MIT](legal/licenses/MIT-Khroma.txt)                                                                         |
 | Beautiful UI                     | Chat loading state port                                          | [MIT](legal/licenses/MIT-Beautiful-UI.txt)                                                                   |
 
@@ -31,17 +29,13 @@ Mastra-derived source is under `apps/server/src/subscription-auth`. Its source r
 
 ## Fonts and terminal code
 
-| Component              | Distributed files                                              | License                                                                                                                             |
-| ---------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Geist and Geist Mono   | Web fonts from `@fontsource-variable`                          | [SIL Open Font License 1.1](legal/licenses/OFL-1.1-Geist.txt)                                                                       |
-| DM Sans                | Mobile fonts from `@expo-google-fonts/dm-sans`                 | [SIL Open Font License 1.1](legal/licenses/OFL-1.1-DM-Sans.txt) and [Expo package MIT license](legal/licenses/MIT-DM-Sans-Expo.txt) |
-| Ghostty                | WebAssembly, Android libraries, headers, and the iOS framework | [MIT](legal/licenses/MIT-Ghostty.txt)                                                                                               |
-| Symbols Nerd Font Mono | Web terminal font                                              | [MIT](legal/licenses/MIT-Symbols-Nerd-Font.txt)                                                                                     |
-| MesloLGS NF            | Android terminal font                                          | [MesloLGS NF Apache notice](legal/licenses/Apache-MesloLGS-NF.txt) and [Apache License 2.0](legal/licenses/Apache-2.0.txt)          |
+| Component              | Distributed files                     | License                                                       |
+| ---------------------- | ------------------------------------- | ------------------------------------------------------------- |
+| Geist and Geist Mono   | Web fonts from `@fontsource-variable` | [SIL Open Font License 1.1](legal/licenses/OFL-1.1-Geist.txt) |
+| Ghostty                | WebAssembly and headers               | [MIT](legal/licenses/MIT-Ghostty.txt)                         |
+| Symbols Nerd Font Mono | Web terminal font                     | [MIT](legal/licenses/MIT-Symbols-Nerd-Font.txt)               |
 
-The Ghostty Android and web artifacts use revision `9f62873bf195e4d8a762d768a1405a5f2f7b1697`. The iOS framework uses the custom-I/O fork revision `d36c3b8dffd0d756dd5e5f4933962f774a0e6753`. Both upstream revisions use the Ghostty MIT license included above.
-
-MesloLGS NF is derived from Meslo LG by André Berg and patched with Nerd Fonts glyphs. Source: <https://github.com/romkatv/powerlevel10k-media>.
+The Ghostty web artifacts use revision `9f62873bf195e4d8a762d768a1405a5f2f7b1697` under the Ghostty MIT license included above.
 
 ## Icons and logos
 

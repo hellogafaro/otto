@@ -402,12 +402,11 @@ export function createRecovery({
       (thread) =>
         Effect.gen(function* () {
           const turnId = thread.latestTurn?.turnId ?? null;
+
           let attempt = countRecoveryAttempts(
-            (
-              yield* projectionSnapshotQuery
-                .getThreadDetailById(thread.id)
-                .pipe(Effect.map(Option.getOrUndefined))
-            )?.activities ?? [],
+            (yield* projectionSnapshotQuery
+              .getThreadDetailById(thread.id)
+              .pipe(Effect.map(Option.getOrUndefined)))?.activities ?? [],
             turnId,
           );
 
@@ -416,25 +415,25 @@ export function createRecovery({
 
             if (delay === null) {
               const createdAt = DateTime.formatIso(yield* DateTime.now);
+
               const prior = recoveryFailureDetail(
-                (
-                  yield* projectionSnapshotQuery
-                    .getThreadDetailById(thread.id)
-                    .pipe(Effect.map(Option.getOrUndefined))
-                )?.activities
-                  ?.slice()
-                  .reverse()
+                (yield* projectionSnapshotQuery
+                  .getThreadDetailById(thread.id)
+                  .pipe(Effect.map(Option.getOrUndefined)))?.activities
+                  ?.toReversed()
                   .find(
                     (activity) =>
                       activity.kind === RECOVERY_ATTEMPT_KIND &&
                       (turnId === null || activity.turnId === turnId),
                   )?.payload,
               );
+
               yield* giveUpRecovery({
                 threadId: thread.id,
                 detail: prior ? `${RECOVERY_GIVE_UP_DETAIL} ${prior}` : RECOVERY_GIVE_UP_DETAIL,
                 createdAt,
               });
+
               return;
             }
 
@@ -443,18 +442,21 @@ export function createRecovery({
             }
 
             const recoveredAt = DateTime.formatIso(yield* DateTime.now);
+
             const threadDetail = yield* projectionSnapshotQuery
               .getThreadDetailById(thread.id)
               .pipe(Effect.map(Option.getOrUndefined));
+
             const lastDetail = recoveryFailureDetail(
-              [...(threadDetail?.activities ?? [])]
-                .reverse()
+              (threadDetail?.activities ?? [])
+                .toReversed()
                 .find(
                   (activity) =>
                     activity.kind === RECOVERY_ATTEMPT_KIND &&
                     (turnId === null || activity.turnId === turnId),
                 )?.payload,
             );
+
             const recoveryLead = startupRecoveryInput({
               threadId: thread.id,
               turnId,

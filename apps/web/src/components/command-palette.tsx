@@ -728,6 +728,8 @@ function useChatSearchItems(query: string, limit: number) {
   const bots = useRosterStore((state) => state.bots);
   const groups = useRosterStore((state) => state.groups);
   const rosters = useAtomValue(allEnvironmentRostersAtom);
+  // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
+  const snapshot = useAtomValue(environmentSnapshotAtom(primaryEnvironmentId ?? ("" as never)));
   const searchQuery = query.startsWith(">") ? "" : query;
 
   const connectedEnvironmentIds = useMemo(
@@ -769,7 +771,7 @@ function useChatSearchItems(query: string, limit: number) {
       };
 
       if (shell.environmentId !== primaryEnvironmentId) {
-        if (shell.botId == null && shell.groupId == null) return [];
+        if (shell.botId == null && shell.groupId == null && shell.personId == null) return [];
 
         return [
           {
@@ -786,6 +788,16 @@ function useChatSearchItems(query: string, limit: number) {
         return [{ ...base, ownerName: bot.name, unavailableIn: null }];
       }
 
+      // Otto: A person DM is named after the other person in it.
+      if (shell.personId != null) {
+        const partnerId =
+          shell.personId === snapshot?.currentPersonId ? shell.createdBy : shell.personId;
+
+        const partner = snapshot?.people?.find((person) => person.personId === partnerId);
+
+        return [{ ...base, ownerName: partner?.displayName ?? t("Someone"), unavailableIn: null }];
+      }
+
       // A group shows only its newest chat, so older group chats cannot be opened.
       const group = shell.groupId ? groupById.get(shell.groupId) : undefined;
 
@@ -798,7 +810,17 @@ function useChatSearchItems(query: string, limit: number) {
 
       return [];
     });
-  }, [bots, connectedEnvironmentIds, environments, groups, primaryEnvironmentId, rosters, shells]);
+  }, [
+    bots,
+    connectedEnvironmentIds,
+    environments,
+    groups,
+    primaryEnvironmentId,
+    rosters,
+    shells,
+    snapshot,
+    t,
+  ]);
 
   const items = buildChatSearchCommandPaletteItems({
     query,

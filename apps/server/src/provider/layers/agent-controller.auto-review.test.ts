@@ -458,10 +458,6 @@ describe("AgentControllerLive", () => {
         const latestState = () =>
           events.findLast((event) => event.type === "session.state.changed")?.payload.state;
 
-        vi.mocked(mastra.session.respondToToolSuspension).mockRejectedValueOnce(
-          new Error("connection lost"),
-        );
-
         const failedExit = yield* controller
           .respondToUserInput({
             threadId: codexThreadId,
@@ -474,6 +470,8 @@ describe("AgentControllerLive", () => {
         expect(failedExit).not.toMatchObject({
           cause: { reasons: [{ error: { retryable: true } }] },
         });
+        // The stale answer is refused before it reaches Mastra.
+        expect(mastra.session.respondToToolSuspension).not.toHaveBeenCalled();
 
         yield* controller.respondToUserInput({
           threadId: codexThreadId,

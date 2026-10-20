@@ -196,6 +196,40 @@ export function findLatestGroupThreadTarget(
   return latest ? { environmentId: latest.environmentId, threadId: latest.id } : null;
 }
 
+type PersonThreadShell = GroupThreadShell & {
+  personId?: string | null | undefined;
+  createdBy?: string | null | undefined;
+};
+
+/** Otto: The latest live DM between the signed-in person and another person, either side's. */
+export function findLatestPersonThreadTarget(
+  personId: string,
+  currentPersonId: string,
+  environmentId: string,
+  threads: readonly PersonThreadShell[],
+): { environmentId: string; threadId: string } | null {
+  let latest: PersonThreadShell | undefined;
+
+  for (const thread of threads) {
+    const pair =
+      (thread.personId === personId && thread.createdBy === currentPersonId) ||
+      (thread.personId === currentPersonId && thread.createdBy === personId);
+
+    if (
+      pair &&
+      thread.environmentId === environmentId &&
+      thread.archivedAt === null &&
+      thread.parentThreadId == null &&
+      thread.deletedAt == null &&
+      isNewerThread(thread, latest)
+    ) {
+      latest = thread;
+    }
+  }
+
+  return latest ? { environmentId: latest.environmentId, threadId: latest.id } : null;
+}
+
 export const latestGroupThreadKey = (environmentId: string, groupId: string) =>
   `${environmentId}\u0000${groupId}`;
 

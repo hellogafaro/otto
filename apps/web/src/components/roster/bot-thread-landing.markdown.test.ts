@@ -41,7 +41,8 @@ describe("BotThreadLanding message formatting", () => {
     );
 
     expect(assistantRow).toContain("<ChatMarkdown");
-    expect(assistantRow).toContain('className="relative w-fit min-w-56 max-w-full"');
+    // A bot reply shows in full, capped at 85% of the chat column.
+    expect(assistantRow).toContain('className="relative w-fit max-w-17/20"');
     expect(assistantRow).not.toContain("onTaskListChange");
     const userRow = rowComponent(readSibling("bot-chat-message-rows.tsx"), "UserMessageRow");
     // Sent text goes through SentMessageText, which keeps a reply's backlink compact.
@@ -98,11 +99,11 @@ describe("BotThreadLanding message formatting", () => {
       const row = rowComponent(source, name);
       const controls = row.split("<MessageControls").slice(1);
       expect(controls.length).toBeGreaterThan(0);
-      expect(row).toContain("toolbarClass(startsGroup)");
+      expect(row).toContain("toolbarClass(");
 
       for (const block of controls) {
         const props = block.slice(0, block.indexOf("/>"));
-        expect(props).toContain("onReply=");
+        expect(props).toMatch(/onReply[=:]/);
 
         if (name === "AssistantMessageRow") expect(props).toContain("readAloud");
       }
@@ -112,8 +113,10 @@ describe("BotThreadLanding message formatting", () => {
     const assistantControls = rowComponent(source, "AssistantMessageRow").split("<MessageControls");
     expect(assistantControls[2]).toContain("{...reactions.controls}");
     expect(rowComponent(source, "UserMessageRow")).toContain("{...reactions.controls}");
-    // Your own messages keep their time, Copy and Reply beside the bubble, with no reactions.
-    expect(rowComponent(source, "UserMessageRow")).toContain("OWN_ACTIONS_CLASS");
+    // Every message, your own too, shares the one floating toolbar, inset from the right edge.
+    expect(source).toContain("pointer-fine:md:end-2");
+    expect(rowComponent(source, "UserMessageRow").split("toolbarClass(")).toHaveLength(3);
+    expect(source).not.toContain("OWN_ACTIONS_CLASS");
   });
 
   it("mounts the voice action in the live bot chat header", () => {

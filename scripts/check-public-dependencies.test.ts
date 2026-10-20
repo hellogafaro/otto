@@ -26,7 +26,7 @@ it("accepts registry, workspace, and repository-owned file dependencies", () => 
   const manifests = [
     writeManifest(root, "apps/server/package.json", "0.2.0"),
     writeManifest(root, "packages/example/package.json", "workspace:*"),
-    writeManifest(root, "apps/mobile/package.json", "file:./modules/example"),
+    writeManifest(root, "apps/desktop/package.json", "file:./modules/example"),
   ];
 
   assert.deepStrictEqual(findExternalLocalDependencies(root, manifests), []);

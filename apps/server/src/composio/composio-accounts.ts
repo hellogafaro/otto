@@ -68,6 +68,7 @@ export function composioAccountServesBot(
   const choice = bot.botId === null ? undefined : record?.botAccess[bot.botId];
 
   if (choice !== undefined) return choice;
+
   if (record?.botAccess[COMPOSIO_BOT_ACCESS_DEFAULT] === false) return false;
 
   return composioAccountVisibleTo(record, bot.ownerPersonId);

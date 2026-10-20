@@ -12,7 +12,7 @@ runtime, with the same chat controls as other providers. The Claude CLI is not r
 5. Paste the code into Otto and select **Connect**.
 
 The environment server completes the exchange and stores the credential. No inbound callback to the
-Otto server is required, so this flow also works from a remote browser or mobile client.
+Otto server is required, so this flow also works from a remote browser.
 
 ## Check the connection
 

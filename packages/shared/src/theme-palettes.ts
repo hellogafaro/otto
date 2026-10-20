@@ -18,10 +18,7 @@ export function getThemeColorsForAppearance(
 
 export {
   BUILT_IN_THEME_IDS,
-  MOBILE_DEFAULT_THEME_ID,
-  MOBILE_THEME_IDS,
   type BuiltInThemeId,
-  type MobileThemeId,
   type ThemeAppearance,
   THEME_COLOR_ROLES,
   type ThemeColorRole,

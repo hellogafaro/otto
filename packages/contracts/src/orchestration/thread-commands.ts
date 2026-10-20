@@ -40,6 +40,8 @@ export const ThreadCreateCommand = Schema.Struct({
   projectId: ProjectId,
   botId: Schema.optional(Schema.NullOr(BotId)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),
+  /** Otto: The other person in a person-to-person DM; no bot answers there. */
+  personId: Schema.optional(Schema.NullOr(AuthSessionId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationIdSchema)),
   /** Set by the server: the signed-in person for a client, the source chat's for server work. */
@@ -57,7 +59,8 @@ export const ThreadCreateCommand = Schema.Struct({
 }).check(
   Schema.makeFilter(
     (input) =>
-      input.botId == null || input.groupId == null || "thread cannot belong to a bot and group",
+      [input.botId, input.groupId, input.personId].filter((owner) => owner != null).length <= 1 ||
+      "thread cannot belong to more than one of a bot, a group and a person",
   ),
 );
 
@@ -170,6 +173,8 @@ const ThreadTurnStartBootstrapCreateThread = Schema.Struct({
   projectId: ProjectId,
   botId: Schema.optional(Schema.NullOr(BotId)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),
+  /** Otto: The other person in a person-to-person DM; no bot answers there. */
+  personId: Schema.optional(Schema.NullOr(AuthSessionId)),
   title: TrimmedNonEmptyString,
   modelSelection: ModelSelection,
   runtimeMode: RuntimeMode,
@@ -180,7 +185,8 @@ const ThreadTurnStartBootstrapCreateThread = Schema.Struct({
 }).check(
   Schema.makeFilter(
     (input) =>
-      input.botId == null || input.groupId == null || "thread cannot belong to a bot and group",
+      [input.botId, input.groupId, input.personId].filter((owner) => owner != null).length <= 1 ||
+      "thread cannot belong to more than one of a bot, a group and a person",
   ),
 );
 

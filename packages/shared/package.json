@@ -24,10 +24,6 @@
       "types": "./src/advertised-endpoint.ts",
       "import": "./src/advertised-endpoint.ts"
     },
-    "./agentAwareness": {
-      "types": "./src/agent-awareness.ts",
-      "import": "./src/agent-awareness.ts"
-    },
     "./git": {
       "types": "./src/git.ts",
       "import": "./src/git.ts"
@@ -112,10 +108,6 @@
       "types": "./src/orchestration-timing.ts",
       "import": "./src/orchestration-timing.ts"
     },
-    "./remote": {
-      "types": "./src/remote.ts",
-      "import": "./src/remote.ts"
-    },
     "./relay": {
       "types": "./src/relay.ts",
       "import": "./src/relay.ts"
@@ -179,10 +171,6 @@
     "./imageDimensions": {
       "types": "./src/image-dimensions.ts",
       "import": "./src/image-dimensions.ts"
-    },
-    "./chatList": {
-      "types": "./src/chat-list.ts",
-      "import": "./src/chat-list.ts"
     },
     "./hostProcess": {
       "types": "./src/host-process.ts",

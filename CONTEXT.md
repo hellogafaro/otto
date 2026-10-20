@@ -1,6 +1,6 @@
 # Otto
 
-Otto is a local-first app for named teammate bots. Web, desktop, and mobile clients connect to an environment that owns the bots, projects, chats, providers, and local data.
+Otto is a local-first app for named teammate bots. Web and desktop clients connect to an environment that owns the bots, projects, chats, providers, and local data.
 
 ## Identity
 

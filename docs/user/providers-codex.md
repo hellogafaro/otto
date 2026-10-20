@@ -37,7 +37,7 @@ Otto creates and controls the Codex session. The runtime supplies:
 - the selected ChatGPT subscription model
 
 Otto normalizes tool calls, approvals, usage, messages, and errors before it sends them to the
-client. This keeps the same chat controls available on web, desktop, and mobile.
+client. This keeps the same chat controls available on web and desktop.
 
 The environment server stores the subscription credential under its private secrets directory. It
 passes short-lived access to the runtime when needed. The credential does not enter the project,

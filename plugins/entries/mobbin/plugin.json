@@ -23,7 +23,7 @@
       "license": "Mobbin trademark"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://api.mobbin.com/mcp"

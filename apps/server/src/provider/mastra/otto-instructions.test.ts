@@ -360,14 +360,17 @@ describe("withOttoPrompt", () => {
       name: "xai",
       apiKey: "test-key",
       baseURL: "https://api.x.ai/v1",
-      fetch: async (_input, init) => {
-        requests.push({
-          headers: new Headers(init?.headers),
-          body: JSON.parse(String(init?.body)) as WireChat,
-        });
+      fetch: Object.assign(
+        async (_input: string | URL | Request, init?: RequestInit) => {
+          requests.push({
+            headers: new Headers(init?.headers),
+            body: JSON.parse(String(init?.body)) as WireChat,
+          });
 
-        return grokCompletion();
-      },
+          return grokCompletion();
+        },
+        { preconnect: () => undefined },
+      ),
     }).chatModel("grok-4.7");
 
     const chats = inMemoryChats();

@@ -14,7 +14,7 @@
   "logo": {
     "provenance": { "sourceUrl": "https://exa.ai", "license": "Exa brand asset" }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.exa.ai/mcp" },
   "connection": {
     "type": "verification-pending",

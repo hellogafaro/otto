@@ -1,4 +1,7 @@
+import type { OrchestrationThreadActivity } from "@otto/contracts";
 import * as Context from "effect/Context";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 /**
  * How long to wait before the next automatic wake after a recoverable death
@@ -21,8 +24,7 @@ export const RecoveryBackoffSchedule = Context.Reference<ReadonlyArray<number>>(
 /** Persisted on the turn so a second restart does not start the ladder over. */
 export const RECOVERY_ATTEMPT_KIND = "provider.recovery.attempt";
 
-export const RECOVERY_GIVE_UP_DETAIL =
-  "Automatic recovery failed. Use Resume to continue.";
+export const RECOVERY_GIVE_UP_DETAIL = "Automatic recovery failed. Use Resume to continue.";
 
 export function recoveryBackoffDelayMs(
   attempt: number,
@@ -41,17 +43,16 @@ export function countRecoveryAttempts(
 ): number {
   return activities.filter(
     (activity) =>
-      activity.kind === RECOVERY_ATTEMPT_KIND &&
-      (turnId === null || activity.turnId === turnId),
+      activity.kind === RECOVERY_ATTEMPT_KIND && (turnId === null || activity.turnId === turnId),
   ).length;
 }
 
-export function recoveryFailureDetail(payload: unknown): string | null {
-  if (typeof payload !== "object" || payload === null || !("detail" in payload)) {
-    return null;
-  }
+const decodeRecoveryFailure = Schema.decodeUnknownOption(Schema.Struct({ detail: Schema.String }));
 
-  const detail = payload.detail;
+export function recoveryFailureDetail(
+  payload: OrchestrationThreadActivity["payload"] | undefined,
+): string | null {
+  const detail = Option.getOrUndefined(decodeRecoveryFailure(payload))?.detail;
 
-  return typeof detail === "string" && detail.trim().length > 0 ? detail : null;
+  return detail?.trim() ? detail : null;
 }

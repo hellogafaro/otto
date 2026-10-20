@@ -149,8 +149,7 @@ The per-reply delivery state (`pending`, `sent`, `failed`, `unknown`) mirrored f
 Hold-to-talk capture on the active client that transcribes into the current composer draft. The
 session, identity binding, and draft merging live in `packages/client-runtime/src/dictation`, which
 also binds transcription to the environment's `voice.transcribe` RPC. Browser capture lives in
-`apps/web/src/lib/dictation-capture.ts` and native capture in
-`apps/mobile/src/lib/expoDictationCapture.ts`. A transcript is applied only while the environment,
+`apps/web/src/lib/dictation-capture.ts`. A transcript is applied only while the environment,
 thread, draft, and draft generation still match the ones captured at start.
 
 ### Stored-reply playback
@@ -167,7 +166,7 @@ The subscription that creates images for a bot, ChatGPT or Grok, chosen per bot 
 
 ### Interface language
 
-A client-local preference for interface copy. Web, Electron, and native mobile each store their own selection. It never rewrites stored messages, bot names, instructions, paths, or protocol identifiers. See [interface-translations.md](./interface-translations.md) and [app language](../user/language.md).
+A client-local preference for interface copy. Web and Electron each store their own selection. It never rewrites stored messages, bot names, instructions, paths, or protocol identifiers. See [interface-translations.md](./interface-translations.md) and [app language](../user/language.md).
 
 ## Provider runtime
 

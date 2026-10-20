@@ -64,6 +64,7 @@ import { BotVoiceCallButton, useVoiceCall } from "../voice/voice-call";
 import { useMessageArrivals } from "./message-arrival";
 import { useRosterStore } from "./roster-store";
 import { useBotThreadRuntime } from "./use-bot-thread-runtime";
+import { buildGroupClocks, liveGroupClock } from "./bot-group-clock.logic";
 import { buildBotTurnTraces, buildLiveTurnSteps } from "./bot-turn-trace.logic";
 import { resolveBotPresence } from "./roster.logic";
 import { useLocalDay } from "./use-local-day";
@@ -268,20 +269,6 @@ export function BotThreadLanding({
     [activities, messages],
   );
 
-  // Otto: A turn's clock rides on its first reply only, so a turn with four replies shows one line.
-  const firstReplyOfTurn = useMemo(() => {
-    const seen = new Set<string>();
-    const ids = new Set<string>();
-
-    for (const message of messages) {
-      if (message.role !== "assistant" || !message.turnId || seen.has(message.turnId)) continue;
-      seen.add(message.turnId);
-      ids.add(message.id);
-    }
-
-    return ids;
-  }, [messages]);
-
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
 
   const today = useLocalDay();
@@ -304,6 +291,21 @@ export function BotThreadLanding({
     () => buildBotConversationEntries(messages, today, todayLabel, locale),
     [messages, today, todayLabel, locale],
   );
+
+  // Otto: One clock per group: a run of one bot's replies shows a single "Worked for" header.
+  const runningTurnId = runtime.latestTurn?.state === "running" ? runtime.latestTurn.turnId : null;
+
+  const groupClocks = useMemo(
+    () => buildGroupClocks(entries, turnTraces, runningTurnId),
+    [entries, turnTraces, runningTurnId],
+  );
+
+  const liveClock = useMemo(
+    () => liveGroupClock({ entries, traces: turnTraces, turn: runtime.latestTurn }),
+    [entries, turnTraces, runtime.latestTurn],
+  );
+
+  const groupLive = liveClock;
 
   const { timelineItems, delegations, waitingOnChildren, olderRoutineNotes } =
     useBotLandingTimeline({ threadRef: runtime.linkedThreadRef, snapshot, entries });
@@ -574,11 +576,8 @@ export function BotThreadLanding({
                                     ? undefined
                                     : stepMeters.get(message.turnId)
                                 }
-                                trace={
-                                  message.turnId === null || !firstReplyOfTurn.has(message.id)
-                                    ? undefined
-                                    : turnTraces.get(message.turnId)
-                                }
+                                trace={groupClocks.get(message.id)}
+                                live={groupLive?.headId === message.id ? groupLive.clock : null}
                                 environmentId={environmentId ?? null}
                                 currentPersonId={currentPersonId}
                                 playback={replyPlayback}

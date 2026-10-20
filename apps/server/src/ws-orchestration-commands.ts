@@ -71,6 +71,7 @@ export const createWsOrchestrationCommands = ({
             projectId: bootstrap.createThread.projectId,
             botId: bootstrap.createThread.botId ?? null,
             groupId: bootstrap.createThread.groupId ?? null,
+            personId: bootstrap.createThread.personId ?? null,
             title: bootstrap.createThread.title,
             modelSelection: bootstrap.createThread.modelSelection,
             runtimeMode: bootstrap.createThread.runtimeMode,

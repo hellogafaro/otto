@@ -389,6 +389,7 @@ export function createSession({
 
     const effectiveSandbox =
       respondingBot?.sandbox ?? defaultBotSandbox(serverSettings.sandbox, serverBoatKey);
+
     const sandboxSize = respondingBot?.sandboxSize ?? serverSettings.sandbox.defaultSize;
 
     const sandboxEnvironment =

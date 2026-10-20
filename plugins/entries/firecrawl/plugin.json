@@ -14,7 +14,7 @@
   "logo": {
     "provenance": { "sourceUrl": "https://www.firecrawl.dev", "license": "Firecrawl brand asset" }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.firecrawl.dev/v2/mcp-oauth" },
   "connection": {
     "type": "verification-pending",

@@ -23,7 +23,7 @@
       "license": "Render brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://mcp.render.com/mcp"

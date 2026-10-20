@@ -7,8 +7,8 @@ shell. Both fields are nullable and optional at the decode boundary so events
 and clients from before this feature continue to replay.
 
 Parent-linked threads are execution details, not a bot's user conversation.
-Navigation selectors, roster message derivation, the web sidebar, mobile
-thread lists, and server thread search therefore omit them. Work cards retain
+Navigation selectors, roster message derivation, the web sidebar, and server
+thread search therefore omit them. Work cards retain
 the child thread id and remain the supported path to open that detail.
 
 The web roster also remembers each bot's last chat path. Because a remembered
@@ -35,8 +35,8 @@ migration was needed.
   `"scheduled"` for work a routine started. Defaults to `"bot"`.
 
 `botChatTimeline` in `@otto/client-runtime/state/bot-chat-timeline` merges a
-chat's messages, receipts, and delegations into one ordered list for web and
-mobile. A card goes after its turn: after the anchor message and any later
+chat's messages, receipts, and delegations into one ordered list for the web
+app. A card goes after its turn: after the anchor message and any later
 message in the same `parentTurnId`. Without a known anchor it goes after the
 turn's last message, and without either it goes at the end of the chat. Cards
 at the same spot keep creation order.
@@ -127,7 +127,7 @@ path (Codex, Claude, Grok, Kimi For Coding, OpenCode Go).
 
 `isThreadWaitingOnChildren` in `@otto/contracts` is true while any
 delegation for the thread is queued, running, or blocked. The flag is derived
-from the read model and never persisted. Web and mobile read it through
+from the read model and never persisted. The web app reads it through
 `@otto/client-runtime/delegation-presentation`, which also derives each
 card's delivery state.
 
@@ -195,10 +195,8 @@ workspace." and also creates nothing.
 Clients show the same limit before anyone asks. On web, the bot Tools sheet
 shows a note for a bot whose provider cannot hand off work, and the group
 `@` picker marks such a bot with "Cannot take handed-off work"
-(`botEngineTakesDelegatedWork` in `bot-engine-selection.ts`). On mobile, the
-group `@` picker adds the same marker (`groupMentionBots` in
-`composerMentionItems.ts`), and chat settings show the Tools note under
-Options. Both use `driverSupportsDelegation`. A bot without an engine, or
+(`botEngineTakesDelegatedWork` in `bot-engine-selection.ts`), using
+`driverSupportsDelegation`. A bot without an engine, or
 whose provider instance the client cannot find, is not marked. MCP bot tools
 for the legacy bridge are tracked separately.
 
@@ -298,10 +296,7 @@ work offers nothing. Clients send the actions with the `cancelDelegation` and
 On web, `DelegationCard` takes the chat's `delegations` and renders one button
 per action in its actions slot (Let it finish, Cancel, Try again), disables them
 all while a command is in flight, and shows the decider's refusal text in an
-error toast. On mobile, `buildThreadFeed` stores each card's actions on its feed
-entry, and `ThreadDelegationFeedCard` sends the same commands. The buttons
-disable while a command is in flight, and a refusal shows in an alert with the
-server's text.
+error toast.
 
 ## Scheduled delegation
 
@@ -326,8 +321,7 @@ runtime links the run to its delegation.
   stops future runs.
 - The web **Done by** picker leaves out the routine's own bot and lists bots
   whose provider cannot take handed-off work as disabled options, using
-  `routineDelegateOptions` in `bot-engine-selection.ts`. Mobile only shows the
-  saved helper's name, so it has no picker to filter.
+  `routineDelegateOptions` in `bot-engine-selection.ts`.
 - `checkDependencies` blocks a run up front, with "pick another bot"
   guidance, when the delegate bot is archived or missing, is the routine's own
   bot, or runs on a provider where `driverSupportsDelegation` is false (standard

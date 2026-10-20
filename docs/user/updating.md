@@ -58,13 +58,3 @@ If an update fails:
 3. Relaunch a command-line server with `otto`.
 
 See [Run Otto in the background](./background-service.md) for service commands.
-
-## Mobile updates
-
-The mobile app downloads its own update in the background and installs it after you leave the app.
-It saves unsent drafts and queued messages before restart.
-
-If the app stays open for too long to install the update, it asks whether to install now. **Later**
-keeps the pending automatic install.
-
-See [Remote access](./remote-access.md) for connection setup.

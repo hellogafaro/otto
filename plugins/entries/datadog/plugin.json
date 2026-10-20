@@ -27,7 +27,7 @@
       "license": "Datadog brand asset"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://mcp.datadoghq.com/v1/mcp"

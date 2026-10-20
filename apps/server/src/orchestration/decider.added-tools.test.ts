@@ -18,6 +18,7 @@ import { createEmptyReadModel, projectEvent } from "./projector.ts";
 import { makeChannelTestBot } from "../server-test-fixtures.ts";
 
 const later = "2026-10-19T22:00:00.000Z";
+
 const earlier = "2026-01-01T00:00:00.000Z";
 
 const ada: WorkParticipant = {
@@ -55,6 +56,7 @@ it.layer(NodeServices.layer)("added tools start off", (it) => {
         ...createEmptyReadModel(earlier),
         bots: [scout],
       };
+
       const skills = yield* apply(withBot, {
         type: "library.folder.create",
         commandId: CommandId.make("cmd-skills"),
@@ -64,6 +66,7 @@ it.layer(NodeServices.layer)("added tools start off", (it) => {
         by: ada,
         createdAt: earlier,
       });
+
       const oldSkill = yield* apply(skills, {
         type: "library.folder.create",
         commandId: CommandId.make("cmd-old-skill"),
@@ -87,6 +90,7 @@ it.layer(NodeServices.layer)("added tools start off", (it) => {
         by: ada,
         createdAt: later,
       });
+
       const privateSkill = yield* apply(teamSkill, {
         type: "library.folder.create",
         commandId: CommandId.make("cmd-private-skill"),
@@ -125,6 +129,7 @@ it.layer(NodeServices.layer)("added tools start off", (it) => {
         by: ada,
         createdAt: later,
       });
+
       const privateServer = yield* apply(teamServer, {
         type: "mcp-server.create",
         commandId: CommandId.make("cmd-private-mcp"),
@@ -151,6 +156,7 @@ it.layer(NodeServices.layer)("added tools start off", (it) => {
         groupId: null,
         createdAt: later,
       });
+
       const nova = created.bots.find((bot) => bot.id === "nova");
 
       expect(nova?.disabledSkillIds).toEqual(["team-skill", "private-skill"]);

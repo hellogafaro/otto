@@ -83,15 +83,13 @@ it("installs from package manifests before copying source", () => {
   expect(installAt).toBeGreaterThan(-1);
   expect(copySourceAt).toBeGreaterThan(installAt);
   const beforeInstall = dockerfile.slice(0, installAt);
+
   for (const manifest of [
     "package.json",
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "apps/server/package.json",
     "apps/web/package.json",
-    "apps/mobile/package.json",
-    "apps/mobile/deps",
-    "apps/mobile/modules/otto-markdown-text",
     "scripts/clean-tsgo-backups.mjs",
     "patches",
   ]) {

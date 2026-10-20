@@ -46,6 +46,8 @@ export function applyThreadDetailEvent(
           projectId: event.payload.projectId,
           botId: event.payload.botId ?? null,
           groupId: event.payload.groupId ?? null,
+          personId: event.payload.personId ?? null,
+          createdBy: event.payload.createdBy ?? null,
           title: event.payload.title,
           modelSelection: event.payload.modelSelection,
           runtimeMode: event.payload.runtimeMode,

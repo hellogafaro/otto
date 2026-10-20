@@ -24,11 +24,11 @@ You can reconnect, disconnect, unassign, or delete a connection. Otto asks you t
 
 If reassignment changes the workspace, replies from the earlier workspace cannot use the new assignment.
 
-Credentials stay on the environment server. Web, desktop, and mobile receive safe connection and delivery state only. A standard remote client cannot change channel credentials or assignment.
+Credentials stay on the environment server. Web and desktop receive safe connection and delivery state only. A standard remote client cannot change channel credentials or assignment.
 
 ## Channel health
 
-Each channel card shows whether the channel is working. When something is wrong, the card states the reason in plain words and offers one repair button. The chat's Channels section on mobile shows the same reason.
+Each channel card shows whether the channel is working. When something is wrong, the card states the reason in plain words and offers one repair button.
 
 - **Connecting…** appears while Otto starts the channel. It changes to connected or to an error when the start finishes.
 - **Needs reconnect** means the channel stopped after it was working, for example after a server restart or a dropped Discord or iMessage connection. Click **Reconnect** to resume.
@@ -53,9 +53,7 @@ Otto records confirmed replies and prevents normal retries from posting them aga
 
 A network failure can leave delivery unknown. Otto keeps that attempt and does not post it again automatically. Settings and the bot's Channels panel show a warning. Check the external conversation before taking further action. Reconnecting does not prove whether the earlier reply arrived.
 
-Each assistant reply to an external message carries its own delivery state in the conversation: sending, sent, failed to deliver, or unknown. Web and mobile show that state under the reply so you can tell which external conversation it reached without opening channel settings.
-
-Mobile shows channel health, the selected project, recent confirmed deliveries, and a warning when a channel needs attention. When a channel needs a new project, mobile tells you to repair it from Settings > Bot channels on the host; only an administrator session can reconnect a channel. Recent delivery counts cover retained confirmations, not the channel's full history.
+Each assistant reply to an external message carries its own delivery state in the conversation: sending, sent, failed to deliver, or unknown. Web and desktop show that state under the reply so you can tell which external conversation it reached without opening channel settings.
 
 ## Replies
 
@@ -137,4 +135,4 @@ The setup form repeats this warning before you click **Connect**.
 
 Keep Slack bots out of channels that should not reach the workspace. Limit Discord server and channel access. Use a private phone or messaging identity for Telegram, iMessage, and WhatsApp when the selected project contains sensitive data.
 
-If the selected project is removed, the channel pauses and shows **Choose another project**. To repair it, pick a project on the channel card in Settings or in the bot's Channels panel and click **Reconnect in this project**. On mobile, the chat's Channels section points you to Settings > Bot channels on the host. Messages resume once the channel reconnects.
+If the selected project is removed, the channel pauses and shows **Choose another project**. To repair it, pick a project on the channel card in Settings or in the bot's Channels panel and click **Reconnect in this project**. Messages resume once the channel reconnects.

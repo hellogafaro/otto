@@ -20,7 +20,7 @@
   "logo": {
     "provenance": { "sourceUrl": "https://simpleicons.org/?q=notion", "license": "CC0-1.0" }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": { "type": "url", "url": "https://mcp.notion.com/mcp" },
   "connection": {
     "type": "verification-pending",

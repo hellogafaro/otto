@@ -206,16 +206,6 @@ function presentReason(
   }
 }
 
-/** One sentence for a disabled picker row or a Send tooltip. */
-export function providerUnavailabilitySummary(
-  input: Parameters<typeof presentProviderUnavailability>[0],
-  t: ProviderAvailabilityTranslate = englishTranslate,
-): string {
-  const presentation = presentProviderUnavailability(input, t);
-
-  return joinProviderUnavailability(presentation, t);
-}
-
 /** A presentation's title and next step as one sentence, punctuated for the locale. */
 export function joinProviderUnavailability(
   presentation: Pick<ProviderAvailabilityPresentation, "title" | "description">,

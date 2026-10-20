@@ -37,7 +37,7 @@ close the terminal.
 
 ## Connect a subscription
 
-Open **Settings > Providers**. Mobile lists these options under **Provider connections**:
+Open **Settings > Providers**:
 
 | Account         | Supported access                        |
 | --------------- | --------------------------------------- |
@@ -62,7 +62,7 @@ SuperGrok or X Premium+.
 
 ### Connect an API key
 
-Web and desktop use **Settings > Providers**. Mobile uses **Settings > Providers > Provider connections**.
+Web and desktop use **Settings > Providers**.
 Select an environment first if you have more than one environment.
 
 ChatGPT, Claude, Grok, Kimi For Coding, and OpenCode Go accept API keys. Select **API key** beside a

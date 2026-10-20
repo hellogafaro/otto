@@ -32,9 +32,9 @@ message edits do not replay.
 
 The client uses the authenticated `voice.synthesize` operation with the
 provider and voice resolved from the environment's voice settings. ChatGPT
-realtime remains a live call and must not be used as a TTS fallback. Platform adapters
-(`createBrowserReplyAudio`, `createExpoReplyAudio`) accept already-decoded
-audio bytes and own temporary object URLs or cache files.
+realtime remains a live call and must not be used as a TTS fallback. The platform adapter
+(`createBrowserReplyAudio`) accepts already-decoded audio bytes and owns
+temporary object URLs.
 
 ## Privacy
 

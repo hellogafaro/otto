@@ -226,7 +226,7 @@ live variant choices after a Provider default entry, because OpenCode resolves i
 user config. A model with no adjustable effort publishes an empty descriptor list.
 Unknown capabilities remain distinct from an authoritative empty list.
 
-Bot settings on web and the desktop renderer, and the mobile settings sheet, save reasoning to
+Bot settings on web and the desktop renderer save reasoning to
 `bot.engine.options`. Web chat composers do not expose reasoning controls. A saved
 engine does not inherit app-default options. Choosing a descriptor's default removes that option;
 switching models retains supported choices on the same instance and clears them across instances.

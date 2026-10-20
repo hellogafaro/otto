@@ -99,11 +99,8 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "*.tsbuildinfo",
       "**/routeTree.gen.ts",
-      "apps/mobile/android/**",
-      "apps/mobile/ios/**",
-      "apps/web/public/mock-service-worker.js",
+      "apps/web/public/mockServiceWorker.js",
       "apps/web/src/lib/vendor/qrcodegen.ts",
-      "apps/mobile/uniwind-types.d.ts",
       "*.icon/**",
       "oxlint-plugin-anti-slop/**",
     ],
@@ -127,9 +124,6 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "*.tsbuildinfo",
       "**/routeTree.gen.ts",
-      "apps/mobile/android/**",
-      "apps/mobile/ios/**",
-      "apps/mobile/uniwind-types.d.ts",
       "oxlint-plugin-anti-slop/**",
     ],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
@@ -202,8 +196,8 @@ export default defineConfig({
     },
     overrides: [
       {
-        // TanStack Router derives routes from these file names; mobile keeps its own convention.
-        files: ["apps/web/src/routes/**", "apps/mobile/**", "apps/web/public/**", "**/*.gen.ts"],
+        // TanStack Router derives routes from these file names.
+        files: ["apps/web/src/routes/**", "apps/web/public/**", "**/*.gen.ts"],
         rules: {
           "unicorn/filename-case": "off",
         },

@@ -115,6 +115,7 @@ describe("orchestration projector", () => {
           projectId: "project-1",
           botId: null,
           groupId: null,
+          personId: null,
           parentThreadId: null,
           parentDelegationId: null,
           respondingBotId: null,

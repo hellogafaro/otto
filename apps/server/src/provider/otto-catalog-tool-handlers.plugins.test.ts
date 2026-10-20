@@ -172,11 +172,13 @@ describe("Otto catalog MCP tool handlers", () => {
         "utf8",
       ),
     );
+
     const ready = {
       ...base,
       connection: { type: "ready" },
       catalogStatus: "available",
     };
+
     const catalog = loadManifestCatalog({
       "./entries/notes/plugin.json": {
         ...ready,
@@ -191,6 +193,7 @@ describe("Otto catalog MCP tool handlers", () => {
         description: "Design tools.",
       },
     });
+
     const runtime = createOttoPluginRuntime(
       {
         readSnapshot: async () => snapshot(),

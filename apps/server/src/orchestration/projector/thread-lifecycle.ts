@@ -40,6 +40,7 @@ export function projectThreadLifecycle(
             projectId: payload.projectId,
             botId: payload.botId ?? null,
             groupId: payload.groupId ?? null,
+            personId: payload.personId ?? null,
             parentThreadId: payload.parentThreadId ?? null,
             parentDelegationId: payload.parentDelegationId ?? null,
             createdBy: payload.createdBy ?? null,

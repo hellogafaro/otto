@@ -23,7 +23,7 @@
       "license": "Pipedrive trademark"
     }
   },
-  "platforms": ["web", "desktop", "mobile"],
+  "platforms": ["web", "desktop"],
   "transport": {
     "type": "url",
     "url": "https://mcp.pipedrive.ai/mcp"

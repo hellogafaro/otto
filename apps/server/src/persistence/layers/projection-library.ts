@@ -113,6 +113,8 @@ const folderSeenSql = (folder: string) => `
   AND (${folder}.thread_id IS NULL OR COALESCE((
     SELECT CASE
       WHEN thread.deleted_at IS NOT NULL THEN ${isViewerSql(`${folder}.created_by_json`)}
+      WHEN thread.person_id IS NOT NULL THEN
+        thread.created_by = ${VIEWER} OR thread.person_id = ${VIEWER}
       WHEN thread.group_id IS NULL THEN
         thread.visibility <> 'user' OR thread.created_by IS NULL OR thread.created_by = ${VIEWER}
       ELSE COALESCE((
@@ -293,6 +295,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
       id: ThreadId,
       groupId: Schema.NullOr(GroupId),
       botId: Schema.NullOr(BotId),
+      personId: Schema.NullOr(AuthSessionId),
       createdBy: Schema.NullOr(AuthSessionId),
       visibility: Visibility,
       deletedAt: Schema.NullOr(Schema.String),
@@ -303,6 +306,7 @@ const makeProjectionLibraryRepository = Effect.gen(function* () {
           threads.thread_id AS id,
           threads.group_id AS "groupId",
           threads.bot_id AS "botId",
+          threads.person_id AS "personId",
           threads.created_by AS "createdBy",
           threads.visibility,
           threads.deleted_at AS "deletedAt"

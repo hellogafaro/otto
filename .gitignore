@@ -29,9 +29,6 @@ squashfs-root/
 .plans/
 dist-electron/
 .electron-runtime/
-.showcase/
-apps/mobile/.showcase/
-artifacts/app-store/screenshots/
 native/**/target/
 node_modules/
 .alchemy/

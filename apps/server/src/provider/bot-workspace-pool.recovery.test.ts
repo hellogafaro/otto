@@ -106,52 +106,6 @@ describe("BotWorkspacePool", () => {
     expect(destroy).not.toHaveBeenCalled();
   });
 
-  it("pauses and reuses a remote workspace after initial wake failure", async () => {
-    const pool = new BotWorkspacePool();
-
-    const failed = remoteWorkspace({
-      wake: vi.fn().mockRejectedValueOnce(new Error("wake failed")).mockResolvedValue(undefined),
-    });
-
-    const reattached = remoteWorkspace();
-    const create = vi.fn().mockResolvedValueOnce(failed).mockResolvedValueOnce(reattached);
-
-    await expect(pool.acquire("remote-initial", create)).rejects.toThrow("wake failed");
-    expect(failed.destroy).not.toHaveBeenCalled();
-    await pool.retryFailedSleeps();
-    expect(failed.sleep).toHaveBeenCalledOnce();
-    const lease = await pool.acquire("remote-initial", create);
-    expect(create).toHaveBeenCalledOnce();
-    expect(lease.workspace).toBe(failed);
-    await lease.release();
-    expect(failed.destroy).not.toHaveBeenCalled();
-  });
-
-  it("preserves a remote workspace after cached wake failure and retries cleanup", async () => {
-    const pool = new BotWorkspacePool();
-
-    const failed = remoteWorkspace({
-      wake: vi
-        .fn()
-        .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new Error("wake failed"))
-        .mockResolvedValue(undefined),
-    });
-
-    const reattached = remoteWorkspace();
-    const create = vi.fn().mockResolvedValueOnce(failed).mockResolvedValueOnce(reattached);
-
-    const initial = await pool.acquire("remote-cached", create);
-    await initial.release();
-    await expect(pool.acquire("remote-cached", create)).rejects.toThrow("wake failed");
-    expect(failed.destroy).not.toHaveBeenCalled();
-    await pool.retryFailedSleeps();
-    expect(failed.sleep).toHaveBeenCalledTimes(2);
-    const lease = await pool.acquire("remote-cached", create);
-    expect(lease.workspace).toBe(failed);
-    await lease.release();
-  });
-
   it("preserves and reuses a remote workspace after sleep failure", async () => {
     const pool = new BotWorkspacePool();
 

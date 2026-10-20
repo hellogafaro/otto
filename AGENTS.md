@@ -1,13 +1,13 @@
 # Otto contributor guide
 
-Otto is a server runtime that owns teammate bots, their chats, projects, tasks, routines and the Library, with web, desktop and mobile clients over one authenticated Effect RPC WebSocket. Read [CONTEXT.md](CONTEXT.md) for product language, [architecture](docs/internals/overview.md) and [workspace layout](docs/internals/workspace-layout.md) before nontrivial work.
+Otto is a server runtime that owns teammate bots, their chats, projects, tasks, routines and the Library, with web and desktop clients over one authenticated Effect RPC WebSocket. Read [CONTEXT.md](CONTEXT.md) for product language, [architecture](docs/internals/overview.md) and [workspace layout](docs/internals/workspace-layout.md) before nontrivial work.
 
 ## Stack and workspace
 
 - A pnpm workspace driven by vite-plus (`vp`). Strict TypeScript and Effect everywhere: Effect Schema for every contract, Effect services and layers on the server, Atom state in `packages/client-runtime`.
 - `packages/contracts` holds the schemas: RPC methods, orchestration commands, events and read model, and the bot tool catalog and inputs (`otto-tools/`).
 - `apps/server` is event-sourced: commands go through deciders (`orchestration/decider/`), events land in SQLite `orchestration_events`, projectors write the `projection_*` and `activity` tables, and the in-memory read model is built from those projections.
-- Web is React + Vite + Tailwind with the shared components in `apps/web/src/components/ui`. Mobile is Expo; desktop is Electron.
+- Web is React + Vite + Tailwind with the shared components in `apps/web/src/components/ui`; desktop is Electron.
 - Every install, generator or package change runs in the repository root and first checks that `package.json` names `otto`.
 - Never put secret values in files, messages or logs.
 
@@ -45,7 +45,7 @@ Otto is a server runtime that owns teammate bots, their chats, projects, tasks, 
 
 ## Checks and delivery
 
-Before editing, list what the change touches: server entry points (RPC, bot tools, reactors), clients (web, desktop, mobile), contracts and saved data, the reverse action (delete after create, reopen after complete) and connection modes (local, remote, reconnect). Mark what doesn't apply.
+Before editing, list what the change touches: server entry points (RPC, bot tools, reactors), clients (web, desktop), contracts and saved data, the reverse action (delete after create, reopen after complete) and connection modes (local, remote, reconnect). Mark what doesn't apply.
 
 - Run the focused tests (`vp test run <file>` in the package), `tsgo --noEmit` in each changed package, `vp lint` and `vp fmt`. Tests exercise real commands, projections and permissions, not wording.
 - Open visible changes in a real client in an isolated environment and keep the evidence, per [local verification](docs/internals/verification.md). Report what passed, what failed and what wasn't verified.

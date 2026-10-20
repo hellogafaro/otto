@@ -36,11 +36,7 @@ import {
 import { ChannelSendApproval } from "./channel-send-approval";
 import type { MessageReactionHandler } from "./use-message-reaction-updater";
 
-export {
-  assistantRowPropsEqual,
-  type MessageReplyHandler,
-  type PluginResultEntry,
-} from "./bot-message-row-equality";
+export { assistantRowPropsEqual, type MessageReplyHandler } from "./bot-message-row-equality";
 
 export { type ChannelApprovalTarget, ChannelSendApproval } from "./channel-send-approval";
 
@@ -52,10 +48,12 @@ export {
 // SAFETY: the empty ID is an inactive-query sentinel; no environment request is sent for it.
 const NO_ENVIRONMENT = "" as EnvironmentId;
 
-// Otto: Others' messages (bots and other people) carry their actions in a small toolbar floating
-// over the top right of their own text block (at least 224px wide) on hover or focus, taking no space in the transcript:
-// level with the author's name on a group's first message, over the gap above on later ones. Held
-// open while a control's menu is. Touch and narrow screens keep them inline under the message.
+// Otto: Every message, yours, other people's and bots', carries its actions in the same small
+// toolbar floating over the top right of its block on hover or focus, 8px in from the block's right
+// edge and taking no space in the transcript: beside the author's name or clock when the block has
+// one, otherwise in the gap above with only its bottom 4px over the bubble, so it never covers the
+// text. Held open while a control's menu is. Touch and narrow screens keep it inline under the
+// message.
 const MESSAGE_TOOLBAR_CLASS = cn(
   "flex opacity-0 transition-opacity pointer-events-none",
   "group-hover/message:opacity-100 group-hover/message:pointer-events-auto",
@@ -63,20 +61,24 @@ const MESSAGE_TOOLBAR_CLASS = cn(
   "has-[[aria-expanded=true]]:opacity-100 has-[[aria-expanded=true]]:pointer-events-auto",
   "has-[[data-popup-open]]:opacity-100 has-[[data-popup-open]]:pointer-events-auto",
   "pointer-coarse:pointer-events-auto pointer-coarse:opacity-100 max-md:pointer-events-auto max-md:opacity-100 max-md:mt-0.5 pointer-coarse:mt-0.5",
-  "pointer-fine:md:absolute pointer-fine:md:end-0 pointer-fine:md:z-10 pointer-fine:md:rounded-lg pointer-fine:md:border pointer-fine:md:border-border/70 pointer-fine:md:bg-popover pointer-fine:md:p-0.5 pointer-fine:md:shadow-md",
+  "pointer-fine:md:absolute pointer-fine:md:end-2 pointer-fine:md:z-10 pointer-fine:md:rounded-lg pointer-fine:md:border pointer-fine:md:border-border/70 pointer-fine:md:bg-popover pointer-fine:md:p-0.5 pointer-fine:md:shadow-md",
 );
 
-/** Level with the author's name on a group's first message, over the gap above on later ones. */
-function toolbarClass(startsGroup: boolean) {
+/** Beside a name or clock header; without one, 26px up so the 30px toolbar overlaps only 4px. */
+function toolbarClass(hasHeader: boolean) {
   return cn(
     MESSAGE_TOOLBAR_CLASS,
-    startsGroup ? "pointer-fine:md:-top-1.5" : "pointer-fine:md:-top-4",
+    hasHeader ? "pointer-fine:md:-top-3" : "pointer-fine:md:-top-6.5",
   );
 }
 
-// Your own messages show their time, Copy and Reply beside the bubble on hover, like Capy.
-const OWN_ACTIONS_CLASS =
-  "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/message:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 max-md:opacity-100";
+// Otto: One gap inside a group. Bubbles, attachments and the header sit 6px apart, for people and
+// bots alike; only a new author or turn opens the wider 12px gap.
+const GROUP_GAP_CLASS = "mt-1.5";
+
+const GROUP_GAP_MB = "mb-1.5";
+
+const ROW_GAP_CLASS = (startsGroup: boolean) => (startsGroup ? "mt-3 first:mt-0" : GROUP_GAP_CLASS);
 
 // Offscreen rows skip layout and paint; the intrinsic size keeps the scrollbar steady.
 const ROW_VISIBILITY_CLASS = "content-visibility-row";
@@ -166,6 +168,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   currentPersonId,
   playback,
   channelApproval,
+  live = null,
   onReply,
   onReactionChange,
 }: AssistantMessageRowProps) {
@@ -179,7 +182,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   // while still reading as a chat bubble.
   const markdown = message.text ? (
     <div
-      className="mt-0.5 w-fit max-w-full rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6"
+      className="w-fit max-w-full rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6"
       data-testid="bot-message-body"
     >
       <ChatMarkdown cwd={cwd} text={message.text} threadRef={threadRef} />
@@ -197,7 +200,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
         )}
         data-testid={testId}
       >
-        <div className="text-sm font-medium">{label}</div>
+        <div className={cn("text-sm font-medium", GROUP_GAP_MB)}>{label}</div>
         {markdown}
         <div className={toolbarClass(true)}>
           <MessageControls
@@ -219,7 +222,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
       tabIndex={-1}
       className={cn(
         "group/message flex items-start gap-3",
-        startsGroup ? "mt-3 first:mt-0" : "mt-1",
+        ROW_GAP_CLASS(startsGroup),
         ROW_VISIBILITY_CLASS,
         arrived && "motion-message-enter",
       )}
@@ -236,25 +239,33 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
       )}
       <div className="min-w-0 flex-1">
         <div className="relative w-fit max-w-17/20">
-          {/* Otto: One clock per turn. The turn's first reply carries "Cody · Worked for 24s" in
-              place of the name; the rest of the turn stacks under it as bare bubbles. */}
-          {trace ? (
-            <BotTurnTrace trace={trace} environmentId={environmentId} name={author.name} />
+          {/* Otto: One clock per group. The group's first reply carries "Cody · Worked for 24s" in
+              place of the name, live and shimmering while the bot works on; the rest of the group
+              stacks under it as bare bubbles. */}
+          {trace || live ? (
+            <div className={GROUP_GAP_MB}>
+              <BotTurnTrace
+                trace={trace}
+                environmentId={environmentId}
+                name={author.name}
+                live={live}
+              />
+            </div>
           ) : startsGroup ? (
-            <div className="text-sm font-medium">{author.name}</div>
+            <div className={cn("text-sm font-medium", GROUP_GAP_MB)}>{author.name}</div>
           ) : null}
           <BotStepMeter meter={stepMeter} />
           {markdown}
           {/* Otto: What a bot posts with message_post keeps its files, as a person's message does. */}
           {message.attachments?.length ? (
-            <div className="mt-1.5">
+            <div className={markdown ? GROUP_GAP_CLASS : undefined}>
               <BotMessageAttachments
                 attachments={message.attachments}
                 environmentId={environmentId ?? NO_ENVIRONMENT}
               />
             </div>
           ) : null}
-          <div className={toolbarClass(startsGroup)}>
+          <div className={toolbarClass(Boolean(trace || live) || startsGroup)}>
             <MessageControls
               copyText={copyText}
               {...(readAloud ? { readAloud } : {})}
@@ -338,7 +349,7 @@ export const UserMessageRow = memo(function UserMessageRow({
         tabIndex={-1}
         className={cn(
           "group/message flex items-start gap-3",
-          startsGroup ? "mt-3 first:mt-0" : "mt-1",
+          ROW_GAP_CLASS(startsGroup),
           ROW_VISIBILITY_CLASS,
           arrived && "motion-message-enter",
         )}
@@ -354,11 +365,13 @@ export const UserMessageRow = memo(function UserMessageRow({
           <div aria-hidden="true" className="size-7 shrink-0" />
         )}
         <div className="relative flex min-w-56 max-w-39/50 flex-col items-start">
-          {startsGroup ? <div className="text-sm font-medium">{authorName}</div> : null}
+          {startsGroup ? (
+            <div className={cn("text-sm font-medium", GROUP_GAP_MB)}>{authorName}</div>
+          ) : null}
           {/* Otto: Someone else's message is an outlined bubble, so a glance tells it from your
               filled one on the right and from a bot's plain reply. */}
           {message.text ? (
-            <FoldedMessage className="mt-0.5 rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
+            <FoldedMessage className="rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
               <SentMessageText
                 text={message.text}
                 skills={skills}
@@ -368,7 +381,7 @@ export const UserMessageRow = memo(function UserMessageRow({
           ) : null}
           {/* Otto: Attachments sit under the bubble as cards, like Capy. */}
           {message.attachments?.length ? (
-            <div className="mt-1.5">
+            <div className={message.text ? GROUP_GAP_CLASS : undefined}>
               <BotMessageAttachments
                 attachments={message.attachments}
                 environmentId={environmentId ?? NO_ENVIRONMENT}
@@ -401,27 +414,14 @@ export const UserMessageRow = memo(function UserMessageRow({
       id={`chat-message-${message.id}`}
       tabIndex={-1}
       className={cn(
-        "group/message flex items-start justify-end gap-2",
-        startsGroup ? "mt-3 first:mt-0" : "mt-1",
+        "group/message flex items-start justify-end",
+        ROW_GAP_CLASS(startsGroup),
         ROW_VISIBILITY_CLASS,
         arrived && "motion-message-enter",
       )}
       data-testid={testId}
     >
-      <div className={cn(OWN_ACTIONS_CLASS, "mt-1.5")}>
-        <time
-          dateTime={message.createdAt}
-          className="text-xs whitespace-nowrap tabular-nums text-muted-foreground"
-        >
-          {formatShortTimestamp(message.createdAt, timestampFormat)}
-        </time>
-        <MessageControls
-          align="end"
-          copyText={copyText}
-          {...(onReply ? { onReply: () => onReply(message.id, replyLabel, copyText) } : {})}
-        />
-      </div>
-      <div className="flex max-w-39/50 flex-col items-end">
+      <div className="relative flex max-w-39/50 flex-col items-end">
         {answered ? (
           <UserInputAnswerCard answered={answered} />
         ) : message.text || (showChannelOrigin && message.channelOrigin) ? (
@@ -443,7 +443,7 @@ export const UserMessageRow = memo(function UserMessageRow({
           </div>
         ) : null}
         {message.attachments?.length ? (
-          <div className="mt-1.5">
+          <div className={message.text || answered ? GROUP_GAP_CLASS : undefined}>
             <BotMessageAttachments
               attachments={message.attachments}
               environmentId={environmentId ?? NO_ENVIRONMENT}
@@ -451,6 +451,24 @@ export const UserMessageRow = memo(function UserMessageRow({
             />
           </div>
         ) : null}
+        <div className={cn(toolbarClass(false), "items-center gap-1")}>
+          <time
+            dateTime={message.createdAt}
+            className="px-1 text-xs whitespace-nowrap tabular-nums text-muted-foreground"
+          >
+            {formatShortTimestamp(message.createdAt, timestampFormat)}
+          </time>
+          <MessageControls
+            align="end"
+            copyText={copyText}
+            selectedReaction={selectedReaction}
+            {...(onReply ? { onReply: () => onReply(message.id, replyLabel, copyText) } : {})}
+            {...reactions.controls}
+          />
+          {onReply && !onReactionChange ? (
+            <UnavailableReactionControl selectedReaction={selectedReaction} />
+          ) : null}
+        </div>
         <MessageReactions
           align="end"
           reactions={message.reactions ?? []}

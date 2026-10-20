@@ -7,12 +7,6 @@ import {
   type ImageProviderStatus,
 } from "@otto/contracts";
 
-import { createTranslator, type MessageKey, type TranslationParams } from "./i18n/index.ts";
-
-type ImageGenerationTranslate = (message: MessageKey, params?: TranslationParams) => string;
-
-const englishTranslate: ImageGenerationTranslate = createTranslator("en").t;
-
 export const IMAGE_PROVIDER_LABELS: Readonly<Record<ImageProviderId, string>> = {
   chatgpt: "ChatGPT",
   grok: "Grok",
@@ -78,51 +72,6 @@ export function imageProviderHealthDisplay(
   }
 
   return { label: "Not tested", variant: "warning" };
-}
-
-/** Clients pass their active translator; plain callers get English. */
-export function imageProviderAccessLabel(
-  status: ImageProviderStatus | undefined,
-  t: ImageGenerationTranslate = englishTranslate,
-): string {
-  if (!status) return t("Checking subscription");
-  const provider = IMAGE_PROVIDER_LABELS[status.provider];
-
-  return status.connected
-    ? t("{provider} subscription detected", { provider })
-    : t("No {provider} subscription connected", { provider });
-}
-
-export function imageProviderOperationsLabel(status: ImageProviderStatus): string {
-  if (!status.operations.includes("generate")) return "No supported operations reported";
-
-  return status.operations.includes("edit")
-    ? "Supports image generation and editing"
-    : "Supports image generation";
-}
-
-/** Only meaningful for a loaded row; a missing row is loading or unavailable, not empty. */
-export function imageProviderGenerationLabel(
-  status: ImageProviderStatus,
-  formatTime: (iso: string) => string,
-): string {
-  return status.lastGenerationAt
-    ? `Last image ${formatTime(status.lastGenerationAt)}`
-    : "No images generated yet";
-}
-
-export function imageProviderHealthTestLabel(
-  status: ImageProviderStatus,
-  formatTime: (iso: string) => string,
-): string {
-  const test = status.healthTest;
-
-  if (!test || test.status === "not-run") return "Health test not run";
-  const verb = test.status === "passed" ? "passed" : "failed";
-
-  return test.checkedAt
-    ? `Health test ${verb} ${formatTime(test.checkedAt)}`
-    : `Health test ${verb}`;
 }
 
 /** The enabled providers in fallback order. Providers missing from the saved order go last. */

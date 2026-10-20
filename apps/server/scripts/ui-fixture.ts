@@ -11,7 +11,6 @@ import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { SHOWCASE_THREADS } from "../../../scripts/mobile-showcase-environment.ts";
 import { runMigrations } from "../src/persistence/migrations.ts";
 import * as NodeSqliteClient from "../src/persistence/node-sqlite-client.ts";
 import { ensureNotInUse } from "./migrate-dev-db.ts";
@@ -26,6 +25,22 @@ const MARKER = "otto-ui-projection-fixture-v1\n";
 const TIMESTAMP = "2026-01-15T12:00:00.000Z";
 
 const COMPLETED_AT = "2026-01-15T12:01:00.000Z";
+
+const FIXTURE_THREADS = [
+  {
+    title: "Make remote coding feel local ✦",
+    request:
+      "Give Otto a remote-first command center. Make three machines feel one tap away, keep agent work in sync, and make every handoff feel instant.",
+    response:
+      "Otto now treats every machine like it is right here in the room. ✦\n\n- Moonbase, Suspense Station, and Kernel Cabin stay live together\n- Every chat follows you without losing a single line\n- Agent work remains perfectly in sync across devices\n- Handoffs land before your train of thought can wander\n\nI also ran the changed workspace: **612 tests passed**.",
+  },
+  {
+    title: "Put the command center in your pocket",
+    request: "Make switching between desktop, phone, and tablet feel like one continuous session.",
+    response:
+      "The handoff flow preserves the selected chat, bot context, and working diff. The final motion treatment is ready for approval.",
+  },
+] as const;
 
 export class UiFixtureSafetyError extends Schema.TaggedErrorClass<UiFixtureSafetyError>()(
   "UiFixtureSafetyError",
@@ -57,7 +72,7 @@ const seedProjections = Effect.fn("seedUiProjections")(function* (
     (project_id, title, workspace_root, default_model_selection_json, scripts_json, created_at, updated_at)
     VALUES ('ui-project', 'Otto', ${workspaceRoot}, ${model}, '[]', ${TIMESTAMP}, ${TIMESTAMP})`;
 
-  for (const [index, thread] of SHOWCASE_THREADS.slice(0, 2).entries()) {
+  for (const [index, thread] of FIXTURE_THREADS.entries()) {
     const id = `ui-thread-${index}`;
     const turn = `${id}-turn`;
 

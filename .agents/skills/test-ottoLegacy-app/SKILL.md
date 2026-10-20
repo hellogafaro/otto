@@ -5,7 +5,7 @@ description: Launch and verify Otto web and desktop in isolated development envi
 
 # Test Otto web and desktop
 
-Read [the verification policy](../../../docs/internals/verification.md) before launching a client. It defines authorization, coverage, evidence, and environment lifetime. For native mobile testing, use [`test-ottoLegacy-mobile`](../test-ottoLegacy-mobile/SKILL.md).
+Read [the verification policy](../../../docs/internals/verification.md) before launching a client. It defines authorization, coverage, evidence, and environment lifetime.
 
 ## Find or start the environment
 

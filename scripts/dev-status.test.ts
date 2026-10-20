@@ -193,7 +193,6 @@ describe("dev status discovery", () => {
       }
 
       expect(status.desktop).toContain("running unknown");
-      expect(status.mobile).toContain("installed/running unknown");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -289,17 +288,9 @@ describe("dev status HTTP checks and client configuration", () => {
     }),
   );
 
-  it("reports debug configuration and points to the mobile identity source", () => {
-    const status = describeStatusClients({
-      OTTO_LEGACY_DESKTOP_REMOTE_DEBUGGING_PORT: "9222",
-      APP_VARIANT: "development",
-      OTTO_LEGACY_IOS_PERSONAL_TEAM: "1",
-      OTTO_LEGACY_IOS_PERSONAL_TEAM_BUNDLE_ID: "dev.example.personal",
-    });
+  it("reports debug configuration", () => {
+    const status = describeStatusClients({ OTTO_LEGACY_DESKTOP_REMOTE_DEBUGGING_PORT: "9222" });
 
     expect(status.desktop).toBe("debug port 9222 configured; running unknown");
-    expect(status.mobile).toContain("app-identity.mjs");
-    expect(status.mobile).toContain("installed/running unknown");
-    expect(status.mobile).not.toContain("dev.example.personal");
   });
 });

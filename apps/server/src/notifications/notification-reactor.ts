@@ -203,6 +203,23 @@ export const makeNotificationReactor = (
 
       const thread = Option.getOrUndefined(yield* projection.getThreadShellById(message.threadId));
 
+      // Otto: Every message in a person DM reaches the other person.
+      if (thread?.personId != null) {
+        const other = [thread.createdBy, thread.personId].find(
+          (personId) => personId != null && personId !== message.authorPersonId,
+        );
+
+        yield* write(event, other ? [{ personId: other, type: "chat_mention" as const }] : [], {
+          actor: { type: "person", id: message.authorPersonId },
+          entityType: "chat",
+          entityId: message.threadId,
+          title: thread.title,
+          excerpt: excerpt(message.text),
+        });
+
+        return;
+      }
+
       if (thread?.groupId == null || !projection.getGroupById) return;
 
       const group = Option.getOrUndefined(yield* projection.getGroupById(thread.groupId));

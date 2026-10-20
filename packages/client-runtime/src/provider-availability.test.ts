@@ -8,10 +8,10 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  joinProviderUnavailability,
   latestTurnFailure,
   presentProviderUnavailability,
   providerAvailabilityReason,
-  providerUnavailabilitySummary,
   type ProviderAvailabilityReason,
 } from "./provider-availability.ts";
 import { createTranslator } from "./i18n/index.ts";
@@ -181,8 +181,11 @@ describe("presentProviderUnavailability", () => {
       description: "请在“设置 > 模型”中连接你的提供商账户。",
     });
     expect(
-      providerUnavailabilitySummary(
-        { reason: "unsupported-model", providerName: "Claude", modelName: "Claude Sonnet" },
+      joinProviderUnavailability(
+        presentProviderUnavailability(
+          { reason: "unsupported-model", providerName: "Claude", modelName: "Claude Sonnet" },
+          zh,
+        ),
         zh,
       ),
     ).toBe("Claude Sonnet 在 Claude 上不可用。请为此机器人选择其他模型。");

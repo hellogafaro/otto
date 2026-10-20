@@ -25,7 +25,7 @@ while [ "$#" -gt 0 ]; do
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
 done
-for command_name in curl tar openssl; do
+for command_name in curl tar; do
   command -v "$command_name" >/dev/null 2>&1 || { printf '%s is required.\n' "$command_name" >&2; exit 1; }
 done
 # Quotes one value for a systemd unit line; %% keeps systemd specifiers literal.
@@ -71,7 +71,15 @@ cat > "$tmp/otto-release-manifest.pub" <<'KEY'
 MCowBQYDK2VwAyEAA74gQCflQCtBbynI3b+W2z/unYne9w6mPsei/hpmEWg=
 -----END PUBLIC KEY-----
 KEY
-openssl pkeyutl -verify -pubin -inkey "$tmp/otto-release-manifest.pub" -rawin \
+# Ed25519 manifest signatures need OpenSSL 3; macOS ships LibreSSL as openssl.
+openssl_bin=""
+for candidate in openssl /opt/homebrew/opt/openssl@3/bin/openssl /usr/local/opt/openssl@3/bin/openssl; do
+  if command -v "$candidate" >/dev/null 2>&1 && "$candidate" version 2>/dev/null | grep -Eq '^OpenSSL [3-9]'; then
+    openssl_bin="$candidate"; break
+  fi
+done
+[ -n "$openssl_bin" ] || { printf 'OpenSSL 3 is required to verify the release. On macOS, run: brew install openssl@3\n' >&2; exit 1; }
+"$openssl_bin" pkeyutl -verify -pubin -inkey "$tmp/otto-release-manifest.pub" -rawin \
   -in "$tmp/OTTO-REMOTE-MANIFEST.txt" -sigfile "$tmp/OTTO-REMOTE-MANIFEST.sig" >/dev/null
 checksum_line="$(grep -E "^[a-fA-F0-9]{64}[[:space:]]+\\*?${archive}$" "$tmp/OTTO-REMOTE-MANIFEST.txt" || true)"
 [ -n "$checksum_line" ] || { printf 'Release checksum is missing for %s.\n' "$archive" >&2; exit 1; }

@@ -30,11 +30,3 @@ export const EMPTY_ENVIRONMENT_THREAD_STATE: EnvironmentThreadState = {
   error: Option.none(),
   page: Option.none(),
 };
-
-/** Whether the thread has older turns that can be loaded with more pages. */
-export function threadHasOlderTurns(state: EnvironmentThreadState): boolean {
-  return Option.match(state.page, {
-    onNone: () => false,
-    onSome: (page) => page.hasMore,
-  });
-}
