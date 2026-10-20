@@ -102,6 +102,37 @@ describe("OttoToolRuntime", () => {
     expect(shellOutput + readOutput).not.toContain("sk_live_1234567");
   });
 
+  it("prepares the computer once, when a turn first uses it, and gives its commands the setup's environment", async () => {
+    const runtime = createOttoToolRuntime();
+    let preparing: Promise<Readonly<Record<string, string>>> | undefined;
+
+    const prepareComputer = vi.fn(() => (preparing ??= Promise.resolve({ OTTO_SETUP: "ready" })));
+
+    runtime.registerSession("thread-1", {
+      runtimeMode: "full-access",
+      workspaceType: "local",
+      workspace: workspace("prepare-bot"),
+      prepareComputer,
+    });
+    expect(prepareComputer).not.toHaveBeenCalled();
+
+    const shell = (toolCallId: string) => ({
+      threadId: "thread-1",
+      toolId: "shell" as const,
+      toolCallId,
+      input: { command: 'echo "setup=$OTTO_SETUP"' },
+      approvalMode: "require-grant" as const,
+    });
+
+    for (const toolCallId of ["tool-shell-1", "tool-shell-2"]) {
+      runtime.grantApproval(shell(toolCallId));
+      expect(JSON.stringify(await runtime.execute(shell(toolCallId)))).toContain("setup=ready");
+    }
+
+    expect(await prepareComputer.mock.results[0]?.value).toEqual({ OTTO_SETUP: "ready" });
+    expect(new Set(prepareComputer.mock.results.map((result) => result.value)).size).toBe(1);
+  });
+
   it("rejects shell working directories outside the workspace", async () => {
     const runtime = createOttoToolRuntime();
     runtime.registerSession("thread-1", {

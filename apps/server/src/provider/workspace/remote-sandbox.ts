@@ -4,24 +4,23 @@ import {
   MastraSandbox,
   type ProviderStatus,
 } from "@mastra/core/workspace";
-import { type OttoRemoteSession, type RemoteBotSandbox } from "./bot-workspace-types.ts";
+import { type OttoRemoteComputer, type RemoteBotSandbox } from "./bot-workspace-types.ts";
 
 export class RemoteSandbox extends MastraSandbox {
   readonly name: string;
   readonly provider: string;
   readonly id: string;
-  private readonly session: OttoRemoteSession;
+  private readonly session: OttoRemoteComputer;
   status: ProviderStatus = "pending";
-  constructor(id: string, provider: RemoteBotSandbox, session: OttoRemoteSession) {
+  constructor(id: string, provider: RemoteBotSandbox, session: OttoRemoteComputer) {
     super({ name: `Otto ${provider}` });
     this.id = id;
     this.name = `Otto ${provider}`;
     this.provider = provider;
     this.session = session;
   }
+  // Starting connects only: the computer wakes on its first command, not when a chat opens.
   override async start() {
-    await this.session.wake();
-
     return { outcome: "connected" as const };
   }
   override stop() {

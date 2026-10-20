@@ -548,7 +548,7 @@ describe("AgentControllerLive", () => {
 });
 
 describe("AgentControllerLive", () => {
-  it.effect("wakes a Boat computer that stopped itself when the next turn starts", () => {
+  it.effect("keeps a still-running Boat computer for the next turn when it starts", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
@@ -604,7 +604,7 @@ describe("AgentControllerLive", () => {
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 
-  it.effect("keeps a Boat computer awake only while its turn works, and lets it stop after", () => {
+  it.effect("keeps a Boat computer awake while its turn works and one auto-stop after", () => {
     const bridge = makeBridge();
     const mastra = mastraHarnessFixture();
 
@@ -614,7 +614,6 @@ describe("AgentControllerLive", () => {
     });
 
     const keepAlive = vi.fn(async () => undefined);
-    const idle = vi.fn(async () => undefined);
 
     const layer = agentControllerLayerWith({
       makeMastraHarness: mastra.factory,
@@ -628,7 +627,6 @@ describe("AgentControllerLive", () => {
         sleep: async () => undefined,
         destroy: async () => undefined,
         keepAlive,
-        idle,
       }),
     }).pipe(
       Layer.provide(
@@ -661,16 +659,15 @@ describe("AgentControllerLive", () => {
       // A working turn is pushed back on every round.
       yield* TestClock.adjust("2 minutes");
       yield* Effect.promise(() => vi.waitFor(() => expect(keepAlive).toHaveBeenCalledTimes(2)));
-      expect(idle).not.toHaveBeenCalled();
 
-      // When the turn ends, the computer is set to stop soon.
+      // When the turn ends, the computer gets the full auto-stop for a quick reply.
       mastra.finishSend();
-      yield* Effect.promise(() => vi.waitFor(() => expect(idle).toHaveBeenCalledOnce()));
+      yield* Effect.promise(() => vi.waitFor(() => expect(keepAlive).toHaveBeenCalledTimes(3)));
 
-      // A turn waiting on a person lets its computer stop.
+      // A turn waiting on a person keeps its computer for one auto-stop, then lets it stop.
       yield* controller.sendTurn({ threadId: codexThreadId, input: "Ask me first." });
       yield* Effect.promise(() => mastra.waitForSendMessageCount(2));
-      expect(keepAlive).toHaveBeenCalledTimes(3);
+      expect(keepAlive).toHaveBeenCalledTimes(4);
       mastra.emit({
         type: "tool_suspended",
         toolCallId: "question-1",
@@ -681,7 +678,7 @@ describe("AgentControllerLive", () => {
       yield* Effect.yieldNow;
       yield* TestClock.adjust("4 minutes");
       yield* Effect.yieldNow;
-      expect(keepAlive).toHaveBeenCalledTimes(3);
+      expect(keepAlive).toHaveBeenCalledTimes(4);
     }).pipe(Effect.provide(layer.pipe(Layer.provideMerge(NodeServices.layer))), Effect.orDie);
   });
 });

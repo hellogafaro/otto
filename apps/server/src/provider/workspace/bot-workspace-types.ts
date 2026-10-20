@@ -20,29 +20,29 @@ export interface OttoBotWorkspace {
   readonly destroy: () => Promise<void>;
   /** A fresh secret link to the computer's live desktop, where the provider streams one. */
   readonly desktopUrl?: () => Promise<string>;
-  /** While a turn runs: wakes the computer if the provider stopped it and pushes its auto-stop back. */
+  /** Pushes a running computer's auto-stop back; a stopped one stays stopped until its next use. */
   readonly keepAlive?: () => Promise<void>;
-  /** After a turn: shortens the provider's auto-stop so an idle computer stops soon. */
-  readonly idle?: () => Promise<void>;
   /** Writes a file at an absolute path through a file API, never a command, so secrets stay out of command logs. */
   readonly writePrivateFile?: (path: string, content: string) => Promise<void>;
 }
 
-export interface OttoRemoteSession {
-  readonly providerId: string;
+/** A remote computer as its workspace uses it; a stopped one wakes on its first use. */
+export interface OttoRemoteComputer {
   readonly inspect: () => Promise<OttoWorkspaceState>;
   readonly run: (
     command: string,
     args: readonly string[],
     options?: { cwd?: string; env?: Record<string, string>; timeout?: number },
   ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
-  readonly wake: () => Promise<void>;
   readonly sleep: () => Promise<void>;
   readonly destroy: () => Promise<void>;
   readonly desktopUrl?: () => Promise<string>;
   readonly keepAlive?: () => Promise<void>;
-  readonly idle?: () => Promise<void>;
   readonly writePrivateFile?: (path: string, content: string) => Promise<void>;
+}
+
+export interface OttoRemoteSession extends OttoRemoteComputer {
+  readonly providerId: string;
 }
 
 export interface CreateRemoteBotWorkspaceInput {

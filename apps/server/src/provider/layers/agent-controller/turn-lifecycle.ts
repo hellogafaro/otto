@@ -75,11 +75,9 @@ export function createTurnLifecycle(deps: {
     createdAt: string;
   };
   readonly toolRuntime: OttoToolRuntime;
-  readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake" | "idleComputer">;
+  readonly sessionResources: Pick<OttoSessionResources, "keepComputerAwake">;
   readonly computerSetup: ReturnType<typeof createBotComputerSetup>;
   readonly turnUsageByThread: Map<string, { readonly botId: BotId; turnId: TurnId }>;
-  /** Threads whose turn is working now, not waiting on a person. */
-  readonly workingThreadIds: () => readonly string[];
   readonly publishSessionState: (
     threadId: ThreadId,
     active: ActiveSession,
@@ -276,26 +274,25 @@ export function createTurnLifecycle(deps: {
       // pending. Only mutate session state if this admission still owns the turn.
       if (active.admittingTurn?.turnId !== turnId) return;
 
-      active.toolSession = pending.toolSession;
-      deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-
-      // Otto: a computer its provider stopped while the chat sat idle comes back for this turn;
-      // if it cannot, its commands report why.
+      // Otto: a computer still running from an earlier turn is kept for this one. A stopped
+      // computer stays stopped until this turn first uses it.
       const keepComputerAwake = deps.sessionResources.keepComputerAwake(String(threadId));
 
       if (keepComputerAwake)
         await keepComputerAwake().catch((cause: unknown) =>
-          deps.runPromise(Effect.logWarning("bot computer wake failed", { threadId, cause })),
+          deps.runPromise(Effect.logWarning("bot computer keep-alive failed", { threadId, cause })),
         );
 
-      // Otto: the computer gets its tools and the project's repositories, and acts on GitHub as
-      // the person this turn is for until the turn ends. It is awaited only for a turn a person
-      // asked for, so other turns start without a pause.
-      const preparing = deps.computerSetup.start(String(threadId), pending.askerPersonId);
+      // Otto: before this turn first uses the computer, it gets its tools and the project's
+      // repositories, and acts on GitHub as the person this turn is for until the turn ends.
+      // A turn that never uses the computer never wakes it for this.
+      let preparing: Promise<Readonly<Record<string, string>> | undefined> | undefined;
 
-      const commandEnvironment =
-        preparing &&
-        (await preparing.catch((cause: unknown) =>
+      const prepareComputer = () =>
+        (preparing ??= (
+          deps.computerSetup.start(String(threadId), pending.askerPersonId) ??
+          Promise.resolve(undefined)
+        ).catch((cause: unknown) =>
           deps.runPromise(
             Effect.logWarning("bot computer setup failed", { threadId, cause }).pipe(
               Effect.as(undefined),
@@ -303,10 +300,8 @@ export function createTurnLifecycle(deps: {
           ),
         ));
 
-      if (commandEnvironment) {
-        active.toolSession = { ...pending.toolSession, commandEnvironment };
-        deps.toolRuntime.registerSession(String(threadId), active.toolSession);
-      }
+      active.toolSession = { ...pending.toolSession, prepareComputer };
+      deps.toolRuntime.registerSession(String(threadId), active.toolSession);
 
       const libraryTools = activeLibraryTools();
       const botId = pending.toolSession.botId;
@@ -474,15 +469,15 @@ export function createTurnLifecycle(deps: {
       );
     const nextTurn = active.pendingTurns.shift();
 
-    // Otto: with nothing queued, the computer stops soon after this turn instead of running
-    // out its full auto-stop; the next turn wakes it.
-    const idleComputer = nextTurn
+    // Otto: the computer stays up for the full auto-stop after this turn, so a reply soon after
+    // finds it awake instead of spending a start; the next turn pushes it back again.
+    const keepComputerAwake = nextTurn
       ? undefined
-      : deps.sessionResources.idleComputer(String(threadId), deps.workingThreadIds());
+      : deps.sessionResources.keepComputerAwake(String(threadId));
 
-    if (idleComputer)
-      void idleComputer().catch((cause: unknown) =>
-        deps.runPromise(Effect.logWarning("bot computer idle failed", { threadId, cause })),
+    if (keepComputerAwake)
+      void keepComputerAwake().catch((cause: unknown) =>
+        deps.runPromise(Effect.logWarning("bot computer keep-alive failed", { threadId, cause })),
       );
 
     if (nextTurn) {

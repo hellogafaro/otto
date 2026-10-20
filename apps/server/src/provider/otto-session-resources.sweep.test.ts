@@ -103,19 +103,22 @@ describe("OttoSessionResources computer sweep", () => {
   const recordFile = (workspaceId: string) =>
     NodePath.join(stateDir, "bot-workspaces", `${workspaceId}.json`);
 
-  it("lets a chat's computer stop soon even when another chat of the same bot still works", async () => {
+  /** A turn using the chat's computer, which creates or wakes it. */
+  const use = (target: OttoSessionResources, threadId: string) =>
+    target.getWorkspace(threadId)!.sandbox!.executeCommand!("true");
+
+  it("creates a chat's computer only when a turn first uses it", async () => {
     const { BoatApi } = await import("@boatdev/sdk");
     const target = resources();
-    await target.acquire(boatInput("ivy", "thread-ivy-1", "otto-ivy-1"));
-    await target.acquire(boatInput("ivy", "thread-ivy-2", "otto-ivy-2"));
-    vi.mocked(BoatApi.prototype.update).mockClear();
+    await target.acquire(boatInput("ivy"));
+    expect(BoatApi.prototype.create).not.toHaveBeenCalled();
+    expect(await target.keepComputerAwake("thread-ivy")?.()).toBeUndefined();
+    expect(BoatApi.prototype.update).not.toHaveBeenCalled();
 
-    expect(target.idleComputer("thread-ivy-1", ["thread-ivy-2"])).toBeDefined();
-    await target.idleComputer("thread-ivy-1", ["thread-ivy-2"])?.();
-    expect(BoatApi.prototype.update).toHaveBeenCalledWith({
-      sandboxId: "vm-1",
-      updateSandboxRequest: { ttlSeconds: 120 },
-    });
+    await use(target, "thread-ivy");
+    expect(BoatApi.prototype.create).toHaveBeenCalledOnce();
+    await use(target, "thread-ivy");
+    expect(BoatApi.prototype.create).toHaveBeenCalledOnce();
   });
 
   it("gives each chat of a bot its own Boat computer and resumes it on the next turn", async () => {
@@ -123,6 +126,8 @@ describe("OttoSessionResources computer sweep", () => {
     const target = resources();
     await target.acquire(boatInput("ivy", "thread-a", "otto-a"));
     await target.acquire(boatInput("ivy", "thread-b", "otto-b"));
+    await use(target, "thread-a");
+    await use(target, "thread-b");
     expect(BoatApi.prototype.create).toHaveBeenCalledTimes(2);
     await target.release("thread-a");
     vi.mocked(BoatApi.prototype.create).mockClear();
@@ -133,13 +138,14 @@ describe("OttoSessionResources computer sweep", () => {
   });
 
   it("creates Boat computers with an idempotency key and a TTL that running turns push back", async () => {
-    const { BoatApi } = await import("@boatdev/sdk");
+    const { BoatApi, ResponseError } = await import("@boatdev/sdk");
     const target = resources();
     await target.acquire(boatInput("ivy"));
+    await use(target, "thread-ivy");
 
     expect(BoatApi.prototype.create).toHaveBeenCalledWith({
       idempotencyKey: expect.any(String),
-      createSandboxRequest: { ttlSeconds: 300, noEnv: true, type: "default" },
+      createSandboxRequest: { ttlSeconds: 900, noEnv: true, type: "default" },
     });
     vi.mocked(BoatApi.prototype.update).mockClear();
     await target.keepComputersAwake([]);
@@ -148,14 +154,22 @@ describe("OttoSessionResources computer sweep", () => {
     await target.keepComputersAwake(["thread-ivy"]);
     expect(BoatApi.prototype.update).toHaveBeenCalledWith({
       sandboxId: "vm-1",
-      updateSandboxRequest: { ttlSeconds: 300 },
+      updateSandboxRequest: { ttlSeconds: 900 },
     });
 
+    // A computer Boat stopped stays stopped until the turn uses it.
     states.set("vm-1", "archived");
     await target.keepComputersAwake(["thread-ivy"]);
+    expect(BoatApi.prototype.resume).not.toHaveBeenCalled();
+
+    // Its next use finds it stopped and wakes it.
+    vi.mocked(BoatApi.prototype.command).mockRejectedValueOnce(
+      new ResponseError(new Response(null, { status: 409 })),
+    );
+    await use(target, "thread-ivy");
     expect(BoatApi.prototype.resume).toHaveBeenCalledWith({
       sandboxId: "vm-1",
-      resumeRequest: { ttlSeconds: 300, type: "default" },
+      resumeRequest: { ttlSeconds: 900, type: "default" },
     });
     await target.release("thread-ivy");
     expect(BoatApi.prototype.stop).toHaveBeenCalledWith({ sandboxId: "vm-1" });
@@ -165,6 +179,7 @@ describe("OttoSessionResources computer sweep", () => {
     const { BoatApi } = await import("@boatdev/sdk");
     const target = resources();
     await target.acquire(boatInput("nova"));
+    await use(target, "thread-nova");
 
     expect(await sweep(target, {})).toEqual([]);
     expect(BoatApi.prototype.deleteSandbox).not.toHaveBeenCalled();
@@ -185,6 +200,7 @@ describe("OttoSessionResources computer sweep", () => {
     const { BoatApi, ResponseError } = await import("@boatdev/sdk");
     const target = resources();
     await target.acquire(boatInput("nova"));
+    await use(target, "thread-nova");
     await target.release("thread-nova");
 
     vi.mocked(BoatApi.prototype.deleteSandbox).mockRejectedValueOnce(
@@ -205,6 +221,7 @@ describe("OttoSessionResources computer sweep", () => {
   it("keeps a chat's computer while its bot still uses that sandbox", async () => {
     const target = resources();
     await target.acquire(boatInput("ivy"));
+    await use(target, "thread-ivy");
     await target.release("thread-ivy");
 
     expect(await sweep(target, { ivy: "boat" })).toEqual([]);
@@ -214,6 +231,7 @@ describe("OttoSessionResources computer sweep", () => {
   it("deletes the computer a bot left when its sandbox changed", async () => {
     const target = resources();
     await target.acquire(boatInput("ivy"));
+    await use(target, "thread-ivy");
     await target.release("thread-ivy");
 
     expect(await sweep(target, { ivy: "local" })).toEqual([

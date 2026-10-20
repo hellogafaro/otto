@@ -196,7 +196,6 @@ describe("OttoSessionResources", () => {
         providerId: providerId ?? "provider-1",
         inspect: async () => "running",
         run: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-        wake: async () => undefined,
         sleep,
         destroy,
       }),
@@ -212,6 +211,7 @@ describe("OttoSessionResources", () => {
 
     const first = new OttoSessionResources(options);
     await first.acquire({ ...remoteInput, threadId: "before-restart" });
+    await first.getWorkspace("before-restart")!.sandbox!.executeCommand!("true");
     await first.shutdown();
 
     expect(sleep).toHaveBeenCalledOnce();

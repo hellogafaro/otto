@@ -32,8 +32,11 @@ export interface OttoToolSession {
   readonly workspaceType: OttoToolWorkspaceType;
   readonly timezone?: string;
   readonly workspace?: Workspace;
-  /** Path-only environment this turn's shell commands get, such as the asker's GitHub login folder. */
-  readonly commandEnvironment?: Readonly<Record<string, string>>;
+  /**
+   * Prepares the computer for this turn the first time a tool uses it, and resolves to the
+   * path-only environment its shell commands get, such as the asker's GitHub login folder.
+   */
+  readonly prepareComputer?: () => Promise<Readonly<Record<string, string>> | undefined>;
   readonly delegation?: {
     readonly depth: number;
     readonly activeDelegations: number;

@@ -46,12 +46,19 @@ those are follow-ups if the host gets oversubscribed.
 
 ### Boat
 
-Acquire looks up the saved `providerId` and resumes that VM. Create happens only when there is
-no identity, or Boat confirms 404. Create uses an idempotency key, a 300s TTL, and the bot's
-resolved size (its override, or the global default). Small maps to Boat `small` (2 vCPU, 4 GB),
-medium to `default` (4 vCPU, 8 GB), and large to `large` (8 vCPU, 16 GB). Local ignores size.
-While a turn runs, Otto pushes the TTL back every 2 minutes. After the turn, idle shortens it to
-120s unless another turn on _this_ computer is still running.
+Boat counts each create and resume as a start against a daily limit, so nothing starts a VM before
+it is used. Acquire looks up the saved `providerId` without resuming it. With no saved VM, the first
+command, file write or desktop open creates it; a failed create is tried again on the next use.
+Create happens only when there is no identity, or Boat confirms 404. Create uses an idempotency key,
+a 900s TTL, and the bot's resolved size (its override, or the global default). Small maps to Boat
+`small` (2 vCPU, 4 GB), medium to `default` (4 vCPU, 8 GB), and large to `large` (8 vCPU, 16 GB).
+Local ignores size.
+
+A call to a stopped VM gets `409 sandbox_not_ready` at once. The call then resumes the VM and is
+sent again; calls that find it stopped together share one resume. Keep-alive never resumes: while a
+turn works, Otto pushes the TTL back to 900s every 2 minutes, and once more when the turn ends. The
+turn's computer setup (toolbox, GitHub login, repositories) runs before the turn's first `shell`,
+`read` or `edit` tool, not when the turn starts. Errors carry Boat's own message.
 
 A later turn in the same chat resumes the existing VM. Resume passes the current size, so a size
 change applies after the computer has stopped. A running computer is not stopped to resize it. A
