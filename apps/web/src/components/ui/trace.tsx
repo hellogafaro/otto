@@ -20,16 +20,21 @@ function Trace({ className, ...props }: React.ComponentProps<"div">) {
 function TraceLine({
   className,
   status,
+  variant = "default",
   ...props
 }: React.ComponentProps<"span"> & {
   status?: "running" | "error" | "pending";
+  /** Otto: `header` is a message group's "Cody · Worked for 24s" line, at the author name's 14px/500. */
+  variant?: "default" | "header";
 }) {
   return (
     <span
       data-slot="trace-line"
       data-status={status}
+      data-variant={variant}
       className={cn(
         "flex w-fit max-w-full min-w-0 items-center gap-2 text-xs/relaxed text-muted-foreground transition-colors in-[a,button]:cursor-pointer in-[a:hover,button:hover]:text-foreground data-[status=error]:text-destructive data-[status=error]:in-[a:hover,button:hover]:text-destructive data-[status=pending]:opacity-60 data-[status=running]:*:data-[slot=trace-title]:shimmer",
+        variant === "header" && "text-sm font-medium",
         className,
       )}
       {...props}

@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import type { EnvironmentId } from "@otto/contracts";
+import { useEffect, useState } from "react";
 import { formatDuration } from "@otto/shared/orchestrationTiming";
 
 import {
@@ -19,10 +20,12 @@ import {
 } from "~/components/ui/trace";
 
 import { useI18n } from "../../i18n";
+import { formatLoadingElapsed } from "../chat/response-loading-state";
 import { environmentMcpServersAtom } from "../../state/mcp-servers";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import type { BotActivitySubject } from "./bot-activity-status.logic";
+import type { GroupLiveClock } from "./bot-group-clock.logic";
 import type { BotTraceStep, BotTurnTrace as BotTurnTraceData } from "./bot-turn-trace.logic";
 
 type ToolStep = Extract<BotTraceStep, { kind: "tool" }>;
@@ -128,44 +131,91 @@ export function BotTraceSteps({
   );
 }
 
+/** "Working for 1m 12s", counting on from `baseMs` and re-rendering only itself each second. */
+export function WorkingFor({
+  startedAt,
+  baseMs = 0,
+}: {
+  readonly startedAt: number;
+  readonly baseMs?: number;
+}) {
+  const { t } = useI18n();
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => window.clearInterval(id);
+  }, []);
+
+  return t("Working for {duration}", {
+    duration: formatLoadingElapsed(baseMs + Math.max(0, now - startedAt)),
+  });
+}
+
+/** The status after the name: muted, at the name's weight, shimmering while the bot works. */
+export function GroupClockStatus({
+  live,
+  workedMs,
+}: {
+  readonly live: GroupLiveClock | null;
+  readonly workedMs: number;
+}) {
+  const { t } = useI18n();
+
+  if (!live) return t("Worked for {duration}", { duration: formatDuration(workedMs) });
+
+  return (
+    <span className="shimmer motion-reduce:shimmer-none" data-testid="bot-group-clock-live">
+      <WorkingFor startedAt={live.startedAt} baseMs={live.baseMs} />
+    </span>
+  );
+}
+
 /**
- * Otto: A finished reply that used tools opens with one quiet "Worked for 24s" line, Capy-style.
- * It expands into what the bot did, in order: each tool call in the past tense with what it
- * worked on and how long it took, and the thinking between them. A command opens into a small
- * terminal block with the command and the start of its output.
+ * Otto: One clock per group. A bot's group of replies opens with one header, "Cody · Worked for
+ * 24s", the name and the status at one weight with only the status muted. It expands into what
+ * the bot did across the group's turns, in order: each tool call in the past tense with what it
+ * worked on and how long it took, and the thinking between them. While the bot works on in the
+ * same group, the status reads "Working for …", shimmers and counts on from the group's total.
  */
 export function BotTurnTrace({
   trace,
   environmentId,
   name,
+  live = null,
 }: {
   readonly trace: BotTurnTraceData | undefined;
   readonly environmentId: EnvironmentId | null;
   /** Speaker, shown once on the accordion: "Cody · Worked for 24s". */
   readonly name?: string;
+  /** Set while the bot is still working in this group. */
+  readonly live?: GroupLiveClock | null;
 }) {
-  const { t } = useI18n();
+  if (!trace && !live) return null;
 
-  if (!trace) return null;
+  const title = (
+    <TraceLine variant="header">
+      <TraceTitle>
+        {name ? (
+          <>
+            <span className="text-foreground">{name}</span>
+            <span> · </span>
+          </>
+        ) : null}
+        <GroupClockStatus live={live} workedMs={trace?.workedMs ?? 0} />
+      </TraceTitle>
+    </TraceLine>
+  );
 
-  const worked = t("Worked for {duration}", { duration: formatDuration(trace.workedMs) });
+  if (!trace || trace.steps.length === 0) {
+    return <Trace data-testid="bot-turn-trace">{title}</Trace>;
+  }
 
   return (
-    <Trace className="mt-1" data-testid="bot-turn-trace">
+    <Trace data-testid="bot-turn-trace">
       <TraceCollapsible>
-        <TraceCollapsibleTrigger>
-          <TraceLine>
-            <TraceTitle>
-              {name ? (
-                <>
-                  <span className="font-medium text-foreground">{name}</span>
-                  <span> · </span>
-                </>
-              ) : null}
-              {worked}
-            </TraceTitle>
-          </TraceLine>
-        </TraceCollapsibleTrigger>
+        <TraceCollapsibleTrigger>{title}</TraceCollapsibleTrigger>
         <TraceCollapsibleContent>
           <Trace>
             <BotTraceSteps steps={trace.steps} environmentId={environmentId} />

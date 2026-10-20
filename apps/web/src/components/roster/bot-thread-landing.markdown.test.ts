@@ -112,8 +112,12 @@ describe("BotThreadLanding message formatting", () => {
     const assistantControls = rowComponent(source, "AssistantMessageRow").split("<MessageControls");
     expect(assistantControls[2]).toContain("{...reactions.controls}");
     expect(rowComponent(source, "UserMessageRow")).toContain("{...reactions.controls}");
-    // Your own messages keep their time, Copy and Reply beside the bubble, with no reactions.
-    expect(rowComponent(source, "UserMessageRow")).toContain("OWN_ACTIONS_CLASS");
+    // Every message, your own too, shares the one floating toolbar, inset from the right edge.
+    expect(source).toContain("pointer-fine:md:end-2");
+    expect(rowComponent(source, "UserMessageRow").split("toolbarClass(startsGroup)")).toHaveLength(
+      3,
+    );
+    expect(source).not.toContain("OWN_ACTIONS_CLASS");
   });
 
   it("mounts the voice action in the live bot chat header", () => {
