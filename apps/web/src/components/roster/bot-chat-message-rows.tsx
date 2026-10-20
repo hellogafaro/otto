@@ -72,13 +72,13 @@ function toolbarClass(hasHeader: boolean) {
   );
 }
 
-// Otto: One gap inside a group. Bubbles, attachments and the header sit 6px apart, for people and
-// bots alike; only a new author or turn opens the wider 12px gap.
+// Otto: Inside a group, bubbles sit 4px apart and the header and attachments 6px from their bubble,
+// for people and bots alike; only a new author or turn opens the wider 12px gap.
 const GROUP_GAP_CLASS = "mt-1.5";
 
 const GROUP_GAP_MB = "mb-1.5";
 
-const ROW_GAP_CLASS = (startsGroup: boolean) => (startsGroup ? "mt-3 first:mt-0" : GROUP_GAP_CLASS);
+const ROW_GAP_CLASS = (startsGroup: boolean) => (startsGroup ? "mt-3 first:mt-0" : "mt-1");
 
 // Offscreen rows skip layout and paint; the intrinsic size keeps the scrollbar steady.
 const ROW_VISIBILITY_CLASS = "content-visibility-row";
