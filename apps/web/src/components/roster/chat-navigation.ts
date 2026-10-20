@@ -1,16 +1,20 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@otto/client-runtime/environment";
 import {
+  AuthSessionId,
   BotId,
+  DEFAULT_TEXT_GENERATION_MODEL,
   GroupId,
   PLACEHOLDER_THREAD_TITLE,
+  ProviderInstanceId,
   ThreadId,
+  type EnvironmentId,
   type ProjectId,
   type ScopedThreadRef,
   type Visibility,
 } from "@otto/contracts";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Predicate } from "effect";
+import { Match, Predicate } from "effect";
 import { useCallback, useMemo } from "react";
 
 import { usePrimarySettings } from "../../hooks/use-settings";
@@ -31,16 +35,33 @@ import {
   chatHomeProject,
   findLatestBotThreadTarget,
   findLatestGroupThreadTarget,
+  findLatestPersonThreadTarget,
 } from "./bot-thread-runtime.logic";
 import { useRosterStore } from "./roster-store";
+import { appAtomRegistry } from "../../rpc/atom-registry";
+import { environmentSnapshotAtom } from "../../state/shell";
 import { threadTitle } from "./thread-runtime-attachments";
 
 const SHELL_ARRIVAL_MS = 10_000;
 
-/** Who a chat is with: one bot (a DM) or a group. */
+/**
+ * Otto: No bot answers a person DM, so its model is never run; a fixed valid one keeps the chat
+ * startable when no provider is connected.
+ */
+const PERSON_DM_MODEL_SELECTION = {
+  instanceId: ProviderInstanceId.make("codex"),
+  model: DEFAULT_TEXT_GENERATION_MODEL,
+};
+
+/** The signed-in person in an environment, for finding their DMs with other people. */
+const readCurrentPersonId = (environmentId: EnvironmentId) =>
+  appAtomRegistry.get(environmentSnapshotAtom(environmentId))?.currentPersonId ?? null;
+
+/** Who a chat is with: one bot (a DM), a group, or one other person (a person DM). */
 export type ChatOwner =
   | { readonly kind: "bot"; readonly id: string }
-  | { readonly kind: "group"; readonly id: string };
+  | { readonly kind: "group"; readonly id: string }
+  | { readonly kind: "person"; readonly id: string };
 
 export interface CreateChatOptions {
   /** Where the chat is filed; the home project ("No project") when left out. */
@@ -97,12 +118,18 @@ export function useCreateChat() {
         input: {
           threadId,
           projectId: project.id,
-          ...(owner.kind === "bot"
-            ? { botId: BotId.make(owner.id) }
-            : { groupId: GroupId.make(owner.id) }),
+          ...Match.value(owner).pipe(
+            Match.when({ kind: "bot" }, ({ id }) => ({ botId: BotId.make(id) })),
+            Match.when({ kind: "group" }, ({ id }) => ({ groupId: GroupId.make(id) })),
+            Match.when({ kind: "person" }, ({ id }) => ({ personId: AuthSessionId.make(id) })),
+            Match.exhaustive,
+          ),
           title: options.title ?? PLACEHOLDER_THREAD_TITLE,
           ...(owner.kind === "bot" && options.visibility ? { visibility: options.visibility } : {}),
-          modelSelection: resolveAppModelSelectionState(settings, providers),
+          modelSelection:
+            owner.kind === "person"
+              ? PERSON_DM_MODEL_SELECTION
+              : resolveAppModelSelectionState(settings, providers),
           runtimeMode: DEFAULT_BOT_RUNTIME_MODE,
           interactionMode: DEFAULT_INTERACTION_MODE,
           branch: null,
@@ -181,10 +208,22 @@ export function useOpenChat() {
       if (environmentId === null) return false;
       const shells = readThreadShells();
 
-      const latest =
-        owner.kind === "bot"
-          ? findLatestBotThreadTarget(owner.id, environmentId, shells)
-          : findLatestGroupThreadTarget(owner.id, environmentId, shells);
+      const currentPersonId = readCurrentPersonId(environmentId);
+
+      const latest = Match.value(owner).pipe(
+        Match.when({ kind: "bot" }, ({ id }) =>
+          findLatestBotThreadTarget(id, environmentId, shells),
+        ),
+        Match.when({ kind: "group" }, ({ id }) =>
+          findLatestGroupThreadTarget(id, environmentId, shells),
+        ),
+        Match.when({ kind: "person" }, ({ id }) =>
+          currentPersonId
+            ? findLatestPersonThreadTarget(id, currentPersonId, environmentId, shells)
+            : null,
+        ),
+        Match.exhaustive,
+      );
 
       if (latest === null) return (await startChat(owner, options)) !== null;
 
@@ -200,11 +239,51 @@ export function useOpenChat() {
   );
 }
 
+/**
+ * Otto: Opens your DM with another person, starting it when there is none, and sends New chat's
+ * first message there.
+ */
+export function useOpenPersonChat() {
+  const navigate = useNavigate();
+  const environmentId = usePrimaryEnvironmentId();
+  const startChat = useStartChat();
+
+  return useCallback(
+    async (personId: string, options: StartChatOptions = {}): Promise<boolean> => {
+      if (environmentId === null) return false;
+      const currentPersonId = readCurrentPersonId(environmentId);
+
+      const latest = currentPersonId
+        ? findLatestPersonThreadTarget(personId, currentPersonId, environmentId, readThreadShells())
+        : null;
+
+      if (latest === null)
+        return (await startChat({ kind: "person", id: personId }, options)) !== null;
+
+      const threadId = ThreadId.make(latest.threadId);
+
+      if (options.prompt) {
+        useRosterStore.getState().requestPrompt({
+          threadId,
+          text: options.prompt,
+          ...(options.files?.length ? { files: options.files } : {}),
+        });
+      }
+
+      void navigate({ to: "/chats/$threadId", params: { threadId } });
+
+      return true;
+    },
+    [environmentId, navigate, startChat],
+  );
+}
+
 /** The chat the route shows, and who it is with; null away from /chats. */
 export function useRoutedChat(): {
   readonly threadRef: ScopedThreadRef;
   readonly botId: string | null;
   readonly groupId: string | null;
+  readonly personDm: boolean;
 } | null {
   const threadId = useParams({ strict: false, select: (params) => params.threadId ?? null });
   const environmentId = usePrimaryEnvironmentId();
@@ -220,8 +299,13 @@ export function useRoutedChat(): {
   return useMemo(
     () =>
       threadRef
-        ? { threadRef, botId: shell?.botId ?? null, groupId: shell?.groupId ?? null }
+        ? {
+            threadRef,
+            botId: shell?.botId ?? null,
+            groupId: shell?.groupId ?? null,
+            personDm: shell?.personId != null,
+          }
         : null,
-    [shell?.botId, shell?.groupId, threadRef],
+    [shell?.botId, shell?.groupId, shell?.personId, threadRef],
   );
 }

@@ -120,6 +120,7 @@ export const rosterCatalog = {
   "Sent to {channel}": "Sent to {channel}",
   "Unavailable bot": "Unavailable bot",
   "{botName} did not reply. {title}.": "{botName} did not reply. {title}.",
+  "Chat with {name}": "Chat with {name}",
   "{name} group chat": "{name} group chat",
   "{name} plugin": "{name} plugin",
   "This bot is no longer available.": "This bot is no longer available.",

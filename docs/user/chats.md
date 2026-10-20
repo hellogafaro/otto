@@ -10,6 +10,13 @@ To reply to a specific message, use **Reply** on that message. The sent reply ke
 above your text. Select the referenced person's name to jump back to the original message when it
 can be identified.
 
+## Message a person
+
+Pick one person, and no bot, in **New chat** to message them directly. If you already have a DM with
+them, it opens instead of starting a new one. Only the two of you see it, no bot answers in it, and
+the other person gets a notification for each message. Your DMs with people are listed under **DMs**
+after your bots.
+
 ## Chat actions
 
 On web and desktop, the roster keeps one row per bot or group, and each of a bot's chats is listed under it, including when there is only one. Open a chat row to open that chat. The bot row itself does not open a chat. Hover it for a plus that starts a new chat with that bot, and, when it has a chat, a chevron that folds the list. Right-click the bot to open its settings, move it, or archive it.

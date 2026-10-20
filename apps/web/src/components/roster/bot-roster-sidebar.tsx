@@ -58,6 +58,7 @@ import {
   BotRosterRow,
   ChatRosterRow,
   GroupRosterRow,
+  PersonChatRosterRow,
   RosterRail,
   RosterSectionLabel,
 } from "./roster-rows";
@@ -136,7 +137,7 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
         return (
           shell !== undefined &&
           shell.archivedAt === null &&
-          visibleBots.some((bot) => bot.id === shell.botId)
+          (shell.personId != null || visibleBots.some((bot) => bot.id === shell.botId))
         );
       }
 
@@ -150,9 +151,27 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
     [liveItem, pinnedItems],
   );
 
+  // Otto: Person DMs sit under DMs after the bots, latest first.
+  const personDmItems = useMemo(
+    () =>
+      threadShells
+        .filter(
+          (shell) =>
+            shell.personId != null &&
+            shell.environmentId === environmentId &&
+            shell.archivedAt === null &&
+            shell.parentThreadId == null,
+        )
+        .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        .map((shell) => ({ kind: "chat" as const, id: shell.id })),
+    [environmentId, threadShells],
+  );
+
   const visibleUnassignedItems = useMemo(() => {
     const remaining = (item: RosterItemRef) =>
       liveItem(item) && !pinnedKeys.has(rosterItemKey(item));
+
+    const personDms = personDmItems.filter(remaining);
 
     if (unassignedItems.length > 0) {
       const ordered = unassignedItems.filter(remaining);
@@ -174,17 +193,20 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
       return [
         ...ordered.filter((item) => item.kind === "group"),
         ...ordered.filter((item) => item.kind === "bot"),
+        ...personDms,
       ];
     }
 
-    return [
+    const kinds: RosterItemRef[] = [
       ...visibleGroups.map((group) => ({ kind: "group" as const, id: group.id })),
       ...visibleBots.map((bot) => ({ kind: "bot" as const, id: bot.id })),
-    ].filter(remaining);
-  }, [liveItem, pinnedKeys, unassignedItems, visibleBots, visibleGroups]);
+    ];
+
+    return [...kinds.filter(remaining), ...personDms];
+  }, [liveItem, personDmItems, pinnedKeys, unassignedItems, visibleBots, visibleGroups]);
 
   const firstUnassignedGroup = visibleUnassignedItems.find((item) => item.kind === "group");
-  const firstUnassignedBot = visibleUnassignedItems.find((item) => item.kind === "bot");
+  const firstUnassignedBot = visibleUnassignedItems.find((item) => item.kind !== "group");
 
   const rosterEntries = useMemo<RosterEntry[]>(
     () => [
@@ -433,6 +455,19 @@ export default function BotRosterSidebar({ chrome = "full" }: { chrome?: "full" 
                         Match.when({ kind: "chat" }, (ref) => {
                           const chatId = ref.id;
                           const shell = threadShells.find((candidate) => candidate.id === chatId);
+
+                          if (shell?.personId != null) {
+                            return (
+                              <PersonChatRosterRow
+                                key={rosterItemKey(item.item)}
+                                shell={shell}
+                                openThreadId={routedChat?.threadId ?? null}
+                                pinned={pinned}
+                                onPin={setRosterItemPinned}
+                              />
+                            );
+                          }
+
                           const bot = bots.find((candidate) => candidate.id === shell?.botId);
 
                           if (!bot) return null;

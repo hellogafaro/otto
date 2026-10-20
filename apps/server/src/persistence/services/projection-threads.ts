@@ -35,6 +35,7 @@ export const ProjectionThread = Schema.Struct({
   projectId: ProjectId,
   botId: Schema.optional(Schema.NullOr(BotId)),
   groupId: Schema.optional(Schema.NullOr(GroupId)),
+  personId: Schema.optional(Schema.NullOr(AuthSessionId)),
   respondingBotId: Schema.optional(Schema.NullOr(BotId)),
   parentThreadId: Schema.optional(Schema.NullOr(ThreadId)),
   parentDelegationId: Schema.optional(Schema.NullOr(DelegationId)),

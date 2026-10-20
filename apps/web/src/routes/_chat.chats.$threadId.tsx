@@ -5,6 +5,7 @@ import { BotThreadLanding } from "../components/roster/bot-thread-landing";
 import { ChatDetailsPanel } from "../components/roster/chat-details-panel";
 import { useRoutedChat } from "../components/roster/chat-navigation";
 import { GroupThreadLanding } from "../components/roster/group-thread-landing";
+import { PersonThreadLanding } from "../components/roster/person-thread-landing";
 import { useDesktopTabTitle } from "../desktop-tabs-store";
 import { useChatShell } from "../lib/archived-threads-state";
 import { useAllEnvironmentShellsBootstrapped } from "../state/entities";
@@ -26,7 +27,7 @@ function ChatRouteView() {
     !pending &&
     (shell === null ||
       shell.parentThreadId != null ||
-      (shell.botId == null && shell.groupId == null));
+      (shell.botId == null && shell.groupId == null && shell.personId == null));
 
   useEffect(() => {
     if (gone) void navigate({ to: "/chats", replace: true });
@@ -48,6 +49,8 @@ function ChatRouteView() {
           botId={chat.botId}
           threadRef={chat.threadRef}
         />
+      ) : chat.personDm ? (
+        <PersonThreadLanding key={chat.threadRef.threadId} threadRef={chat.threadRef} />
       ) : null}
       <ChatDetailsPanel threadRef={chat.threadRef} botId={chat.botId} groupId={chat.groupId} />
     </>

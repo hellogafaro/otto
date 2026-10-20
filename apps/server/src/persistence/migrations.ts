@@ -30,6 +30,7 @@ import Migration0014 from "./migrations/014-resource-memories.ts";
 import Migration0015 from "./migrations/015-message-search.ts";
 import Migration0016 from "./migrations/016-bot-visibility.ts";
 import Migration0017 from "./migrations/017-bot-sandbox-size.ts";
+import Migration0018 from "./migrations/018-person-dms.ts";
 
 const migrationEntries = [
   [1, "Baseline", Migration0001],
@@ -49,6 +50,7 @@ const migrationEntries = [
   [15, "MessageSearch", Migration0015],
   [16, "BotVisibility", Migration0016],
   [17, "BotSandboxSize", Migration0017],
+  [18, "PersonDms", Migration0018],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

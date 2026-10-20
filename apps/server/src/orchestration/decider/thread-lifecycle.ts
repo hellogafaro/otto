@@ -70,6 +70,21 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
         yield* requireBotNotArchived({ readModel, command, botId: command.botId });
       }
 
+      // Otto: A person DM is between its creator and one other person; no bot is in it.
+      if (
+        command.personId != null &&
+        (command.botId != null ||
+          command.groupId != null ||
+          command.parentThreadId != null ||
+          command.createdBy == null ||
+          command.createdBy === command.personId)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "A person DM is started by one person with another, without a bot or group.",
+        });
+      }
+
       if (command.groupId != null) {
         const group = yield* requireGroup({ readModel, command, groupId: command.groupId });
         yield* requireGroupThreadCreateAuthorized({ group, command, actor });
@@ -94,6 +109,7 @@ export const decideThreadLifecycle = Effect.fn("decideThreadLifecycle")(function
           projectId: command.projectId,
           botId: command.botId ?? null,
           groupId: command.groupId ?? null,
+          personId: command.personId ?? null,
           parentThreadId: command.parentThreadId ?? null,
           parentDelegationId: command.parentDelegationId ?? null,
           createdBy: command.createdBy ?? null,
