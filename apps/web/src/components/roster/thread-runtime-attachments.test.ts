@@ -87,6 +87,46 @@ describe("readThreadTurnAttachments", () => {
     ]);
   });
 
+  it("sends an image wider than models take downscaled as WebP", async () => {
+    stubFileReader({ result: "data:image/webp;base64,AAAA" });
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => ({ width: 4112, height: 2658, close: vi.fn() })),
+    );
+    vi.stubGlobal(
+      "OffscreenCanvas",
+      class {
+        getContext() {
+          return { fillStyle: "", fillRect: vi.fn(), drawImage: vi.fn() };
+        }
+        async convertToBlob({ type }: { type: string }) {
+          return new Blob([new Uint8Array(300_000)], { type });
+        }
+      },
+    );
+
+    // The PNG header declares 4112 × 2658 pixels.
+    const header = new Uint8Array(24);
+    const view = new DataView(header.buffer);
+    header.set([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52,
+    ]);
+    view.setUint32(16, 4112);
+    view.setUint32(20, 2658);
+
+    await expect(
+      readThreadTurnAttachments([new File([header], "shot.png", { type: "image/png" })], vi.fn()),
+    ).resolves.toEqual([
+      {
+        type: "image",
+        mimeType: "image/webp",
+        name: "shot.webp",
+        sizeBytes: 300_000,
+        dataUrl: "data:image/webp;base64,AAAA",
+      },
+    ]);
+  });
+
   it("uploads other files first and names them by their pending id", async () => {
     const upload = vi.fn(async () => "pending-1");
     const file = new File(["zip"], "bundle.zip", { type: "application/zip" });

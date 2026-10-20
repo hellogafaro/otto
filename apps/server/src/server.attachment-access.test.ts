@@ -67,9 +67,23 @@ it.layer(NodeServices.layer)("chat attachment access", (it) => {
             listAttachmentMessages: ({ attachmentId }) =>
               Effect.succeed(
                 attachmentId === adminAttachmentId
-                  ? [{ threadId: defaultThreadId, authorPersonId: adminId }]
+                  ? [
+                      {
+                        threadId: defaultThreadId,
+                        authorPersonId: adminId,
+                        name: "Screenshot.png",
+                        mimeType: "image/png",
+                      },
+                    ]
                   : attachmentId === memberAttachmentId
-                    ? [{ threadId: defaultThreadId, authorPersonId: memberId }]
+                    ? [
+                        {
+                          threadId: defaultThreadId,
+                          authorPersonId: memberId,
+                          name: "lennys homepage options.html",
+                          mimeType: "application/octet-stream",
+                        },
+                      ]
                     : [],
               ),
           },
@@ -80,12 +94,18 @@ it.layer(NodeServices.layer)("chat attachment access", (it) => {
       const path = yield* Path.Path;
       yield* fileSystem.makeDirectory(config.attachmentsDir, { recursive: true });
 
-      for (const attachmentId of [adminAttachmentId, memberAttachmentId, pendingAttachmentId]) {
+      for (const attachmentId of [adminAttachmentId, pendingAttachmentId]) {
         yield* fileSystem.writeFile(
           path.join(config.attachmentsDir, `${attachmentId}.png`),
           new Uint8Array([1, 2, 3]),
         );
       }
+
+      // An HTML file sent before .html was known is stored as <id>.bin.
+      yield* fileSystem.writeFile(
+        path.join(config.attachmentsDir, `${memberAttachmentId}.bin`),
+        new TextEncoder().encode("<!doctype html><title>x</title>"),
+      );
 
       const memberWsUrl = yield* getWsServerUrlForBearer(yield* getMemberBearerSessionToken());
 
@@ -108,12 +128,11 @@ it.layer(NodeServices.layer)("chat attachment access", (it) => {
           Effect.map((error) => Predicate.isTagged(error, "AssetAttachmentNotFoundError")),
         );
 
-      const download = (relativeUrl: string) =>
-        Effect.gen(function* () {
-          const response = yield* fetchEffect(yield* getHttpServerUrl(relativeUrl));
+      const fetchAsset = (relativeUrl: string) =>
+        getHttpServerUrl(relativeUrl).pipe(Effect.flatMap((url) => fetchEffect(url)));
 
-          return response.status;
-        });
+      const download = (relativeUrl: string) =>
+        fetchAsset(relativeUrl).pipe(Effect.map((response) => response.status));
 
       const issued = yield* createUrl(memberWsUrl, adminAttachmentId);
 
@@ -126,11 +145,28 @@ it.layer(NodeServices.layer)("chat attachment access", (it) => {
 
       const ownAttachment = yield* createUrl(memberWsUrl, memberAttachmentId);
 
-      assert.equal(yield* download(ownAttachment.relativeUrl), 200);
+      assert.isTrue(
+        ownAttachment.relativeUrl.endsWith("/lennys%20homepage%20options.html"),
+        "the URL ends in the attachment's own name, not its stored <id>.bin",
+      );
+
+      const ownResponse = yield* fetchAsset(ownAttachment.relativeUrl);
+
+      assert.equal(ownResponse.status, 200);
+      assert.equal(
+        ownResponse.headers["content-disposition"],
+        "attachment; filename*=UTF-8''lennys%20homepage%20options.html",
+      );
+      assert.notInclude(ownResponse.headers["content-type"] ?? "", "text/html");
 
       const adminIssued = yield* createUrl(adminWsUrl, adminAttachmentId);
+      const adminResponse = yield* fetchAsset(adminIssued.relativeUrl);
 
-      assert.equal(yield* download(adminIssued.relativeUrl), 200);
+      assert.equal(adminResponse.status, 200);
+      assert.equal(
+        adminResponse.headers["content-disposition"],
+        "inline; filename*=UTF-8''Screenshot.png",
+      );
       assert.isTrue(yield* refusesUrl(adminWsUrl, pendingAttachmentId));
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );

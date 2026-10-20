@@ -7,6 +7,7 @@ import type {
 import type { ReplyPlaybackSession } from "@otto/client-runtime/reply-playback";
 
 import type { BotStepMeterData } from "@otto/client-runtime/bot-step-usage";
+import type { GroupLiveClock } from "./bot-group-clock.logic";
 import type { BotTurnTrace } from "./bot-turn-trace.logic";
 import type { ChannelApprovalTarget } from "./channel-send-approval";
 import type { Bot } from "./types";
@@ -35,7 +36,10 @@ export interface AssistantMessageRowProps {
   /** Changes when the playback context changes, so the read-aloud action is recomputed. */
   readonly playbackKey: string | null | undefined;
   readonly channelApproval: ChannelApprovalTarget | null;
-  readonly onReply: MessageReplyHandler;
+  /** Set on a group's first reply while the bot works on in that group. */
+  readonly live?: GroupLiveClock | null;
+  /** Null for a read-only transcript (agent-to-agent work): Copy only, no Reply or reactions. */
+  readonly onReply: MessageReplyHandler | null;
   /** Null while the chat has no linked thread to react in. */
   readonly onReactionChange: MessageReactionHandler | null;
 }
@@ -94,6 +98,8 @@ export function assistantRowPropsEqual(
         return tracesEqual(previous.trace, next.trace);
       case "channelApproval":
         return shallowEqual(previous.channelApproval, next.channelApproval);
+      case "live":
+        return shallowEqual(previous.live, next.live);
       default:
         return Object.is(previous[key], next[key]);
     }

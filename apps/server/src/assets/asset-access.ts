@@ -265,6 +265,8 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
   readonly resource: AssetResource;
   readonly workspaceRoot?: string;
   readonly sessionId?: AuthSessionId;
+  /** A chat attachment's own name, so its URL ends in it rather than the stored `<id>.bin`. */
+  readonly attachmentName?: string;
 }) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -381,7 +383,7 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       attachmentId: input.resource.attachmentId,
       expiresAt,
     };
-    fileName = path.basename(attachmentPath);
+    fileName = input.attachmentName ?? path.basename(attachmentPath);
   }
 
   const secretStore = yield* ServerSecretStore.ServerSecretStore;

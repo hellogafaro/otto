@@ -151,6 +151,26 @@ describe("estimateTokens", () => {
     expect(estimateTokens([image])).toBeLessThan(OTTO_IMAGE_TOKENS + 100);
     expect(estimateTokens([image])).toBeGreaterThanOrEqual(OTTO_IMAGE_TOKENS);
   });
+
+  it("counts a multi-megabyte inline image without overflowing the stack", () => {
+    // A 6.5 MB PNG is about 8.7 MB of base64.
+    const data = "iVBORw0K".repeat(1_150_000);
+
+    const image = {
+      ...message("image", "user", "look", 0),
+      content: {
+        format: 2 as const,
+        parts: [
+          { type: "text" as const, text: "look" },
+          { type: "file" as const, mimeType: "image/png", data },
+          { type: "file" as const, mimeType: "image/png", data: `data:image/png;base64,${data}` },
+        ],
+      },
+    };
+
+    expect(estimateTokens([image])).toBeLessThan(2 * OTTO_IMAGE_TOKENS + 100);
+    expect(estimateTokens([image])).toBeGreaterThanOrEqual(2 * OTTO_IMAGE_TOKENS);
+  });
 });
 
 describe("firstKeptIndex", () => {

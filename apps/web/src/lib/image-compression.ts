@@ -1,23 +1,29 @@
 import * as Predicate from "effect/Predicate";
+import {
+  IMAGE_DIMENSIONS_HEADER_BYTES,
+  MODEL_IMAGE_MAX_SIDE,
+  readImageDimensions,
+} from "@otto/shared/imageDimensions";
+
 /**
  * Downscale + re-encode for image attachments that are too big for where
  * they're headed. Two consumers share the same pipeline:
  *
  * - The prompt stash persists images as base64 in localStorage (~5MB origin
  *   quota), so `compressImageForStash` targets a per-image character budget.
- * - The composer accepts pasted/dropped images larger than the provider's
- *   `PROVIDER_SEND_TURN_MAX_IMAGE_BYTES` wire cap and shrinks them to fit
- *   via `compressImageToByteLimit` instead of rejecting the paste.
+ * - Every image a message sends goes through `prepareImageForAttachment`, so
+ *   it reaches the model at most `MODEL_IMAGE_MAX_SIDE` a side and
+ *   `MODEL_IMAGE_MAX_BYTES`: the chat's history resends it on every turn.
  *
  * Supported images already within budget pass through untouched. HEIC/HEIF
  * photos are decoded to JPEG first because providers cannot consume them.
  */
 
-/**
- * Longest edge kept when an image has to be re-encoded. Sized so a typical
- * retina screenshot (3024px wide) stays legible rather than being halved.
- */
-const MAX_DIMENSION = 2048;
+/** Longest edge kept when an image has to be re-encoded: the most a model takes. */
+const MAX_DIMENSION = MODEL_IMAGE_MAX_SIDE;
+
+/** The byte budget for an image sent to a model. */
+export const MODEL_IMAGE_MAX_BYTES = 1024 * 1024;
 
 /** Base64 budget for a single stashed image (~975KB of binary). */
 export const MAX_STASH_IMAGE_DATA_URL_CHARS = 1_300_000;
@@ -223,6 +229,14 @@ function fileNameForMimeType(name: string, mimeType: string): string {
   const base = dotIndex > 0 ? name.slice(0, dotIndex) : name;
 
   return `${base}${extension}`;
+}
+
+/** Whether the header shows no side over `MAX_DIMENSION`; an unknown header is left to the size check. */
+async function fitsMaxDimension(file: File): Promise<boolean> {
+  const header = new Uint8Array(await file.slice(0, IMAGE_DIMENSIONS_HEADER_BYTES).arrayBuffer());
+  const size = readImageDimensions(header);
+
+  return !size || Math.max(size.width, size.height) <= MAX_DIMENSION;
 }
 
 function canRecompress(): boolean {
@@ -450,9 +464,9 @@ export async function compressImageForStash(
 }
 
 /**
- * Shrinks `file` until its binary size fits `maxBytes`, returning a new
- * `File` (WebP or JPEG). Files already within the limit pass through
- * untouched, preserving their exact bytes and format. Sources above
+ * Shrinks `file` until its binary size fits `maxBytes` and no side exceeds
+ * `MAX_DIMENSION`, returning a new `File` (WebP or JPEG). Files already within
+ * both pass through untouched, preserving their exact bytes and format. Sources above
  * `MAX_COMPRESSIBLE_SOURCE_BYTES` are refused outright — decoding them is
  * the risk, so no amount of output budget makes them safe. An internally
  * converted image can provide its original source size when the intermediate
@@ -463,7 +477,7 @@ export async function compressImageToByteLimit(
   maxBytes: number,
   options?: { preferredMimeType?: "image/jpeg"; sourceSizeBytes?: number },
 ): Promise<CompressImageFileResult> {
-  if (file.size <= maxBytes) {
+  if (file.size <= maxBytes && (await fitsMaxDimension(file))) {
     return { ok: true, file, recompressed: false };
   }
 

@@ -72,6 +72,7 @@ import { WatchComputerButton } from "./watch-computer-button";
 import { ArchivedChatBar } from "./archived-chat-bar";
 import { useChatShell } from "../../lib/archived-threads-state";
 import { useBotEngineAvailability } from "./use-bot-engine-availability";
+import { buildGroupClocks, liveGroupClock } from "./bot-group-clock.logic";
 import { buildBotTurnTraces, buildLiveTurnSteps } from "./bot-turn-trace.logic";
 import { useLocalDay } from "./use-local-day";
 import { useRosterApprovals } from "./use-roster-approvals";
@@ -297,35 +298,53 @@ export function GroupThreadLanding({
     [activities, messages],
   );
 
-  // Otto: A turn's clock rides on its first reply only, so a turn with four replies shows one line.
-  const firstReplyOfTurn = useMemo(() => {
-    const seen = new Set<string>();
-    const ids = new Set<string>();
-
-    for (const message of messages) {
-      if (message.role !== "assistant" || !message.turnId || seen.has(message.turnId)) continue;
-      seen.add(message.turnId);
-      ids.add(message.id);
-    }
-
-    return ids;
-  }, [messages]);
-
   const answeredUserInputs = useAnsweredUserInputs(activities, messages);
 
   const today = useLocalDay();
   const todayLabel = t("Today");
   const newLabel = t("New");
 
+  const readerPersonId = peopleIdentity.current?.id;
+  const hostPersonId = peopleIdentity.host?.id;
+
   const newMessageId = useMemo(
-    () => firstUnseenMessageId(messages, unreadSince, runtime.latestTurn),
-    [messages, runtime.latestTurn, unreadSince],
+    () =>
+      firstUnseenMessageId(
+        messages,
+        unreadSince,
+        runtime.latestTurn,
+        (message) =>
+          message.role === "user" &&
+          isCurrentGroupPerson(message.authorPersonId, readerPersonId, hostPersonId),
+      ),
+    [messages, runtime.latestTurn, unreadSince, readerPersonId, hostPersonId],
   );
 
   const entries = useMemo(
     () => buildBotConversationEntries(messages, today, todayLabel, locale),
     [messages, today, todayLabel, locale],
   );
+
+  // Otto: One clock per group: a run of one bot's replies shows a single "Worked for" header.
+  const runningTurnId = runtime.latestTurn?.state === "running" ? runtime.latestTurn.turnId : null;
+
+  const groupClocks = useMemo(
+    () => buildGroupClocks(entries, turnTraces, runningTurnId),
+    [entries, turnTraces, runningTurnId],
+  );
+
+  const liveClock = useMemo(
+    () => liveGroupClock({ entries, traces: turnTraces, turn: runtime.latestTurn }),
+    [entries, turnTraces, runtime.latestTurn],
+  );
+
+  // Otto: In a group the trailing group continues only while its own bot is the one answering.
+  const groupLive =
+    liveClock &&
+    entries.find((entry) => entry.message.id === liveClock.headId)?.message.respondingBotId ===
+      runtime.respondingBotId
+      ? liveClock
+      : null;
 
   const arrivedMessageIds = useMessageArrivals(
     { owner: groupId, thread: runtime.linkedThreadRef?.threadId ?? null },
@@ -548,11 +567,8 @@ export function GroupThreadLanding({
                         stepMeter={
                           message.turnId === null ? undefined : stepMeters.get(message.turnId)
                         }
-                        trace={
-                          message.turnId === null || !firstReplyOfTurn.has(message.id)
-                            ? undefined
-                            : turnTraces.get(message.turnId)
-                        }
+                        trace={groupClocks.get(message.id)}
+                        live={groupLive?.headId === message.id ? groupLive.clock : null}
                         environmentId={environmentId ?? null}
                         currentPersonId={currentPersonId}
                         playback={replyPlayback}
