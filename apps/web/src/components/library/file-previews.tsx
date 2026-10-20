@@ -13,6 +13,7 @@ import {
   PREVIEW_MAX_ROWS,
   type PreviewSheet,
   type PreviewZipEntry,
+  previewHtml,
   previewSheets,
   previewText,
   previewZipEntries,
@@ -20,19 +21,22 @@ import {
 import { formatLibrarySize } from "./library.logic";
 
 /**
- * Otto: The lightbox previews that read the file's bytes: Markdown as a document page, CSV and
- * Excel as tables, Word through docx-preview, text as source and a zip as its entries. They show
- * the spinner while loading and the caller's fallback when the file is too big or won't parse.
+ * Otto: The lightbox previews that read the file's bytes: Markdown as a document page, HTML
+ * rendered in a sandboxed frame, CSV and Excel as tables, Word through docx-preview, text as source
+ * and a zip as its entries. They show the spinner while loading and the caller's fallback when the
+ * file is too big or won't parse.
  */
 export function FetchedFilePreview({
   kind,
   url,
   fallback,
 }: {
-  readonly kind: "markdown" | "sheet" | "docx" | "text" | "zip";
+  readonly kind: "markdown" | "html" | "sheet" | "docx" | "text" | "zip";
   readonly url: string;
   readonly fallback: ReactNode;
 }) {
+  const { t } = useI18n();
+
   if (kind === "markdown") {
     return (
       <LoadedPreview url={url} load={previewText} fallback={fallback}>
@@ -43,6 +47,21 @@ export function FetchedFilePreview({
             </Card>
             {capped ? <LinesCappedNote /> : null}
           </div>
+        )}
+      </LoadedPreview>
+    );
+  }
+
+  if (kind === "html") {
+    return (
+      <LoadedPreview url={url} load={previewHtml} fallback={fallback}>
+        {(html) => (
+          <iframe
+            srcDoc={html}
+            title={t("HTML preview")}
+            sandbox="allow-scripts allow-popups"
+            className="size-full rounded-md border border-border bg-on-solid"
+          />
         )}
       </LoadedPreview>
     );

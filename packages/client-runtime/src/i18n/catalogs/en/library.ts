@@ -12,6 +12,7 @@ export const libraryCatalog = {
   File: "File",
   "File details": "File details",
   Files: "Files",
+  "HTML preview": "HTML preview",
   "Files can be at most 100 MB.": "Files can be at most 100 MB.",
   Folder: "Folder",
   "Folder name": "Folder name",
