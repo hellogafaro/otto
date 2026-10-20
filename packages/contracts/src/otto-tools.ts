@@ -69,6 +69,7 @@ export {
   OttoPluginSearchResult,
   OTTO_DELEGATION_CONTEXT_MAX_CHARS,
   OttoToolInputSchemas,
+  OTTO_TOOL_CLEARABLE_FIELDS,
   OttoMessageReactionResult,
   decodeOttoToolInput,
 } from "./otto-tools/inputs.ts";

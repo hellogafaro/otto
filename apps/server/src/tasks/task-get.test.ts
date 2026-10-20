@@ -22,8 +22,13 @@ const seed = (id: string, status: WorkStatus) =>
       resources: [],
       dueDate: null,
       repeat: null,
+      priority: null,
       status,
       timeEntries: [],
+      createdBy: null,
+      updatedBy: null,
+      completedAt: null,
+      completedBy: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
     });
@@ -38,7 +43,9 @@ const logTime = (id: string, taskId: string, createdAt: string) =>
       taskId: TaskId.make(taskId),
       duration: 15,
       description: "",
-      createdBy: AuthSessionId.make("ada"),
+      personId: AuthSessionId.make("ada"),
+      date: createdAt.slice(0, 10),
+      createdBy: { type: "person", id: AuthSessionId.make("ada") },
       createdAt,
     });
   });

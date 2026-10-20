@@ -14,4 +14,4 @@ description: Use when seeing beats reading, for designs, mockups, prototypes, pl
 - Options: two or three genuinely different ones in one page, with your pick and why.
 - Charts: plot real values. Never invent data; label sample data as sample.
 - Look at what you made before sending: open it, screenshot it at desktop and mobile widths, click every interaction and check every diagram rendered. Those screenshots are for you, not the deliverable.
-- Drafts stay on your computer. Attach each version with message_post or task_comment files (name-v1.html, name-v2.html). Save to the Library only the version a person approves, and say it is final.
+- Drafts stay on your computer. Attach each version with message_post files (name-v1.html, name-v2.html). Save to the Library only the version a person approves, and say it is final.

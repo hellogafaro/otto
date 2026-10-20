@@ -15,13 +15,17 @@ export function createActivityEnvironmentAtoms<R, E>(
       staleTimeMs: 5_000,
       revalidateOnFocus: true,
     }),
-    addComment: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:activity:comment:add",
-      tag: WS_METHODS.activityCommentAdd,
+    createComment: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:activity:comment:create",
+      tag: WS_METHODS.activityCommentCreate,
     }),
-    removeComment: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:activity:comment:remove",
-      tag: WS_METHODS.activityCommentRemove,
+    updateComment: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:activity:comment:update",
+      tag: WS_METHODS.activityCommentUpdate,
+    }),
+    deleteComment: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:activity:comment:delete",
+      tag: WS_METHODS.activityCommentDelete,
     }),
   };
 }

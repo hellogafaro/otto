@@ -3,6 +3,7 @@ import {
   DelegationCreatedPayload,
   DelegationUpdatedPayload,
   OrchestrationTaskCreatedPayload,
+  OrchestrationTaskDeletedPayload,
   RoutineApprovedPayload,
   RoutineBlockedPayload,
   RoutineCompletedPayload,
@@ -137,11 +138,25 @@ export function projectEnvironment(
           ),
         })),
       );
+    case "task.deleted":
+      return decodeForEvent(
+        OrchestrationTaskDeletedPayload,
+        event.payload,
+        event.type,
+        "payload",
+      ).pipe(
+        Effect.map((payload) => ({
+          ...nextBase,
+          tasks: (nextBase.tasks ?? []).filter((entry) => entry.id !== payload.taskId),
+        })),
+      );
     case "task.created":
     case "task.updated":
-    case "task.time-added":
-    case "task.time-removed":
-    case "task.commented":
+    case "task.time-created":
+    case "task.time-deleted":
+    case "task.comment-created":
+    case "task.comment-updated":
+    case "task.comment-deleted":
       return decodeForEvent(
         OrchestrationTaskCreatedPayload,
         event.payload,

@@ -37,6 +37,7 @@ const seed = (
     readonly owner?: typeof ada | typeof nova;
     readonly assignees?: ReadonlyArray<typeof ada | typeof nova>;
     readonly title?: string;
+    readonly priority?: "low" | "medium" | "high";
   },
 ) =>
   Effect.gen(function* () {
@@ -52,8 +53,13 @@ const seed = (
       resources: [],
       dueDate: fields.dueDate ?? null,
       repeat: null,
+      priority: fields.priority ?? null,
       status: fields.status,
       timeEntries: [],
+      createdBy: null,
+      updatedBy: null,
+      completedAt: null,
+      completedBy: null,
       createdAt: fields.updatedAt,
       updatedAt: fields.updatedAt,
     });
@@ -141,6 +147,53 @@ layer("listTasks", (it) => {
       } while (cursor);
 
       assert.deepStrictEqual(pages, [["c"], ["b"], ["a"], ["d"]]);
+    }),
+  );
+
+  it.effect("filters by priority and sorts high first, tasks without one last", () =>
+    Effect.gen(function* () {
+      const prio = ProjectId.make("prio");
+
+      yield* seed("p-low", {
+        status: "pending",
+        project: "prio",
+        updatedAt: "2026-10-01T00:00:00.000Z",
+        priority: "low",
+      });
+      yield* seed("p-none", {
+        status: "pending",
+        project: "prio",
+        updatedAt: "2026-10-02T00:00:00.000Z",
+      });
+      yield* seed("p-high", {
+        status: "pending",
+        project: "prio",
+        updatedAt: "2026-10-03T00:00:00.000Z",
+        priority: "high",
+      });
+      yield* seed("p-medium", {
+        status: "pending",
+        project: "prio",
+        updatedAt: "2026-10-04T00:00:00.000Z",
+        priority: "medium",
+      });
+
+      assert.deepStrictEqual(ids(yield* list({ project: prio, sort: "priority" })), [
+        "p-high",
+        "p-medium",
+        "p-low",
+        "p-none",
+      ]);
+      assert.deepStrictEqual(ids(yield* list({ project: prio, sort: "priority", order: "desc" })), [
+        "p-low",
+        "p-medium",
+        "p-high",
+        "p-none",
+      ]);
+      assert.deepStrictEqual(
+        ids(yield* list({ project: prio, priority: ["high", "low"], sort: "priority" })),
+        ["p-high", "p-low"],
+      );
     }),
   );
 

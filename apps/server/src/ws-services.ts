@@ -54,6 +54,7 @@ import * as ProjectionGroups from "./persistence/services/projection-groups.ts";
 import { ProjectionLibraryRepository } from "./persistence/services/projection-library.ts";
 import { ProjectionProjectRepository } from "./persistence/services/projection-projects.ts";
 import { ProjectionTaskRepository } from "./persistence/services/projection-tasks.ts";
+import { withOrganizationTimeZone } from "./tasks/task-time-zone.ts";
 import { ProjectionThreadMessageRepository } from "./persistence/services/projection-thread-messages.ts";
 import { Memories } from "./memory/memories.ts";
 import {
@@ -196,13 +197,19 @@ export const createWsServices = (
       canManageGroups: currentSession.scopes.includes(AuthAccessWriteScope),
     };
 
+    const organizationAccounts = yield* OrganizationAccounts;
+
+    // Otto: task days follow the organization's time zone, never the sending device's.
     const dispatchFromClient: OrchestrationEngine.OrchestrationEngineShape["dispatch"] = (
       command,
     ) =>
-      orchestrationEngine.dispatch(command, {
-        actor: dispatchActor,
-        ...(hasClientOrigin ? { origin: clientOrigin } : {}),
-      });
+      orchestrationEngine.dispatch(
+        withOrganizationTimeZone(command, organizationAccounts.runtime.timeZone()),
+        {
+          actor: dispatchActor,
+          ...(hasClientOrigin ? { origin: clientOrigin } : {}),
+        },
+      );
 
     const checkpointDiffQuery = yield* CheckpointDiffQuery.CheckpointDiffQuery;
 

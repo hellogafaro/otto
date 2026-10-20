@@ -157,7 +157,7 @@ it.effect("names the fix for a call it cannot answer", () =>
     });
 
     assert.deepEqual(yield* searchFrom("group-chat", { type: "message", due: "today" }), {
-      error: "status, assignee, projectId and due only apply to type task.",
+      error: "status, priority, assignee, projectId and due only apply to type task.",
     });
   }),
 );

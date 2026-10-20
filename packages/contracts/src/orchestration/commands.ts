@@ -1,10 +1,15 @@
 import {
   TaskCreateCommand,
-  TaskTimeAddCommand,
-  TaskTimeRemoveCommand,
+  TaskDeleteCommand,
+  TaskTimeCreateCommand,
+  TaskTimeDeleteCommand,
   TaskUpdateCommand,
 } from "./work.ts";
-import { TaskCommentAddCommand } from "./activity.ts";
+import {
+  TaskCommentCreateCommand,
+  TaskCommentDeleteCommand,
+  TaskCommentUpdateCommand,
+} from "./activity.ts";
 import {
   LibraryFileCreateCommand,
   LibraryFileDeleteCommand,
@@ -106,8 +111,9 @@ const DispatchableClientOrchestrationCommand = Schema.Union([
   ProjectDeleteCommand,
   TaskCreateCommand,
   TaskUpdateCommand,
-  TaskTimeAddCommand,
-  TaskTimeRemoveCommand,
+  TaskDeleteCommand,
+  TaskTimeCreateCommand,
+  TaskTimeDeleteCommand,
   LibraryFolderCreateCommand,
   LibraryFolderUpdateCommand,
   LibraryFolderDeleteCommand,
@@ -169,8 +175,9 @@ export const ClientOrchestrationCommand = Schema.Union([
   ProjectDeleteCommand,
   TaskCreateCommand,
   TaskUpdateCommand,
-  TaskTimeAddCommand,
-  TaskTimeRemoveCommand,
+  TaskDeleteCommand,
+  TaskTimeCreateCommand,
+  TaskTimeDeleteCommand,
   LibraryFolderCreateCommand,
   LibraryFolderUpdateCommand,
   LibraryFolderDeleteCommand,
@@ -363,7 +370,9 @@ export const DelegationStateSetCommand = Schema.Struct({
 
 const InternalOrchestrationCommand = Schema.Union([
   InternalRoutineCommand,
-  TaskCommentAddCommand,
+  TaskCommentCreateCommand,
+  TaskCommentUpdateCommand,
+  TaskCommentDeleteCommand,
   LibraryFileCreateCommand,
   ThreadSessionSetCommand,
   ThreadMessageAssistantDeltaCommand,

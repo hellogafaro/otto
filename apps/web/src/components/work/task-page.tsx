@@ -12,6 +12,7 @@ import {
   RiBox3Line,
   RiCalendarLine,
   RiCloseLine,
+  RiFlagLine,
   RiListCheck3,
   RiProgress4Line,
   RiRepeatLine,
@@ -21,10 +22,12 @@ import {
   RiUserStarLine,
 } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useMemo, useState } from "react";
 
+import { requestConfirmDialog } from "../../confirm-dialog";
 import { useI18n } from "../../i18n";
-import { cn, randomUUID } from "../../lib/utils";
+import { randomUUID } from "../../lib/utils";
 import type { PageAction } from "../../page-actions-registry";
 import { taskEnvironment, useMyTasksSearch, useTask } from "../../state/tasks";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -38,11 +41,16 @@ import {
   DialogPopup,
   DialogTitle,
 } from "../ui/dialog";
+import { Calendar } from "../ui/calendar";
 import { Input } from "../ui/input";
+import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import { SelectButton } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ActivitySection } from "./activity-section";
 import { formatDuration, parseDuration, projectStatus } from "./work.logic";
+import { localDateKey } from "../../timestamp-format";
 import { TaskDueDate } from "./task-due-date";
+import { TaskPrioritySelect } from "./task-priority";
 import { TaskRepeatSelect } from "./task-repeat";
 import { WorkDetailPage, WorkResourcesSection, useWorkPickers } from "./work-detail";
 import { ProjectSelect } from "./work-dialogs";
@@ -87,7 +95,7 @@ export function TaskPage({ taskId }: { readonly taskId: TaskId }) {
   return <TaskDetail environmentId={environmentId} task={task} back={back} />;
 }
 
-type TaskPicker = "status" | "owner" | "assignees" | "dueDate" | "repeat" | "project";
+type TaskPicker = "status" | "priority" | "owner" | "assignees" | "dueDate" | "repeat" | "project";
 
 /**
  * The found task's page. Its property keys open the pickers in the details sidebar, I assigns
@@ -103,7 +111,10 @@ function TaskDetail({
   readonly back: { readonly label: string; readonly onBack: () => void };
 }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const myTasks = useMyTasksSearch();
   const updateTask = useAtomCommand(taskEnvironment.update);
+  const deleteTask = useAtomCommand(taskEnvironment.delete);
   const { projects, participants, currentPersonId } = useWorkData();
   const { open: openPicker, props: picker } = useWorkPickers<TaskPicker>("task", "task-properties");
 
@@ -116,6 +127,23 @@ function TaskDetail({
   );
 
   const me = participants.people.find((person) => person.personId === currentPersonId);
+
+  // Otto: deleting is permanent, so it asks first and points to archive or cancel instead.
+  const remove = useCallback(async () => {
+    const confirmed = await requestConfirmDialog(
+      t(
+        "Delete {name}? Its comments, time and history go with it, and this can't be undone. To keep the record, cancel or archive it instead.",
+        { name: task.title },
+      ),
+      { variant: "destructive", confirmLabel: t("Delete") },
+    );
+
+    if (confirmed !== true) return;
+
+    const result = await deleteTask({ environmentId, input: { taskId: task.id } });
+
+    if (AsyncResult.isSuccess(result)) void navigate({ to: "/tasks", search: myTasks });
+  }, [deleteTask, environmentId, myTasks, navigate, t, task.id, task.title]);
 
   const properties = useMemo((): PageAction[] => {
     const opens = (
@@ -138,6 +166,13 @@ function TaskDetail({
 
     return [
       opens("status", t("Status"), RiProgress4Line, "property.status"),
+      {
+        id: "priority",
+        title: t("Priority"),
+        icon: RiFlagLine,
+        searchTerms: ["priority", "urgent", "high", "low"],
+        run: () => openPicker("priority"),
+      },
       opens("assignees", t("Assignees"), RiUserLine, "property.assignees"),
       ...(me && !assigned
         ? [
@@ -177,6 +212,7 @@ function TaskDetail({
           id={task.id}
           status={task.status}
           onStatusChange={(status) => update({ status })}
+          onDelete={() => void remove()}
           properties={properties}
         />
       }
@@ -221,12 +257,20 @@ function TaskDetail({
                 picker={picker("status")}
               />
             </DetailsRow>
+            <DetailsRow label={t("Priority")}>
+              <TaskPrioritySelect
+                value={task.priority}
+                onChange={(priority) => update({ priority })}
+                picker={picker("priority")}
+              />
+            </DetailsRow>
             <DetailsRow label={t("Owner")}>
               <OwnerSelect
                 variant="ghost"
                 value={task.owner}
                 onChange={(owner) => update({ owner })}
                 participants={participants}
+                peopleOnly
                 picker={picker("owner")}
               />
             </DetailsRow>
@@ -269,7 +313,6 @@ function TaskDetail({
           </DetailsGroup>
           <TaskTimeGroup
             task={task}
-            currentPersonId={currentPersonId}
             personName={(personId) =>
               participants.people.find((person) => person.personId === personId)?.displayName ??
               t("Someone")
@@ -285,25 +328,30 @@ function TaskDetail({
 
 const entryDateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
+/** A `YYYY-MM-DD` calendar day as a local date. */
+const calendarDay = (day: string) => {
+  const [year = 1970, month = 1, date = 1] = day.split("-").map(Number);
+
+  return new Date(year, month - 1, date);
+};
+
 /**
  * A task's timesheet: the total, then every entry newest first as a quiet
- * row (avatar, name · short date, an optional muted description, and the
- * duration on the right). The header's plus opens Log time; only whoever
- * logged an entry removes it, from the duration's place on hover.
+ * row (avatar, whose time · the day worked, an optional muted description, and the
+ * duration on the right). The header's plus opens Log time; anyone on the task deletes
+ * an entry, from the duration's place on hover, and its history keeps what it said.
  */
 function TaskTimeGroup({
   task,
-  currentPersonId,
   personName,
   onLogTime,
 }: {
   readonly task: OrchestrationTask;
-  readonly currentPersonId: string | null;
   readonly personName: (personId: string) => string;
   readonly onLogTime: () => void;
 }) {
   const { t } = useI18n();
-  const removeTime = useAtomCommand(taskEnvironment.removeTime);
+  const deleteTime = useAtomCommand(taskEnvironment.deleteTime);
   const { environmentId } = useWorkData();
   const total = task.timeEntries.reduce((sum, entry) => sum + entry.duration, 0);
 
@@ -332,45 +380,46 @@ function TaskTimeGroup({
         </Tooltip>
       }
     >
-      {task.timeEntries.toReversed().map((entry) => {
-        const name = personName(entry.createdBy);
-        const own = entry.createdBy === currentPersonId;
+      {task.timeEntries
+        .toSorted(
+          (left, right) =>
+            left.date.localeCompare(right.date) || left.createdAt.localeCompare(right.createdAt),
+        )
+        .toReversed()
+        .map((entry) => {
+          const name = personName(entry.personId);
 
-        return (
-          <div key={entry.id} className="group/time flex min-h-9 items-center gap-2 py-1">
-            <ParticipantAvatar
-              participant={{ kind: "person", personId: entry.createdBy, displayName: name }}
-              bots={[]}
-            />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-13px">
-                <span className="text-foreground">{name}</span>
-                <span className="text-muted-foreground">
-                  {" · "}
-                  {entryDateFormatter.format(new Date(entry.createdAt))}
+          return (
+            <div key={entry.id} className="group/time flex min-h-9 items-center gap-2 py-1">
+              <ParticipantAvatar
+                participant={{ kind: "person", personId: entry.personId, displayName: name }}
+                bots={[]}
+              />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-13px">
+                  <span className="text-foreground">{name}</span>
+                  <span className="text-muted-foreground">
+                    {" · "}
+                    {entryDateFormatter.format(calendarDay(entry.date))}
+                  </span>
                 </span>
-              </span>
-              {entry.description ? (
-                <span className="truncate text-xs text-muted-foreground">{entry.description}</span>
-              ) : null}
-            </div>
-            <div className="relative flex h-7 shrink-0 items-center">
-              <span
-                className={cn(
-                  "px-2.5 text-13px tabular-nums",
-                  own && "group-focus-within/time:invisible group-hover/time:invisible",
-                )}
-              >
-                {formatDuration(entry.duration)}
-              </span>
-              {own ? (
+                {entry.description ? (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {entry.description}
+                  </span>
+                ) : null}
+              </div>
+              <div className="relative flex h-7 shrink-0 items-center">
+                <span className="px-2.5 text-13px tabular-nums group-focus-within/time:invisible group-hover/time:invisible">
+                  {formatDuration(entry.duration)}
+                </span>
                 <span className="absolute top-1/2 right-0.5 -translate-y-1/2 opacity-0 group-focus-within/time:opacity-100 group-hover/time:opacity-100">
                   <Button
                     size="icon-row"
                     variant="ghost-muted"
-                    aria-label={t("Remove")}
+                    aria-label={t("Delete")}
                     onClick={() =>
-                      void removeTime({
+                      void deleteTime({
                         environmentId,
                         input: { taskId: task.id, entryId: entry.id },
                       })
@@ -379,16 +428,18 @@ function TaskTimeGroup({
                     <RiCloseLine className="size-3.5" />
                   </Button>
                 </span>
-              ) : null}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </DetailsGroup>
   );
 }
 
-/** Log time: a duration in plain words ("15m", "1h 30m", "5 minutes") and an optional description. */
+/**
+ * Log time: a duration in plain words ("15m", "1h 30m", "5 minutes"), the day it was worked
+ * (today unless picked, never a later day) and an optional description.
+ */
 function LogTimeDialog({
   open,
   onOpenChange,
@@ -399,16 +450,21 @@ function LogTimeDialog({
   readonly taskId: TaskId;
 }) {
   const { t } = useI18n();
-  const addTime = useAtomCommand(taskEnvironment.addTime);
+  const createTime = useAtomCommand(taskEnvironment.createTime);
   const { environmentId } = useWorkData();
   const [duration, setDuration] = useState("");
   const [description, setDescription] = useState("");
+  const [date, setDate] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const parsed = parseDuration(duration);
+  const today = localDateKey(new Date());
+  const day = date ?? today;
 
   const close = () => {
     onOpenChange(false);
     setDuration("");
     setDescription("");
+    setDate(null);
   };
 
   return (
@@ -421,12 +477,13 @@ function LogTimeDialog({
 
             if (parsed === null || environmentId === null) return;
 
-            void addTime({
+            void createTime({
               environmentId,
               input: {
                 taskId,
                 entryId: randomUUID(),
                 duration: parsed,
+                date: day,
                 ...(description.trim() === "" ? {} : { description: description.trim() }),
               },
             });
@@ -445,6 +502,29 @@ function LogTimeDialog({
               aria-invalid={duration.trim() !== "" && parsed === null}
               onChange={(event) => setDuration(event.currentTarget.value)}
             />
+            <Popover open={picking} onOpenChange={setPicking}>
+              <PopoverTrigger
+                render={<SelectButton className="w-full" aria-label={t("Date worked")} />}
+              >
+                <span className="flex items-center gap-1.5">
+                  <RiCalendarLine aria-hidden className="size-3.5" />
+                  {day === today ? t("Today") : entryDateFormatter.format(calendarDay(day))}
+                </span>
+              </PopoverTrigger>
+              <PopoverPopup align="start">
+                <Calendar
+                  mode="single"
+                  required
+                  selected={calendarDay(day)}
+                  defaultMonth={calendarDay(day)}
+                  disabled={{ after: new Date() }}
+                  onSelect={(next) => {
+                    setDate(localDateKey(next));
+                    setPicking(false);
+                  }}
+                />
+              </PopoverPopup>
+            </Popover>
             <Input
               aria-label={t("Description")}
               placeholder={t("What did you work on? (optional)")}

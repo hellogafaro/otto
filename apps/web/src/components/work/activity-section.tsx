@@ -7,7 +7,7 @@ import {
   type TaskChanges,
   type WorkParticipant,
 } from "@otto/contracts";
-import { RiAttachment2, RiDeleteBinLine, RiReplyLine } from "@remixicon/react";
+import { RiAttachment2, RiDeleteBinLine, RiEditLine, RiReplyLine } from "@remixicon/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Match } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -28,8 +28,10 @@ import type { MessageReplyTarget } from "../chat/message-controls";
 import { BotPromptComposer } from "../roster/bot-prompt-composer";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
+import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
+  activityEditDraft,
   activityMarkdown,
   activityPlainText,
   type MentionTarget,
@@ -37,6 +39,7 @@ import {
   parseMentionHref,
   toActivityContent,
 } from "./activity.logic";
+import { useTaskPriorityLabel } from "./task-priority";
 import { useTaskRepeatLabel } from "./task-repeat";
 import { formatDuration } from "./work.logic";
 import { WorkSectionHeader } from "./work-detail";
@@ -75,7 +78,7 @@ export function ActivitySection({
   const { t } = useI18n();
   const tasks = useTaskCache(environmentId);
   const query = useEnvironmentQuery(activityEnvironment.list({ environmentId, input: entity }));
-  const addComment = useAtomCommand(activityEnvironment.addComment);
+  const createComment = useAtomCommand(activityEnvironment.createComment);
   const { upload } = useLibraryUpload();
   const refreshRef = useRef(query.refresh);
   refreshRef.current = query.refresh;
@@ -157,7 +160,7 @@ export function ActivitySection({
 
             if (content.length === 0 && fileIds.length === 0) return false;
 
-            const result = await addComment({
+            const result = await createComment({
               environmentId,
               input: { ...entity, content, fileIds },
             });
@@ -181,6 +184,7 @@ export function ActivitySection({
                 comment={entry}
                 author={actorParticipant(entry.actor)}
                 participants={participants}
+                targets={targets}
                 own={entry.actor?.type === "person" && entry.actor.id === currentPersonId}
                 onChanged={query.refresh}
                 onReply={(target) => {
@@ -217,6 +221,13 @@ function TimelineLine() {
       <span className="w-px bg-border" />
     </span>
   );
+}
+
+/** When a comment was last edited, as the Edited marker's tooltip says it. */
+function EditedTime({ updatedAt }: { readonly updatedAt: string }) {
+  const timestampFormat = useClientSettings((settings) => settings.timestampFormat);
+
+  return <>{formatChatTimestampTooltip(updatedAt, timestampFormat)}</>;
 }
 
 function EntryTime({ createdAt }: { readonly createdAt: string }) {
@@ -292,11 +303,16 @@ function ActivityContent({ content }: { readonly content: string }) {
   );
 }
 
+/**
+ * Otto: A comment card. Its author edits it in place (the history keeps the earlier text and
+ * the card says Edited); anyone on the task deletes it, after a confirm.
+ */
 function CommentRow({
   environmentId,
   comment,
   author,
   participants,
+  targets,
   own,
   onChanged,
   onReply,
@@ -305,13 +321,16 @@ function CommentRow({
   readonly comment: Comment;
   readonly author: WorkParticipant | null;
   readonly participants: WorkParticipants;
+  readonly targets: ReadonlyArray<MentionTarget>;
   readonly own: boolean;
   readonly onChanged: () => void;
   readonly onReply: (target: MessageReplyTarget) => void;
 }) {
   const { t } = useI18n();
   const authorName = author ? participantName(author, participants.allBots) : t("Someone");
-  const removeComment = useAtomCommand(activityEnvironment.removeComment);
+  const deleteComment = useAtomCommand(activityEnvironment.deleteComment);
+  const updateComment = useAtomCommand(activityEnvironment.updateComment);
+  const [editing, setEditing] = useState<{ readonly prefix: string; draft: string } | null>(null);
 
   const remove = async () => {
     const confirmed = await requestConfirmDialog(t("Delete this comment?"), {
@@ -321,9 +340,26 @@ function CommentRow({
 
     if (confirmed === false) return;
 
-    const result = await removeComment({ environmentId, input: { id: comment.id } });
+    const result = await deleteComment({ environmentId, input: { id: comment.id } });
 
     if (AsyncResult.isSuccess(result)) onChanged();
+  };
+
+  const save = async () => {
+    if (editing === null) return;
+
+    const content = (editing.prefix + toActivityContent(editing.draft, targets)).trim();
+
+    if (content === comment.content) return setEditing(null);
+
+    if (content.length === 0 && comment.fileIds.length === 0) return;
+
+    const result = await updateComment({ environmentId, input: { id: comment.id, content } });
+
+    if (!AsyncResult.isSuccess(result)) return;
+
+    setEditing(null);
+    onChanged();
   };
 
   return (
@@ -340,6 +376,19 @@ function CommentRow({
           <span className="ms-1">
             <EntryTime createdAt={comment.createdAt} />
           </span>
+          {comment.updatedAt ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={<span />}
+                className="ms-1 shrink-0 text-xs text-muted-foreground"
+              >
+                {t("Edited")}
+              </TooltipTrigger>
+              <TooltipPopup side="top">
+                <EditedTime updatedAt={comment.updatedAt} />
+              </TooltipPopup>
+            </Tooltip>
+          ) : null}
           <span className="ms-auto" />
           <Tooltip>
             <TooltipTrigger
@@ -362,25 +411,73 @@ function CommentRow({
             </TooltipTrigger>
             <TooltipPopup side="top">{t("Reply")}</TooltipPopup>
           </Tooltip>
-          {own ? (
+          {own && editing === null ? (
             <Tooltip>
               <TooltipTrigger
                 render={
                   <Button
                     size="icon-sm"
                     variant="ghost-muted"
-                    aria-label={t("Delete comment")}
-                    onClick={() => void remove()}
+                    aria-label={t("Edit comment")}
+                    onClick={() => setEditing(activityEditDraft(comment.content))}
                   />
                 }
               >
-                <RiDeleteBinLine />
+                <RiEditLine />
               </TooltipTrigger>
-              <TooltipPopup side="top">{t("Delete comment")}</TooltipPopup>
+              <TooltipPopup side="top">{t("Edit comment")}</TooltipPopup>
             </Tooltip>
           ) : null}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="ghost-muted"
+                  aria-label={t("Delete comment")}
+                  onClick={() => void remove()}
+                />
+              }
+            >
+              <RiDeleteBinLine />
+            </TooltipTrigger>
+            <TooltipPopup side="top">{t("Delete comment")}</TooltipPopup>
+          </Tooltip>
         </div>
-        {comment.content.length > 0 ? (
+        {editing !== null ? (
+          <form
+            className="flex flex-col gap-1.5 px-1 pb-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+          >
+            <Textarea
+              autoFocus
+              aria-label={t("Edit comment")}
+              value={editing.draft}
+              maxLength={20_000}
+              onChange={(event) => setEditing({ ...editing, draft: event.currentTarget.value })}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setEditing(null);
+                } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  void save();
+                }
+              }}
+            />
+            <div className="flex justify-end gap-1.5">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                {t("Cancel")}
+              </Button>
+              <Button type="submit" size="sm">
+                {t("Save")}
+              </Button>
+            </div>
+          </form>
+        ) : comment.content.length > 0 ? (
           <div className="px-1 pb-1">
             <ActivityContent content={comment.content} />
           </div>
@@ -451,6 +548,7 @@ function EventRows({
   const { t } = useI18n();
   const statusLabel = useWorkStatusLabel();
   const repeatLabel = useTaskRepeatLabel();
+  const priorityLabel = useTaskPriorityLabel();
   const name = actor === null ? t("Someone") : participantName(actor, participants.allBots);
 
   const names = (list: ReadonlyArray<WorkParticipant>) =>
@@ -476,6 +574,16 @@ function EventRows({
           changes.dueDate.to === null
             ? t("{name} removed the due date", { name })
             : t("{name} set the due date to {date}", { name, date: changes.dueDate.to }),
+        ]
+      : []),
+    ...(changes.priority
+      ? [
+          changes.priority.to === null
+            ? t("{name} removed the priority", { name })
+            : t("{name} set the priority to {priority}", {
+                name,
+                priority: priorityLabel(changes.priority.to),
+              }),
         ]
       : []),
     ...(changes.repeat
@@ -527,20 +635,57 @@ function EventRows({
     ];
   }
 
+  const personName = (personId: string | undefined) =>
+    personId === undefined
+      ? undefined
+      : (participants.people.find((person) => person.personId === personId)?.displayName ??
+        t("Someone"));
+
+  const dayLabel = (date: string | undefined) => {
+    if (date === undefined) return undefined;
+    const [year = 1970, month = 1, day = 1] = date.split("-").map(Number);
+
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const loggedLine = (logged: Extract<ActivityEntry, { type: "time_logged" }>) => {
+    const duration = formatDuration(logged.duration);
+    const person = personName(logged.personId);
+    const date = dayLabel(logged.date);
+
+    // Otto: time a person logs for themself reads as before; someone else's names whose it is.
+    const line =
+      person !== undefined && !(actor?.kind === "person" && actor.personId === logged.personId)
+        ? t("{name} logged {duration} for {person}", { name, duration, person })
+        : t("{name} logged {duration}", { name, duration });
+
+    return [line, date, logged.description]
+      .filter((part) => part !== undefined && part.length > 0)
+      .join(" · ");
+  };
+
   const lines: ReadonlyArray<string> = Match.value(entry).pipe(
     Match.when({ type: "created" }, () => [
       actor === null ? t("Task created") : t("{name} created this task", { name }),
     ]),
     Match.when({ type: "changed" }, (changed) => changeLines(changed.changes)),
-    Match.orElse((logged) => [
-      logged.description.length > 0
-        ? t("{name} logged {duration} on {description}", {
-            name,
-            duration: formatDuration(logged.duration),
-            description: logged.description,
-          })
-        : t("{name} logged {duration}", { name, duration: formatDuration(logged.duration) }),
+    Match.when({ type: "time_logged" }, (logged) => [loggedLine(logged)]),
+    Match.when({ type: "time_deleted" }, (deleted) => [
+      t("{name} deleted {duration} of {person}'s time", {
+        name,
+        duration: formatDuration(deleted.duration),
+        person: personName(deleted.personId) ?? t("someone"),
+      }),
     ]),
+    Match.when({ type: "comment_updated" }, () => [t("{name} edited a comment", { name })]),
+    Match.when({ type: "comment_deleted" }, () => [t("{name} deleted a comment", { name })]),
+    Match.when({ type: "task_deleted" }, (deleted) => [
+      t("{name} deleted the task {title}", { name, title: deleted.title }),
+    ]),
+    Match.exhaustive,
   );
 
   return lines.map((line) => (

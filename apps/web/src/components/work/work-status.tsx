@@ -1,5 +1,11 @@
 import type { WorkStatus } from "@otto/contracts";
-import { RiAddLine, RiArchiveLine, RiInboxUnarchiveLine, RiMoreLine } from "@remixicon/react";
+import {
+  RiAddLine,
+  RiArchiveLine,
+  RiDeleteBinLine,
+  RiInboxUnarchiveLine,
+  RiMoreLine,
+} from "@remixicon/react";
 import { useMemo } from "react";
 
 import { useI18n } from "../../i18n";
@@ -133,6 +139,7 @@ export function WorkMoreActions({
   status,
   onStatusChange,
   onNewTask,
+  onDelete,
   properties = NO_PROPERTIES,
 }: {
   /** The palette group title, such as This task. */
@@ -142,6 +149,8 @@ export function WorkMoreActions({
   readonly status: WorkStatus;
   readonly onStatusChange: (status: WorkStatus) => void;
   readonly onNewTask?: () => void;
+  /** Deletes the item for good, last in the menu and asking first; only tasks offer it. */
+  readonly onDelete?: () => void;
   /** The page's property keys, which open its pickers; they join the palette, not this menu. */
   readonly properties?: ReadonlyArray<PageAction>;
 }) {
@@ -164,9 +173,30 @@ export function WorkMoreActions({
     [onNewTask, t],
   );
 
+  const remove = useMemo(
+    (): PageAction | null =>
+      onDelete
+        ? {
+            id: "delete",
+            title: t("Delete"),
+            icon: RiDeleteBinLine,
+            searchTerms: ["delete", "remove"],
+            run: onDelete,
+          }
+        : null,
+    [onDelete, t],
+  );
+
   const actions = useMemo(
-    () => [...(newTask ? [newTask] : []), ...properties, copy.link, copy.id, archive],
-    [archive, copy, newTask, properties],
+    () => [
+      ...(newTask ? [newTask] : []),
+      ...properties,
+      copy.link,
+      copy.id,
+      archive,
+      ...(remove ? [remove] : []),
+    ],
+    [archive, copy, newTask, properties, remove],
   );
 
   usePageActions(label, actions);
@@ -197,6 +227,7 @@ export function WorkMoreActions({
         <CopyMenuItems actions={copy} />
         <MenuSeparator />
         <PageActionMenuItem action={archive} />
+        {remove ? <PageActionMenuItem action={remove} variant="destructive" /> : null}
       </MenuPopup>
     </Menu>
   );

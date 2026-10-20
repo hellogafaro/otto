@@ -6,6 +6,8 @@ import { PersonAvatar } from "../roster/person-avatar";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Form } from "../ui/form";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { timeZones } from "../routines/routine-schedule";
 import { Alert, AlertDescription } from "../ui/alert";
 import {
   Dialog,
@@ -432,6 +434,33 @@ export function OrganizationSettingsPanel() {
       });
   });
 
+  // Otto: the organization's days (task due dates, repeats, time entries) follow this zone.
+  const saveTimeZone = (timezone: string) => {
+    const organization = state?.organization;
+
+    if (!client || !organization || state.role !== "admin" || timezone === organization.timezone) {
+      return;
+    }
+
+    setMessage(null);
+
+    // The accounts client doesn't type the organization's own fields, so this posts the update.
+    void client
+      .$fetch("/organization/update", {
+        method: "POST",
+        body: { organizationId: organization.id, data: { timezone } },
+      })
+      .then(async (result) => {
+        if (result.error) {
+          setMessage(result.error.message ?? "Could not save the organization.");
+
+          return;
+        }
+
+        await refresh();
+      });
+  };
+
   if (!client || !state?.organization)
     return loadError ? (
       <SettingsPageContainer>{loadError}</SettingsPageContainer>
@@ -465,6 +494,32 @@ export function OrganizationSettingsPanel() {
               maxLength={80}
               readOnly={state.role !== "admin"}
             />
+          }
+        />
+        <SettingsRow
+          title="Time zone"
+          description={
+            state.role === "admin"
+              ? "Tasks count their days in it: due dates, repeats and logged time."
+              : "Tasks count their days in it. Only admins can change it."
+          }
+          control={
+            <Select
+              value={state.organization.timezone}
+              onValueChange={(value) => value && saveTimeZone(value)}
+              disabled={state.role !== "admin"}
+            >
+              <SelectTrigger className="sm:w-64" aria-label="Time zone">
+                <SelectValue>{state.organization.timezone}</SelectValue>
+              </SelectTrigger>
+              <SelectPopup alignItemWithTrigger={false}>
+                {timeZones(state.organization.timezone).map((zone) => (
+                  <SelectItem key={zone} hideIndicator value={zone}>
+                    {zone}
+                  </SelectItem>
+                ))}
+              </SelectPopup>
+            </Select>
           }
         />
       </SettingsSection>

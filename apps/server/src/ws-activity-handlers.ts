@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect";
 import type * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import { listProjects } from "./project/project-list.ts";
+import { deleteTaskComment, updateTaskComment } from "./tasks/task-comments.ts";
 import { getTask } from "./tasks/task-get.ts";
 import { listTasks } from "./tasks/task-list.ts";
 import type { WsConnection } from "./ws-connection.ts";
@@ -57,15 +58,15 @@ export const createWsActivityHandlers = ({
         "rpc.aggregate": "activity",
       }),
 
-    [WS_METHODS.activityCommentAdd]: (input) =>
+    [WS_METHODS.activityCommentCreate]: (input) =>
       observeRpcEffect(
-        WS_METHODS.activityCommentAdd,
+        WS_METHODS.activityCommentCreate,
         // Otto: A comment is a task event, so every open timeline refreshes and bots can react.
         Effect.gen(function* () {
           const commentId = NodeCrypto.randomUUID();
 
           yield* dispatchFromClient({
-            type: "task.comment.add",
+            type: "task.comment.create",
             commandId: CommandId.make(`comment:${commentId}`),
             taskId: TaskId.make(input.entityId),
             commentId,
@@ -80,10 +81,23 @@ export const createWsActivityHandlers = ({
         { "rpc.aggregate": "activity" },
       ),
 
-    [WS_METHODS.activityCommentRemove]: (input) =>
+    [WS_METHODS.activityCommentUpdate]: (input) =>
       observeRpcEffect(
-        WS_METHODS.activityCommentRemove,
-        activityStore.removeComment({ ...input, personId: currentPersonId }),
+        WS_METHODS.activityCommentUpdate,
+        updateTaskComment(
+          { ...input, by: { type: "person", id: currentPersonId } },
+          { activityStore, dispatch: dispatchFromClient },
+        ),
+        { "rpc.aggregate": "activity" },
+      ),
+
+    [WS_METHODS.activityCommentDelete]: (input) =>
+      observeRpcEffect(
+        WS_METHODS.activityCommentDelete,
+        deleteTaskComment(
+          { ...input, by: { type: "person", id: currentPersonId } },
+          { activityStore, dispatch: dispatchFromClient },
+        ).pipe(Effect.asVoid),
         { "rpc.aggregate": "activity" },
       ),
 
@@ -105,8 +119,9 @@ export const createWsActivityHandlers = ({
     | typeof WS_METHODS.tasksList
     | typeof WS_METHODS.tasksGet
     | typeof WS_METHODS.activityList
-    | typeof WS_METHODS.activityCommentAdd
-    | typeof WS_METHODS.activityCommentRemove
+    | typeof WS_METHODS.activityCommentCreate
+    | typeof WS_METHODS.activityCommentUpdate
+    | typeof WS_METHODS.activityCommentDelete
     | typeof WS_METHODS.notificationsList
     | typeof WS_METHODS.notificationsMarkRead
   >;

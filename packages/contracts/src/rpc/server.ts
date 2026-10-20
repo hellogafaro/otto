@@ -1,8 +1,9 @@
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/unstable/rpc/Rpc";
 import {
-  ActivityCommentAddInput,
-  ActivityCommentRemoveInput,
+  ActivityCommentCreateInput,
+  ActivityCommentDeleteInput,
+  ActivityCommentUpdateInput,
   ActivityEntry,
   ActivityEntity,
   ActivityListResult,
@@ -679,14 +680,20 @@ export const WsActivityListRpc = Rpc.make(WS_METHODS.activityList, {
   error: activityError,
 });
 
-export const WsActivityCommentAddRpc = Rpc.make(WS_METHODS.activityCommentAdd, {
-  payload: ActivityCommentAddInput,
+export const WsActivityCommentCreateRpc = Rpc.make(WS_METHODS.activityCommentCreate, {
+  payload: ActivityCommentCreateInput,
   success: ActivityEntry,
   error: activityError,
 });
 
-export const WsActivityCommentRemoveRpc = Rpc.make(WS_METHODS.activityCommentRemove, {
-  payload: ActivityCommentRemoveInput,
+export const WsActivityCommentUpdateRpc = Rpc.make(WS_METHODS.activityCommentUpdate, {
+  payload: ActivityCommentUpdateInput,
+  success: ActivityEntry,
+  error: activityError,
+});
+
+export const WsActivityCommentDeleteRpc = Rpc.make(WS_METHODS.activityCommentDelete, {
+  payload: ActivityCommentDeleteInput,
   success: Schema.Void,
   error: activityError,
 });

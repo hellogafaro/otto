@@ -15,6 +15,7 @@ import { OrchestrationCommandReceiptRepositoryLive } from "../persistence/layers
 import { OrchestrationEventStoreLive } from "../persistence/layers/orchestration-event-store.ts";
 import { SqlitePersistenceMemory } from "../persistence/layers/sqlite.ts";
 import * as RepositoryIdentityResolver from "../project/repository-identity-resolver.ts";
+import { deleteTaskComment, NOT_AUTHOR, updateTaskComment } from "../tasks/task-comments.ts";
 import { ActivityStore, ActivityStoreLive } from "./activity-store.ts";
 
 const projectId = ProjectId.make("activity-project");
@@ -110,12 +111,12 @@ it.live("records who created a task and what each update changed", () =>
   ),
 );
 
-it.live("shows logged time until its entry is removed", () =>
+it.live("shows logged time, and a deletion that keeps what the entry said", () =>
   withTask(
     Effect.gen(function* () {
       yield* dispatch({
-        type: "task.time.add",
-        commandId: CommandId.make("activity-time-add"),
+        type: "task.time.create",
+        commandId: CommandId.make("activity-time-create"),
         taskId,
         entryId: "entry-1",
         duration: 30 * 60_000,
@@ -128,16 +129,28 @@ it.live("shows logged time until its entry is removed", () =>
         actor: { type: "person", id: ada },
         duration: 30 * 60_000,
         description: "Outline",
+        personId: ada,
+        date: "2026-01-02",
       });
 
       yield* dispatch({
-        type: "task.time.remove",
-        commandId: CommandId.make("activity-time-remove"),
+        type: "task.time.delete",
+        commandId: CommandId.make("activity-time-delete"),
         taskId,
         entryId: "entry-1",
       });
 
-      expect((yield* entries).map((entry) => entry.type)).toEqual(["created"]);
+      expect((yield* entries).map((entry) => entry.type)).toEqual([
+        "created",
+        "time_logged",
+        "time_deleted",
+      ]);
+      expect((yield* entries).at(-1)).toMatchObject({
+        type: "time_deleted",
+        actor: { type: "person", id: ada },
+        duration: 30 * 60_000,
+        description: "Outline",
+      });
     }),
   ),
 );
@@ -153,7 +166,7 @@ const comment = (input: {
   Effect.flatMap(Effect.service(OrchestrationEngineService), (engine) =>
     engine.dispatch(
       {
-        type: "task.comment.add",
+        type: "task.comment.create",
         commandId: CommandId.make(`comment:${input.id}`),
         taskId: TaskId.make(input.entityId ?? taskId),
         commentId: input.id,
@@ -166,10 +179,16 @@ const comment = (input: {
     ),
   );
 
-it.live("lets only a comment's author delete it", () =>
+it.live("lets only a comment's author edit it, and anyone delete it, keeping its text", () =>
   withTask(
     Effect.gen(function* () {
       const store = yield* Effect.service(ActivityStore);
+      const engine = yield* Effect.service(OrchestrationEngineService);
+
+      const services = {
+        activityStore: store,
+        dispatch: (command: Parameters<typeof engine.dispatch>[0]) => engine.dispatch(command),
+      };
 
       yield* comment({
         id: "comment-1",
@@ -183,15 +202,38 @@ it.live("lets only a comment's author delete it", () =>
         fileIds: ["file-1"],
       });
 
-      const cannotDelete = yield* Effect.flip(
-        store.removeComment({ id: "comment-1", personId: bob }),
+      const cannotEdit = yield* Effect.flip(
+        updateTaskComment(
+          { id: "comment-1", content: "Mine now", by: { type: "person", id: bob } },
+          services,
+        ),
       );
 
-      expect(cannotDelete.message).toBe("Only the person who wrote this comment can change it.");
+      expect(cannotEdit.message).toBe(NOT_AUTHOR);
 
-      yield* store.removeComment({ id: "comment-1", personId: ada });
+      expect(
+        yield* updateTaskComment(
+          { id: "comment-1", content: "Ask Bob to review today", by: { type: "person", id: ada } },
+          services,
+        ),
+      ).toMatchObject({ content: "Ask Bob to review today", updatedAt: expect.any(String) });
 
-      expect((yield* entries).map((entry) => entry.type)).toEqual(["created"]);
+      yield* deleteTaskComment({ id: "comment-1", by: { type: "person", id: bob } }, services);
+
+      expect(yield* entries).toEqual([
+        expect.objectContaining({ type: "created" }),
+        expect.objectContaining({
+          type: "comment_updated",
+          commentId: "comment-1",
+          previousContent: 'Ask <mention type="person" id="session-bob">Bob</mention> to review',
+        }),
+        expect.objectContaining({
+          type: "comment_deleted",
+          commentId: "comment-1",
+          content: "Ask Bob to review today",
+          actor: { type: "person", id: bob },
+        }),
+      ]);
     }),
   ),
 );

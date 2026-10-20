@@ -7,8 +7,28 @@ import {
   type OttoMcpHealthHandlerOptions,
   type OttoCatalogBackendOptions,
   type OttoCatalogToolHandler,
+  TASK_TOOL_IDS,
+  type TaskToolId,
 } from "./tools/otto-catalog-types.ts";
 import { requiredString, mcpHealthStatus, checkMcpConnection } from "./tools/otto-mcp-health.ts";
+import type { OttoToolResult } from "./tools/otto-tool-types.ts";
+
+/** A task tool decodes its own input and calls the task backend's handler of the same name. */
+const taskHandler =
+  <Id extends TaskToolId>(
+    tasks: NonNullable<OttoCatalogBackendOptions["tasks"]>,
+    toolId: Id,
+  ): OttoCatalogToolHandler =>
+  async ({ input }) =>
+    // SAFETY: the decoder and the handler are looked up by the same tool id.
+    (
+      tasks[toolId] as (
+        decoded: ReturnType<typeof decodeOttoToolInput<Id>>,
+      ) => Promise<OttoToolResult>
+    )(decodeOttoToolInput(toolId, input));
+
+const taskHandlers = (tasks: NonNullable<OttoCatalogBackendOptions["tasks"]>) =>
+  Object.fromEntries(TASK_TOOL_IDS.map((toolId) => [toolId, taskHandler(tasks, toolId)]));
 
 export function createOttoCatalogToolHandlers(
   mcpManager?: McpManager,
@@ -95,18 +115,7 @@ export function createOttoCatalogToolHandlers(
             backends.library!.updateSkill(decodeOttoToolInput("skill_update", input), responder),
         }
       : {}),
-    ...(backends.tasks
-      ? {
-          task_read: async ({ input }) =>
-            backends.tasks!.read(decodeOttoToolInput("task_read", input)),
-          task_create: async ({ input }) =>
-            backends.tasks!.create(decodeOttoToolInput("task_create", input)),
-          task_update: async ({ input }) =>
-            backends.tasks!.update(decodeOttoToolInput("task_update", input)),
-          task_comment: async ({ input }) =>
-            backends.tasks!.comment(decodeOttoToolInput("task_comment", input)),
-        }
-      : {}),
+    ...(backends.tasks ? taskHandlers(backends.tasks) : {}),
     ...(pluginRuntime
       ? {
           connection_search: async ({ input }) =>

@@ -4,11 +4,9 @@ import {
   ActivityFileIds,
   type ActivityEntityType,
   ActivityRequestError,
-  type AuthSessionId,
   TaskChanges,
   TaskTimeDuration,
 } from "@otto/contracts";
-import * as DateTime from "effect/DateTime";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,6 +20,11 @@ const ActivityRowData = Schema.Struct({
   changes: Schema.optional(TaskChanges),
   duration: Schema.optional(TaskTimeDuration),
   description: Schema.optional(Schema.String),
+  personId: Schema.optional(Schema.String),
+  date: Schema.optional(Schema.String),
+  commentId: Schema.optional(Schema.String),
+  taskId: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
 });
 
 const decodeRowData = Schema.decodeUnknownOption(Schema.fromJsonString(ActivityRowData));
@@ -48,13 +51,15 @@ interface StoredActivityRow {
   readonly content: string;
   readonly data_json: string;
   readonly created_at: string;
+  readonly updated_at: string | null;
 }
+
+const ROW_COLUMNS =
+  "id, entity_type, entity_id, type, actor_type, actor_id, content, data_json, created_at, updated_at";
 
 const decodeEntry = Schema.decodeUnknownOption(ActivityEntry);
 
 const fail = (detail: string) => Effect.fail(new ActivityRequestError({ detail }));
-
-const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
 
 /** Records a row once; replaying the same row changes nothing. */
 export const insertActivityRow = (sql: SqlClient.SqlClient, row: ActivityRow) =>
@@ -68,6 +73,7 @@ export const insertActivityRow = (sql: SqlClient.SqlClient, row: ActivityRow) =>
     ON CONFLICT (id) DO NOTHING
   `;
 
+/** A row as its timeline entry; an edit's row keeps the text it replaced in `content`. */
 const toEntry = (row: StoredActivityRow) =>
   decodeEntry({
     ...Option.getOrElse(decodeRowData(row.data_json), () => ({})),
@@ -80,15 +86,12 @@ const toEntry = (row: StoredActivityRow) =>
         ? null
         : { type: row.actor_type, id: row.actor_id },
     content: row.content,
+    ...(row.type === "comment_updated" ? { previousContent: row.content } : {}),
+    ...(row.type === "comment" && row.updated_at !== null ? { updatedAt: row.updated_at } : {}),
     createdAt: row.created_at,
   });
 
 const queryFailed = (detail: string) => Effect.mapError(() => new ActivityRequestError({ detail }));
-
-const requireAuthor = (row: StoredActivityRow, personId: AuthSessionId) =>
-  row.actor_type === "person" && row.actor_id === personId
-    ? Effect.void
-    : fail("Only the person who wrote this comment can change it.");
 
 const requireEntry = (row: StoredActivityRow) =>
   Option.match(toEntry(row), {
@@ -106,8 +109,7 @@ const makeActivityStore = Effect.gen(function* () {
 
   const readComment = Effect.fn("ActivityStore.readComment")(function* (id: string) {
     const [row] = yield* sql<StoredActivityRow & { readonly deleted_at: string | null }>`
-      SELECT id, entity_type, entity_id, type, actor_type, actor_id, content, data_json,
-        created_at, deleted_at
+      SELECT ${sql.literal(ROW_COLUMNS)}, deleted_at
       FROM activity
       WHERE id = ${id}
     `.pipe(queryFailed("Could not load the comment."));
@@ -122,8 +124,7 @@ const makeActivityStore = Effect.gen(function* () {
   /** An entity's timeline, oldest first, without deleted comments. */
   const list = Effect.fn("ActivityStore.list")(function* (entity: ActivityEntity) {
     const rows = yield* sql<StoredActivityRow>`
-      SELECT id, entity_type, entity_id, type, actor_type, actor_id, content, data_json,
-        created_at
+      SELECT ${sql.literal(ROW_COLUMNS)}
       FROM activity
       WHERE entity_type = ${entity.entityType} AND entity_id = ${entity.entityId}
         AND deleted_at IS NULL
@@ -138,22 +139,55 @@ const makeActivityStore = Effect.gen(function* () {
     return yield* requireEntry(yield* readComment(id));
   });
 
-  /** Hides a comment this person wrote; the row stays for the record. */
-  const removeComment = Effect.fn("ActivityStore.removeComment")(function* (input: {
-    readonly id: string;
-    readonly personId: AuthSessionId;
+  /**
+   * One page of a task's comments, newest or oldest first, after the sort key `after` (the
+   * creation time, then the id), with one more than `limit` when another page follows, and the
+   * count of every comment on the task.
+   */
+  const listComments = Effect.fn("ActivityStore.listComments")(function* (input: {
+    readonly taskId: string;
+    readonly order: "newest" | "oldest";
+    readonly limit: number;
+    readonly after: readonly [string, string] | null;
   }) {
-    yield* requireAuthor(yield* readComment(input.id), input.personId);
+    const direction = sql.literal(input.order === "newest" ? "DESC" : "ASC");
+    const comparison = sql.literal(input.order === "newest" ? "<" : ">");
 
-    yield* sql`
-      UPDATE activity SET deleted_at = ${yield* nowIso} WHERE id = ${input.id}
-    `.pipe(queryFailed("Could not delete the comment."));
+    const after =
+      input.after === null
+        ? sql`1 = 1`
+        : sql`(created_at ${comparison} ${input.after[0]} OR (created_at = ${input.after[0]} AND id ${comparison} ${input.after[1]}))`;
+
+    const rows = yield* sql<StoredActivityRow>`
+      SELECT ${sql.literal(ROW_COLUMNS)}
+      FROM activity
+      WHERE entity_type = 'task' AND entity_id = ${input.taskId} AND type = 'comment'
+        AND deleted_at IS NULL AND ${after}
+      ORDER BY created_at ${direction}, id ${direction}
+      LIMIT ${input.limit + 1}
+    `.pipe(queryFailed("Could not load the comments."));
+
+    const [count] = yield* sql<{ readonly count: number }>`
+      SELECT COUNT(*) AS count FROM activity
+      WHERE entity_type = 'task' AND entity_id = ${input.taskId} AND type = 'comment'
+        AND deleted_at IS NULL
+    `.pipe(queryFailed("Could not count the comments."));
+
+    return {
+      rows: rows.flatMap((row) =>
+        Option.toArray(toEntry(row)).map((entry) => ({
+          entry,
+          key: [row.created_at, row.id] as const,
+        })),
+      ),
+      total: count?.count ?? 0,
+    };
   });
 
-  return { list, getComment, removeComment };
+  return { list, getComment, listComments };
 });
 
-/** Reads timelines and hides comments; the projector writes them from task events. */
+/** Reads timelines and comments; the projector writes them from task events. */
 export class ActivityStore extends Context.Service<
   ActivityStore,
   Effect.Success<typeof makeActivityStore>

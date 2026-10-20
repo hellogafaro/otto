@@ -1,5 +1,5 @@
 import type { OttoToolResult } from "./otto-tool-types.ts";
-import { type OttoToolInputSchemas } from "@otto/contracts";
+import { type OttoToolId, type OttoToolInputSchemas } from "@otto/contracts";
 import type { McpManager } from "@mastra/code-sdk/mcp/index";
 import {
   type ApprovalResponder,
@@ -9,6 +9,23 @@ import {
   type OrchestrationReadModel,
 } from "@otto/contracts";
 import type { RequestHealthStatus } from "../../subscription-auth/service.ts";
+
+/** Otto: The task tools; each one's handler takes its own decoded input. */
+export const TASK_TOOL_IDS = [
+  "task_read",
+  "task_create",
+  "task_update",
+  "task_delete",
+  "task_comment_create",
+  "task_comment_list",
+  "task_comment_update",
+  "task_comment_delete",
+  "task_time_create",
+  "task_time_delete",
+  "task_time_list",
+] as const satisfies ReadonlyArray<OttoToolId>;
+
+export type TaskToolId = (typeof TASK_TOOL_IDS)[number];
 
 export interface OttoCatalogToolHandlerInput {
   readonly input: unknown;
@@ -119,19 +136,10 @@ export interface OttoCatalogBackendOptions {
       responder: ApprovalResponder | undefined,
     ) => Promise<OttoToolResult>;
   };
-  /** Otto: The organization's Tasks page, as the calling bot. */
+  /** Otto: The organization's Tasks page, as the calling bot: one handler per task tool. */
   readonly tasks?: {
-    readonly read: (
-      input: (typeof OttoToolInputSchemas.task_read)["Type"],
-    ) => Promise<OttoToolResult>;
-    readonly create: (
-      input: (typeof OttoToolInputSchemas.task_create)["Type"],
-    ) => Promise<OttoToolResult>;
-    readonly update: (
-      input: (typeof OttoToolInputSchemas.task_update)["Type"],
-    ) => Promise<OttoToolResult>;
-    readonly comment: (
-      input: (typeof OttoToolInputSchemas.task_comment)["Type"],
+    readonly [Id in TaskToolId]: (
+      input: (typeof OttoToolInputSchemas)[Id]["Type"],
     ) => Promise<OttoToolResult>;
   };
   /** Adds a remote MCP server; Otto runs no local MCP commands. */

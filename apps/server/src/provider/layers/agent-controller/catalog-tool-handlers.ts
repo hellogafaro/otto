@@ -193,10 +193,24 @@ export function createSessionCatalogHandlers(
       ...(taskTools && libraryCaller
         ? {
             tasks: {
-              read: (request) => deps.runPromise(taskTools.read(libraryCaller, request)),
-              create: (request) => deps.runPromise(taskTools.create(libraryCaller, request)),
-              update: (request) => deps.runPromise(taskTools.update(libraryCaller, request)),
-              comment: (request) => deps.runPromise(taskTools.comment(libraryCaller, request)),
+              task_read: (request) => deps.runPromise(taskTools.read(libraryCaller, request)),
+              task_create: (request) => deps.runPromise(taskTools.create(libraryCaller, request)),
+              task_update: (request) => deps.runPromise(taskTools.update(libraryCaller, request)),
+              task_delete: (request) => deps.runPromise(taskTools.delete(libraryCaller, request)),
+              task_comment_create: (request) =>
+                deps.runPromise(taskTools.createComment(libraryCaller, request)),
+              task_comment_list: (request) =>
+                deps.runPromise(taskTools.listComments(libraryCaller, request)),
+              task_comment_update: (request) =>
+                deps.runPromise(taskTools.updateComment(libraryCaller, request)),
+              task_comment_delete: (request) =>
+                deps.runPromise(taskTools.deleteComment(libraryCaller, request)),
+              task_time_create: (request) =>
+                deps.runPromise(taskTools.createTime(libraryCaller, request)),
+              task_time_delete: (request) =>
+                deps.runPromise(taskTools.deleteTime(libraryCaller, request)),
+              task_time_list: (request) =>
+                deps.runPromise(taskTools.listTime(libraryCaller, request)),
             },
           }
         : {}),

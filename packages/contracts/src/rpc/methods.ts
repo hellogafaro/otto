@@ -17,8 +17,9 @@ export const WS_METHODS = {
 
   // Activity methods
   activityList: "activity.list",
-  activityCommentAdd: "activity.commentAdd",
-  activityCommentRemove: "activity.commentRemove",
+  activityCommentCreate: "activity.commentCreate",
+  activityCommentUpdate: "activity.commentUpdate",
+  activityCommentDelete: "activity.commentDelete",
 
   // Task methods
   tasksList: "tasks.list",

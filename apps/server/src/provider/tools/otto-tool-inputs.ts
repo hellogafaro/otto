@@ -97,7 +97,21 @@ export function decodeOttoRuntimeToolInput<Input>(
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
     case "task_update":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
-    case "task_comment":
+    case "task_delete":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_comment_create":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_comment_list":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_comment_update":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_comment_delete":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_time_create":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_time_delete":
+      return { toolId, input: decodeOttoToolInput(toolId, normalized) };
+    case "task_time_list":
       return { toolId, input: decodeOttoToolInput(toolId, normalized) };
   }
 }

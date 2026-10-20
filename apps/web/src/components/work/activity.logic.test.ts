@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  activityEditDraft,
   type MentionTarget,
   parseActivityContent,
   toActivityContent,
@@ -84,5 +85,24 @@ describe("work mentions in comments", () => {
     expect(toActivityContent("see @task:task-1 in @project:project-1 @task:gone", work)).toBe(
       'see <mention type="task" id="task-1">Draft &lt;post&gt;</mention> in <mention type="project" id="project-1">Launch</mention> @task:gone',
     );
+  });
+});
+
+describe("activityEditDraft", () => {
+  it("round-trips a comment through an edit, keeping its mentions and the reply it answers", () => {
+    const work: ReadonlyArray<MentionTarget> = [
+      ...targets,
+      { type: "task", id: "task-1", label: "Draft <post>" },
+    ];
+
+    const stored =
+      '<mention type="comment" id="c-1">Ana Lopez</mention> ' +
+      toActivityContent("@Ana Lopez see @task:task-1 & @nova <now>", work);
+
+    const { prefix, draft } = activityEditDraft(stored);
+
+    expect(prefix).toBe('<mention type="comment" id="c-1">Ana Lopez</mention> ');
+    expect(draft).toBe("@Ana Lopez see @task:task-1 & @Nova <now>");
+    expect((prefix + toActivityContent(draft, work)).trim()).toBe(stored);
   });
 });

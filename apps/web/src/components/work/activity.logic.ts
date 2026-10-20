@@ -165,3 +165,31 @@ export function activityPlainText(content: string): string {
     .map((segment) => (segment.type === "text" ? segment.text : `@${segment.label}`))
     .join("");
 }
+
+/**
+ * A stored comment as its author edits it: mentions of people and bots as `@Name`, of work as
+ * `@task:<id>` or `@project:<id>`, so saving through `toActivityContent` keeps them, and the
+ * reply it answers kept aside as `prefix`, unchanged by the edit.
+ */
+export function activityEditDraft(content: string) {
+  const segments = parseActivityContent(content);
+  const [first] = segments;
+  const reply = first?.type === "mention" && first.mentionType === "comment" ? first : null;
+
+  const prefix =
+    reply === null ? "" : `${mentionTag({ type: "comment", id: reply.id, label: reply.label })} `;
+
+  const draft = segments
+    .filter((segment) => segment !== reply)
+    .map((segment) => {
+      if (segment.type === "text") return segment.text;
+
+      return segment.mentionType === "task" || segment.mentionType === "project"
+        ? `@${segment.mentionType}:${segment.id}`
+        : `@${segment.label}`;
+    })
+    .join("")
+    .trim();
+
+  return { prefix, draft };
+}

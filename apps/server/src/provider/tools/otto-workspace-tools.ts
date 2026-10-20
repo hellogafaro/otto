@@ -37,7 +37,14 @@ export const BACKEND_NAMES: Record<
     | "task_read"
     | "task_create"
     | "task_update"
-    | "task_comment"
+    | "task_delete"
+    | "task_comment_create"
+    | "task_comment_list"
+    | "task_comment_update"
+    | "task_comment_delete"
+    | "task_time_create"
+    | "task_time_delete"
+    | "task_time_list"
   >,
   ReadonlyArray<string>
 > = {

@@ -9,7 +9,6 @@ import {
   chatsSeenByAll,
 } from "../../../orchestration/group-visibility.ts";
 import { activeTaskTools } from "../../../tasks/task-tool-runtime.ts";
-import { chatTimeZone } from "../../otto-agent-instructions.ts";
 import type { SessionLifecycleDependencies } from "./session-lifecycle-dependencies.ts";
 
 type SearchInput = (typeof OttoToolInputSchemas.search)["Type"];
@@ -41,6 +40,7 @@ const resolveType = (
 ): { readonly type?: SearchType } | { readonly error: string } => {
   const taskFilter =
     input.status !== undefined ||
+    input.priority !== undefined ||
     input.assignee !== undefined ||
     input.projectId !== undefined ||
     input.due !== undefined;
@@ -53,7 +53,7 @@ const resolveType = (
 
   if (implied !== undefined && input.type !== undefined && input.type !== implied) {
     return {
-      error: `${implied === "task" ? "status, assignee, projectId and due" : "folderId"} only apply to type ${implied}.`,
+      error: `${implied === "task" ? "status, priority, assignee, projectId and due" : "folderId"} only apply to type ${implied}.`,
     };
   }
 
@@ -96,8 +96,8 @@ const snippet = (text: string, terms: ReadonlyArray<string>) => {
   return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
 };
 
-/** Today in the chat's timezone, and the Sunday that ends this week, as YYYY-MM-DD. */
-const chatWeek = (timezone: string) => {
+/** Today in the organization's time zone, and the Sunday that ends this week, as YYYY-MM-DD. */
+const organizationWeek = (timezone: string) => {
   const now = DateTime.nowUnsafe();
   const zoned = Option.getOrElse(DateTime.setZoneNamed(now, timezone), () => now);
 
@@ -158,10 +158,12 @@ export function createSessionSearch(
         tasks.search(caller, {
           terms,
           status: request.status,
+          priority: request.priority,
           assignee: request.assignee,
           projectId: request.projectId,
           due: request.due,
-          ...chatWeek(chatTimeZone(deps.sessions.get(threadId)?.toolSession.timezone)),
+          // Otto: due dates are the organization's days, whoever's chat asks.
+          ...organizationWeek(tasks.timeZone()),
         }),
       );
 

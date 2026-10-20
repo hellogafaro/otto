@@ -5,7 +5,14 @@ export const OrganizationRole = Schema.Literals(["admin", "member"]);
 export type OrganizationRole = typeof OrganizationRole.Type;
 
 export const OrganizationAccountState = Schema.Struct({
-  organization: Schema.NullOr(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  organization: Schema.NullOr(
+    Schema.Struct({
+      id: Schema.String,
+      name: Schema.String,
+      /** The IANA time zone the organization's days follow, such as `Europe/Madrid`. */
+      timezone: Schema.String,
+    }),
+  ),
   user: Schema.NullOr(
     Schema.Struct({
       id: Schema.String,

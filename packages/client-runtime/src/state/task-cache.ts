@@ -58,8 +58,8 @@ export function cacheTasks(
 }
 
 /**
- * Feeds the task cache from the shell: an event replaces its task, and a snapshot, which may
- * follow missed events, leaves every cached task to be read again.
+ * Feeds the task cache from the shell: an event replaces its task or drops a deleted one, and a
+ * snapshot, which may follow missed events, leaves every cached task to be read again.
  */
 export function recordTaskShellItem(
   registry: AtomRegistry.AtomRegistry,
@@ -73,6 +73,15 @@ export function recordTaskShellItem(
     }));
   } else if (item.kind === "task-upserted") {
     cacheTasks(registry, environmentId, [item.task]);
+  } else if (item.kind === "task-deleted") {
+    registry.update(taskCacheAtom(environmentId), (cache) => {
+      const tasks = new Map(cache.tasks);
+      const current = new Set(cache.current);
+      tasks.delete(item.taskId);
+      current.delete(item.taskId);
+
+      return { tasks, current };
+    });
   } else {
     return;
   }

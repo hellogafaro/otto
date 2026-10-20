@@ -11,9 +11,11 @@ export type CreateTaskInput = CommandInput<"task.create">;
 
 export type UpdateTaskInput = CommandInput<"task.update">;
 
-export type AddTaskTimeInput = CommandInput<"task.time.add">;
+export type DeleteTaskInput = CommandInput<"task.delete">;
 
-export type RemoveTaskTimeInput = CommandInput<"task.time.remove">;
+export type CreateTaskTimeInput = CommandInput<"task.time.create">;
+
+export type DeleteTaskTimeInput = CommandInput<"task.time.delete">;
 
 export const createTask: (input: CreateTaskInput) => CommandEffect = Effect.fn(
   "EnvironmentCommands.createTask",
@@ -28,36 +30,46 @@ export const createTask: (input: CreateTaskInput) => CommandEffect = Effect.fn(
   });
 });
 
+/** The server counts days in the organization's time zone, so no device zone is sent. */
 export const updateTask: (input: UpdateTaskInput) => CommandEffect = Effect.fn(
   "EnvironmentCommands.updateTask",
 )(function* (input) {
   return yield* dispatch({
     ...input,
-    timezone: input.timezone ?? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
     type: "task.update",
     commandId: yield* commandId(input),
   });
 });
 
-export const addTaskTime: (input: AddTaskTimeInput) => CommandEffect = Effect.fn(
-  "EnvironmentCommands.addTaskTime",
+export const deleteTask: (input: DeleteTaskInput) => CommandEffect = Effect.fn(
+  "EnvironmentCommands.deleteTask",
+)(function* (input) {
+  return yield* dispatch({
+    ...input,
+    type: "task.delete",
+    commandId: yield* commandId(input),
+  });
+});
+
+export const createTaskTime: (input: CreateTaskTimeInput) => CommandEffect = Effect.fn(
+  "EnvironmentCommands.createTaskTime",
 )(function* (input) {
   const metadata = yield* timestampedCommandMetadata(input);
 
   return yield* dispatch({
     ...input,
-    type: "task.time.add",
+    type: "task.time.create",
     commandId: metadata.commandId,
     createdAt: metadata.createdAt,
   });
 });
 
-export const removeTaskTime: (input: RemoveTaskTimeInput) => CommandEffect = Effect.fn(
-  "EnvironmentCommands.removeTaskTime",
+export const deleteTaskTime: (input: DeleteTaskTimeInput) => CommandEffect = Effect.fn(
+  "EnvironmentCommands.deleteTaskTime",
 )(function* (input) {
   return yield* dispatch({
     ...input,
-    type: "task.time.remove",
+    type: "task.time.delete",
     commandId: yield* commandId(input),
   });
 });

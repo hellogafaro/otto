@@ -36,7 +36,8 @@ const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 const repeatOf = (schedule: RoutineSchedule): Repeat =>
   schedule.kind === "hourly" ? `hourly-${schedule.everyHours}` : schedule.kind;
 
-const timeZones = (current: string) => {
+/** Every IANA time zone this browser knows, with `current` first when it doesn't know it. */
+export const timeZones = (current: string) => {
   const zones = Intl.supportedValuesOf("timeZone");
 
   return zones.includes(current) ? zones : [current, ...zones];
