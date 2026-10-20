@@ -33,6 +33,19 @@ function makeFile(sizeBytes: number, type = "image/png"): File {
   return new File([new Uint8Array(sizeBytes).fill(7)], "shot.png", { type });
 }
 
+/** A PNG whose header declares `width` × `height`. */
+function makePngFile(width: number, height: number): File {
+  const header = new Uint8Array(24);
+  const view = new DataView(header.buffer);
+  header.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  view.setUint32(8, 13);
+  header.set([0x49, 0x48, 0x44, 0x52], 12);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+
+  return new File([header], "shot.png", { type: "image/png" });
+}
+
 function makeHeicFile(options?: {
   name?: string;
   type?: string;
@@ -233,6 +246,40 @@ describe("compressImageForStash", () => {
     // Pass-through must be the same File object, not a copy.
     expect(result.ok && result.file).toBe(original);
     expect(bitmapSpy).not.toHaveBeenCalled();
+  });
+
+  it("compressImageToByteLimit keeps a small image within the model's side limit", async () => {
+    const bitmapSpy = vi.fn();
+    vi.stubGlobal("createImageBitmap", bitmapSpy);
+
+    const original = makePngFile(2000, 1200);
+    const result = await compressImageToByteLimit(original, 1_000_000);
+
+    expect(result.ok && result.file).toBe(original);
+    expect(bitmapSpy).not.toHaveBeenCalled();
+  });
+
+  it("compressImageToByteLimit downscales a small file wider than the model takes", async () => {
+    const widths: number[] = [];
+    stubCanvasPipeline(() => 200_000);
+    const { OffscreenCanvas: Canvas } = globalThis;
+
+    vi.stubGlobal(
+      "OffscreenCanvas",
+      class extends Canvas {
+        constructor(width: number, height: number) {
+          super(width, height);
+          widths.push(width);
+        }
+      },
+    );
+
+    const result = await compressImageToByteLimit(makePngFile(4112, 2658), 1_000_000);
+
+    expect(result.ok && result.recompressed).toBe(true);
+    expect(result.ok && result.file.name).toBe("shot.webp");
+    // The stubbed bitmap is 4000 × 3000.
+    expect(Math.max(...widths)).toBe(2000);
   });
 
   it("compressImageToByteLimit re-encodes an oversized file under the byte cap", async () => {

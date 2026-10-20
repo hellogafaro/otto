@@ -1,11 +1,11 @@
 import type { MastraDBMessage } from "@mastra/core/agent-controller";
+import { MODEL_IMAGE_MAX_SIDE } from "@otto/shared/imageDimensions";
 import { describe, expect, it } from "vite-plus/test";
 
 import { GROUP_NO_REPLY, groupTurnNote } from "../orchestration/group-responder.ts";
 import {
   inlineTextFile,
   MODEL_FILE_MAX_BYTES,
-  MODEL_IMAGE_MAX_SIDE,
   MODEL_TEXT_MAX_CHARS,
   MODEL_TEXT_PREVIEW_CHARS,
   modelReadsAttachment,

@@ -1,5 +1,13 @@
-import type { UploadChatFileAttachment } from "@otto/contracts";
+import {
+  isProviderSendTurnSupportedImageMimeType,
+  type UploadChatFileAttachment,
+} from "@otto/contracts";
 import { Predicate } from "effect";
+import {
+  isHeicImageFile,
+  MODEL_IMAGE_MAX_BYTES,
+  prepareImageForAttachment,
+} from "../../lib/image-compression";
 import { resolveBotFileAttachment } from "./bot-file-attachment";
 
 /** The chat title a send proposes: the prompt, else the first file's name, capped at 80. */
@@ -36,16 +44,35 @@ export type UploadThreadAttachment = (
   mimeType: UploadChatFileAttachment["mimeType"],
 ) => Promise<string>;
 
+/** An image downscaled to what a model takes, since the chat resends it every turn. */
+async function sendableFile(file: File): Promise<File> {
+  if (!isProviderSendTurnSupportedImageMimeType(file.type) && !isHeicImageFile(file)) return file;
+
+  const prepared = await prepareImageForAttachment(file, MODEL_IMAGE_MAX_BYTES);
+
+  if (!prepared.ok) {
+    throw new Error(
+      prepared.reason === "too-large"
+        ? `This image is too large to send: ${file.name}`
+        : `Could not read ${file.name}.`,
+    );
+  }
+
+  return prepared.file;
+}
+
 /**
  * Turns composer files into turn attachments, rejecting with a readable message on failure.
- * Images travel inline as data URLs; every other file uploads first and the message names it.
+ * Images are downscaled and travel inline as data URLs; every other file uploads first and
+ * the message names it.
  */
 export function readThreadTurnAttachments(
   files: readonly File[],
   uploadAttachment: UploadThreadAttachment,
 ) {
   return Promise.all(
-    files.map(async (file) => {
+    files.map(async (source) => {
+      const file = await sendableFile(source);
       const attachment = resolveBotFileAttachment(file);
 
       if (!attachment) throw new Error(`This file type is not supported: ${file.name}`);

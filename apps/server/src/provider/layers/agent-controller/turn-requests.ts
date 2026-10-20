@@ -28,7 +28,12 @@ import { cancelActiveImageGenerations } from "../../../image-generation/image-ge
 import { AgentControllerRuntimeError, ProviderValidationError } from "../../errors.ts";
 import { type AgentControllerShape } from "../../services/agent-controller.ts";
 import { LegacyProviderBridge } from "../../services/legacy-provider-bridge.ts";
-import { inlineTextFile, MODEL_FILE_MAX_BYTES, modelReadsAttachment } from "../../chat-history.ts";
+import {
+  inlineTextFile,
+  MODEL_FILE_MAX_BYTES,
+  modelReadsAttachment,
+  oversizedImageNote,
+} from "../../chat-history.ts";
 import { routineWakeText } from "../../mastra/otto-routine-signals.ts";
 import { taskWakeSignal, taskWakeText } from "../../mastra/otto-task-signals.ts";
 
@@ -164,10 +169,16 @@ export function createTurnRequests(deps: {
             const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
             if (asFile) {
+              const data = buffer.toString("base64");
+              // An image saved before the composer downscaled it would fail the whole request.
+              const note = attachment.type === "image" ? oversizedImageNote(data) : undefined;
+
+              if (note) return { pathLine, inline: note };
+
               return {
                 pathLine,
                 file: {
-                  data: buffer.toString("base64"),
+                  data,
                   mediaType: attachment.mimeType,
                   filename: attachment.name,
                 },

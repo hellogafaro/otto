@@ -6,6 +6,7 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { describe, expect } from "vite-plus/test";
 import { inlineTextFile } from "../chat-history.ts";
+import { oversizedImageNote } from "../chat-history.ts";
 import { AgentController } from "../services/agent-controller.ts";
 import {
   codexThreadId,
@@ -63,6 +64,73 @@ describe("AgentControllerLive", () => {
               filename: "screenshot.png",
             },
           ],
+        });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(baseDir, { recursive: true, force: true })),
+        ),
+      ),
+      bridge.service,
+      mastra.factory,
+      undefined,
+      baseDir,
+    );
+  });
+
+  it.effect("sends a note instead of a stored image larger than models take", () => {
+    const bridge = makeBridge();
+    const mastra = mastraHarnessFixture();
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "otto-mastra-large-image-"));
+    const attachmentsDir = NodePath.join(baseDir, "userdata", "attachments");
+    const ihdr = Buffer.alloc(8);
+    ihdr.writeUInt32BE(4112, 0);
+    ihdr.writeUInt32BE(2658, 4);
+
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]),
+      Buffer.from("IHDR"),
+      ihdr,
+    ]);
+
+    NodeFS.mkdirSync(attachmentsDir, { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(attachmentsDir, "image-1.png"), png);
+
+    return provideController(
+      Effect.gen(function* () {
+        const controller = yield* AgentController;
+        yield* resolveCodex(controller);
+        yield* controller.startSession(codexThreadId, {
+          threadId: codexThreadId,
+          provider: ProviderDriverKind.make("codex"),
+          providerInstanceId: codexInstanceId,
+          cwd: process.cwd(),
+          modelSelection: codexSelection,
+          runtimeMode: "full-access",
+        });
+        yield* controller.sendTurn({
+          threadId: codexThreadId,
+          input: "Inspect this image.",
+          attachments: [
+            {
+              type: "image",
+              id: "image-1",
+              name: "screenshot.png",
+              mimeType: "image/png",
+              sizeBytes: 28,
+            },
+          ],
+        });
+
+        const note = oversizedImageNote(png.toString("base64"));
+
+        expect(note).toContain("[The image is 4112×2658 pixels, so it was left out");
+        // No `files`: the image bytes stay out of the request.
+        expect(mastra.sendMessage).toHaveBeenCalledWith({
+          content: [
+            "Inspect this image.",
+            `[Attached image "screenshot.png" is saved at: ${NodePath.join(attachmentsDir, "image-1.png")}]`,
+            note,
+          ].join("\n\n"),
         });
       }).pipe(
         Effect.ensuring(

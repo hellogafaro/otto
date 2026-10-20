@@ -16,6 +16,12 @@ export interface ImageDimensions {
  */
 export const IMAGE_DIMENSIONS_HEADER_BYTES = 256 * 1024;
 
+/**
+ * The widest or tallest image a model gets. Anthropic refuses a request holding many images
+ * if any is larger, and a chat's screenshots add up; Claude scales images to about 1,568 anyway.
+ */
+export const MODEL_IMAGE_MAX_SIDE = 2000;
+
 export function readImageDimensions(bytes: Uint8Array): ImageDimensions | null {
   const dimensions = readPng(bytes) ?? readGif(bytes) ?? readWebp(bytes) ?? readJpeg(bytes);
 
