@@ -12,9 +12,9 @@ import { useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useThreadMessages } from "../../state/entities";
-import ChatMarkdown from "../chat-markdown";
 import { Dialog, DialogDescription, DialogPanel, DialogPopup, DialogTitle } from "../ui/dialog";
 import { BotAvatarView } from "./bot-avatar-view";
+import { AssistantMessageRow, UserMessageRow } from "./bot-chat-message-rows";
 import type { Bot } from "./types";
 
 type Translate = (key: MessageKey, params?: TranslationParams) => string;
@@ -59,8 +59,8 @@ export function formatDelegationAccess(access: OttoDelegationAccessGrant, t: Tra
 }
 
 /**
- * Read-only view of one piece of delegated work: the brief, the access it was
- * given, and the child's chat so far. Mount it only while open, because it
+ * Read-only view of one piece of delegated work: the two bots' chat so far, in the
+ * same rows as any chat. Mount it only while open, because it
  * subscribes to the child thread's messages.
  */
 export function DelegationDetail({
@@ -91,20 +91,29 @@ export function DelegationDetail({
   const childName = activeChildBot?.name ?? t("Unknown bot");
   const parentName = parentBot?.name ?? t("Unknown bot");
 
-  // Otto: Agent-to-agent work reads as a chat, not a report: both names in one pill, the
-  // brief as an outlined note, and each message in the same outline bubble as a reply.
-  // Read-only, so the corner X is the only action.
+  const childAuthor = {
+    name: childName,
+    avatar: activeChildBot?.avatar ?? { kind: "dither" as const, seed: delegation.childBotId },
+  };
+
+  const transcript = messages.filter((message) => message.role !== "system");
+
+  // Otto: Agent-to-agent work reads as a normal chat, read-only: the bot that asked on the
+  // right as your own messages sit, the bot doing the work on the left with its avatar and
+  // name, in the same rows a chat uses. Until the work starts, the brief stands in for the
+  // first message. Copy is the only message action and the corner X the only dialog action.
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogPopup className="max-w-2xl" data-testid="delegation-detail">
+      <DialogPopup className="max-w-3xl" data-testid="delegation-detail">
+        {/* Otto: The 28px pill sits on the 20px content edge, level with the 28px close. */}
         <div className="flex min-w-0 items-center px-5 pt-3.5 pe-14">
-          <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-foreground/12 px-2.5 py-1">
+          <div className="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-foreground/12 px-2">
             <BotAvatarView
               avatar={parentBot?.avatar ?? { kind: "dither", seed: delegation.parentBotId }}
               name={parentName}
-              className="size-5 shrink-0"
+              className="size-4 shrink-0"
             />
-            <DialogTitle className="min-w-0 truncate text-sm">
+            <DialogTitle className="min-w-0 truncate text-13px">
               {parentName}
               <span className="sr-only"> · {childName}</span>
             </DialogTitle>
@@ -113,11 +122,11 @@ export function DelegationDetail({
               className="size-3.5 shrink-0 text-muted-foreground"
             />
             <BotAvatarView
-              avatar={activeChildBot?.avatar ?? { kind: "dither", seed: delegation.childBotId }}
+              avatar={childAuthor.avatar}
               name={childName}
-              className="size-5 shrink-0"
+              className="size-4 shrink-0"
             />
-            <span aria-hidden="true" className="min-w-0 truncate text-sm font-medium">
+            <span aria-hidden="true" className="min-w-0 truncate text-13px font-medium">
               {childName}
             </span>
           </div>
@@ -125,45 +134,53 @@ export function DelegationDetail({
         <DialogDescription className="sr-only">
           {delegationStateLabel(presentation.state, t)}
         </DialogDescription>
-        <DialogPanel tone="body" className="flex flex-col gap-3">
-          <p className="rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
-            {delegation.task}
-          </p>
-          <section
-            aria-label={t("{name} chat", { name: childName })}
-            className="flex flex-col gap-3"
-          >
-            {messages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("No messages yet")}</p>
-            ) : (
-              messages.map((message) => {
-                const fromChild = message.role === "assistant";
-
-                return (
-                  <div
-                    key={message.id}
-                    data-role={message.role}
-                    className={fromChild ? "flex justify-start" : "flex justify-end"}
-                  >
-                    <div
-                      className={`flex max-w-39/50 flex-col ${fromChild ? "items-start" : "items-end"}`}
-                    >
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">
-                        {fromChild ? childName : parentName}
-                      </div>
-                      <div className="rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6">
-                        <ChatMarkdown
-                          cwd={undefined}
-                          text={message.text}
-                          threadRef={childThreadRef ?? undefined}
-                          isStreaming={message.streaming}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+        <DialogPanel>
+          <section aria-label={t("{name} chat", { name: childName })} className="flex flex-col">
+            {transcript.some((message) => message.role === "user") ? null : (
+              <div className="flex justify-end" data-role="brief">
+                <div className="max-w-39/50 rounded-2xl bg-foreground/10 px-3.5 py-2 text-sm leading-6 whitespace-pre-wrap">
+                  {delegation.task}
+                </div>
+              </div>
             )}
+            {transcript.map((message, index) => {
+              const startsGroup = index === 0 || transcript[index - 1]?.role !== message.role;
+
+              return message.role === "assistant" ? (
+                <AssistantMessageRow
+                  key={message.id}
+                  message={message}
+                  author={childAuthor}
+                  testId="delegation-child-message"
+                  startsGroup={startsGroup}
+                  cwd={undefined}
+                  threadRef={childThreadRef ?? undefined}
+                  stepMeter={undefined}
+                  trace={undefined}
+                  environmentId={environmentId ?? null}
+                  currentPersonId={null}
+                  playback={null}
+                  playbackKey={null}
+                  channelApproval={null}
+                  onReply={null}
+                  onReactionChange={null}
+                />
+              ) : (
+                <UserMessageRow
+                  key={message.id}
+                  message={message}
+                  testId="delegation-parent-message"
+                  startsGroup={startsGroup}
+                  replyLabel={parentName}
+                  showChannelOrigin={false}
+                  skills={undefined}
+                  environmentId={environmentId ?? null}
+                  currentPersonId={null}
+                  onReply={null}
+                  onReactionChange={null}
+                />
+              );
+            })}
           </section>
         </DialogPanel>
       </DialogPopup>

@@ -35,7 +35,8 @@ export interface AssistantMessageRowProps {
   /** Changes when the playback context changes, so the read-aloud action is recomputed. */
   readonly playbackKey: string | null | undefined;
   readonly channelApproval: ChannelApprovalTarget | null;
-  readonly onReply: MessageReplyHandler;
+  /** Null for a read-only transcript (agent-to-agent work): Copy only, no Reply or reactions. */
+  readonly onReply: MessageReplyHandler | null;
   /** Null while the chat has no linked thread to react in. */
   readonly onReactionChange: MessageReactionHandler | null;
 }
