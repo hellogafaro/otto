@@ -11,12 +11,10 @@ import {
   TraceLine,
   TraceTitle,
 } from "~/components/ui/trace";
-import { cn } from "~/lib/utils";
 
-import { formatLoadingElapsed } from "../chat/response-loading-state";
 import { BotAvatarView } from "./bot-avatar-view";
 import type { BotActivity } from "./bot-activity-status.logic";
-import { BotTraceSteps } from "./bot-turn-trace";
+import { BotTraceSteps, GroupClockStatus } from "./bot-turn-trace";
 import type { BotTraceStep } from "./bot-turn-trace.logic";
 import type { Bot } from "./types";
 
@@ -62,20 +60,6 @@ function ShimmerText({ text }: { readonly text: string }) {
   return <span className="min-w-0 truncate shimmer motion-reduce:shimmer-none">{text}</span>;
 }
 
-/** "Working for 1m 12s" from the turn's start, re-rendering only itself each second. */
-function WorkingFor({ startedAt }: { readonly startedAt: number }) {
-  const { t } = useI18n();
-  const [now, setNow] = useState(Date.now);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-
-    return () => window.clearInterval(id);
-  }, []);
-
-  return t("Working for {duration}", { duration: formatLoadingElapsed(now - startedAt) });
-}
-
 /** Keeps a scrolling list on its newest row until the person scrolls up, and again once back. */
 function useFollowNewest(count: number) {
   const ref = useRef<HTMLDivElement>(null);
@@ -98,12 +82,13 @@ function useFollowNewest(count: number) {
 
 /**
  * Otto: A working bot shows itself in the chat history, where its reply will appear: its own 28px
- * avatar in the working pose beside "Working for 12s", the same in a DM and a group. Under it the
- * trace is already open, the same lines the reply's "Worked for" trace keeps: each finished step
- * in the past tense with its time, the running one shimmering in the present tense, and "Thinking"
- * between steps. Before the first step playful verbs rotate there instead. The list shows about
- * seven rows and scrolls inside, following the newest. Under the bot's own streaming reply the
- * avatar gives way to the message's indent. When the reply lands, it takes the collapsed trace.
+ * avatar in the working pose beside "Cody · Working for 12s", the name and the muted, shimmering
+ * status at one weight, the same in a DM and a group. Under it the trace is already open, the same
+ * lines the reply's "Worked for" trace keeps: each finished step in the past tense with its time,
+ * the running one shimmering in the present tense, and "Thinking" between steps. Before the first
+ * step playful verbs rotate there instead. The list shows about seven rows and scrolls inside,
+ * following the newest. Once the bot's group has a reply, that group's one header carries the
+ * clock, so under the last bubble only the open trace continues, with no second status.
  */
 export function BotActivityStatus({
   bot,
@@ -128,17 +113,6 @@ export function BotActivityStatus({
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
   const running = steps.some((step) => step.kind === "tool" && step.running);
 
-  const avatar = continuesReply ? (
-    <span aria-hidden="true" className="size-7 shrink-0" />
-  ) : (
-    <BotAvatarView
-      avatar={bot.avatar}
-      name={bot.name}
-      state="working"
-      className="size-7 shrink-0"
-    />
-  );
-
   // A running tool is already the trace's shimmering last line.
   const live = running ? null : activity.thinking ? (
     steps.length === 0 ? (
@@ -150,38 +124,62 @@ export function BotActivityStatus({
     <ShimmerText key={activity.label} text={t(activity.label)} />
   );
 
+  const lines = (
+    <Trace ref={follow.ref} onScroll={follow.onScroll} className="max-h-44 overflow-y-auto">
+      <BotTraceSteps steps={steps} environmentId={environmentId} />
+      {live ? (
+        <TraceLine>
+          <span className="flex min-w-0">{live}</span>
+        </TraceLine>
+      ) : null}
+    </Trace>
+  );
+
+  // The group's header above already counts this work; only the open trace continues here.
+  if (continuesReply) {
+    return (
+      <div
+        aria-live="polite"
+        className="motion-message-enter mt-0.5 flex w-full min-w-0 text-sm"
+        data-testid="bot-activity-status"
+      >
+        <span className="sr-only">{t("{name} is working", { name: bot.name })}</span>
+        <div className="ml-10 min-w-0 flex-1 border-l pl-3.75" data-testid="bot-live-trace">
+          {lines}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       aria-live="polite"
-      className={cn(
-        "motion-message-enter flex w-full min-w-0 items-start gap-3 text-sm",
-        continuesReply ? "mt-1" : "mt-3",
-      )}
+      className="motion-message-enter mt-3 flex w-full min-w-0 items-start gap-3 text-sm"
       data-testid="bot-activity-status"
     >
-      {avatar}
+      <BotAvatarView
+        avatar={bot.avatar}
+        name={bot.name}
+        state="working"
+        className="size-7 shrink-0"
+      />
       <span className="sr-only">{bot.name}: </span>
       <Trace className="min-w-0 flex-1" data-testid="bot-live-trace">
         <TraceCollapsible defaultOpen>
           <TraceCollapsibleTrigger className="min-h-7">
-            <TraceLine>
+            <TraceLine variant="header">
               <TraceTitle data-testid="bot-activity-time">
-                <span className="font-medium text-foreground">{bot.name}</span>
+                <span className="text-foreground">{bot.name}</span>
                 <span> · </span>
-                {Number.isFinite(started) ? <WorkingFor startedAt={started} /> : t("Working")}
+                {Number.isFinite(started) ? (
+                  <GroupClockStatus live={{ startedAt: started, baseMs: 0 }} workedMs={0} />
+                ) : (
+                  <span className="shimmer motion-reduce:shimmer-none">{t("Working")}</span>
+                )}
               </TraceTitle>
             </TraceLine>
           </TraceCollapsibleTrigger>
-          <TraceCollapsibleContent>
-            <Trace ref={follow.ref} onScroll={follow.onScroll} className="max-h-44 overflow-y-auto">
-              <BotTraceSteps steps={steps} environmentId={environmentId} />
-              {live ? (
-                <TraceLine>
-                  <span className="flex min-w-0">{live}</span>
-                </TraceLine>
-              ) : null}
-            </Trace>
-          </TraceCollapsibleContent>
+          <TraceCollapsibleContent>{lines}</TraceCollapsibleContent>
         </TraceCollapsible>
       </Trace>
     </div>
