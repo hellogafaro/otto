@@ -60,6 +60,31 @@ describe("firstUnseenMessageId", () => {
     ).toBe("ask");
   });
 
+  it("skips the reader's own message and lands on the reply", () => {
+    const isMine = (message: { id: string }) => message.id === "ask";
+
+    expect(firstUnseenMessageId(messages, "2026-10-19T10:00:00.000Z", turn, isMine)).toBe("reply");
+    expect(
+      firstUnseenMessageId(
+        messages.filter((message) => message.id !== "reply"),
+        "2026-10-19T10:00:00.000Z",
+        turn,
+        isMine,
+      ),
+    ).toBeNull();
+  });
+
+  it("never falls back to the reader's own message after mark unread", () => {
+    expect(
+      firstUnseenMessageId(
+        messages.filter((message) => message.id !== "reply"),
+        "2026-10-19T10:59:59.999Z",
+        turn,
+        (message) => message.id === "ask",
+      ),
+    ).toBeNull();
+  });
+
   it("does not mark a reply the reader already saw just because the turn finished later", () => {
     expect(firstUnseenMessageId(messages, "2026-10-19T10:50:00.000Z", turn)).toBeNull();
     expect(firstUnseenMessageId([], "2026-10-19T10:00:00.000Z", turn)).toBeNull();

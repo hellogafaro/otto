@@ -288,8 +288,15 @@ export function BotThreadLanding({
   const todayLabel = t("Today");
   const newLabel = t("New");
 
+  // Every message the person sends in their own bot chat is theirs, so it is never new to them.
   const newMessageId = useMemo(
-    () => firstUnseenMessageId(messages, unreadSince, runtime.latestTurn),
+    () =>
+      firstUnseenMessageId(
+        messages,
+        unreadSince,
+        runtime.latestTurn,
+        (message) => message.role === "user",
+      ),
     [messages, runtime.latestTurn, unreadSince],
   );
 
