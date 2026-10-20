@@ -235,7 +235,7 @@ describe("TaskWorkReactor", () => {
 
         expect(ofType(dispatched, "thread.turn.start")).toMatchObject([
           {
-            message: { text: "Can you check this, @Nova?" },
+            message: { text: mention },
             senderPersonId: ADA,
             taskWake: {
               type: "commented",
@@ -243,7 +243,7 @@ describe("TaskWorkReactor", () => {
               by: { key: `person:${ADA}`, name: "Ada" },
               commentId: "comment-1",
               reason: "mention",
-              text: "Can you check this, @Nova?",
+              text: mention,
             },
           },
         ]);
@@ -268,15 +268,21 @@ describe("TaskWorkReactor", () => {
         });
 
         expect(ofType(dispatched, "thread.turn.start")).toMatchObject([
-          { taskWake: { reason: "reply", replyTo: "comment-by-nova", text: "@Nova try again" } },
+          {
+            taskWake: {
+              reason: "reply",
+              replyTo: "comment-by-nova",
+              text: '<mention type="comment" id="comment-by-nova">Nova</mention> try again',
+            },
+          },
         ]);
 
         yield* session("running");
-        yield* reply("Done.");
+        yield* reply('Done <mention type="person" id="user-ada">nope</mention>.');
         yield* session("ready");
 
         expect(ofType(dispatched, "task.comment.create")[0]?.content).toBe(
-          '<mention type="comment" id="comment-2">Ada</mention> Done.',
+          '<mention type="comment" id="comment-2">Ada</mention> Done <mention type="person" id="user-ada">Ada</mention>.',
         );
       }),
     ),
@@ -288,9 +294,11 @@ it("reads mentions and turns a comment into plain text", () => {
     'Hi <mention type="bot" id="bot-a">A</mention> &amp; <mention type="person" id="p">P</mention> &lt;3';
 
   expect(mentionedBots(content)).toEqual(["bot-a"]);
-  expect(commentText(content)).toBe("Hi @A & @P <3");
+  expect(commentText(content)).toBe(
+    'Hi <mention type="bot" id="bot-a">A</mention> & <mention type="person" id="p">P</mention> <3',
+  );
   expect(commentText('See <mention type="task" id="t-1">Launch</mention>')).toBe(
-    "See @Launch (taskId: t-1)",
+    'See <mention type="task" id="t-1">Launch</mention>',
   );
   expect(repliedComment(`<mention type="comment" id="c-1">A</mention> ok`)).toBe("c-1");
 });

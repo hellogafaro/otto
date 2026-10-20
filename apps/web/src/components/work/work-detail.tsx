@@ -9,7 +9,10 @@ import { useLocalStorage } from "../../hooks/use-local-storage";
 import { useCachedTasks } from "../../state/tasks";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { linkMentionTags } from "@otto/shared/mention";
+
 import ChatMarkdown from "../chat-markdown";
+import { useMentionLink } from "../mention-link";
 import { CONTENT_ROW_CLASS } from "../content-row";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../../right-panel-layout";
 import { DetailsAside, detailsGroupStorageKey, type PickerOpenState } from "../details-aside";
@@ -70,6 +73,7 @@ export function WorkDetailPage({
   readonly aside: ReactNode;
 }) {
   const { t } = useI18n();
+  const renderLink = useMentionLink();
   const [linkQuery, setLinkQuery] = useState<string | null>(null);
   const links = useEntities(linkQuery);
   useDesktopTabTitle(title);
@@ -146,7 +150,12 @@ export function WorkDetailPage({
                     }}
                   />
                 ) : (
-                  <ChatMarkdown className="px-4" cwd={undefined} text={description} />
+                  <ChatMarkdown
+                    className="px-4"
+                    cwd={undefined}
+                    text={linkMentionTags(description)}
+                    renderLink={renderLink}
+                  />
                 )}
               </>
             )}

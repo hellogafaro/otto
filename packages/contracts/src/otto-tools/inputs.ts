@@ -31,7 +31,7 @@ import {
 } from "../orchestration/work.ts";
 import { ActivityContent, ActivityEntryId } from "../orchestration/activity.ts";
 import { BotInstructions } from "../orchestration/roster.ts";
-import { OttoToolId } from "./catalog.ts";
+import { MENTION_RULE, OttoToolId } from "./catalog.ts";
 
 export const OTTO_COMMAND_MAX_CHARS = 32_000;
 
@@ -427,7 +427,7 @@ export const OttoToolInputSchemas = {
     taskId: TaskId,
     content: described(
       ActivityContent,
-      "Comment text. Mention a person with @person:<key>, which notifies them.",
+      `${MENTION_RULE} A person tag notifies them. The label you write is replaced with the current name. A tag for a bot, or for something that is not there, is stored as text.`,
     ),
   }),
   task_comment_list: Schema.Struct({
@@ -440,7 +440,10 @@ export const OttoToolInputSchemas = {
   }),
   task_comment_update: Schema.Struct({
     commentId: described(ActivityEntryId, "ID of a comment you wrote."),
-    content: described(ActivityContent, "The comment's new text; it replaces the old text."),
+    content: described(
+      ActivityContent,
+      `${MENTION_RULE} A person tag notifies them. The label you write is replaced with the current name. A tag for a bot, or for something that is not there, is stored as text.`,
+    ),
   }),
   task_comment_delete: Schema.Struct({
     commentId: described(ActivityEntryId, "ID of the comment to delete."),

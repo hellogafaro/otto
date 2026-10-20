@@ -167,7 +167,7 @@ it.live("creates, finds, updates and comments on a task as the bot", () =>
       expect(
         yield* tools.createComment(caller, {
           taskId,
-          content: `Done <b>soon</b>, @person:${ada} @person:stranger`,
+          content: `Done <b>soon</b>, <mention type="person" id="${ada}">whoever</mention> @person:stranger`,
         }),
       ).toMatchObject({ created: true });
 
@@ -179,7 +179,7 @@ it.live("creates, finds, updates and comments on a task as the bot", () =>
           {
             type: "comment",
             by: { key: `bot:${nova}`, name: "Nova" },
-            content: `Done &lt;b&gt;soon&lt;/b&gt;, <mention type="person" id="${ada}">Ada</mention> @person:stranger`,
+            content: `Done <b>soon</b>, <mention type="person" id="${ada}">Ada</mention> @person:stranger`,
           },
         ],
         history: [

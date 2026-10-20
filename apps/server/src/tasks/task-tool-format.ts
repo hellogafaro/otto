@@ -13,6 +13,7 @@ import {
   type WorkResource,
   workParticipantKey,
 } from "@otto/contracts";
+import { mentionPath, mentionTag, mentionText } from "@otto/shared/mention";
 
 import type { AccountPerson } from "../auth/organization-accounts-runtime.ts";
 
@@ -32,7 +33,7 @@ const participantName = (participant: WorkParticipant, bots: ReadonlyArray<Orche
     ? participant.displayName
     : (bots.find((bot) => bot.id === participant.botId)?.name ?? "A bot");
 
-/** Someone on a task as the bot sees them: a name, and the key to hand back to the tools. */
+/** Someone on a task as the bot sees them: a name, the key to hand back, and a person's mention tag. */
 export const describeParticipant = (
   participant: WorkParticipant,
   bots: ReadonlyArray<OrchestrationBot>,
@@ -40,6 +41,15 @@ export const describeParticipant = (
 ) => ({
   key: workParticipantKey(participant),
   name: participantName(participant, bots),
+  ...(participant.kind === "person"
+    ? {
+        mention: mentionTag({
+          type: "person",
+          id: participant.personId,
+          label: participant.displayName,
+        }),
+      }
+    : {}),
   ...(participant.kind === "bot" && participant.botId === caller.botId ? { you: true } : {}),
 });
 
@@ -54,22 +64,6 @@ export const resourceKey = (resource: WorkResource) =>
 /** Comments are stored with `<`, `>` and `&` escaped, so a bot's plain text can't forge a mention. */
 export const escapeComment = (text: string) =>
   text.trim().replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-
-const PERSON_MENTION = /@person:([A-Za-z0-9_-]+)/g;
-
-/**
- * A bot's comment as stored: its text escaped, and each `@person:<key>` of someone in the
- * organization turned into a mention, which notifies them as a person's mention does. Bots
- * aren't mentioned, so bots can't wake each other in a loop.
- */
-export const botComment = (text: string, people: ReadonlyArray<AccountPerson>) =>
-  escapeComment(text).replace(PERSON_MENTION, (token, id: string) => {
-    const person = people.find((candidate) => candidate.userId === id);
-
-    return person === undefined
-      ? token
-      : `<mention type="person" id="${person.userId}">${escapeComment(person.displayName)}</mention>`;
-  });
 
 const personName = (all: ReadonlyArray<AccountPerson>, id: string) =>
   all.find((person) => person.userId === id)?.displayName ?? "Someone";
@@ -147,28 +141,59 @@ export const describeResource = (
   switch (resource.type) {
     case "link":
       return { type: "url" as const, url: resource.url, title: resource.title };
-    case "task":
+    case "task": {
+      const title =
+        (model.tasks ?? []).find((task) => task.id === resource.id)?.title ?? "A deleted task";
+
       return {
         type: "task" as const,
         linkedTaskId: resource.id,
-        title:
-          (model.tasks ?? []).find((task) => task.id === resource.id)?.title ?? "A deleted task",
+        title,
+        mention: mentionTag({ type: "task", id: resource.id, label: title }),
+        path: mentionPath("task", resource.id),
       };
-    case "project":
+    }
+
+    case "project": {
+      const title =
+        model.projects.find((project) => project.id === resource.id)?.title ?? "A deleted project";
+
       return {
         type: "project" as const,
         linkedProjectId: resource.id,
-        title:
-          model.projects.find((project) => project.id === resource.id)?.title ??
-          "A deleted project",
+        title,
+        mention: mentionTag({ type: "project", id: resource.id, label: title }),
+        path: mentionPath("project", resource.id),
       };
-    case "file":
+    }
+
+    case "file": {
+      const title = files.get(resource.id) ?? "A Library file you can't see";
+
       return {
         type: "file" as const,
         fileId: resource.id,
-        title: files.get(resource.id) ?? "A Library file you can't see",
+        title,
+        ...(files.has(resource.id)
+          ? {
+              mention: mentionTag({ type: "library", id: resource.id, label: title }),
+              path: mentionPath("library", resource.id),
+            }
+          : {}),
       };
+    }
   }
+};
+
+const projectMention = (model: OrchestrationReadModel, task: OrchestrationTask) => {
+  const project = model.projects.find((candidate) => candidate.id === task.projectId);
+
+  return project
+    ? {
+        projectMention: mentionTag({ type: "project", id: project.id, label: project.title }),
+        projectPath: mentionPath("project", project.id),
+      }
+    : {};
 };
 
 export const summarize = (
@@ -179,10 +204,13 @@ export const summarize = (
 ) => ({
   taskId: task.id,
   title: task.title,
+  mention: mentionTag({ type: "task", id: task.id, label: task.title }),
+  path: mentionPath("task", task.id),
   status: task.status,
   priority: task.priority,
   project: model.projects.find((project) => project.id === task.projectId)?.title ?? null,
   projectId: task.projectId,
+  ...projectMention(model, task),
   owner: task.owner ? describeParticipant(task.owner, model.bots, caller) : null,
   assignees: task.assignees.map((participant) =>
     describeParticipant(participant, model.bots, caller),
@@ -210,7 +238,7 @@ export const describeEntry = (
     case "comment":
       return {
         ...base,
-        content: entry.content,
+        content: mentionText(entry.content),
         fileIds: entry.fileIds,
         ...(entry.updatedAt ? { updatedAt: entry.updatedAt } : {}),
       };
@@ -228,9 +256,13 @@ export const describeEntry = (
         note: entry.description,
       };
     case "comment_updated":
-      return { ...base, commentId: entry.commentId, previousContent: entry.previousContent };
+      return {
+        ...base,
+        commentId: entry.commentId,
+        previousContent: mentionText(entry.previousContent),
+      };
     case "comment_deleted":
-      return { ...base, commentId: entry.commentId, content: entry.content };
+      return { ...base, commentId: entry.commentId, content: mentionText(entry.content) };
     default:
       return base;
   }

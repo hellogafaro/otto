@@ -25,6 +25,7 @@ import {
   type ThreadId,
   type WorkParticipant,
 } from "@otto/contracts";
+import { mentionPath, mentionTag } from "@otto/shared/mention";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -203,6 +204,8 @@ export const botSkills = (
 const describeFile = (state: LibraryState, file: LibraryFile) => ({
   fileId: file.id,
   title: file.title,
+  mention: mentionTag({ type: "library", id: file.id, label: file.title }),
+  path: mentionPath("library", file.id),
   type: file.type,
   extension: file.extension,
   sizeBytes: file.sizeBytes,

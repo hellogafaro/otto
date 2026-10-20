@@ -28,10 +28,12 @@ const DELTA_LIMIT = 10;
 
 const TRUNCATED = "… (truncated, task_read has the rest)";
 
-/** What a bot is shown of the task that woke it: bounded, plain text, ready to render. */
+/** What a bot is shown of the task that woke it: bounded, with the mention tag it should paste. */
 const TaskState = Schema.Struct({
   taskId: Schema.String,
   title: Schema.String,
+  mention: Schema.optionalKey(Schema.String),
+  projectMention: Schema.optionalKey(Schema.NullOr(Schema.String)),
   status: Schema.String,
   project: Schema.NullOr(Schema.String),
   due: Schema.NullOr(Schema.String),
@@ -92,10 +94,14 @@ export function taskState(
     due: read.dueDate,
     owner: read.owner ? person(read.owner) : null,
     assignees: read.assignees.map(person),
+    mention: read.mention,
+    projectMention: read.projectMention ?? null,
     links: read.resources.map((resource) =>
       resource.type === "url"
         ? `${resource.title} ${resource.url}`
-        : `${resource.type} ${resource.title}`,
+        : "mention" in resource && resource.mention
+          ? resource.mention
+          : `${resource.type} ${resource.title}`,
     ),
     description: capped(read.description, DESCRIPTION_LIMIT),
     // Otto: task_read lists both newest first; the timeline reads oldest first.
@@ -202,7 +208,9 @@ const line = (entry: TaskState["activity"][number]) => `- ${entry.at} ${entry.by
 
 const fields = (task: TaskState): ReadonlyArray<readonly [string, string]> => [
   ["Title", task.title],
+  ...(task.mention ? [["Mention", task.mention] as const] : []),
   ["Status", task.status],
+  ...(task.projectMention ? [["Project mention", task.projectMention] as const] : []),
   ["Project", task.project ?? "none"],
   ["Due", task.due ?? "none"],
   ["Owner", task.owner ?? "none"],

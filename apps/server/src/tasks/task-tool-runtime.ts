@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { resolveBotMentions } from "@otto/shared/mention";
 
 import { ActivityStore } from "../activity/activity-store.ts";
 import { OrganizationAccounts } from "../auth/organization-accounts.ts";
@@ -33,7 +34,6 @@ import { ProjectionLibraryRepository } from "../persistence/services/projection-
 import { ProjectionTaskRepository } from "../persistence/services/projection-tasks.ts";
 import { NOT_AUTHOR, deleteTaskComment, updateTaskComment } from "./task-comments.ts";
 import {
-  botComment,
   describeActor,
   describeEntry,
   describeResource,
@@ -47,7 +47,7 @@ import {
   type TaskToolCaller,
 } from "./task-tool-format.ts";
 
-export { botComment, escapeComment, type TaskToolCaller } from "./task-tool-format.ts";
+export { escapeComment, type TaskToolCaller } from "./task-tool-format.ts";
 
 type Input<Name extends keyof typeof OttoToolInputSchemas> =
   (typeof OttoToolInputSchemas)[Name]["Type"];
@@ -151,12 +151,12 @@ export const makeTaskToolRuntime = (services: {
       loadLibraryState.pipe(
         Effect.map(
           (state) =>
-            new Map(
+            new Map<string, string>(
               state.files
                 .filter((file) =>
                   canSeeLibraryItem(file, state.context, { kind: "bot", botId: caller.botId }),
                 )
-                .map((file) => [file.id, file.title] as const),
+                .map((file) => [file.id, file.title]),
             ),
         ),
         Effect.orElseSucceed(() => new Map<string, string>()),
@@ -506,6 +506,27 @@ export const makeTaskToolRuntime = (services: {
         return { deleted: true, taskIds: [task.id] };
       });
 
+    /**
+     * A mention tag the bot may write: a person, task, project or Library file it can see.
+     * A bot tag is refused, so bots can't wake each other. An unknown id stays text.
+     */
+    const commentContent = (caller: TaskToolCaller, text: string) =>
+      Effect.gen(function* () {
+        const model = yield* readModel;
+        const all = yield* people;
+        const files = yield* visibleFiles(caller);
+
+        return resolveBotMentions(text, ({ type, id }) => {
+          if (type === "person") return all.find((person) => person.userId === id)?.displayName;
+
+          if (type === "task") return findTask(model, id)?.title;
+
+          if (type === "project") return model.projects.find((project) => project.id === id)?.title;
+
+          return type === "library" ? files.get(id) : undefined;
+        });
+      });
+
     const createComment = (caller: TaskToolCaller, input: Input<"task_comment_create">) =>
       Effect.gen(function* () {
         yield* requireTask(yield* readModel, input.taskId);
@@ -517,7 +538,7 @@ export const makeTaskToolRuntime = (services: {
           commandId: CommandId.make(`task-tool:${NodeCrypto.randomUUID()}`),
           taskId: input.taskId,
           commentId,
-          content: botComment(input.content, yield* people),
+          content: yield* commentContent(caller, input.content),
           fileIds: [],
           by: by(caller),
           createdAt: yield* nowIso,
@@ -580,7 +601,7 @@ export const makeTaskToolRuntime = (services: {
         const comment = yield* updateTaskComment(
           {
             id: input.commentId,
-            content: botComment(input.content, yield* people),
+            content: yield* commentContent(caller, input.content),
             by: by(caller),
           },
           yield* commentServices,

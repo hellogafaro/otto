@@ -27,8 +27,9 @@ export const ActivityEntityId = TrimmedNonEmptyString.check(Schema.isMaxLength(2
 export const ActivityEntryId = TrimmedNonEmptyString.check(Schema.isMaxLength(100));
 
 /**
- * Comment text. Mentions are inline tags, `<mention type="person" id="…">Ana</mention>`;
- * other `<`, `>` and `&` are escaped. Empty only when the comment carries files.
+ * Comment text. A mention is one tag, `<mention type="person" id="…">Ana</mention>`,
+ * and the same tag for a bot, task, project, Library file or comment. Other `<`, `>`
+ * and `&` are escaped. Empty only when the comment carries files.
  */
 export const ActivityContent = TrimmedString.check(Schema.isMaxLength(20_000));
 

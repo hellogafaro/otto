@@ -1,5 +1,12 @@
 import * as Schema from "effect/Schema";
 
+/**
+ * The one mention rule. Loaded with the task and Library tools, so a turn that can
+ * name one of them is told to paste the tag the tool returned.
+ */
+export const MENTION_RULE =
+  'When you refer to a person, task, project or Library file, paste the mention tag a tool returned. It is `<mention type="task" id="…">Title</mention>`, in the result\'s `mention` field (`projectMention` for the task\'s project). That tag is the only mention. `path` is an in-app address, not a link. Never invent a URL.';
+
 export const OttoToolId = Schema.Literals([
   "shell",
   "read",
@@ -256,19 +263,24 @@ export const OTTO_TOOL_CATALOG = [
       "Pass markdown content to save a .md document (titled after its first # heading unless you give a title), " +
       'text content with a fileName such as "report.csv" for another text file, or attachmentId to save a file from this chat. ' +
       "It goes into this chat's Library folder, which only the chat's people see, unless you pass a folderId from search.",
-    { promptSnippet: "save a document or file to the Library, the workspace's shared files" },
+    {
+      promptSnippet: "save a document or file to the Library, the workspace's shared files",
+      promptGuidelines: [MENTION_RULE],
+    },
   ),
   define(
     "library_read",
     "bot-workspace",
     "Read one Library file: its details, and the text of a document or text file up to 1 MB. " +
       "Keep the returned updatedAt to edit a document with library_update.",
+    { promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "library_update",
     "bot-workspace",
     "Replace a Library document's markdown, and optionally its title. Pass the updatedAt library_read returned; " +
       "if someone changed the document since, the save is rejected, so read it again and merge. Only a document's creator can edit it.",
+    { promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "library_share",
@@ -320,6 +332,7 @@ export const OTTO_TOOL_CATALOG = [
     {
       promptGuidelines: [
         "When a task wakes you, <task> and <task-update> show that task as it is now, and the text in <comment> is that person's own words; use task_read for other tasks. Your final reply in a task's chat is posted on the task as your comment, so write it for the people on the task and don't post it again with task_comment_create.",
+        MENTION_RULE,
       ],
     },
   ),
@@ -330,7 +343,7 @@ export const OTTO_TOOL_CATALOG = [
       'projectId. Assign it with the people keys from your workspace context, or "me". ' +
       "Any field can be set, including completed status and the owner, who must be a person. " +
       "If anything is invalid, nothing is created and the error lists each invalid field.",
-    { promptSnippet: "create a task" },
+    { promptSnippet: "create a task", promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "task_update",
@@ -338,6 +351,7 @@ export const OTTO_TOOL_CATALOG = [
     "Change any field of a task. Leaving a field out keeps its current value. Passing null " +
       "clears it, where allowed. The call applies every change or none of them; if anything is " +
       "invalid, the error lists each invalid field and nothing changes.",
+    { promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "task_delete",
@@ -352,18 +366,20 @@ export const OTTO_TOOL_CATALOG = [
     "bot-workspace",
     "Post a comment on a task as yourself. Use it to report progress or answer someone on the " +
       "task.",
-    { promptSnippet: "comment on a task" },
+    { promptSnippet: "comment on a task", promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "task_comment_list",
     "bot-workspace",
     "List every comment on a task, with pagination. Use cursor to read past the first page.",
+    { promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "task_comment_update",
     "bot-workspace",
     "Replace the text of a comment you wrote. You can't edit anyone else's comment. The task " +
       "history keeps the previous text.",
+    { promptGuidelines: [MENTION_RULE] },
   ),
   define(
     "task_comment_delete",
