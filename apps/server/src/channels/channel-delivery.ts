@@ -6,6 +6,7 @@ import {
   type TurnId,
   type ChannelProvider,
 } from "@otto/contracts";
+import { mentionChannelText } from "@otto/shared/mention";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -329,7 +330,12 @@ export const sendChannelMessage = (
           const posted = yield* Effect.exit(
             runtime.post(
               origin.externalThreadId,
-              channelReplyTextWithFooter(text, input.threadId, origin.provider, deps.publicOrigin),
+              channelReplyTextWithFooter(
+                mentionChannelText(text, deps.publicOrigin, origin.provider === "discord"),
+                input.threadId,
+                origin.provider,
+                deps.publicOrigin,
+              ),
             ),
           );
 

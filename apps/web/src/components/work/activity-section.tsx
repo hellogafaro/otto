@@ -16,12 +16,12 @@ import { useEffect, useRef, useState } from "react";
 import { requestConfirmDialog } from "../../confirm-dialog";
 import { useClientSettings } from "../../hooks/use-settings";
 import { useI18n } from "../../i18n";
-import { cn } from "../../lib/utils";
 import { activityEnvironment } from "../../state/activity";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { formatChatTimestampTooltip, formatDayAwareTimestamp } from "../../timestamp-format";
 import ChatMarkdown from "../chat-markdown";
+import { useMentionLink } from "../mention-link";
 import { useLibraryFile, useLibraryUpload } from "../library/use-library";
 import { useTaskCache } from "../../state/tasks";
 import type { MessageReplyTarget } from "../chat/message-controls";
@@ -36,7 +36,6 @@ import {
   activityPlainText,
   type MentionTarget,
   mentionTag,
-  parseMentionHref,
   toActivityContent,
 } from "./activity.logic";
 import { useTaskPriorityLabel } from "./task-priority";
@@ -45,10 +44,6 @@ import { formatDuration } from "./work.logic";
 import { WorkSectionHeader } from "./work-detail";
 import { ParticipantAvatar, participantName, type WorkParticipants } from "./work-participants";
 import { useWorkStatusLabel } from "./work-status";
-
-/** Otto: the one mention look, a quiet info-tinted pill, for people and bots alike. */
-const MENTION_CLASS_NAME =
-  "rounded-sm bg-info/8 px-0.5 font-medium text-info-foreground dark:bg-info/16";
 
 type Comment = Extract<ActivityEntry, { type: "comment" }>;
 
@@ -250,7 +245,7 @@ function EntryTime({ createdAt }: { readonly createdAt: string }) {
 
 /** A comment's Markdown with mention pills, as stored in a comment. */
 function ActivityContent({ content }: { readonly content: string }) {
-  const navigate = useNavigate();
+  const renderLink = useMentionLink();
 
   return (
     <ChatMarkdown
@@ -259,46 +254,7 @@ function ActivityContent({ content }: { readonly content: string }) {
       lineBreaks
       parseRawHtml={false}
       className="text-13px text-foreground"
-      renderLink={(href, children) => {
-        const mention = parseMentionHref(href);
-
-        if (mention === null) return null;
-
-        if (mention.type === "task" || mention.type === "project") {
-          return (
-            <button
-              type="button"
-              className={MENTION_CLASS_NAME}
-              onClick={() =>
-                void (mention.type === "task"
-                  ? navigate({ to: "/tasks/$taskId", params: { taskId: mention.id } })
-                  : navigate({ to: "/projects/$projectId", params: { projectId: mention.id } }))
-              }
-            >
-              @{children}
-            </button>
-          );
-        }
-
-        if (mention.type !== "comment") {
-          return <span className={MENTION_CLASS_NAME}>@{children}</span>;
-        }
-
-        return (
-          <button
-            type="button"
-            className={cn(MENTION_CLASS_NAME, "inline-flex items-center gap-0.5 align-bottom")}
-            onClick={() =>
-              document
-                .getElementById(`activity-${mention.id}`)
-                ?.scrollIntoView({ behavior: "smooth", block: "center" })
-            }
-          >
-            <RiReplyLine aria-hidden className="size-3.5" />
-            {children}
-          </button>
-        );
-      }}
+      renderLink={renderLink}
     />
   );
 }

@@ -1,3 +1,11 @@
+import { mentionMarkdown, mentionPlainText, mentionTag, parseMentions } from "@otto/shared/mention";
+
+export { mentionTag, parseMentionHref } from "@otto/shared/mention";
+
+export const activityMarkdown = mentionMarkdown;
+
+export const activityPlainText = mentionPlainText;
+
 /** Someone or something a comment can mention. */
 export interface MentionTarget {
   readonly type: "person" | "bot" | "task" | "project";
@@ -19,24 +27,7 @@ export type ActivityContentSegment =
 const escapeText = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-const escapeAttribute = (text: string) => escapeText(text).replaceAll('"', "&quot;");
-
-const unescapeText = (text: string) =>
-  text
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&amp;", "&");
-
 const escapeRegExp = (text: string) => text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** One stored mention: a person, a bot, or the comment a reply answers. */
-export const mentionTag = (target: {
-  readonly type: MentionTarget["type"] | "comment";
-  readonly id: string;
-  readonly label: string;
-}) =>
-  `<mention type="${target.type}" id="${escapeAttribute(target.id)}">${escapeText(target.label)}</mention>`;
 
 /**
  * Turns what the composer holds into stored comment content: `@Name` and `@bot:<id>` for
@@ -100,71 +91,8 @@ export function toActivityContent(draft: string, targets: ReadonlyArray<MentionT
   return (content + escapeText(draft.slice(last))).trim();
 }
 
-const MENTION_TAG = /<mention type="([^"]*)" id="([^"]*)">([^<]*)<\/mention>/g;
-
 /** Splits stored comment content into text and mentions, unescaping both. */
-export function parseActivityContent(content: string): ReadonlyArray<ActivityContentSegment> {
-  const segments: ActivityContentSegment[] = [];
-  let last = 0;
-
-  for (const match of content.matchAll(MENTION_TAG)) {
-    if (match.index > last) {
-      segments.push({
-        type: "text",
-        start: last,
-        text: unescapeText(content.slice(last, match.index)),
-      });
-    }
-
-    segments.push({
-      type: "mention",
-      start: match.index,
-      mentionType: match[1]!,
-      id: unescapeText(match[2]!),
-      label: unescapeText(match[3]!),
-    });
-    last = match.index + match[0].length;
-  }
-
-  if (last < content.length) {
-    segments.push({ type: "text", start: last, text: unescapeText(content.slice(last)) });
-  }
-
-  return segments;
-}
-
-/** A comment's text with mentions as `@Name`, for a one-line preview. */
-/** Where a comment's mention points once its content is Markdown: `#mention/<type>/<id>`. */
-export const MENTION_HREF_PREFIX = "#mention/";
-
-/**
- * Otto: A comment as Markdown, so a bot's headings and lists render; each mention becomes a
- * `#mention/<type>/<id>` link its renderer draws as a pill.
- */
-export function activityMarkdown(content: string): string {
-  return parseActivityContent(content)
-    .map((segment) =>
-      segment.type === "text"
-        ? segment.text
-        : `[${segment.label.replaceAll(/[[\]\\]/g, "\\$&")}](${MENTION_HREF_PREFIX}${segment.mentionType}/${encodeURIComponent(segment.id)})`,
-    )
-    .join("");
-}
-
-/** The mention a `#mention/<type>/<id>` link names. */
-export function parseMentionHref(href: string) {
-  if (!href.startsWith(MENTION_HREF_PREFIX)) return null;
-
-  const [type, id] = href.slice(MENTION_HREF_PREFIX.length).split("/");
-
-  return type && id ? { type, id: decodeURIComponent(id) } : null;
-}
-
-export function activityPlainText(content: string): string {
-  return parseActivityContent(content)
-    .map((segment) => (segment.type === "text" ? segment.text : `@${segment.label}`))
-    .join("");
-}
+export const parseActivityContent = parseMentions;
 
 /**
  * A stored comment as its author edits it: mentions of people and bots as `@Name`, of work as

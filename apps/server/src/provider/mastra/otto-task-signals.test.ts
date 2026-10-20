@@ -219,6 +219,10 @@ describe("taskState", () => {
       {
         taskId: TASK,
         title: "Launch",
+        mention: '<mention type="task" id="task-launch">Launch</mention>',
+        path: "/tasks/task-launch",
+        projectMention: '<mention type="project" id="project-launch">Launch</mention>',
+        projectPath: "/projects/project-launch",
         status: "backlog",
         project: null,
         projectId: ProjectId.make("project-launch"),
@@ -256,13 +260,17 @@ describe("taskState", () => {
     );
 
     expect(state.description).toHaveLength(4_000 + "… (truncated, task_read has the rest)".length);
+    expect(state.mention).toBe('<mention type="task" id="task-launch">Launch</mention>');
+    expect(state.projectMention).toBe(
+      '<mention type="project" id="project-launch">Launch</mention>',
+    );
     expect(state.assignees).toEqual(["Nova (you, bot:nova)"]);
     expect(state.links).toEqual(["Brief https://example.test/brief"]);
     expect(state.activity).toHaveLength(10);
     expect(state.activity.at(-1)).toMatchObject({
       at: "2026-10-16 11:00",
       mine: true,
-      text: "commented (comment c-11): Ask @Nova & me",
+      text: 'commented (comment c-11): Ask <mention type="bot" id="bot:nova">Nova</mention> & me',
     });
   });
 });

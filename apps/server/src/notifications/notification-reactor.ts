@@ -8,6 +8,7 @@ import {
   type WorkParticipant,
 } from "@otto/contracts";
 import { makeDrainableWorker } from "@otto/shared/DrainableWorker";
+import { findMentionTags } from "@otto/shared/mention";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -19,14 +20,12 @@ import { ActivityStore } from "../activity/activity-store.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
 import { forkParked } from "../server-activation.ts";
-import { commentText, repliedComment } from "../tasks/task-work-reactor.ts";
+import { commentPlainText, repliedComment } from "../tasks/task-work-reactor.ts";
 import { type NotificationRow, NotificationStore } from "./notification-store.ts";
 
 const EXCERPT_LENGTH = 200;
 
 const excerpt = (text: string) => text.replaceAll(/\s+/g, " ").trim().slice(0, EXCERPT_LENGTH);
-
-const MENTION = /<mention type="([^"]*)" id="([^"]*)">[^<]*<\/mention>/g;
 
 const peopleOf = (participants: ReadonlyArray<WorkParticipant | null>) =>
   participants.flatMap((participant) =>
@@ -82,8 +81,8 @@ export const commentRecipients = (input: {
     if (!reasons.has(personId) && !isActor(input.actor, personId)) reasons.set(personId, type);
   };
 
-  for (const [, type, id] of input.content.matchAll(MENTION)) {
-    if (type === "person" && id) add(id, "mention");
+  for (const tag of findMentionTags(input.content)) {
+    if (tag.type === "person" && tag.id) add(tag.id, "mention");
   }
 
   if (input.repliedAuthor?.type === "person") add(input.repliedAuthor.id, "reply");
@@ -189,9 +188,7 @@ export const makeNotificationReactor = (
           entityType: "task",
           entityId: task.id,
           title: task.title,
-          excerpt: excerpt(
-            commentText(comment.content).replaceAll(/\s\((task|project)Id: [^)]*\)/g, ""),
-          ),
+          excerpt: excerpt(commentPlainText(comment.content)),
         });
       }
 

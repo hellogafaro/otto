@@ -3,6 +3,7 @@ import * as NodeCrypto from "node:crypto";
 import {
   type Actor,
   BotId,
+  canSeeLibraryItem,
   CommandId,
   MessageId,
   type OrchestrationEvent,
@@ -14,6 +15,12 @@ import {
   type WorkParticipant,
 } from "@otto/contracts";
 import { makeDrainableWorker } from "@otto/shared/DrainableWorker";
+import {
+  findMentionTags,
+  mentionPlainText,
+  mentionText,
+  resolveBotMentions,
+} from "@otto/shared/mention";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -23,10 +30,13 @@ import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
 import { ActivityStore } from "../activity/activity-store.ts";
+import { loadLibraryState } from "../library/library-store.ts";
 import { OrganizationAccounts } from "../auth/organization-accounts.ts";
 import type { AccountPerson } from "../auth/organization-accounts-runtime.ts";
 import { OrchestrationEngineService } from "../orchestration/services/orchestration-engine.ts";
 import { ProjectionSnapshotQuery } from "../orchestration/services/projection-snapshot-query.ts";
+import { ProjectionGroupRepository } from "../persistence/services/projection-groups.ts";
+import { ProjectionLibraryRepository } from "../persistence/services/projection-library.ts";
 import { forkParked } from "../server-activation.ts";
 import { escapeComment } from "./task-tool-runtime.ts";
 
@@ -37,28 +47,21 @@ import { escapeComment } from "./task-tool-runtime.ts";
 export const taskChatId = (taskId: TaskId, botId: BotId) =>
   ThreadId.make(`task-${taskId}--${botId}`);
 
-const MENTION = /<mention type="([^"]*)" id="([^"]*)">([^<]*)<\/mention>/g;
-
-/** The bots a comment @mentions. */
+/** The bots a comment mentions. */
 export const mentionedBots = (content: string) =>
-  [...content.matchAll(MENTION)].flatMap(([, type, id]) =>
-    type === "bot" && id ? [BotId.make(id)] : [],
+  findMentionTags(content).flatMap((tag) =>
+    tag.type === "bot" && tag.id ? [BotId.make(tag.id)] : [],
   );
 
 /** The comment a comment replies to, if any. */
 export const repliedComment = (content: string) =>
-  [...content.matchAll(MENTION)].find(([, type, id]) => type === "comment" && id)?.[2];
+  findMentionTags(content).find((tag) => tag.type === "comment" && tag.id)?.id;
 
-/** A comment as plain text for a bot: mentions as `@Name`, work with its id, markup unescaped. */
-export const commentText = (content: string) =>
-  content
-    .replace(MENTION, (_tag, type: string, id: string, label: string) =>
-      type === "task" || type === "project" ? `@${label} (${type}Id: ${id})` : `@${label}`,
-    )
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&amp;", "&");
+/** A comment as the bot should read it: the same mention tag, markup unescaped. */
+export const commentText = mentionText;
+
+/** A comment as a person reads it, for a notification excerpt. */
+export const commentPlainText = mentionPlainText;
 
 const botsOf = (participants: ReadonlyArray<WorkParticipant | null>) =>
   participants.flatMap((participant) => (participant?.kind === "bot" ? [participant.botId] : []));
@@ -115,6 +118,8 @@ export class TaskWorkReactor extends Context.Service<TaskWorkReactor, TaskWorkRe
 export const makeTaskWorkReactor = (
   listPeople: () => Effect.Effect<ReadonlyArray<AccountPerson>>,
   commentAuthor: (commentId: string) => Effect.Effect<Actor | null>,
+  libraryTitles: (botId: BotId) => Effect.Effect<ReadonlyMap<string, string>> = () =>
+    Effect.succeed(new Map()),
 ) =>
   Effect.gen(function* () {
     const engine = yield* OrchestrationEngineService;
@@ -148,6 +153,24 @@ export const makeTaskWorkReactor = (
         );
       });
 
+    /** The reply as stored comment text: real mentions keep the current name, the rest is escaped. */
+    const commentBody = (botId: BotId, text: string) =>
+      Effect.gen(function* () {
+        const model = yield* projection.getCommandReadModel();
+        const all = yield* listPeople();
+        const files = yield* libraryTitles(botId);
+
+        return resolveBotMentions(text, ({ type, id }) => {
+          if (type === "person") return all.find((person) => person.userId === id)?.displayName;
+
+          if (type === "task") return (model.tasks ?? []).find((task) => task.id === id)?.title;
+
+          if (type === "project") return model.projects.find((project) => project.id === id)?.title;
+
+          return type === "library" ? files.get(id) : undefined;
+        });
+      });
+
     const comment = (
       task: OrchestrationTask,
       botId: BotId,
@@ -164,7 +187,7 @@ export const makeTaskWorkReactor = (
           commandId: CommandId.make(`task-work:comment:${NodeCrypto.randomUUID()}`),
           taskId: task.id,
           commentId: NodeCrypto.randomUUID(),
-          content: thread + escapeComment(text),
+          content: thread + (yield* commentBody(botId, text)),
           fileIds: [],
           by: { type: "bot", id: botId },
           createdAt: yield* nowIso,
@@ -393,6 +416,8 @@ export const TaskWorkReactorLive = Layer.effect(
   Effect.gen(function* () {
     const accounts = yield* OrganizationAccounts;
     const activity = yield* ActivityStore;
+    const library = yield* ProjectionLibraryRepository;
+    const groups = yield* ProjectionGroupRepository;
 
     return yield* makeTaskWorkReactor(
       () => accounts.listPeople().pipe(Effect.orElseSucceed(() => [])),
@@ -400,6 +425,20 @@ export const TaskWorkReactorLive = Layer.effect(
         activity.getComment(commentId).pipe(
           Effect.map((entry) => entry.actor),
           Effect.orElseSucceed(() => null),
+        ),
+      (botId) =>
+        loadLibraryState.pipe(
+          Effect.provideService(ProjectionLibraryRepository, library),
+          Effect.provideService(ProjectionGroupRepository, groups),
+          Effect.map(
+            (state) =>
+              new Map(
+                state.files
+                  .filter((file) => canSeeLibraryItem(file, state.context, { kind: "bot", botId }))
+                  .map((file) => [file.id, file.title] as const),
+              ),
+          ),
+          Effect.orElseSucceed(() => new Map<string, string>()),
         ),
     );
   }),

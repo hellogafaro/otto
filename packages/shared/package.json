@@ -152,6 +152,10 @@
       "types": "./src/composer-inline-tokens.ts",
       "import": "./src/composer-inline-tokens.ts"
     },
+    "./mention": {
+      "types": "./src/mention.ts",
+      "import": "./src/mention.ts"
+    },
     "./groupRound": {
       "types": "./src/group-round.ts",
       "import": "./src/group-round.ts"

@@ -10,7 +10,10 @@ import { replyPlaybackControlProps } from "~/lib/reply-playback-thread";
 import { cn } from "~/lib/utils";
 import { formatShortTimestamp } from "~/timestamp-format";
 import { useClientSettings } from "../../hooks/use-settings";
+import { linkMentionTags } from "@otto/shared/mention";
+
 import ChatMarkdown from "../chat-markdown";
+import { useMentionLink } from "../mention-link";
 import {
   MessageControls,
   type MessageReactionOption,
@@ -173,6 +176,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
   onReactionChange,
 }: AssistantMessageRowProps) {
   const { t } = useI18n();
+  const renderLink = useMentionLink();
   const readAloud = replyPlaybackControlProps(playback, message);
   const copyText = message.text || "Attachment";
   const label = author?.name ?? t("Unavailable bot");
@@ -185,7 +189,12 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
       className="w-fit max-w-full rounded-2xl border border-foreground/12 px-3.25 py-1.75 text-sm leading-6"
       data-testid="bot-message-body"
     >
-      <ChatMarkdown cwd={cwd} text={message.text} threadRef={threadRef} />
+      <ChatMarkdown
+        cwd={cwd}
+        text={linkMentionTags(message.text)}
+        threadRef={threadRef}
+        renderLink={renderLink}
+      />
     </div>
   ) : null;
 
