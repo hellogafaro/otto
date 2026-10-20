@@ -397,7 +397,10 @@ function CommentRow({
   );
 }
 
-/** A file attached to a comment, opening its page; a file gone or hidden reads as deleted. */
+/**
+ * A file attached to a comment: a document opens its page, any other file the Library's
+ * lightbox in its folder; a file gone or hidden reads as deleted.
+ */
 function CommentFile({
   environmentId,
   fileId,
@@ -416,7 +419,16 @@ function CommentFile({
       size="xs"
       variant="outline"
       disabled={file === null}
-      onClick={() => void navigate({ to: "/library/$fileId", params: { fileId } })}
+      onClick={() => {
+        if (!file) return;
+
+        void (file.type === "document"
+          ? navigate({ to: "/library/$fileId", params: { fileId } })
+          : navigate({
+              to: "/library",
+              search: { ...(file.folderId ? { folder: file.folderId } : {}), preview: file.id },
+            }));
+      }}
     >
       <RiAttachment2 />
       {file?.title ?? t("Deleted file")}

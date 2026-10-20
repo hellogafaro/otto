@@ -17,7 +17,7 @@ import {
 import { issueAssetUrl } from "./assets/asset-access.ts";
 import { deletePendingAttachment, issueAttachmentUploadUrl } from "./assets/attachment-upload.ts";
 import { resolveAttachmentPathById } from "./attachment-store.ts";
-import { canReadAttachment } from "./orchestration/group-visibility.ts";
+import { readableAttachment } from "./orchestration/group-visibility.ts";
 
 import { projectEntriesFailureContext, projectFileFailureContext } from "./ws-support.ts";
 import type { WsConnection } from "./ws-connection.ts";
@@ -152,7 +152,7 @@ export const createWsWorkspaceHandlers = ({
         WS_METHODS.assetsCreateUrl,
         Effect.gen(function* () {
           if (Predicate.isTagged(input.resource, "attachment")) {
-            const readable = yield* canReadAttachment(
+            const readable = yield* readableAttachment(
               { projectionSnapshotQuery, projectionGroups, projectionThreadMessages },
               input.resource.attachmentId,
               currentPersonId,
@@ -165,6 +165,7 @@ export const createWsWorkspaceHandlers = ({
             return yield* issueAssetUrl({
               resource: input.resource,
               sessionId: currentSession.sessionId,
+              attachmentName: readable.name,
             });
           }
 

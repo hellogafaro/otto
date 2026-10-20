@@ -298,7 +298,9 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
       sql`
         SELECT
           message.thread_id AS "threadId",
-          message.author_person_id AS "authorPersonId"
+          message.author_person_id AS "authorPersonId",
+          json_extract(attachment.value, '$.name') AS "name",
+          json_extract(attachment.value, '$.mimeType') AS "mimeType"
         FROM projection_thread_messages AS message, json_each(message.attachments_json) AS attachment
         WHERE message.attachments_json IS NOT NULL
           AND instr(message.attachments_json, ${attachmentId}) > 0

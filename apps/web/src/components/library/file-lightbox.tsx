@@ -252,7 +252,7 @@ function FileLightboxBody({
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="flex min-w-0 flex-1 flex-col bg-secondary/40">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-(--workspace-topbar-height) shrink-0 items-center gap-2 px-3">
           <LightboxClose render={<Button size="icon-sm" variant="ghost" aria-label={t("Close")} />}>
             <AppIcon icon={RiCloseLine} />
@@ -267,7 +267,8 @@ function FileLightboxBody({
           {menu ?? action(t("Download"), RiDownloadLine, onDownload)}
           {showDetails ? null : detailsToggle}
         </header>
-        <div className="flex min-h-0 flex-1 items-center justify-center p-6 pt-0">
+        {/* Otto: The preview keeps the top bar's 12px inset, so its edges line up with Close and Download. */}
+        <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
           <FilePreview file={file} onDownload={onDownload} />
         </div>
       </div>

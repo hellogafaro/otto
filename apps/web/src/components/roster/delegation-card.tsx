@@ -88,7 +88,7 @@ function DelegationActions({
     return (
       <Button
         key={action}
-        size="xs"
+        size="sm"
         variant="ghost-muted"
         disabled={pending !== null}
         aria-busy={pending === action || undefined}
@@ -129,7 +129,8 @@ function actionCopy(action: DelegationAction, t: Translate, name: string) {
 /**
  * Otto: One piece of delegated work in the parent chat is a single small line: the child's
  * avatar and "Radar · Working for 26s" while it runs (same shimmer as a bot's own turn), then
- * "New message from Radar · 1m 17s". The line opens the read-only agent-to-agent chat; the
+ * "New message from Radar · 1m 17s", a 28px ghost row (6px corners, 8px sides) whose fill starts
+ * on the bubbles' edge. The line opens the read-only agent-to-agent chat; the
  * task, result and access live there, not in the thread.
  *
  * The actions slot defaults to the reverse-state controls (let it finish,
@@ -173,7 +174,7 @@ export function DelegationCard({
   return (
     <article
       aria-label={t("Delegation to {name}", { name: childName })}
-      className="group/delegation mt-2 ml-10 flex max-w-min-42rem-pct-2.5rem items-center gap-1"
+      className="group/delegation mt-2 ml-10 flex max-w-min-42rem-pct-2.5rem items-center gap-1.5"
       data-testid="delegation-card"
       data-delegation-id={delegation.delegationId}
       data-delegation-state={state}
@@ -181,7 +182,7 @@ export function DelegationCard({
     >
       <button
         type="button"
-        className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-left text-xs text-muted-foreground hover:bg-foreground/5"
+        className="flex h-7 min-w-0 items-center gap-2 rounded-md px-2 text-left text-xs text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none"
         aria-label={t("View {name}'s work", { name: childName })}
         disabled={presentation.childThreadId === null || environmentId === null}
         onClick={() => setDetailOpen(true)}
@@ -189,7 +190,7 @@ export function DelegationCard({
         <BotAvatarView
           avatar={activeChildBot?.avatar ?? { kind: "dither", seed: delegation.childBotId }}
           name={childName}
-          className="size-5 shrink-0"
+          className="size-4 shrink-0"
         />
         <span className="min-w-0 truncate">
           {working ? (

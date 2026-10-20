@@ -203,7 +203,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
           <MessageControls
             copyText={copyText}
             {...(readAloud ? { readAloud } : {})}
-            onReply={() => onReply(message.id, label, copyText)}
+            {...(onReply ? { onReply: () => onReply(message.id, label, copyText) } : {})}
           />
         </div>
       </div>
@@ -259,10 +259,10 @@ export const AssistantMessageRow = memo(function AssistantMessageRow({
               copyText={copyText}
               {...(readAloud ? { readAloud } : {})}
               selectedReaction={selectedReaction}
-              onReply={() => onReply(message.id, label, copyText)}
+              {...(onReply ? { onReply: () => onReply(message.id, label, copyText) } : {})}
               {...reactions.controls}
             />
-            {!onReactionChange ? (
+            {onReply && !onReactionChange ? (
               <UnavailableReactionControl selectedReaction={selectedReaction} />
             ) : null}
           </div>
@@ -321,7 +321,8 @@ export const UserMessageRow = memo(function UserMessageRow({
   readonly currentPersonId: string | null | undefined;
   /** Set when this message answers a bot's questions; it then reads back as an answer card. */
   readonly answered?: ReadonlyArray<AnsweredUserInputQuestion> | null;
-  readonly onReply: MessageReplyHandler;
+  /** Null for a read-only transcript (agent-to-agent work): Copy only, no Reply or reactions. */
+  readonly onReply: MessageReplyHandler | null;
   /** Null while the chat has no linked thread to react in. */
   readonly onReactionChange: MessageReactionHandler | null;
 }) {
@@ -378,10 +379,10 @@ export const UserMessageRow = memo(function UserMessageRow({
             <MessageControls
               copyText={copyText}
               selectedReaction={selectedReaction}
-              onReply={() => onReply(message.id, authorName, copyText)}
+              {...(onReply ? { onReply: () => onReply(message.id, authorName, copyText) } : {})}
               {...reactions.controls}
             />
-            {!onReactionChange ? (
+            {onReply && !onReactionChange ? (
               <UnavailableReactionControl selectedReaction={selectedReaction} />
             ) : null}
           </div>
@@ -417,7 +418,7 @@ export const UserMessageRow = memo(function UserMessageRow({
         <MessageControls
           align="end"
           copyText={copyText}
-          onReply={() => onReply(message.id, replyLabel, copyText)}
+          {...(onReply ? { onReply: () => onReply(message.id, replyLabel, copyText) } : {})}
         />
       </div>
       <div className="flex max-w-39/50 flex-col items-end">

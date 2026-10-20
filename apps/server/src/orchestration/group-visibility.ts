@@ -154,8 +154,9 @@ export const canSeeThreadById = (
 /**
  * Otto: A chat attachment is readable by the person who sent it, and by its chat's people
  * while they can see that chat. An attachment no message carries is readable by no one.
+ * Returns the name and type the message gave it, so its download keeps them; null if unreadable.
  */
-export const canReadAttachment = (
+export const readableAttachment = (
   services: ThreadVisibilityServices & {
     readonly projectionThreadMessages: ProjectionThreadMessageRepository["Service"];
   },
@@ -167,14 +168,28 @@ export const canReadAttachment = (
       .listAttachmentMessages({ attachmentId })
       .pipe(Effect.orElseSucceed(() => []));
 
-    if (messages.some((message) => message.authorPersonId === personId)) return true;
+    const own = messages.find((message) => message.authorPersonId === personId);
 
-    for (const threadId of new Set(messages.map((message) => message.threadId))) {
-      if (yield* canSeeThreadById(services, threadId, personId, false)) return true;
+    if (own) return { name: own.name, mimeType: own.mimeType };
+
+    for (const message of messages) {
+      if (yield* canSeeThreadById(services, message.threadId, personId, false)) {
+        return { name: message.name, mimeType: message.mimeType };
+      }
     }
 
-    return false;
+    return null;
   });
+
+/** Whether a person may read a chat attachment; see `readableAttachment`. */
+export const canReadAttachment = (
+  services: Parameters<typeof readableAttachment>[0],
+  attachmentId: string,
+  personId: AuthSessionId,
+) =>
+  readableAttachment(services, attachmentId, personId).pipe(
+    Effect.map((attachment) => attachment !== null),
+  );
 
 /** The bots a command names, which a person must be able to see to send it. */
 export function commandBotIds(command: OrchestrationCommand): ReadonlyArray<BotId> {

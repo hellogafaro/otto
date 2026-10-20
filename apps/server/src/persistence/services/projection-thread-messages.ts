@@ -84,6 +84,9 @@ export type ListProjectionAttachmentMessagesInput =
 export const ProjectionAttachmentMessage = Schema.Struct({
   threadId: ThreadId,
   authorPersonId: Schema.NullOr(AuthSessionId),
+  /** The attachment's own name and type as the message carries them, for its download. */
+  name: Schema.String,
+  mimeType: Schema.String,
 });
 
 export type ProjectionAttachmentMessage = typeof ProjectionAttachmentMessage.Type;

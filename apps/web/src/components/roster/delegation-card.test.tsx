@@ -7,11 +7,13 @@ import {
   BotId,
   EnvironmentId,
   EventId,
+  MessageId,
   ProjectId,
   ProviderInstanceId,
   ThreadId,
   TurnId,
   type OttoDelegationState,
+  type OrchestrationMessage,
   type OrchestrationThreadActivity,
   type OrchestrationThreadShell,
 } from "@otto/contracts";
@@ -30,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   recordChatPath: vi.fn(),
   setState: vi.fn(),
   thread: null as OrchestrationThreadShell | null,
+  messages: [] as OrchestrationMessage[],
   // When set, external stores subscribe like a mounted component would.
   clockCleanups: null as Array<() => void> | null,
 }));
@@ -70,7 +73,7 @@ vi.mock("../../state/environments", () => ({
 
 vi.mock("../../state/entities", () => ({
   useThreadActivities: () => mocks.activities,
-  useThreadMessages: () => [],
+  useThreadMessages: () => mocks.messages,
   useThreadShell: () => mocks.thread,
 }));
 
@@ -320,6 +323,7 @@ describe("DelegationCard", () => {
   beforeEach(() => {
     mocks.activities = [usage("other-turn", 99_999), usage("turn-child", 1_234)];
     mocks.thread = childThread;
+    mocks.messages = [];
     mocks.cancel.mockReset().mockResolvedValue({ _tag: "Success", value: { sequence: 1 } });
     mocks.retry.mockReset().mockResolvedValue({ _tag: "Success", value: { sequence: 1 } });
     mocks.toast.mockReset();
@@ -512,6 +516,61 @@ describe("DelegationCard", () => {
     expect(markup).toContain("Compare the release options.");
     expect(markup).not.toContain("Open chat");
     expect(markup).not.toContain("Expected result");
+  });
+
+  it("shows the work as a normal chat: the asking bot on the right, the worker on the left", () => {
+    const message = (
+      id: string,
+      role: "user" | "assistant",
+      text: string,
+    ): OrchestrationMessage => ({
+      id: MessageId.make(id),
+      role,
+      text,
+      turnId: null,
+      streaming: false,
+      createdAt: "2026-08-31T00:00:20.000Z",
+      updatedAt: "2026-08-31T00:00:20.000Z",
+    });
+
+    // Before the child has a chat, the brief stands in as the asking bot's first message.
+    const brief = visitElements(detailElement() as TestValue, (element) =>
+      Object.is(element.props["data-role"], "brief"),
+    );
+
+    expect(brief).not.toBeNull();
+
+    mocks.messages = [
+      message("m1", "user", "Compare the release options."),
+      message("m2", "assistant", "Option B is safer."),
+      message("m3", "assistant", "Numbers attached."),
+    ];
+
+    const rows: Array<{ testId: unknown; startsGroup: unknown; author: unknown }> = [];
+
+    visitElements(detailElement() as TestValue, (element) => {
+      if (element.props["data-role"] === "brief")
+        rows.push({ testId: "brief", startsGroup: null, author: null });
+      const testId = element.props["testId"];
+
+      if (Predicate.isString(testId) && testId.startsWith("delegation-")) {
+        rows.push({
+          testId,
+          startsGroup: element.props["startsGroup"],
+          author: (element.props["author"] as { name?: string } | undefined)?.name ?? null,
+        });
+        expect(element.props["onReply"]).toBeNull();
+        expect(element.props["onReactionChange"]).toBeNull();
+      }
+
+      return false;
+    });
+
+    expect(rows).toEqual([
+      { testId: "delegation-parent-message", startsGroup: true, author: null },
+      { testId: "delegation-child-message", startsGroup: true, author: "Mori" },
+      { testId: "delegation-child-message", startsGroup: false, author: "Mori" },
+    ]);
   });
 
   it("handles a missing child", () => {
